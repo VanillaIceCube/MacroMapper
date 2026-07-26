@@ -1,0 +1,203 @@
+name: AI Code Review
+
+on:
+  workflow_call:
+    secrets:
+      OPENAI_API_KEY:
+        required: true
+      OBI_WAN_CODE_NOBI_PRIVATE_KEY:
+        required: true
+
+concurrency:
+  group: code-review-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    name: Obi-Wan Code-nobi code review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Create Obi-Wan Code-nobi GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.OBI_WAN_CODE_NOBI_APP_ID }}
+          private-key: ${{ secrets.OBI_WAN_CODE_NOBI_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+
+      - name: Collect prior Obi-Wan Code-nobi reviews
+        uses: ./.github/actions/collect-prior-ai-reviews
+        with:
+          github_token: ${{ steps.app-token.outputs.token }}
+          persona_name: "Obi-Wan Code-nobi"
+          output_path: ${{ runner.temp }}/code-prior-reviews.json
+
+      - name: Get PR diff
+        id: pr-diff
+        uses: ./.github/actions/get-pr-diff
+        with:
+          base_sha: ${{ github.event.pull_request.base.sha }}
+          head_sha: ${{ github.event.pull_request.head.sha }}
+          max_bytes: "120000"
+
+      - name: Build code review context
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          DIFF_PATH: ${{ steps.pr-diff.outputs.linediff_path }}
+          PRIOR_REVIEWS_PATH: ${{ runner.temp }}/code-prior-reviews.json
+          CONTEXT_PATH: ${{ runner.temp }}/code-review-context.txt
+        run: |
+          set -euo pipefail
+
+          {
+            echo '=== REPOSITORY FILE MAP ==='
+            git ls-files | sed 's#^#- #'
+            echo
+            echo '=== CHANGED FILES ==='
+            git diff --name-status "$BASE_SHA" "$HEAD_SHA"
+            echo
+            echo '=== CURRENT CONTENTS OF CHANGED TEXT FILES ==='
+          } > "$CONTEXT_PATH"
+
+          total_bytes=0
+          max_total_bytes=180000
+          max_file_bytes=30000
+          while IFS= read -r file; do
+            if [ ! -f "$file" ]; then
+              continue
+            fi
+            if ! grep -Iq . "$file"; then
+              {
+                echo
+                printf -- '--- %s ---\n' "$file"
+                echo '[binary or non-text file omitted]'
+              } >> "$CONTEXT_PATH"
+              continue
+            fi
+
+            file_bytes=$(wc -c < "$file" || echo 0)
+            if [ "$total_bytes" -ge "$max_total_bytes" ]; then
+              {
+                echo
+                printf -- '--- %s ---\n' "$file"
+                echo '[omitted: changed-file context byte budget reached]'
+              } >> "$CONTEXT_PATH"
+              continue
+            fi
+
+            remaining=$((max_total_bytes - total_bytes))
+            limit=$max_file_bytes
+            if [ "$remaining" -lt "$limit" ]; then
+              limit=$remaining
+            fi
+
+            {
+              echo
+              printf -- '--- %s ---\n' "$file"
+              if [ "$file_bytes" -gt "$limit" ]; then
+                head -c "$limit" "$file"
+                echo
+                printf '[truncated: %s bytes total, showed %s bytes]\n' "$file_bytes" "$limit"
+              else
+                cat "$file"
+              fi
+            } >> "$CONTEXT_PATH"
+
+            if [ "$file_bytes" -gt "$limit" ]; then
+              total_bytes=$((total_bytes + limit))
+            else
+              total_bytes=$((total_bytes + file_bytes))
+            fi
+          done < <(git diff --name-only --diff-filter=ACMRT "$BASE_SHA" "$HEAD_SHA")
+
+          if [ "$total_bytes" -gt "$max_total_bytes" ]; then
+            echo "Changed-file context exceeded budget: $total_bytes > $max_total_bytes" >&2
+            exit 1
+          fi
+
+          {
+            echo
+            printf 'Changed-file context bytes included: %s / %s\n' "$total_bytes" "$max_total_bytes"
+            echo
+            echo '=== PRIOR OBI-WAN CODE-NOBI REVIEWS ==='
+            cat "$PRIOR_REVIEWS_PATH"
+            echo
+            echo '=== LINE-NUMBERED PULL REQUEST DIFF ==='
+            cat "$DIFF_PATH"
+          } >> "$CONTEXT_PATH"
+
+      - name: Call Obi-Wan Code-nobi
+        id: openai
+        uses: ./.github/actions/openai-chat
+        with:
+          api_key: ${{ secrets.OPENAI_API_KEY }}
+          project_id: ${{ vars.OPENAI_PROJECT_ID }}
+          diff_path: ${{ runner.temp }}/code-review-context.txt
+          model: "gpt-5.6-luna"
+          system_prompt: "You are Obi-Wan Code-nobi, MacroMapper's AI Code Reviewer. Focus on correctness, maintainability, architecture, edge cases, missing tests, API/UX concerns, and overall code quality. Sound like a wise, warm senior reviewer with a natural space-opera mentor touch: calm, perceptive, lightly playful, and encouraging when the implementation is sound. Let character color the summary without dominating it. Avoid forced metaphors, recycled movie quotes, and Yoda-like grammar. Keep technical findings exact and trustworthy."
+          prompt_prefix: |
+            Review this pull request as Obi-Wan Code-nobi, the AI Code Reviewer for the MacroMapper project (Backend: Django; Frontend: React + MUI; Docker; GitHub Actions).
+
+            Scope:
+            - Own general implementation review: correctness, maintainability, architecture, edge cases, missing tests, API/UX concerns, and overall code quality.
+            - Do not aggregate CodeQL, Dependency Review, or malware scanner findings; RoboCop owns security interpretation.
+            - Do not interpret lint/test/build failures; Lint Eastwood owns build and failed-check interpretation.
+            - Avoid style nitpicks.
+            - If you are unsure, say so.
+            - Read your prior review history below before deciding what to publish.
+            - Do not repost previously reported findings unless the evidence has changed.
+            - If there is nothing materially new to add and the event matches your latest review, set "unchanged" to true, write a fresh persona-specific summary that clearly states the unchanged verdict, and leave findings, evidence, actions, and comments empty.
+            - Lead with a clear, fresh verdict, then explain it like a thoughtful senior reviewer. Add at most one brief space-opera image—such as a path, disturbance, balance, shadow, shield, beacon, or star chart—only when it fits the actual diff naturally.
+            - Favor conversational confidence and concrete technical language over theatrical performance. The personality should be recognizable but never forced. Speak directly to the author when natural.
+            - Vary the opening and phrasing from prior reviews. Do not reuse a stock sentence, fixed catchphrase, exact movie quote, or force a metaphor merely to sound in character.
+            - Technical findings and inline comments must remain direct and professional. Actions may carry a light mentor-like flourish only when the required step stays unambiguous.
+
+            Return ONLY strict JSON:
+            {
+              "event": "APPROVE" | "REQUEST_CHANGES" | "COMMENT",
+              "summary": "one or two complete verdict sentences with clear decision wording, a natural mentor-like voice, and at most one light context-relevant space-opera image; optional inline bold; no Markdown heading",
+              "unchanged": false,
+              "findings": [
+                { "path": "optional relative/file/path", "line": 123, "body": "body-level finding that cannot or should not be inline" }
+              ],
+              "evidence": ["short fact about the diff, context, or coverage that materially supports the verdict"],
+              "actions": ["concrete next step for the author"],
+              "comments": [
+                { "path": "relative/file/path", "line": 123, "body": "inline review comment" }
+              ]
+            }
+
+            Rules:
+            - Use REQUEST_CHANGES for correctness, API/UX, architecture, maintainability, or missing-test issues that should block merge.
+            - Use APPROVE when the implementation looks sound.
+            - Use COMMENT for non-blocking observations.
+            - Use only line numbers shown as "A<line>:" in the diff.
+            - Inline comments are optional. Add one only when it is useful and tied to an exact valid added "A<line>:" line in the diff.
+            - Represent each finding exactly once: use either "findings" or "comments", never both.
+            - If a finding comes from repository context, a deleted or unchanged line, or any line not shown as "A<line>:", put it in "findings" and do not add an inline comment for it.
+            - Use "evidence" only for facts that materially justify the verdict. Do not inventory every file reviewed or mention prior-review bookkeeping.
+            - Use "actions" only when the author must fix, clarify, or verify something. Do not repeat the finding.
+            - If the diff is truncated, add that limitation to "evidence".
+            - Put the complete verdict wording in "summary". Do not generate Markdown headings, bullet prefixes, or automation notes; the shared publisher owns section layout.
+            - Inline comments should state the problem, its impact, and the required action in as few sentences as practical. Do not repeat the review summary or use emojis, catchphrases, or persona jokes.
+
+            Review context follows:
+
+      - name: Publish Obi-Wan Code-nobi native review
+        uses: ./.github/actions/publish-ai-review
+        with:
+          github_token: ${{ steps.app-token.outputs.token }}
+          review_json: ${{ steps.openai.outputs.content }}
+          persona_name: "Obi-Wan Code-nobi"
