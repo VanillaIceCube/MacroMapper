@@ -22,6 +22,7 @@
 ### Changed
 
 - Adapted application names, domains, image names, environment names, workflow prompts, and deployment paths from Notoli to MacroMapper.
+- Limited npm malware advisory queries to the changed package versions instead of downloading the full npm malware catalog.
 - Modernized the frontend build, test, and lint toolchain to Vite, Vitest, and Biome while retaining React, Material UI, and the existing authentication behavior.
 - Configured the frontend container to proxy authentication, API, and admin requests to Django for direct-container and same-origin operation.
 - Removed Notoli-specific boards, lists, notes, notifications, sharing, reordering, and navigation domains from the starter application.
