@@ -80,7 +80,7 @@ jobs:
           exit 1
 
   lint-frontend:
-    name: Lint Frontend (ESLint + Prettier)
+    name: Lint Frontend (Biome + Prettier)
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
@@ -116,9 +116,9 @@ jobs:
         if: inputs.enable_autofix
         run: npm run format
 
-      - name: ESLint (auto-fix)
+      - name: Biome (auto-fix)
         if: inputs.enable_autofix
-        run: npm run lint -- --fix
+        run: npm run lint:fix
 
       - name: Detect changes
         id: git-changes
@@ -144,7 +144,7 @@ jobs:
         if: steps.git-changes.outputs.changed == 'true'
         uses: stefanzweifel/git-auto-commit-action@v7
         with:
-          commit_message: "Github Actions: Prettier & ESLint automatic lint fixes"
+          commit_message: "Github Actions: Prettier & Biome automatic lint fixes"
           branch: ${{ inputs.checkout_ref || github.head_ref }}
           file_pattern: |
             frontend

@@ -1,6 +1,6 @@
 # MacroMapper frontend
 
-The frontend is a React 19 single-page application built with Material UI and React Router.
+The frontend is a Vite-powered React 19 single-page application built with Material UI and React Router.
 
 ## Routes
 
@@ -47,7 +47,7 @@ directly as well as through the origin proxy.
 ## Checks
 
 ```powershell
-npm test -- --watchAll=false --runInBand
+npm test
 npm run lint:strict
 npm run format:check
 npm run build

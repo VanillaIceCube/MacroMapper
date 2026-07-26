@@ -1,5 +1,5 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 
 describe('MacroMapper theme styles', () => {
   const appCss = fs.readFileSync(path.join(__dirname, '../App.css'), 'utf8');

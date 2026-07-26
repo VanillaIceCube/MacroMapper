@@ -7,7 +7,7 @@ function makeResponse({ ok, status = 200, json }) {
 describe('authSession', () => {
   beforeEach(() => {
     sessionStorage.clear();
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('getResponseErrorMessage', () => {
@@ -134,15 +134,17 @@ describe('authSession', () => {
     });
 
     test('when sessionStorage throws, it surfaces a storage error', () => {
-      const setItem = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-        throw new Error('blocked');
+      vi.stubGlobal('sessionStorage', {
+        setItem: () => {
+          throw new Error('blocked');
+        },
       });
 
       expect(() =>
         persistAuthSession({ access: 'A', refresh: 'R', username: 'u', email: 'e@example.com' }),
       ).toThrow('Unable to access browser session storage.');
 
-      setItem.mockRestore();
+      vi.unstubAllGlobals();
     });
   });
 });

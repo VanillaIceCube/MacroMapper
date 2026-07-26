@@ -6,13 +6,13 @@ MacroMapper carries forward Notoli's CI/CD and security automation, adapted to t
 
 `.github/workflows/ci-orchestrator.yml` coordinates:
 
-- Frontend Prettier and ESLint checks
+- Frontend Prettier and Biome checks
 - Backend Ruff checks and formatting
 - React/Jest tests
 - Django tests
 - Node tests for repository automation
 - CodeQL for Python, JavaScript/TypeScript, and GitHub Actions
-- GitHub dependency review at high/critical severity
+- GitHub dependency review at high/critical severity, with detailed findings retained in the check logs and annotations
 - npm malware advisory review for changed lockfile packages, including initial lockfile additions against an empty dependency baseline
 - AI code, build, and security reviews for trusted same-repository pull requests
 - Dependabot auto-merge after all independent gates pass

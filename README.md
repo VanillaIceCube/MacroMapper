@@ -10,7 +10,7 @@ MacroMapper is a full-stack application starter built from the proven Notoli fou
 - Forgot-password and tokenized password-reset flows
 - Responsive login, registration, reset, and protected home screens
 - Frontend, backend, and repository-automation tests
-- ESLint, Prettier, Ruff, CodeQL, dependency review, and npm malware gates
+- Biome, Prettier, Ruff, CodeQL, dependency review, and npm malware gates
 - Dependabot, AI-assisted pull-request review workflows, and security-alert aggregation
 - Docker images, Docker Compose, Nginx, GHCR publishing, and SSH deployment
 - A Notoli-matched GitHub Project for planning and security automation

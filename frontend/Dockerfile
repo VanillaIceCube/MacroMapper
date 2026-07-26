@@ -11,11 +11,11 @@ RUN npm ci
 # Copy your React project code
 COPY . .
 
-# Build-time envs for CRA
+# Build-time API base URL for the Vite bundle
 ARG REACT_APP_API_BASE_URL
 ENV REACT_APP_API_BASE_URL=$REACT_APP_API_BASE_URL
 
-# Build optimized React app (outputs to /frontend/build)
+# Build optimized React app (outputs to /frontend/dist)
 RUN npm run build
 
 # ---- Run stage (Nginx) ----
@@ -28,7 +28,7 @@ WORKDIR /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy the built static files from the build stage
-COPY --from=build /frontend/build .
+COPY --from=build /frontend/dist .
 
 # Nginx listens on port 80 inside the container
 EXPOSE 80

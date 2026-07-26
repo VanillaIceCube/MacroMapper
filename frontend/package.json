@@ -10,28 +10,29 @@
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.3.9",
     "@mui/material": "^7.3.9",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "6.30.4"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.5",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "eslint-config-prettier": "^10.1.8",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.7",
-    "react-router-dom": "^6.30.4",
-    "react-scripts": "5.0.1"
-  },
-  "devDependencies": {
-    "eslint": "^8.57.1",
-    "eslint-config-react-app": "^7.0.1",
-    "prettier": "^3.8.4"
+    "@vitejs/plugin-react": "^6.0.4",
+    "jsdom": "^29.1.1",
+    "prettier": "^3.8.4",
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject",
-    "lint": "eslint \"src/**/*.{js,jsx}\"",
-    "lint:strict": "eslint \"src/**/*.{js,jsx}\" --max-warnings=0",
+    "start": "vite --host 0.0.0.0 --port 3000",
+    "build": "vite build",
+    "test": "vitest run",
+    "lint": "biome lint src",
+    "lint:fix": "biome lint --write src",
+    "lint:strict": "biome lint src --error-on-warnings",
     "format": "prettier . --write",
     "format:check": "prettier . --check"
   },

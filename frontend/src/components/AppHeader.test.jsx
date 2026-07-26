@@ -4,8 +4,8 @@ import { logout } from '../services/requestClient';
 import { renderWithProviders } from '../test-support/utils';
 import AppHeader from './AppHeader';
 
-jest.mock('../services/requestClient', () => ({
-  logout: jest.fn(),
+vi.mock('../services/requestClient', () => ({
+  logout: vi.fn(),
 }));
 
 describe('AppHeader', () => {

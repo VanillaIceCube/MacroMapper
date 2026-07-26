@@ -70,7 +70,7 @@ python backend/manage.py test
 ruff check backend
 ruff format backend --check
 Set-Location frontend
-npm test -- --watchAll=false --runInBand
+npm test
 npm run lint:strict
 npm run format:check
 npm run build
