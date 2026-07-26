@@ -95,6 +95,10 @@ See `deploy/README.md` for server and Cloudflare details.
 
 `.github/dependabot.yml` checks npm, pip, GitHub Actions, and Docker dependencies daily. Patch and minor Dependabot updates can auto-merge only after the lint, test, CodeQL, vulnerability, and malware gates succeed.
 
+The Dependabot-only `Auto Merge` job is an automation consumer of those gates,
+not a required status check itself; normal contributor pull requests
+intentionally skip it.
+
 ## Local automation checks
 
 ```powershell

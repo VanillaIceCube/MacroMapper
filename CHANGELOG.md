@@ -17,6 +17,7 @@
 
 - Fixed the npm malware gate so an initial frontend lockfile can be reviewed when the base branch has no lockfile.
 - Fixed dependency-review reporting for large initial lockfiles by keeping detailed package JSON in the check logs and annotations.
+- Removed the Dependabot-only auto-merge job from required status checks so normal pull requests are not blocked by its intentional skip.
 - Replaced the inherited Create React App toolchain that introduced high and critical transitive dependency vulnerabilities.
 
 ### Changed
