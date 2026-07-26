@@ -13,6 +13,10 @@
 - Added the Modified MIT License (Non-Commercial Use Only).
 - Added a MacroMapper GitHub Project matching Notoli's fields and views.
 
+### Fixed
+
+- Fixed the npm malware gate so an initial frontend lockfile can be reviewed when the base branch has no lockfile.
+
 ### Changed
 
 - Adapted application names, domains, image names, environment names, workflow prompts, and deployment paths from Notoli to MacroMapper.
