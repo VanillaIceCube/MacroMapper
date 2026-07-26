@@ -33,7 +33,13 @@ npm ci
 npm start
 ```
 
-Open `http://localhost:3000`. Create an account or log in to reach the protected Hello World page.
+Open `http://macromapper.localhost:3000`. Create an account or log in to reach the protected Hello World page.
+
+For the Dockerized stack, use `https://macromapper.localhost`. If Notoli is
+running on the standard web ports, use
+`https://macromapper.localhost:8443` instead. See the
+[deployment guide](deploy/README.md) for the local certificate and Compose
+setup.
 
 ## Documentation
 

@@ -9,7 +9,8 @@ The production-style stack uses Docker Compose:
 The Compose project name is fixed to `macromapper`, keeping its network and
 service lifecycle separate from Notoli.
 
-The expected public host is `macromapper.judeandrewalaba.com`.
+The local host is `macromapper.localhost`. The expected public host is
+`macromapper.judeandrewalaba.com`.
 
 Host ports default to `80`, `443`, `8000`, and `3000`. Local `.env` values
 `MACROMAPPER_HTTP_PORT`, `MACROMAPPER_HTTPS_PORT`, `MACROMAPPER_BACKEND_PORT`,
@@ -19,15 +20,24 @@ using the defaults.
 ## Local Docker setup
 
 1. Copy `deploy/backend.env` to `deploy/.env` and fill local values.
-   To coexist with Notoli, a useful set of overrides is `8080`, `8443`, `8001`,
-   and `3001`.
+   To coexist with Notoli, set the port overrides to `8080`, `8443`, `8001`,
+   and `3001`, and set
+   `DJANGO_FRONTEND_BASE_URL=https://macromapper.localhost:8443`.
 2. Create the SQLite bind-mount file:
 
    ```powershell
    New-Item -ItemType File -Path deploy/db.sqlite3 -Force
    ```
 
-3. Put local TLS files at `certs/origin.pem` and `certs/origin.key`.
+3. Generate local TLS files:
+
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File ./deploy/create-local-certificate.ps1
+   ```
+
+   The script uses `mkcert` when available so the certificate is locally
+   trusted. Its OpenSSL fallback creates a self-signed certificate that must be
+   trusted manually or accepted in the browser.
 4. Build images from the current checkout:
 
    ```powershell
@@ -43,6 +53,12 @@ using the defaults.
    docker compose exec -T backend python manage.py migrate
    ```
 
+6. Open `https://macromapper.localhost`. If the alternate coexistence ports
+   are configured, open `https://macromapper.localhost:8443`.
+
+Browsers treat names ending in `.localhost` as loopback addresses, so no hosts
+file entry is required.
+
 ## Routing
 
 `deploy/nginx-proxy.conf` routes:
@@ -56,6 +72,7 @@ using the defaults.
 HTTP redirects to HTTPS. The origin certificate is mounted at `/etc/nginx/certs`.
 The frontend container repeats the `/auth/`, `/api/`, and `/admin/` proxy routes
 so its exposed host port can also be used for local HTTP testing.
+The proxy accepts both `macromapper.localhost` and the production hostname.
 
 ## Production configuration
 

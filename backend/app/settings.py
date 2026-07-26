@@ -29,7 +29,7 @@ SECRET_KEY = os.environ.get(
 )
 DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "macromapper.localhost"]
 
 extra_hosts = os.getenv("DJANGO_ALLOWED_HOSTS")
 if extra_hosts:
@@ -45,7 +45,7 @@ if FORCE_SCRIPT_NAME:
     FORCE_SCRIPT_NAME = FORCE_SCRIPT_NAME.rstrip("/")
 
 FRONTEND_BASE_URL = os.getenv(
-    "DJANGO_FRONTEND_BASE_URL", "http://localhost:3000"
+    "DJANGO_FRONTEND_BASE_URL", "http://macromapper.localhost:3000"
 ).rstrip("/")
 
 
@@ -82,6 +82,10 @@ MIDDLEWARE = [
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "http://macromapper.localhost:3000",
+    "http://macromapper.localhost:3001",
+    "https://macromapper.localhost",
+    "https://macromapper.localhost:8443",
 ]
 
 extra_origins = os.getenv("DJANGO_CORS_ALLOWED_ORIGINS")
@@ -90,6 +94,10 @@ if extra_origins:
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
+    "http://macromapper.localhost:3000",
+    "http://macromapper.localhost:3001",
+    "https://macromapper.localhost",
+    "https://macromapper.localhost:8443",
 ]
 
 extra_csrf_origins = os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS")

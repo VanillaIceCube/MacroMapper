@@ -31,7 +31,8 @@ npm ci
 npm start
 ```
 
-The development API default is `http://localhost:8000`. Override it with:
+Open the development frontend at `http://macromapper.localhost:3000`. The
+development API default is `http://localhost:8000`. Override it with:
 
 ```env
 REACT_APP_API_BASE_URL=http://localhost:8000

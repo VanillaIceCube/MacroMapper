@@ -42,13 +42,14 @@ Optional `backend/.env` values are loaded automatically:
 ```env
 DJANGO_SECRET_KEY=local-only-key
 DJANGO_DEBUG=1
-DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
-DJANGO_CORS_ALLOWED_ORIGINS=http://localhost:3000
-DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost:3000
-DJANGO_FRONTEND_BASE_URL=http://localhost:3000
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,macromapper.localhost
+DJANGO_CORS_ALLOWED_ORIGINS=http://macromapper.localhost:3000
+DJANGO_CSRF_TRUSTED_ORIGINS=http://macromapper.localhost:3000
+DJANGO_FRONTEND_BASE_URL=http://macromapper.localhost:3000
 ```
 
 The default database is `backend/db.sqlite3`. Override it with `DJANGO_SQLITE_PATH`.
+The `macromapper.localhost` host is accepted by default.
 
 ## Email
 

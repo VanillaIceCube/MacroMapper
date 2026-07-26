@@ -4,6 +4,8 @@
 
 ### Added
 
+- Added first-class `macromapper.localhost` support for Django, Nginx, Docker, local password-reset links, and browser access.
+- Added a PowerShell helper that generates a local TLS certificate with `mkcert` or OpenSSL.
 - Added the MacroMapper React and Material UI application shell.
 - Added a protected Hello World home page.
 - Added Django REST Framework authentication with registration, email-first JWT login, refresh tokens, forgot-password, and password-reset support.
@@ -22,6 +24,7 @@
 
 ### Changed
 
+- Changed local setup documentation and environment templates to use `macromapper.localhost`.
 - Adapted application names, domains, image names, environment names, workflow prompts, and deployment paths from Notoli to MacroMapper.
 - Limited npm malware advisory queries to the changed package versions instead of downloading the full npm malware catalog.
 - Modernized the frontend build, test, and lint toolchain to Vite, Vitest, and Biome while retaining React, Material UI, and the existing authentication behavior.
