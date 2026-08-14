@@ -1,0 +1,37 @@
+name: fullstacktemplate
+
+services:
+  proxy:
+    image: nginx:alpine
+    container_name: fullstacktemplate-proxy
+    volumes:
+      - ./nginx-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+      # Local dev default: compose file is `deploy/docker-compose.yml` so `../certs` resolves to `<repo>/certs`.
+      # Production deploy: compose file is usually in the deploy directory on the server, so set `FULLSTACKTEMPLATE_CERTS_DIR=./certs`.
+      - ${FULLSTACKTEMPLATE_CERTS_DIR:-../certs}:/etc/nginx/certs:ro
+    ports:
+      - "${FULLSTACKTEMPLATE_HTTP_PORT:-80}:80"
+      - "${FULLSTACKTEMPLATE_HTTPS_PORT:-443}:443"
+    restart: always
+    depends_on:
+      - frontend
+      - backend
+
+  backend:
+    image: ghcr.io/vanillaicecube/fullstacktemplate-backend:latest
+    container_name: fullstacktemplate-backend
+    volumes:
+      - ./db.sqlite3:/backend/db.sqlite3
+    ports:
+      - "${FULLSTACKTEMPLATE_BACKEND_PORT:-8000}:8000"
+    env_file: .env
+    restart: always
+
+  frontend:
+    image: ghcr.io/vanillaicecube/fullstacktemplate-frontend:latest
+    container_name: fullstacktemplate-frontend
+    ports:
+      - "${FULLSTACKTEMPLATE_FRONTEND_PORT:-3000}:80"
+    restart: always
+    depends_on:
+      - backend

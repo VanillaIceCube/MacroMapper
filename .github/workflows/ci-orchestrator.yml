@@ -1,0 +1,163 @@
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches-ignore:
+      - env-prod
+
+concurrency:
+  group: continuous-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  lints:
+    name: Lints
+    uses: ./.github/workflows/gate-lint.yml
+    secrets:
+      LINT_EASTWOOD_PRIVATE_KEY: ${{ secrets.LINT_EASTWOOD_PRIVATE_KEY }}
+    with:
+      checkout_ref: ${{ github.event.pull_request.head.ref }}
+      enable_autofix: >-
+        ${{
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.event.pull_request.user.login != 'dependabot[bot]'
+        }}
+
+  tests:
+    name: Tests
+    uses: ./.github/workflows/gate-test.yml
+
+  codeql:
+    name: CodeQL
+    uses: ./.github/workflows/gate-codeql.yml
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+      security-events: write
+
+  dependency-vulnerability:
+    name: Vulnerability
+    uses: ./.github/workflows/gate-vulnerability.yml
+    permissions:
+      contents: read
+      pull-requests: write
+
+  dependency-malware:
+    name: Malware
+    uses: ./.github/workflows/gate-malware.yml
+    permissions:
+      contents: read
+      pull-requests: write
+
+  code-review:
+    name: AI Code Review
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository
+    uses: ./.github/workflows/review-code.yml
+    secrets: inherit
+
+  build-review:
+    name: AI Build Sheriff Review
+    needs: [lints, tests]
+    if: >-
+      always() &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    uses: ./.github/workflows/review-build.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      pull-requests: write
+    with:
+      lint_result: ${{ needs.lints.result }}
+      test_result: ${{ needs.tests.result }}
+      lint_frontend_status: ${{ needs.lints.outputs.lint_frontend_status }}
+      lint_frontend_log: ${{ needs.lints.outputs.lint_frontend_log }}
+      lint_backend_status: ${{ needs.lints.outputs.lint_backend_status }}
+      lint_backend_log: ${{ needs.lints.outputs.lint_backend_log }}
+      test_frontend_status: ${{ needs.tests.outputs.test_frontend_status }}
+      test_frontend_log: ${{ needs.tests.outputs.test_frontend_log }}
+      test_backend_status: ${{ needs.tests.outputs.test_backend_status }}
+      test_backend_log: ${{ needs.tests.outputs.test_backend_log }}
+      test_automation_status: ${{ needs.tests.outputs.test_automation_status }}
+      test_automation_log: ${{ needs.tests.outputs.test_automation_log }}
+
+  security-review:
+    name: AI Security Review
+    needs: [codeql, dependency-vulnerability, dependency-malware]
+    if: >-
+      always() &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    uses: ./.github/workflows/review-security.yml
+    secrets: inherit
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+      pull-requests: write
+      security-events: read
+    with:
+      codeql_result: ${{ needs.codeql.result }}
+      dependency_vulnerability_result: ${{ needs.dependency-vulnerability.result }}
+      dependency_vulnerability_report: ${{ needs.dependency-vulnerability.outputs.vulnerability_report }}
+      dependency_malware_result: ${{ needs.dependency-malware.result }}
+      dependency_malware_report: ${{ needs.dependency-malware.outputs.malware_report }}
+
+  dependabot-auto-merge:
+    name: Enable Dependabot Auto Merge
+    needs: [lints, tests, codeql, dependency-vulnerability, dependency-malware]
+    if: >-
+      always() &&
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      needs.lints.result == 'success' &&
+      needs.tests.result == 'success' &&
+      needs.codeql.result == 'success' &&
+      needs.dependency-vulnerability.result == 'success' &&
+      needs.dependency-malware.result == 'success'
+    uses: ./.github/workflows/ci-auto-merge.yml
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      security-events: read
+
+  auto-merge:
+    name: Auto Merge
+    needs: [lints, tests, codeql, dependency-vulnerability, dependency-malware]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report auto-merge status
+        shell: bash
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          LINT_RESULT: ${{ needs.lints.result }}
+          TEST_RESULT: ${{ needs.tests.result }}
+          CODEQL_RESULT: ${{ needs.codeql.result }}
+          VULNERABILITY_RESULT: ${{ needs.dependency-vulnerability.result }}
+          MALWARE_RESULT: ${{ needs.dependency-malware.result }}
+        run: |
+          set -euo pipefail
+
+          if [ "$PR_AUTHOR" != 'dependabot[bot]' ]; then
+            echo 'Auto-merge is not applicable to this pull request.'
+            exit 0
+          fi
+
+          if [ "$LINT_RESULT" = 'success' ] && \
+             [ "$TEST_RESULT" = 'success' ] && \
+             [ "$CODEQL_RESULT" = 'success' ] && \
+             [ "$VULNERABILITY_RESULT" = 'success' ] && \
+             [ "$MALWARE_RESULT" = 'success' ]; then
+            echo 'Dependabot auto-merge eligibility was evaluated by the parallel automation job.'
+          else
+            echo 'Dependabot auto-merge is not evaluated until all independent gates pass.'
+          fi

@@ -1,0 +1,17 @@
+{
+  "short_name": "FullStackTemplate",
+  "name": "FullStackTemplate",
+  "description": "FullStackTemplate full-stack application.",
+  "icons": [
+    {
+      "src": "fullstacktemplate-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#1a1a1a",
+  "background_color": "#1a1a1a"
+}

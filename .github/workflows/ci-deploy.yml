@@ -1,0 +1,247 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - env-prod
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Validate deploy secrets
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+          DJANGO_ALLOWED_HOSTS: ${{ vars.DJANGO_ALLOWED_HOSTS }}
+          DJANGO_CORS_ALLOWED_ORIGINS: ${{ vars.DJANGO_CORS_ALLOWED_ORIGINS }}
+          DJANGO_CSRF_TRUSTED_ORIGINS: ${{ vars.DJANGO_CSRF_TRUSTED_ORIGINS }}
+          DJANGO_FORCE_SCRIPT_NAME: ${{ vars.DJANGO_FORCE_SCRIPT_NAME }}
+          DJANGO_FRONTEND_BASE_URL: ${{ vars.DJANGO_FRONTEND_BASE_URL }}
+          DJANGO_EMAIL_BACKEND: ${{ vars.DJANGO_EMAIL_BACKEND }}
+          DJANGO_EMAIL_HOST: ${{ vars.DJANGO_EMAIL_HOST }}
+          DJANGO_EMAIL_PORT: ${{ vars.DJANGO_EMAIL_PORT }}
+          DJANGO_EMAIL_USE_TLS: ${{ vars.DJANGO_EMAIL_USE_TLS }}
+          DJANGO_EMAIL_HOST_USER: ${{ vars.DJANGO_EMAIL_HOST_USER }}
+          DJANGO_EMAIL_HOST_KEY: ${{ secrets.DJANGO_EMAIL_HOST_KEY }}
+          DJANGO_EMAIL_TIMEOUT: ${{ vars.DJANGO_EMAIL_TIMEOUT }}
+          DJANGO_DEFAULT_FROM_EMAIL: ${{ vars.DJANGO_DEFAULT_FROM_EMAIL }}
+        run: |
+          missing=()
+          [ -z "$DEPLOY_HOST" ] && missing+=("DEPLOY_HOST")
+          [ -z "$DEPLOY_USER" ] && missing+=("DEPLOY_USER")
+          [ -z "$DEPLOY_SSH_KEY" ] && missing+=("DEPLOY_SSH_KEY")
+          [ -z "$DEPLOY_PATH" ] && missing+=("DEPLOY_PATH")
+          [ -z "$DJANGO_SECRET_KEY" ] && missing+=("DJANGO_SECRET_KEY")
+          [ -z "$DJANGO_ALLOWED_HOSTS" ] && missing+=("DJANGO_ALLOWED_HOSTS")
+          [ -z "$DJANGO_CORS_ALLOWED_ORIGINS" ] && missing+=("DJANGO_CORS_ALLOWED_ORIGINS")
+          [ -z "$DJANGO_CSRF_TRUSTED_ORIGINS" ] && missing+=("DJANGO_CSRF_TRUSTED_ORIGINS")
+          [ -z "$DJANGO_FRONTEND_BASE_URL" ] && missing+=("DJANGO_FRONTEND_BASE_URL")
+          [ -z "$DJANGO_EMAIL_BACKEND" ] && missing+=("DJANGO_EMAIL_BACKEND")
+          [ -z "$DJANGO_EMAIL_HOST_KEY" ] && missing+=("DJANGO_EMAIL_HOST_KEY")
+          [ -z "$DJANGO_DEFAULT_FROM_EMAIL" ] && missing+=("DJANGO_DEFAULT_FROM_EMAIL")
+          if [ "$DJANGO_EMAIL_BACKEND" = "django.core.mail.backends.smtp.EmailBackend" ]; then
+            [ -z "$DJANGO_EMAIL_HOST" ] && missing+=("DJANGO_EMAIL_HOST")
+            [ -z "$DJANGO_EMAIL_PORT" ] && missing+=("DJANGO_EMAIL_PORT")
+            [ -z "$DJANGO_EMAIL_USE_TLS" ] && missing+=("DJANGO_EMAIL_USE_TLS")
+            [ -z "$DJANGO_EMAIL_HOST_USER" ] && missing+=("DJANGO_EMAIL_HOST_USER")
+          fi
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "Missing required secrets: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Set image names
+        id: image_names
+        shell: bash
+        run: |
+          {
+            echo "owner_lower=${GITHUB_REPOSITORY_OWNER,,}"
+            echo "backend_image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/fullstacktemplate-backend"
+            echo "frontend_image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/fullstacktemplate-frontend"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.image_names.outputs.backend_image }}:latest
+            ${{ steps.image_names.outputs.backend_image }}:sha-${{ github.sha }}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          build-args: |
+            REACT_APP_API_BASE_URL=${{ vars.REACT_APP_API_BASE_URL }}
+          tags: |
+            ${{ steps.image_names.outputs.frontend_image }}:latest
+            ${{ steps.image_names.outputs.frontend_image }}:sha-${{ github.sha }}
+
+      - name: Resolve deploy settings
+        id: deploy_vars
+        shell: bash
+        env:
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+        run: |
+          if [ -z "$DEPLOY_PORT" ]; then
+            DEPLOY_PORT=22
+          fi
+          echo "deploy_port=$DEPLOY_PORT" >> "$GITHUB_OUTPUT"
+
+      - name: Stage deploy bundle (including TLS certs)
+        id: stage_bundle
+        shell: bash
+        env:
+          CLOUDFLARE_ORIGIN_CERT_PEM: ${{ secrets.CLOUDFLARE_ORIGIN_CERT_PEM }}
+          CLOUDFLARE_ORIGIN_KEY_PEM: ${{ secrets.CLOUDFLARE_ORIGIN_KEY_PEM }}
+        run: |
+          set -euo pipefail
+
+          rm -rf deploy_bundle
+          mkdir -p deploy_bundle/certs
+
+          cp deploy/docker-compose.yml deploy_bundle/docker-compose.yml
+          cp deploy/nginx-proxy.conf deploy_bundle/nginx-proxy.conf
+
+          # Write certs into the bundle if secrets exist.
+          # Raw PEM is preferred here because ssh-action env vars don't reliably support multi-line values.
+          if [ -n "${CLOUDFLARE_ORIGIN_CERT_PEM:-}" ] && [ -n "${CLOUDFLARE_ORIGIN_KEY_PEM:-}" ]; then
+            if ! printf '%s' "$CLOUDFLARE_ORIGIN_CERT_PEM" | grep -q "BEGIN CERTIFICATE"; then
+              echo "CLOUDFLARE_ORIGIN_CERT_PEM is set but does not look like PEM (missing BEGIN CERTIFICATE)."
+              exit 1
+            fi
+            if ! printf '%s' "$CLOUDFLARE_ORIGIN_KEY_PEM" | grep -q "BEGIN .*PRIVATE KEY"; then
+              echo "CLOUDFLARE_ORIGIN_KEY_PEM is set but does not look like PEM (missing BEGIN PRIVATE KEY)."
+              exit 1
+            fi
+
+            printf '%s' "$CLOUDFLARE_ORIGIN_CERT_PEM" > deploy_bundle/certs/origin.pem
+            printf '%s' "$CLOUDFLARE_ORIGIN_KEY_PEM" > deploy_bundle/certs/origin.key
+            chmod 644 deploy_bundle/certs/origin.pem
+            chmod 600 deploy_bundle/certs/origin.key
+
+            echo "certs_present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "certs_present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload deploy files
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1
+        with:
+          host: ${{ vars.DEPLOY_HOST }}
+          username: ${{ vars.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ steps.deploy_vars.outputs.deploy_port }}
+          source: "deploy_bundle/docker-compose.yml,deploy_bundle/nginx-proxy.conf"
+          target: ${{ vars.DEPLOY_PATH }}
+          strip_components: 1
+          overwrite: true
+
+      - name: Upload TLS certs
+        if: ${{ steps.stage_bundle.outputs.certs_present == 'true' }}
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1
+        with:
+          host: ${{ vars.DEPLOY_HOST }}
+          username: ${{ vars.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ steps.deploy_vars.outputs.deploy_port }}
+          source: "deploy_bundle/certs/origin.pem,deploy_bundle/certs/origin.key"
+          target: ${{ vars.DEPLOY_PATH }}/certs
+          strip_components: 2
+          overwrite: true
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        env:
+          DJANGO_DEBUG: ${{ vars.DJANGO_DEBUG }}
+          DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+          DJANGO_SQLITE_PATH: ${{ vars.DJANGO_SQLITE_PATH }}
+          DJANGO_ALLOWED_HOSTS: ${{ vars.DJANGO_ALLOWED_HOSTS }}
+          DJANGO_CORS_ALLOWED_ORIGINS: ${{ vars.DJANGO_CORS_ALLOWED_ORIGINS }}
+          DJANGO_CSRF_TRUSTED_ORIGINS: ${{ vars.DJANGO_CSRF_TRUSTED_ORIGINS }}
+          DJANGO_FORCE_SCRIPT_NAME: ${{ vars.DJANGO_FORCE_SCRIPT_NAME }}
+          DJANGO_FRONTEND_BASE_URL: ${{ vars.DJANGO_FRONTEND_BASE_URL }}
+          DJANGO_EMAIL_BACKEND: ${{ vars.DJANGO_EMAIL_BACKEND }}
+          DJANGO_EMAIL_HOST: ${{ vars.DJANGO_EMAIL_HOST }}
+          DJANGO_EMAIL_PORT: ${{ vars.DJANGO_EMAIL_PORT }}
+          DJANGO_EMAIL_USE_TLS: ${{ vars.DJANGO_EMAIL_USE_TLS }}
+          DJANGO_EMAIL_HOST_USER: ${{ vars.DJANGO_EMAIL_HOST_USER }}
+          DJANGO_EMAIL_HOST_KEY: ${{ secrets.DJANGO_EMAIL_HOST_KEY }}
+          DJANGO_EMAIL_TIMEOUT: ${{ vars.DJANGO_EMAIL_TIMEOUT }}
+          DJANGO_DEFAULT_FROM_EMAIL: ${{ vars.DJANGO_DEFAULT_FROM_EMAIL }}
+        with:
+          host: ${{ vars.DEPLOY_HOST }}
+          username: ${{ vars.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ steps.deploy_vars.outputs.deploy_port }}
+          envs: DJANGO_DEBUG,DJANGO_SECRET_KEY,DJANGO_SQLITE_PATH,DJANGO_ALLOWED_HOSTS,DJANGO_CORS_ALLOWED_ORIGINS,DJANGO_CSRF_TRUSTED_ORIGINS,DJANGO_FORCE_SCRIPT_NAME,DJANGO_FRONTEND_BASE_URL,DJANGO_EMAIL_BACKEND,DJANGO_EMAIL_HOST,DJANGO_EMAIL_PORT,DJANGO_EMAIL_USE_TLS,DJANGO_EMAIL_HOST_USER,DJANGO_EMAIL_HOST_KEY,DJANGO_EMAIL_TIMEOUT,DJANGO_DEFAULT_FROM_EMAIL
+          script: |
+            set -e
+            cd "${{ vars.DEPLOY_PATH }}"
+            : "${DJANGO_DEBUG:=0}"
+            : "${DJANGO_SQLITE_PATH:=/backend/db.sqlite3}"
+            : "${DJANGO_FORCE_SCRIPT_NAME:=}"
+
+            # TLS certs are uploaded as files (via SCP) to avoid multi-line env var issues.
+            if [ ! -f certs/origin.pem ] || [ ! -f certs/origin.key ]; then
+              echo "Missing TLS certs. Either provision certs/origin.pem + certs/origin.key on the server, or set GitHub Secrets CLOUDFLARE_ORIGIN_CERT_PEM and CLOUDFLARE_ORIGIN_KEY_PEM."
+              exit 1
+            fi
+            chmod 644 certs/origin.pem
+            chmod 600 certs/origin.key
+
+            cat > .env <<EOF
+            DJANGO_DEBUG=$DJANGO_DEBUG
+            DJANGO_SECRET_KEY=$DJANGO_SECRET_KEY
+            DJANGO_SQLITE_PATH=$DJANGO_SQLITE_PATH
+            DJANGO_ALLOWED_HOSTS=$DJANGO_ALLOWED_HOSTS
+            DJANGO_CORS_ALLOWED_ORIGINS=$DJANGO_CORS_ALLOWED_ORIGINS
+            DJANGO_CSRF_TRUSTED_ORIGINS=$DJANGO_CSRF_TRUSTED_ORIGINS
+            DJANGO_FORCE_SCRIPT_NAME=$DJANGO_FORCE_SCRIPT_NAME
+            DJANGO_FRONTEND_BASE_URL=$DJANGO_FRONTEND_BASE_URL
+            DJANGO_EMAIL_BACKEND=$DJANGO_EMAIL_BACKEND
+            DJANGO_EMAIL_HOST=$DJANGO_EMAIL_HOST
+            DJANGO_EMAIL_PORT=$DJANGO_EMAIL_PORT
+            DJANGO_EMAIL_USE_TLS=$DJANGO_EMAIL_USE_TLS
+            DJANGO_EMAIL_HOST_USER=$DJANGO_EMAIL_HOST_USER
+            DJANGO_EMAIL_HOST_KEY=$DJANGO_EMAIL_HOST_KEY
+            DJANGO_EMAIL_TIMEOUT=$DJANGO_EMAIL_TIMEOUT
+            DJANGO_DEFAULT_FROM_EMAIL=$DJANGO_DEFAULT_FROM_EMAIL
+            FULLSTACKTEMPLATE_CERTS_DIR=./certs
+            EOF
+            docker system prune -af
+            docker compose pull
+            docker compose up -d --remove-orphans
+            docker compose up -d --force-recreate proxy
+            docker compose exec -T backend python manage.py migrate
