@@ -1,0 +1,41 @@
+name: fullstacktemplate-dev
+
+services:
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.dev
+    container_name: fullstacktemplate-backend-dev
+    env_file: ./.env
+    environment:
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend,fullstacktemplate.localhost
+      DJANGO_CORS_ALLOWED_ORIGINS: http://localhost:${FULLSTACKTEMPLATE_DEV_FRONTEND_PORT:-3000},http://fullstacktemplate.localhost:${FULLSTACKTEMPLATE_DEV_FRONTEND_PORT:-3000}
+      DJANGO_CSRF_TRUSTED_ORIGINS: http://localhost:${FULLSTACKTEMPLATE_DEV_FRONTEND_PORT:-3000},http://fullstacktemplate.localhost:${FULLSTACKTEMPLATE_DEV_FRONTEND_PORT:-3000}
+      DJANGO_FRONTEND_BASE_URL: http://fullstacktemplate.localhost:${FULLSTACKTEMPLATE_DEV_FRONTEND_PORT:-3000}
+      DJANGO_SQLITE_PATH: /backend/db.sqlite3
+    volumes:
+      - ../backend:/backend
+      - ./db.sqlite3:/backend/db.sqlite3
+    ports:
+      - "127.0.0.1:${FULLSTACKTEMPLATE_DEV_BACKEND_PORT:-8000}:8000"
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile.dev
+    container_name: fullstacktemplate-frontend-dev
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      HOST: 0.0.0.0
+      REACT_APP_API_BASE_URL: http://fullstacktemplate.localhost:${FULLSTACKTEMPLATE_DEV_BACKEND_PORT:-8000}
+      WATCHPACK_POLLING: "true"
+    volumes:
+      - ../frontend:/frontend
+      - frontend_node_modules:/frontend/node_modules
+    ports:
+      - "127.0.0.1:${FULLSTACKTEMPLATE_DEV_FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      - backend
+
+volumes:
+  frontend_node_modules:

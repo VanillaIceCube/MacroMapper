@@ -1,0 +1,371 @@
+name: Lint Gate
+
+on:
+  workflow_call:
+    inputs:
+      checkout_ref:
+        description: "Branch or ref to check out for auto-fix commits."
+        required: false
+        type: string
+      enable_autofix:
+        description: "Allow lint fixes to be committed and pushed for a trusted same-repository branch."
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      LINT_EASTWOOD_PRIVATE_KEY:
+        required: false
+    outputs:
+      lint_frontend_status:
+        description: Frontend lint status (success/failure/not-applicable).
+        value: ${{ jobs.lint-results.outputs.frontend_status }}
+      lint_frontend_log:
+        description: Frontend lint log tail.
+        value: ${{ jobs.lint-results.outputs.frontend_log }}
+      lint_backend_status:
+        description: Backend lint status (success/failure/not-applicable).
+        value: ${{ jobs.lint-results.outputs.backend_status }}
+      lint_backend_log:
+        description: Backend lint log tail.
+        value: ${{ jobs.lint-results.outputs.backend_log }}
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.enable_autofix && inputs.checkout_ref || '' }}
+
+      - name: Detect relevant changes
+        id: filter
+        continue-on-error: true
+        uses: dorny/paths-filter@6852f92c20ea7fd3b0c25de3b5112db3a98da050
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - '.github/actions/read-versions/**'
+              - '.github/actions/prepare-lint-commit/**'
+            backend:
+              - 'backend/**'
+              - '.github/actions/read-versions/**'
+              - '.github/actions/prepare-lint-commit/**'
+
+      - name: Report path detection failure
+        if: steps.filter.outcome == 'failure'
+        shell: bash
+        run: |
+          message="GitHub API path detection failed, so lint scope was not evaluated. Rerun the workflow after the API limit or service error clears."
+          echo "::error title=Lint path detection unavailable::$message"
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            {
+              echo "### Lint path detection unavailable"
+              echo
+              echo "$message"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit 1
+
+  lint-frontend:
+    name: Lint Frontend (ESLint + Prettier)
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: lint-commit-${{ github.ref }}
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.enable_autofix && inputs.checkout_ref || '' }}
+          persist-credentials: false
+
+      - name: Read versions
+        id: versions
+        uses: ./.github/actions/read-versions
+        with:
+          read_python: "false"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.versions.outputs.node_version }}
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prettier (auto-fix)
+        if: inputs.enable_autofix
+        run: npm run format
+
+      - name: ESLint (auto-fix)
+        if: inputs.enable_autofix
+        run: npm run lint:fix
+
+      - name: Detect changes
+        id: git-changes
+        env:
+          AUTOFIX_ENABLED: ${{ inputs.enable_autofix }}
+        run: |
+          if [ "$AUTOFIX_ENABLED" != "true" ] || git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git diff --name-only
+          fi
+
+      - name: Prepare Lint Eastwood commit
+        id: lint-eastwood-bot
+        if: steps.git-changes.outputs.changed == 'true'
+        uses: ./.github/actions/prepare-lint-commit
+        with:
+          app_id: ${{ vars.LINT_EASTWOOD_APP_ID }}
+          private_key: ${{ secrets.LINT_EASTWOOD_PRIVATE_KEY }}
+
+      - name: Commit auto-fixes
+        if: steps.git-changes.outputs.changed == 'true'
+        uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7
+        with:
+          commit_message: "Github Actions: Prettier & ESLint automatic lint fixes"
+          branch: ${{ inputs.checkout_ref || github.head_ref }}
+          file_pattern: |
+            frontend
+          commit_user_name: "Lint Eastwood"
+          commit_user_email: ${{ steps.lint-eastwood-bot.outputs.bot_email }}
+          commit_author: "Lint Eastwood <${{ steps.lint-eastwood-bot.outputs.bot_email }}>"
+
+      - name: Remove Lint Eastwood push credentials
+        if: always() && steps.git-changes.outputs.changed == 'true'
+        shell: bash
+        run: git remote set-url --push origin "https://github.com/${GITHUB_REPOSITORY}.git"
+
+      - name: Lint checks
+        id: lint_checks
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          status=0
+          npm run format:check 2>&1 | tee lint_output.txt || status=$?
+          npm run lint:strict 2>&1 | tee -a lint_output.txt || status=$?
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Lint summary
+        id: lint_summary
+        if: always()
+        run: |
+          exit_code="${{ steps.lint_checks.outputs.exit_code }}"
+          if [ -z "$exit_code" ]; then
+            exit_code=1
+          fi
+          if [ "$exit_code" = "0" ]; then
+            echo "status=success" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+          fi
+
+          {
+            echo 'log<<EOF'
+            if [ -f lint_output.txt ]; then
+              tail -n 200 lint_output.txt
+            else
+              echo "No lint output captured."
+            fi
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Fail if lint failed
+        if: steps.lint_checks.outputs.exit_code != '0'
+        run: exit 1
+    outputs:
+      status: ${{ steps.lint_summary.outputs.status }}
+      log: ${{ steps.lint_summary.outputs.log }}
+
+  lint-backend:
+    name: Lint Backend (Ruff)
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: lint-commit-${{ github.ref }}
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.enable_autofix && inputs.checkout_ref || '' }}
+          persist-credentials: false
+
+      - name: Read versions
+        id: versions
+        uses: ./.github/actions/read-versions
+        with:
+          read_node: "false"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ steps.versions.outputs.python_version }}
+          cache: 'pip'
+          cache-dependency-path: backend/environment.yml
+
+      - name: Install deps
+        run: pip install ruff
+
+      - name: Ruff (auto-fix)
+        if: inputs.enable_autofix
+        run: ruff check . --fix
+
+      - name: Ruff format (auto-fix)
+        if: inputs.enable_autofix
+        run: ruff format .
+
+      - name: Detect changes
+        id: git-changes
+        env:
+          AUTOFIX_ENABLED: ${{ inputs.enable_autofix }}
+        run: |
+          if [ "$AUTOFIX_ENABLED" != "true" ] || git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git diff --name-only
+          fi
+
+      - name: Prepare Lint Eastwood commit
+        id: lint-eastwood-bot
+        if: steps.git-changes.outputs.changed == 'true'
+        uses: ./.github/actions/prepare-lint-commit
+        with:
+          app_id: ${{ vars.LINT_EASTWOOD_APP_ID }}
+          private_key: ${{ secrets.LINT_EASTWOOD_PRIVATE_KEY }}
+
+      - name: Commit auto-fixes
+        if: steps.git-changes.outputs.changed == 'true'
+        uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7
+        with:
+          commit_message: "Github Actions: Ruff automatic lint fixes"
+          branch: ${{ inputs.checkout_ref || github.head_ref }}
+          file_pattern: |
+            backend
+          commit_user_name: "Lint Eastwood"
+          commit_user_email: ${{ steps.lint-eastwood-bot.outputs.bot_email }}
+          commit_author: "Lint Eastwood <${{ steps.lint-eastwood-bot.outputs.bot_email }}>"
+
+      - name: Remove Lint Eastwood push credentials
+        if: always() && steps.git-changes.outputs.changed == 'true'
+        shell: bash
+        run: git remote set-url --push origin "https://github.com/${GITHUB_REPOSITORY}.git"
+
+      - name: Ruff checks
+        id: lint_checks
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          status=0
+          ruff check . 2>&1 | tee lint_output.txt || status=$?
+          ruff format --check . 2>&1 | tee -a lint_output.txt || status=$?
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Lint summary
+        id: lint_summary
+        if: always()
+        run: |
+          exit_code="${{ steps.lint_checks.outputs.exit_code }}"
+          if [ -z "$exit_code" ]; then
+            exit_code=1
+          fi
+          if [ "$exit_code" = "0" ]; then
+            echo "status=success" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+          fi
+
+          {
+            echo 'log<<EOF'
+            if [ -f lint_output.txt ]; then
+              tail -n 200 lint_output.txt
+            else
+              echo "No lint output captured."
+            fi
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Fail if lint failed
+        if: steps.lint_checks.outputs.exit_code != '0'
+        run: exit 1
+    outputs:
+      status: ${{ steps.lint_summary.outputs.status }}
+      log: ${{ steps.lint_summary.outputs.log }}
+
+  lint-results:
+    name: Lint Results
+    if: always()
+    needs: [changes, lint-frontend, lint-backend]
+    runs-on: ubuntu-latest
+    outputs:
+      frontend_status: ${{ steps.results.outputs.frontend_status }}
+      frontend_log: ${{ steps.results.outputs.frontend_log }}
+      backend_status: ${{ steps.results.outputs.backend_status }}
+      backend_log: ${{ steps.results.outputs.backend_log }}
+    steps:
+      - name: Normalize lint results
+        id: results
+        env:
+          FRONTEND_RELEVANT: ${{ needs.changes.outputs.frontend }}
+          FRONTEND_STATUS: ${{ needs.lint-frontend.outputs.status }}
+          FRONTEND_LOG: ${{ needs.lint-frontend.outputs.log }}
+          BACKEND_RELEVANT: ${{ needs.changes.outputs.backend }}
+          BACKEND_STATUS: ${{ needs.lint-backend.outputs.status }}
+          BACKEND_LOG: ${{ needs.lint-backend.outputs.log }}
+        shell: bash
+        run: |
+          if [ "$FRONTEND_RELEVANT" = "true" ]; then
+            echo "frontend_status=${FRONTEND_STATUS:-failure}" >> "$GITHUB_OUTPUT"
+            {
+              echo 'frontend_log<<EOF'
+              echo "$FRONTEND_LOG"
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "frontend_status=not-applicable" >> "$GITHUB_OUTPUT"
+            echo "frontend_log=No frontend-relevant changes." >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ "$BACKEND_RELEVANT" = "true" ]; then
+            echo "backend_status=${BACKEND_STATUS:-failure}" >> "$GITHUB_OUTPUT"
+            {
+              echo 'backend_log<<EOF'
+              echo "$BACKEND_LOG"
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "backend_status=not-applicable" >> "$GITHUB_OUTPUT"
+            echo "backend_log=No backend-relevant changes." >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ "$FRONTEND_RELEVANT" = "true" ] && [ "${FRONTEND_STATUS:-failure}" != "success" ]; then
+            exit 1
+          fi
+          if [ "$BACKEND_RELEVANT" = "true" ] && [ "${BACKEND_STATUS:-failure}" != "success" ]; then
+            exit 1
+          fi
