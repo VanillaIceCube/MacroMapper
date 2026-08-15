@@ -2,7 +2,7 @@
 MacroMapper's frontend is a Vite-powered React 19 single-page application built
 with Material UI and React Router 7. It will provide an individual meal and
 activity diary, source-aware GPT meal proposals, nutrition goals, and trend
-reporting while retaining Notoli's yellow-and-gray visual theme.
+reporting with MacroMapper's dark, pale-yellow, amber, and gray visual theme.
 
 The current implementation is the authenticated application shell that those
 features will build on. See the [product vision](../docs/PRODUCT_VISION.md) for
@@ -13,7 +13,7 @@ the planned user experience and release sequence.
 - `/register`: account creation with an optional username
 - `/forgot-password`: password-reset email request
 - `/reset-password?uid=...&token=...`: choose a new password
-- `/`: protected application shell with one placeholder Paper
+- `/`: protected MacroMapper dashboard and product-status overview
 - Any unknown route resolves to the protected home page
 
 Signed-out users who request a protected route are redirected to `/login`.
@@ -25,17 +25,17 @@ Signed-out users who request a protected route are redirected to `/login`.
 - An invalid refresh token clears the session and redirects to login.
 - Login and registration navigate directly to the protected home page.
 - The app header title is `MacroMapper`.
-- The header retains the generic navigation drawer, recipient-scoped
+- The header provides MacroMapper navigation, recipient-scoped
   notifications, profile display, and logout action.
-- The drawer contains one Home destination and placeholder copy for future
-  application navigation.
+- The drawer contains the Home destination and MacroMapper product description.
 
 ## ✨ Planned Product Surfaces
 
 The authenticated shell will grow to include a daily diary, Food Item search
 and editing, an AI meal-review flow, nutrition and activity goals, and trends.
-These are planned features; the current Home page remains a placeholder until
-their corresponding backend APIs and user flows are implemented.
+These are planned features. The current Home page is an intentional
+MacroMapper dashboard that clearly distinguishes active account capabilities
+from product features still on the roadmap.
 
 Authentication endpoint functions live in `src/services/authApiClient.js`.
 Notification functions live in `src/services/notificationApiClient.js`. Token

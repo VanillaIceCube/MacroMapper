@@ -55,9 +55,8 @@ export default function AppHeader({ title, setDrawerOpen }) {
   const profileUsername = safeGetSessionItem('username');
   const profileEmail = safeGetSessionItem('email');
   const accessToken = safeGetSessionItem('accessToken');
-  const profilePrimary = profileUsername || profileEmail.split?.('@')?.[0] || 'username';
-  const profileSecondary =
-    profileEmail || (profilePrimary === 'username' ? 'username@gmail.com' : null);
+  const profilePrimary = profileUsername || profileEmail.split?.('@')?.[0] || 'Account';
+  const profileSecondary = profileEmail || null;
   const unreadCount = useMemo(
     () => notifications.filter((notification) => !notification.is_read).length,
     [notifications],

@@ -4,12 +4,12 @@ import AppNavigationDrawer from './AppNavigationDrawer';
 import { renderWithProviders } from '../test-support/utils';
 
 describe('AppNavigationDrawer', () => {
-  test('renders generic navigation without workspace controls', () => {
+  test('renders MacroMapper navigation', () => {
     renderWithProviders(<AppNavigationDrawer open setOpen={vi.fn()} />);
 
     expect(screen.getByText('MacroMapper')).toBeInTheDocument();
     expect(screen.getByText('Home')).toBeInTheDocument();
-    expect(screen.getByText('Add application navigation here.')).toBeInTheDocument();
+    expect(screen.getByText('Nutrition and activity, mapped clearly.')).toBeInTheDocument();
     expect(screen.queryByText(/Workspace/)).not.toBeInTheDocument();
   });
 

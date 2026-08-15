@@ -6,7 +6,7 @@ reporting. It does not provide medical, clinical, or prescriptive dietary
 advice.
 
 The current Django REST Framework implementation supplies JWT authentication,
-a custom email-first user model, password-reset email delivery, and a generic
+a custom email-first user model, password-reset email delivery, and a
 recipient-scoped notification API. The nutrition domain is planned work; see
 the [product vision](../docs/PRODUCT_VISION.md).
 
@@ -14,7 +14,7 @@ the [product vision](../docs/PRODUCT_VISION.md).
 - `app/`: Django settings, URL routing, ASGI, and WSGI
 - `authentication/`: custom user, registration, login, refresh, password reset,
   and email delivery
-- `notifications/`: generic persisted notifications for the authenticated app
+- `notifications/`: persisted notifications for the authenticated app
   header
 - `environment.yml`: Conda environment definition
 - `requirements.txt`: pip dependencies used locally, in CI, and in Docker
@@ -51,9 +51,9 @@ always scoped to the authenticated recipient.
 - `PATCH /api/notifications/mark-all-read/`
 - `DELETE /api/notifications/clear-all/`
 
-Notifications retain a generic event type, title, message, optional actor, and
-optional frontend `target_path`. Future application apps can create them
-without depending on a template-owned domain model.
+Notifications retain an event type, title, message, optional actor, and
+optional frontend `target_path`. MacroMapper's nutrition and activity apps can
+create them without coupling notification delivery to a specific domain model.
 
 ## 💻 Local Setup
 From the repository root:
@@ -93,15 +93,29 @@ Use the production Dockerfile and Compose file when testing Gunicorn, Nginx,
 HTTPS, or deployment-shaped behavior.
 
 ## ✉️ Email
-Local development defaults to Django's console email backend. Production can
-use the included Resend HTTPS backend:
+Local development defaults to Django's console email backend. A local-only
+sender can be configured while messages remain in the console:
+
+```env
+DJANGO_EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+DJANGO_DEFAULT_FROM_EMAIL=MacroMapper <no-reply@macromapper.localhost>
+```
+
+Production can use the included Resend HTTPS backend with a sender on the
+verified production sending domain:
 
 ```env
 DJANGO_EMAIL_BACKEND=authentication.email_backends.ResendApiEmailBackend
 DJANGO_EMAIL_HOST_KEY=<resend-api-key>
 DJANGO_EMAIL_TIMEOUT=10
-DJANGO_DEFAULT_FROM_EMAIL=macromapper.no-reply@example.com
+DJANGO_DEFAULT_FROM_EMAIL=MacroMapper <no-reply@updates.judeandrewalaba.com>
 ```
+
+Resend requires `DJANGO_DEFAULT_FROM_EMAIL` to use a domain verified in the
+Resend account. The `.localhost` sender is only for console-email development
+and must not be used with `ResendApiEmailBackend`. See the
+[deployment guide](../deploy/README.md#resend-password-reset-delivery) for the
+production DNS and credential setup.
 
 SMTP-compatible backends can instead use the documented `DJANGO_EMAIL_HOST`,
 `DJANGO_EMAIL_PORT`, `DJANGO_EMAIL_USE_TLS`, and

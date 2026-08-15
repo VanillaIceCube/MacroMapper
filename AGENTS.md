@@ -73,19 +73,22 @@ npm run build
 ```
 
 ## Production
-Production is designed for `https://app.example.com` behind Cloudflare and an origin Nginx proxy.
+Production is designed for `https://macromapper.judeandrewalaba.com` behind
+Cloudflare and an origin Nginx proxy.
 
 - Frontend: `/`
 - Authentication: `/auth/`
 - Django admin: `/admin/`
-- Notification and future application APIs: `/api/`
+- Notification and future nutrition/activity APIs: `/api/`
 - GitHub deployment branch: `env-prod`
 - GHCR images: `macromapper-backend` and `macromapper-frontend`
-- Suggested deployment path: `/root/apps/macromapper`
+- Deployment path: `/opt/apps/macromapper`
 
 Review `deploy/nginx-proxy.conf`, the deploy workflow, Cloudflare settings, and all allowlist/base-URL variables whenever domains or routes change.
 
 ## GitHub automation
-The copied Notoli automation includes lint, tests, CodeQL, dependency review, npm malware review, Dependabot auto-merge, AI PR reviewers, deployment, and scheduled security-alert aggregation.
+MacroMapper automation includes lint, tests, CodeQL, dependency review, npm
+malware review, Dependabot auto-merge, AI PR reviewers, deployment, and
+scheduled security-alert aggregation.
 
 Secret-dependent workflows must fail visibly when their credentials are unavailable. Keep GitHub App permissions and the credential separation described in `.github/README-WORKFLOWS.md`.
