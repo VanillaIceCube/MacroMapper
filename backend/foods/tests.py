@@ -1,17 +1,30 @@
 from decimal import Decimal
 
+from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from .admin import (
+    FoodComponentAdmin,
+    FoodComponentInline,
+    FoodItemAdmin,
+    FoodItemVersionAdmin,
+    NutrientAmountAdmin,
+    NutrientAmountInline,
+    SourceReferenceAdmin,
+    SourceReferenceInline,
+)
 from .models import (
     FoodComponent,
     FoodItem,
     FoodItemVersion,
+    NutrientAmount,
     NutrientDefinition,
+    SourceReference,
 )
 from .services import create_food_item, create_food_version
 
@@ -172,6 +185,49 @@ class FoodModelTests(TestCase):
             old_version.nutrient_amounts.get(nutrient__key="calories").amount,
             Decimal("100"),
         )
+
+
+class FoodAdminTests(TestCase):
+    def setUp(self):
+        self.site = AdminSite()
+        self.request = RequestFactory().get("/admin/")
+
+    def test_food_current_version_is_not_editable_in_admin(self):
+        food_admin = FoodItemAdmin(FoodItem, self.site)
+
+        self.assertIn("current_version", food_admin.get_readonly_fields(self.request))
+        self.assertNotIn(
+            "current_version", food_admin.get_autocomplete_fields(self.request)
+        )
+
+    def test_version_and_related_records_are_immutable_in_admin(self):
+        admin_classes = (
+            (FoodItemVersionAdmin, FoodItemVersion),
+            (FoodComponentAdmin, FoodComponent),
+            (NutrientAmountAdmin, NutrientAmount),
+            (SourceReferenceAdmin, SourceReference),
+        )
+
+        for admin_class, model in admin_classes:
+            with self.subTest(model=model.__name__):
+                model_admin = admin_class(model, self.site)
+                self.assertFalse(model_admin.has_add_permission(self.request))
+                self.assertFalse(model_admin.has_change_permission(self.request))
+                self.assertFalse(model_admin.has_delete_permission(self.request))
+
+    def test_version_related_inlines_are_immutable_in_admin(self):
+        inline_classes = (
+            NutrientAmountInline,
+            SourceReferenceInline,
+            FoodComponentInline,
+        )
+
+        for inline_class in inline_classes:
+            with self.subTest(inline=inline_class.__name__):
+                inline = inline_class(FoodItemVersion, self.site)
+                self.assertFalse(inline.has_add_permission(self.request))
+                self.assertFalse(inline.has_change_permission(self.request))
+                self.assertFalse(inline.has_delete_permission(self.request))
 
 
 class FoodApiTests(APITestCase):

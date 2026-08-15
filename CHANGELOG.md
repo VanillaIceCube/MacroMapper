@@ -9,6 +9,10 @@ All notable changes to this project are documented in this file.
 - Added an intentional MacroMapper dashboard that explains the product's
   privacy, review, and tracking principles while clearly identifying the
   account capabilities available today.
+### Fixed
+- Prevented Django admin users from mutating historical Food Item definitions,
+  their related nutrient/source/component rows, or the managed current-version
+  pointer.
 - Added Vite and Vitest frontend tooling with explicit development, test,
   production-build, and Docker configuration.
 ### Fixed

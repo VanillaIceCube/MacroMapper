@@ -13,17 +13,60 @@ from .models import (
 class NutrientAmountInline(admin.TabularInline):
     model = NutrientAmount
     extra = 0
+    readonly_fields = ("nutrient", "amount")
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 class SourceReferenceInline(admin.TabularInline):
     model = SourceReference
     extra = 0
+    readonly_fields = ("title", "provider", "url", "accessed_on")
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 class FoodComponentInline(admin.TabularInline):
     model = FoodComponent
     fk_name = "parent_version"
     extra = 0
+    readonly_fields = ("child_version", "servings", "order")
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class ImmutableAdminMixin:
+    """Expose versioned catalog records without mutable admin forms."""
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(FoodItem)
@@ -39,11 +82,12 @@ class FoodItemAdmin(admin.ModelAdmin):
     )
     list_filter = ("scope", "origin_type", "archived_at")
     search_fields = ("name", "provider_name", "owner__email")
-    autocomplete_fields = ("owner", "current_version")
+    autocomplete_fields = ("owner",)
+    readonly_fields = ("current_version",)
 
 
 @admin.register(FoodItemVersion)
-class FoodItemVersionAdmin(admin.ModelAdmin):
+class FoodItemVersionAdmin(ImmutableAdminMixin, admin.ModelAdmin):
     list_display = (
         "food_item",
         "version_number",
@@ -53,7 +97,17 @@ class FoodItemVersionAdmin(admin.ModelAdmin):
     )
     list_filter = ("provenance", "serving_unit")
     search_fields = ("food_item__name", "food_item__provider_name")
-    autocomplete_fields = ("food_item", "created_by")
+    readonly_fields = (
+        "food_item",
+        "version_number",
+        "serving_quantity",
+        "serving_unit",
+        "serving_label",
+        "provenance",
+        "confidence_score",
+        "created_by",
+        "created_at",
+    )
     inlines = (NutrientAmountInline, SourceReferenceInline, FoodComponentInline)
 
 
@@ -65,6 +119,25 @@ class NutrientDefinitionAdmin(admin.ModelAdmin):
     ordering = ("display_order", "name")
 
 
-admin.site.register(FoodComponent)
-admin.site.register(NutrientAmount)
-admin.site.register(SourceReference)
+@admin.register(FoodComponent)
+class FoodComponentAdmin(ImmutableAdminMixin, admin.ModelAdmin):
+    list_display = ("parent_version", "child_version", "servings", "order")
+    readonly_fields = ("parent_version", "child_version", "servings", "order")
+
+
+@admin.register(NutrientAmount)
+class NutrientAmountAdmin(ImmutableAdminMixin, admin.ModelAdmin):
+    list_display = ("food_version", "nutrient", "amount")
+    readonly_fields = ("food_version", "nutrient", "amount")
+
+
+@admin.register(SourceReference)
+class SourceReferenceAdmin(ImmutableAdminMixin, admin.ModelAdmin):
+    list_display = ("food_version", "title", "provider", "accessed_on")
+    readonly_fields = (
+        "food_version",
+        "title",
+        "provider",
+        "url",
+        "accessed_on",
+    )
