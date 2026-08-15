@@ -93,15 +93,29 @@ Use the production Dockerfile and Compose file when testing Gunicorn, Nginx,
 HTTPS, or deployment-shaped behavior.
 
 ## ✉️ Email
-Local development defaults to Django's console email backend. Production can
-use the included Resend HTTPS backend:
+Local development defaults to Django's console email backend. A local-only
+sender can be configured while messages remain in the console:
+
+```env
+DJANGO_EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+DJANGO_DEFAULT_FROM_EMAIL=MacroMapper <no-reply@macromapper.localhost>
+```
+
+Production can use the included Resend HTTPS backend with a sender on the
+verified production sending domain:
 
 ```env
 DJANGO_EMAIL_BACKEND=authentication.email_backends.ResendApiEmailBackend
 DJANGO_EMAIL_HOST_KEY=<resend-api-key>
 DJANGO_EMAIL_TIMEOUT=10
-DJANGO_DEFAULT_FROM_EMAIL=MacroMapper <no-reply@macromapper.localhost>
+DJANGO_DEFAULT_FROM_EMAIL=MacroMapper <no-reply@updates.judeandrewalaba.com>
 ```
+
+Resend requires `DJANGO_DEFAULT_FROM_EMAIL` to use a domain verified in the
+Resend account. The `.localhost` sender is only for console-email development
+and must not be used with `ResendApiEmailBackend`. See the
+[deployment guide](../deploy/README.md#resend-password-reset-delivery) for the
+production DNS and credential setup.
 
 SMTP-compatible backends can instead use the documented `DJANGO_EMAIL_HOST`,
 `DJANGO_EMAIL_PORT`, `DJANGO_EMAIL_USE_TLS`, and

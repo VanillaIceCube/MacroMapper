@@ -9,6 +9,8 @@ All notable changes to this project are documented in this file.
 - Added Vite and Vitest frontend tooling with explicit development, test,
   production-build, and Docker configuration.
 ### Fixed
+- Corrected the GitHub setup cross-reference and separated the local console
+  email sender from the verified-domain Resend production example.
 - Prevented RoboCop from treating neutral CodeQL summaries for intentionally
   path-scoped language omissions as security coverage gaps when the authoritative
   scope and aggregate gates succeed and a default-branch baseline exists.

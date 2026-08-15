@@ -172,7 +172,7 @@ token. The three scheduled/manual alert workflows use RoboCop to read alerts
 and manage repository issues, while this token adds and updates those issues in
 the Project.
 
-Enable the repository settings in [the baseline above](#0-match-the-repository-settings),
+Enable the repository settings in [the baseline above](#0-configure-the-repository-settings),
 then install RoboCop with the permissions listed in this guide. Add the
 `SECURITY_ALERTS_TOKEN` secret before running an alert workflow; it must be
 created specifically for MacroMapper because GitHub does not copy credentials.
