@@ -1,8 +1,11 @@
 # MacroMapper frontend
-The frontend is a Create React App-powered React 19 single-page application
-built with Material UI and React Router. Its intentionally small authenticated
-shell is ready for an application-specific feature set and retains Notoli's
-yellow-and-gray visual theme.
+MacroMapper's frontend is a React 19 single-page application built with
+Material UI and React Router. It will provide an individual meal and activity
+diary, source-aware GPT meal proposals, nutrition goals, and trend reporting.
+
+The current implementation is the authenticated application shell that those
+features will build on. See the [product vision](../docs/PRODUCT_VISION.md) for
+the planned user experience and release sequence.
 
 ## Routes
 - `/login`: email and password login
@@ -25,6 +28,13 @@ Signed-out users who request a protected route are redirected to `/login`.
   notifications, profile display, and logout action.
 - The drawer contains one Home destination and placeholder copy for future
   application navigation.
+
+## Planned product surfaces
+
+The authenticated shell will grow to include a daily diary, Food Item search
+and editing, an AI meal-review flow, nutrition and activity goals, and trends.
+These are planned features; the current Home page remains a placeholder until
+their corresponding backend APIs and user flows are implemented.
 
 Authentication endpoint functions live in `src/services/authApiClient.js`.
 Notification functions live in `src/services/notificationApiClient.js`. Token

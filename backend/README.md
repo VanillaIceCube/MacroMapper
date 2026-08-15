@@ -1,7 +1,14 @@
 # MacroMapper backend
-The backend is a Django REST Framework application with JWT authentication, a
-custom user model whose email address is unique, password-reset email delivery,
-and a generic recipient-scoped notification API.
+MacroMapper is a personal nutrition and activity tracker. Its backend will
+support individual meal/activity histories, reusable Food Items and composite
+ingredient breakdowns, source-aware GPT estimates, and factual nutrition
+reporting. It does not provide medical, clinical, or prescriptive dietary
+advice.
+
+The current Django REST Framework implementation supplies JWT authentication,
+a custom email-first user model, password-reset email delivery, and a generic
+recipient-scoped notification API. The nutrition domain is planned work; see
+the [product vision](../docs/PRODUCT_VISION.md).
 
 ## Structure
 - `app/`: Django settings, URL routing, ASGI, and WSGI
@@ -13,8 +20,9 @@ and a generic recipient-scoped notification API.
 - `requirements.txt`: pip dependencies used locally, in CI, and in Docker
 - `ruff.toml`: backend lint and formatting configuration
 
-Application-specific models and APIs intentionally do not ship with the
-template. Add new Django apps beside `authentication` and `notifications`.
+Nutrition-specific models and APIs have not been implemented yet. Add them as
+new Django apps beside `authentication` and `notifications`, following the
+domain boundaries in the product vision.
 
 ## Authentication API
 - `POST /auth/register/`

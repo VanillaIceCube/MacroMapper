@@ -3,6 +3,10 @@ The production path is Cloudflare DNS/TLS → DigitalOcean Droplet → Nginx →
 React/Django containers. The public application is always a subdomain, and
 Nginx serves the frontend and API from one origin.
 
+This deployment serves MacroMapper, a personal nutrition and activity tracker.
+The product's planned food, meal, activity, and GPT-estimation APIs will remain
+behind the same authenticated, same-origin application boundary.
+
 ## GitHub deployment settings
 Add these Actions secrets:
 

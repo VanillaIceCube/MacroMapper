@@ -1,7 +1,6 @@
 # MacroMapper GitHub automation
 MacroMapper carries forward the proven CI/CD and security automation from
-Notoli and MacroMapper, adapted to the template's repository, images, and
-generic GitHub Project.
+Notoli, adapted to MacroMapper's repository, images, and product Project.
 
 ## Repository settings baseline
 The live MacroMapper repository uses the Notoli baseline with intentional
