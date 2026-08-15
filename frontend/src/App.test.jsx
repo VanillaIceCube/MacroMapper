@@ -18,7 +18,8 @@ describe('App', () => {
     render(<App />);
 
     expect(await screen.findByText('MacroMapper')).toBeInTheDocument();
-    expect(screen.getByText(/Lorem ipsum dolor sit amet/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Welcome to MacroMapper' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Your account is ready' })).toBeInTheDocument();
     expect(screen.getByLabelText('notifications')).toBeInTheDocument();
     expect(screen.getByLabelText('user profile')).toBeInTheDocument();
     expect(screen.getByLabelText('menu')).toBeInTheDocument();

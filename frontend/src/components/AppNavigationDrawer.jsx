@@ -71,7 +71,7 @@ export default function AppNavigationDrawer({ open, setOpen }) {
           variant="body2"
           sx={{ px: 2, py: 1, color: 'var(--secondary-color)', opacity: 0.8 }}
         >
-          Add application navigation here.
+          Nutrition and activity, mapped clearly.
         </Typography>
       </Box>
     </Drawer>

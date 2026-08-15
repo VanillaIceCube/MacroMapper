@@ -6,7 +6,7 @@ describe('MacroMapper theme styles', () => {
   const appCss = fs.readFileSync(path.join(sourceRoot, 'App.css'), 'utf8');
   const readSource = (relativePath) => fs.readFileSync(path.join(sourceRoot, relativePath), 'utf8');
 
-  test('keeps the exact Notoli yellow and gray theme tokens', () => {
+  test('keeps the MacroMapper yellow and gray theme tokens', () => {
     expect(appCss).toContain('--background-color: #1a1a1a');
     expect(appCss).toContain('--secondary-background-color: #f5e79e');
     expect(appCss).toContain('--primary-color: #ffc107');

@@ -1,11 +1,11 @@
 # GitHub setup
-Complete this setup before opening the first pull request so every required workflow can run.
+Use this guide to configure or recover MacroMapper's repository settings so
+every required workflow can run.
 
-## 0. Match the repository settings
-MacroMapper starts from the live Notoli repository baseline. Apply this
-configuration to a new repository before opening its first pull request. The
-template intentionally keeps a read-only Actions default and omits the
-standalone `CodeQL` required check; see the rationale below.
+## 0. Configure the repository settings
+MacroMapper uses a read-only Actions default and omits the standalone `CodeQL`
+required check; see the rationale below. Apply this configuration before
+relying on the pull-request gates.
 
 ### General
 
@@ -28,8 +28,8 @@ standalone `CodeQL` required check; see the rationale below.
   contributors**.
 
 The repository and workflow permissions are intentionally different: the
-repository default matches Notoli, while individual workflows still request
-the narrowest permissions they need.
+repository default is read-only, while individual workflows request the
+narrowest permissions they need.
 
 ### Security → Code security and analysis
 
@@ -41,10 +41,10 @@ Enable the following repository controls:
 - Secret scanning
 - Secret scanning push protection
 
-Do not enable GitHub's default CodeQL setup for this template. CodeQL is
+Do not enable GitHub's default CodeQL setup for MacroMapper. CodeQL is
 already supplied by the pinned workflows under `.github/workflows/`; those
-workflows upload the results to **Security → Code scanning**. The template
-uses the same `actions`, JavaScript/TypeScript, and Python coverage as Notoli.
+workflows upload the results to **Security → Code scanning** for Actions,
+JavaScript/TypeScript, and Python.
 
 ### Labels used by security automation
 
@@ -59,18 +59,18 @@ workflows can group and update their managed issues:
 | `malware` | Grouped Dependabot malware alerts. |
 | `codex` | Work generated or assisted by Codex |
 
-## 1. Create the Project
+## 1. Create or recover the MacroMapper Project
 Authenticate GitHub CLI with repository and Projects access:
 
 ```powershell
 gh auth login
 gh auth refresh -s project
 powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/create-github-project.ps1 `
-  -Owner YOUR_GITHUB_OWNER `
-  -Repository YOUR_REPOSITORY
+  -Owner VanillaIceCube `
+  -Repository MacroMapper
 ```
 
-The script uses Notoli's Project as the reusable Project template. It:
+The script uses Notoli's established Project structure as its source. It:
 
 1. Refuses to create a duplicate Project with the same title.
 2. Copies Notoli's views, custom fields, configured workflows, and insights
@@ -95,15 +95,17 @@ The copied views match Notoli's `Kanban`, `Detailed Kanban`, `New Issues`,
 fields, filters, grouping, and sorting.
 
 GitHub does not copy the repository-scoped `Auto-add to project` workflow.
-After the script completes, open the new Project's **Workflows** page and
+After the script completes, open the MacroMapper Project's **Workflows** page and
 configure `Auto-add to project` for the target repository. The remaining
 configured workflows, including `Auto-add sub-issues to project`, are copied
 and verified by the script.
 GitHub documents this behavior in
 [Copying an existing project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/creating-projects/copying-an-existing-project).
 
-Notoli is the default source (`VanillaIceCube` Project `8`). A different source
-can be supplied with `-SourceProjectOwner` and `-SourceProjectNumber`.
+Notoli is the default source (`VanillaIceCube` Project `8`) because it owns the
+field, view, and workflow structure used by MacroMapper. A different recovery
+source can be supplied with `-SourceProjectOwner` and
+`-SourceProjectNumber`.
 
 ## 2. Register the AI reviewer GitHub Apps
 Create three private GitHub Apps under the repository owner. Give each app only
@@ -172,14 +174,14 @@ the Project.
 
 Enable the repository settings in [the baseline above](#0-match-the-repository-settings),
 then install RoboCop with the permissions listed in this guide. Add the
-`SECURITY_ALERTS_TOKEN` secret before running an alert workflow; it cannot be
-copied from Notoli because it is a credential.
+`SECURITY_ALERTS_TOKEN` secret before running an alert workflow; it must be
+created specifically for MacroMapper because GitHub does not copy credentials.
 Run each `Alert: ...` workflow manually once after the first successful CI run.
 No-alert runs should succeed without creating issues.
 
 ## 5. Branch rules after the first PR
 Wait until one pull request has produced the actual check names, then add the
-Notoli-inspired ruleset for `main`:
+MacroMapper ruleset for `main`:
 
 - require a pull request before merging;
 - require the independent lint, test, CodeQL scope, CodeQL analyzer,
@@ -194,8 +196,7 @@ Do not require a standalone `CodeQL` context. MacroMapper's reusable
 CodeQL workflow emits `CodeQL / Detect CodeQL Scope` and the three analyzer
 contexts. Scope-empty pull requests skip the analyzers and do not emit a
 standalone parent check, so requiring that context would leave a permanent
-pending check. This is an intentional compatibility difference from Notoli's
-current ruleset. Validate the actual check names from the first CI run before
+pending check. Validate the actual check names from the first CI run before
 saving the ruleset; GitHub status checks are matched by exact name.
 
 The required AI reviewer contexts are:

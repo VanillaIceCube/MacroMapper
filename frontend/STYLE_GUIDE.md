@@ -3,7 +3,7 @@
 - Use Material UI components and responsive `sx` values before adding custom
   layout primitives.
 - Keep colors in the CSS custom properties declared in `src/App.css`.
-- Preserve Notoli's theme tokens: dark `#1a1a1a` backgrounds, pale-yellow
+- Preserve MacroMapper's theme tokens: dark `#1a1a1a` backgrounds, pale-yellow
   `#f5e79e` surfaces, amber `#ffc107` accents, gray `#555555` controls and
   surface text, and white `#ffffff` text on dark backgrounds.
 - Use the MacroMapper secondary color for focused Material UI text
@@ -20,11 +20,10 @@
   forgot-password responses.
 
 ## Application shell
-- Keep `MacroMapper` as the placeholder app-header title until a
-  generated application replaces it.
-- Preserve the generic drawer, notification, profile, and logout entry points
-  when adding application routes.
-- Replace the placeholder Paper with application content instead of expanding
-  the template into another sample domain.
+- Keep `MacroMapper` as the app-header title.
+- Preserve the drawer, notification, profile, and logout entry points when
+  adding product routes.
+- Keep the Home page specific to MacroMapper and clearly distinguish active
+  capabilities from roadmap features.
 - Add future product routes behind `AuthenticatedRoute` unless they are
   intentionally public.

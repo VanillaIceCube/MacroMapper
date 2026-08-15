@@ -231,7 +231,7 @@ class ResendApiEmailBackendTests(APITestCase):
         )
         self.assertEqual(
             request_arg.get_header("User-agent"),
-            "MacroMapper/1.0 (+https://app.example.com)",
+            "MacroMapper/1.0 (+https://macromapper.judeandrewalaba.com)",
         )
         payload = json.loads(request_arg.data.decode("utf-8"))
         self.assertEqual(payload["from"], "macromapper@example.com")

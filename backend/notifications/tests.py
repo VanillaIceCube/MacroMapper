@@ -23,8 +23,8 @@ class NotificationApiTests(APITestCase):
             recipient=self.recipient,
             actor=self.other_user,
             event_type=Notification.EVENT_SYSTEM,
-            title="Template ready",
-            message="Your application shell is ready.",
+            title="Welcome to MacroMapper",
+            message="Your private workspace is ready.",
             target_path="/",
         )
         self.other_notification = Notification.objects.create(

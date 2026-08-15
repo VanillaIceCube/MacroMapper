@@ -41,8 +41,8 @@ describe('AppHeader', () => {
     markNotificationRead.mockResolvedValue(
       response({
         id: 1,
-        title: 'Template ready',
-        message: 'Your shell is ready.',
+        title: 'Welcome to MacroMapper',
+        message: 'Your private workspace is ready.',
         is_read: true,
         target_path: '/',
       }),
@@ -82,27 +82,27 @@ describe('AppHeader', () => {
 
   test('shows profile details and logs out', async () => {
     const user = userEvent.setup();
-    sessionStorage.setItem('username', 'template-user');
-    sessionStorage.setItem('email', 'template@example.com');
+    sessionStorage.setItem('username', 'macro-mapper-user');
+    sessionStorage.setItem('email', 'macro-mapper-user@example.com');
     renderWithProviders(<AppHeader title="MacroMapper" setDrawerOpen={setDrawerOpen} />);
 
     await user.click(screen.getByLabelText('user profile'));
-    expect(screen.getByText('template-user')).toBeInTheDocument();
-    expect(screen.getByText('template@example.com')).toBeInTheDocument();
+    expect(screen.getByText('macro-mapper-user')).toBeInTheDocument();
+    expect(screen.getByText('macro-mapper-user@example.com')).toBeInTheDocument();
     await user.click(screen.getByText('Logout'));
 
     expect(logout).toHaveBeenCalled();
   });
 
-  test('renders generic notifications without workspace context', async () => {
+  test('renders MacroMapper notifications', async () => {
     const user = userEvent.setup();
     sessionStorage.setItem('accessToken', 'access');
     fetchNotifications.mockResolvedValue(
       response([
         {
           id: 1,
-          title: 'Template ready',
-          message: 'Your shell is ready.',
+          title: 'Welcome to MacroMapper',
+          message: 'Your private workspace is ready.',
           is_read: false,
           target_path: '/',
         },
@@ -113,8 +113,8 @@ describe('AppHeader', () => {
     await waitFor(() => expect(fetchNotifications).toHaveBeenCalled());
     await user.click(screen.getByLabelText('notifications'));
 
-    expect(screen.getByText('Template ready')).toBeInTheDocument();
-    expect(screen.getByText('Your shell is ready.')).toBeInTheDocument();
+    expect(screen.getByText('Welcome to MacroMapper')).toBeInTheDocument();
+    expect(screen.getByText('Your private workspace is ready.')).toBeInTheDocument();
     await user.click(screen.getByText('Mark all read'));
     expect(markAllNotificationsRead).toHaveBeenCalledWith('access');
   });

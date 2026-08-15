@@ -6,7 +6,7 @@ reporting. It does not provide medical, clinical, or prescriptive dietary
 advice.
 
 The current Django REST Framework implementation supplies JWT authentication,
-a custom email-first user model, password-reset email delivery, and a generic
+a custom email-first user model, password-reset email delivery, and a
 recipient-scoped notification API. The nutrition domain is planned work; see
 the [product vision](../docs/PRODUCT_VISION.md).
 
@@ -14,7 +14,7 @@ the [product vision](../docs/PRODUCT_VISION.md).
 - `app/`: Django settings, URL routing, ASGI, and WSGI
 - `authentication/`: custom user, registration, login, refresh, password reset,
   and email delivery
-- `notifications/`: generic persisted notifications for the authenticated app
+- `notifications/`: persisted notifications for the authenticated app
   header
 - `environment.yml`: Conda environment definition
 - `requirements.txt`: pip dependencies used locally, in CI, and in Docker
@@ -51,9 +51,9 @@ always scoped to the authenticated recipient.
 - `PATCH /api/notifications/mark-all-read/`
 - `DELETE /api/notifications/clear-all/`
 
-Notifications retain a generic event type, title, message, optional actor, and
-optional frontend `target_path`. Future application apps can create them
-without depending on a template-owned domain model.
+Notifications retain an event type, title, message, optional actor, and
+optional frontend `target_path`. MacroMapper's nutrition and activity apps can
+create them without coupling notification delivery to a specific domain model.
 
 ## 💻 Local Setup
 From the repository root:
@@ -100,7 +100,7 @@ use the included Resend HTTPS backend:
 DJANGO_EMAIL_BACKEND=authentication.email_backends.ResendApiEmailBackend
 DJANGO_EMAIL_HOST_KEY=<resend-api-key>
 DJANGO_EMAIL_TIMEOUT=10
-DJANGO_DEFAULT_FROM_EMAIL=macromapper.no-reply@example.com
+DJANGO_DEFAULT_FROM_EMAIL=MacroMapper <no-reply@macromapper.localhost>
 ```
 
 SMTP-compatible backends can instead use the documented `DJANGO_EMAIL_HOST`,

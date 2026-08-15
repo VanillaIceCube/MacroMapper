@@ -203,4 +203,7 @@ EMAIL_USE_TLS = os.getenv("DJANGO_EMAIL_USE_TLS", "1") == "1"
 EMAIL_HOST_USER = os.getenv("DJANGO_EMAIL_HOST_USER") or "resend"
 EMAIL_HOST_PASSWORD = os.getenv("DJANGO_EMAIL_HOST_KEY", "")
 EMAIL_TIMEOUT = int(os.getenv("DJANGO_EMAIL_TIMEOUT") or "10")
-DEFAULT_FROM_EMAIL = os.getenv("DJANGO_DEFAULT_FROM_EMAIL") or "macromapper@example.com"
+DEFAULT_FROM_EMAIL = (
+    os.getenv("DJANGO_DEFAULT_FROM_EMAIL")
+    or "MacroMapper <no-reply@macromapper.localhost>"
+)

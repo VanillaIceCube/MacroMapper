@@ -3,6 +3,9 @@ All notable changes to this project are documented in this file.
 
 ## 2026-08-14
 ### Added
+- Added an intentional MacroMapper dashboard that explains the product's
+  privacy, review, and tracking principles while clearly identifying the
+  account capabilities available today.
 - Added Vite and Vitest frontend tooling with explicit development, test,
   production-build, and Docker configuration.
 ### Fixed
@@ -10,6 +13,15 @@ All notable changes to this project are documented in this file.
   path-scoped language omissions as security coverage gaps when the authoritative
   scope and aggregate gates succeed and a default-branch baseline exists.
 ### Changed
+- Made MacroMapper the sole application identity across runtime configuration,
+  deployment guidance, user-agent metadata, navigation, test fixtures, and
+  repository documentation.
+- Standardized production routing on
+  `https://macromapper.judeandrewalaba.com` and deployment on
+  `/opt/apps/macromapper` for the documented non-root deploy user.
+- Reshaped the root README to match Notoli's concise product-overview format
+  and routed setup, component, deployment, and automation details to their
+  dedicated documentation.
 - Adopted FullStackTemplate's explicit CodeQL scope outputs, default-branch
   baseline interpretation, regression coverage, and documented policy.
 - Rebranded the application, local routing, container and image names,
@@ -25,6 +37,8 @@ All notable changes to this project are documented in this file.
 - Kept generated dependency lockfile payloads out of AI reviewer prompts so
   large lockfile migrations do not crowd out source, build, and security review.
 ### Removed
+- Removed the reusable application initializer and the remaining starter,
+  generated-repository, Lorem Ipsum, and fake-profile placeholders.
 - Removed Create React App, its Jest runtime, the `react-router-dom`
   compatibility package, and the unused `web-vitals` dependency.
 

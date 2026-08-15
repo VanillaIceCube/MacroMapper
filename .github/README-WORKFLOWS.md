@@ -1,10 +1,11 @@
 # 🤖 MacroMapper GitHub Automation
-MacroMapper carries forward the proven CI/CD and security automation from
-Notoli, adapted to MacroMapper's repository, images, and product Project.
+MacroMapper's CI/CD and security automation validates the application,
+publishes its images, deploys production, reviews pull requests, and keeps
+security work synchronized with the MacroMapper Project.
 
 ## ⚙️ Repository Settings Baseline
-The live MacroMapper repository uses the Notoli baseline with intentional
-least-privilege differences: auto-merge is enabled; merge commits, squash
+The live MacroMapper repository uses least-privilege settings: auto-merge is
+enabled; merge commits, squash
 merges, and rebases are allowed; Actions allow all actions with a read-only
 default workflow permission; and GitHub Actions cannot create or approve pull
 requests by default. Fork pull requests require approval from first-time
@@ -14,8 +15,9 @@ Code security uses the repository's enabled Dependabot alerts/security updates,
 secret scanning, and push protection controls. CodeQL default setup remains
 unconfigured because the pinned CodeQL workflows in this repository provide the
 scanner. The `dependencies`, `codeql`, `vulnerability`, `malware`, and `codex`
-labels are used by the alert and operational automation. New repositories must
-recreate these settings, labels, and the `SECURITY_ALERTS_TOKEN` secret; see
+labels are used by the alert and operational automation. If repository settings
+are recovered or rebuilt, restore these settings, labels, and the
+`SECURITY_ALERTS_TOKEN` secret; see
 [`docs/GITHUB_SETUP.md`](../docs/GITHUB_SETUP.md).
 
 ## ✅ Pull-Request CI
@@ -61,11 +63,9 @@ gates succeeded. Scope-detection failures, aggregate failures, required
 analyzer failures, baseline-query failures, and genuinely absent baselines
 remain visible evidence gaps.
 
-Repositories generated before this policy was added must adopt the
-`.github/actions/collect-codeql-evidence` action and the corresponding changes
-to `gate-codeql.yml`, `ci-orchestrator.yml`, `review-security.yml`, and
-`gate-test.yml`. Newly generated repositories inherit the policy from the
-template automatically.
+The policy is implemented by `.github/actions/collect-codeql-evidence` and the
+corresponding `gate-codeql.yml`, `ci-orchestrator.yml`, `review-security.yml`,
+and `gate-test.yml` workflows.
 
 ## 🤖 AI Review Apps
 Three GitHub Apps provide separate review identities:
@@ -88,7 +88,7 @@ Required repository secrets:
 - `LINT_EASTWOOD_PRIVATE_KEY`
 - `ROBOCOP_PRIVATE_KEY`
 
-Install the Apps on the generated repository with the permissions in
+Install the Apps on the MacroMapper repository with the permissions in
 [`docs/GITHUB_SETUP.md`](../docs/GITHUB_SETUP.md). Store the same four review
 secrets in both the Actions and Dependabot secret stores. Dependabot workflows
 receive only Dependabot secrets, so this duplication lets their pull requests
@@ -100,7 +100,7 @@ The daily/manual `alert-codeql.yml`, `alert-vulnerability.yml`, and `alert-malwa
 
 Additional configuration:
 
-- Repository variable `SECURITY_ALERTS_PROJECT_ID` set to the generated
+- Repository variable `SECURITY_ALERTS_PROJECT_ID` set to the MacroMapper
   Project v2 node ID
 - Repository secret `SECURITY_ALERTS_TOKEN` with personal Project v2 access
 - RoboCop installed with `Issues: write`, `Code scanning alerts: read`, and `Dependabot alerts: read`
@@ -152,8 +152,8 @@ See `deploy/README.md` for server and Cloudflare details.
 ## 📦 Dependabot
 `.github/dependabot.yml` checks npm, pip, GitHub Actions, and Docker dependencies daily. Patch and minor Dependabot updates can auto-merge only after the lint, test, CodeQL, vulnerability, and malware gates succeed.
 
-The main-branch ruleset mirrors Notoli and includes the orchestrator-level
-`Auto Merge` context among its required checks. CI emits that top-level context
+The main-branch ruleset includes the orchestrator-level `Auto Merge` context
+among its required checks. CI emits that top-level context
 for every pull request: it reports not-applicable for ordinary contributors and
 records the independent-gate result for Dependabot. A separate Dependabot-only
 job enables auto-merge for eligible updates, so its nested reusable-workflow
@@ -182,12 +182,11 @@ for trusted same-repository pull requests, including Dependabot once its four
 review secrets are configured. The ruleset blocks force pushes and branch
 deletion and has no bypass actors. The standalone `CodeQL` context is
 intentionally not required because the scope-aware workflow does not emit that
-parent check for scope-empty pull requests. This is an intentional compatibility
-difference from Notoli; validate exact check names after the first CI run when
-creating the ruleset.
+parent check for scope-empty pull requests. Validate exact check names after
+the first CI run when creating or recovering the ruleset.
 
 ## 🧰 Local Automation Checks
 ```powershell
-node --test .github/actions/collect-upstream-major-upgrade-evidence/collect-upstream-major-upgrade-evidence.test.js .github/actions/publish-ai-review/publish-ai-review.test.js .github/actions/security-alerts/sync-security-alerts.test.js
+node --test .github/actions/collect-upstream-major-upgrade-evidence/collect-upstream-major-upgrade-evidence.test.js .github/actions/collect-codeql-evidence/collect-codeql-evidence.test.js .github/actions/publish-ai-review/publish-ai-review.test.js .github/actions/security-alerts/sync-security-alerts.test.js
 docker run --rm -v "${PWD}:/repo" --workdir /repo rhysd/actionlint:latest -color
 ```

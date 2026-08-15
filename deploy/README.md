@@ -26,21 +26,22 @@ CLOUDFLARE_ORIGIN_KEY_PEM
 - The Cloudflare values are the complete Origin CA certificate and private-key
   PEM blocks, including their BEGIN/END lines.
 
-Add these Actions variables, replacing the examples:
+Add these Actions variables, replacing only the infrastructure-specific host
+and SSH values:
 
 ```text
 DEPLOY_HOST=203.0.113.10
 DEPLOY_USER=deploy
-DEPLOY_PATH=/opt/apps/example-application
+DEPLOY_PATH=/opt/apps/macromapper
 DEPLOY_PORT=22
 
 DJANGO_DEBUG=0
 DJANGO_SQLITE_PATH=/backend/db.sqlite3
-DJANGO_ALLOWED_HOSTS=example-application.example.com
-DJANGO_CORS_ALLOWED_ORIGINS=https://example-application.example.com
-DJANGO_CSRF_TRUSTED_ORIGINS=https://example-application.example.com
+DJANGO_ALLOWED_HOSTS=macromapper.judeandrewalaba.com
+DJANGO_CORS_ALLOWED_ORIGINS=https://macromapper.judeandrewalaba.com
+DJANGO_CSRF_TRUSTED_ORIGINS=https://macromapper.judeandrewalaba.com
 DJANGO_FORCE_SCRIPT_NAME=
-DJANGO_FRONTEND_BASE_URL=https://example-application.example.com
+DJANGO_FRONTEND_BASE_URL=https://macromapper.judeandrewalaba.com
 
 DJANGO_EMAIL_BACKEND=authentication.email_backends.ResendApiEmailBackend
 DJANGO_EMAIL_HOST=smtp.resend.com
@@ -48,7 +49,7 @@ DJANGO_EMAIL_PORT=587
 DJANGO_EMAIL_USE_TLS=1
 DJANGO_EMAIL_HOST_USER=resend
 DJANGO_EMAIL_TIMEOUT=10
-DJANGO_DEFAULT_FROM_EMAIL=Example Application <no-reply@updates.example.com>
+DJANGO_DEFAULT_FROM_EMAIL=MacroMapper <no-reply@updates.judeandrewalaba.com>
 
 VITE_API_BASE_URL=
 ```
@@ -77,9 +78,9 @@ backend; retaining them makes that change straightforward.
 6. Create the application directory:
 
    ```bash
-   sudo mkdir -p /opt/apps/example-application/certs
-   sudo chown -R deploy:deploy /opt/apps/example-application
-   touch /opt/apps/example-application/db.sqlite3
+   sudo mkdir -p /opt/apps/macromapper/certs
+   sudo chown -R deploy:deploy /opt/apps/macromapper
+   touch /opt/apps/macromapper/db.sqlite3
    ```
 
 7. If GHCR packages are private, authenticate the Droplet once with a classic
@@ -96,22 +97,21 @@ a non-root sudo user, cloud firewalls, monitoring, and backups:
 [production-ready Droplet setup](https://docs.digitalocean.com/products/droplets/getting-started/recommended-droplet-setup/).
 
 ## Cloudflare subdomain and TLS
-Assume the app slug is `example-application` and the base domain is
-`example.com`.
+MacroMapper is served from `macromapper.judeandrewalaba.com`.
 
-1. Add or onboard `example.com` in Cloudflare.
+1. Add or verify `judeandrewalaba.com` in Cloudflare.
 2. Add a proxied `A` record:
 
    ```text
    Type: A
-   Name: example-application
+   Name: macromapper
    Content: DIGITALOCEAN_DROPLET_IP
    Proxy status: Proxied
    TTL: Auto
    ```
 
 3. Under **SSL/TLS → Origin Server**, create an Origin CA certificate covering
-   `example-application.example.com` (or an intentionally chosen wildcard).
+   `macromapper.judeandrewalaba.com` (or an intentionally chosen wildcard).
 4. Store its certificate and private key as
    `CLOUDFLARE_ORIGIN_CERT_PEM` and `CLOUDFLARE_ORIGIN_KEY_PEM`.
 5. Set Cloudflare SSL/TLS encryption mode to **Full (strict)**.
@@ -130,7 +130,7 @@ and the dashboard flow for
 The included `ResendApiEmailBackend` sends Django email through Resend’s HTTPS
 API and needs no extra Python package.
 
-1. Add a sending subdomain such as `updates.example.com` in Resend.
+1. Add the `updates.judeandrewalaba.com` sending subdomain in Resend.
 2. Copy every generated SPF, DKIM, and MX record into Cloudflare DNS exactly as
    shown. Email-verification records should be DNS-only unless Resend explicitly
    says otherwise.
@@ -161,17 +161,17 @@ git push -u origin env-prod
 Alternatively, dispatch **Deploy** from GitHub Actions. After it succeeds:
 
 ```bash
-cd /opt/apps/example-application
+cd /opt/apps/macromapper
 docker compose ps
 docker compose logs --tail=100 proxy backend frontend
-curl -I https://example-application.example.com
+curl -I https://macromapper.judeandrewalaba.com
 ```
 
 Keep `env-prod` protected and update it only from reviewed `main`.
 
-## Local Docker with `[application].localhost`
-The template itself uses `macromapper.localhost`. A generated repository
-uses the slug passed to `initialize-template.ps1`.
+## Local Docker with `macromapper.localhost`
+MacroMapper uses the reserved `.localhost` domain for predictable local
+subdomain routing without a hosts-file entry.
 
 For fast source iteration, use the development Compose file instead of the
 production-shaped stack:
@@ -223,6 +223,6 @@ Nginx routes:
 - Django static files to the backend.
 
 SQLite persists at `deploy/db.sqlite3` locally and in the deployment directory
-on the server. Back up that file before destructive server maintenance. For
-larger applications, replace SQLite with a managed database before scaling to
-multiple backend replicas.
+on the server. Back up that file before destructive server maintenance. Replace
+SQLite with a managed database before scaling MacroMapper to multiple backend
+replicas.
