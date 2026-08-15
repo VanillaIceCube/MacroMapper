@@ -13,8 +13,8 @@ All notable changes to this project are documented in this file.
   production-build, and Docker configuration.
 ### Fixed
 - Prevented Django admin users from mutating historical Food Item definitions,
-  their related nutrient/source/component rows, or the managed current-version
-  pointer.
+  nutrient definitions, related nutrient/source/component rows, the managed
+  current-version pointer, or an existing Food Item's privacy classification.
 - Corrected the GitHub setup cross-reference and separated the local console
   email sender from the verified-domain Resend production example.
 - Prevented RoboCop from treating neutral CodeQL summaries for intentionally

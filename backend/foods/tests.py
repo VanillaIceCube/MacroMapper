@@ -15,6 +15,7 @@ from .admin import (
     FoodItemVersionAdmin,
     NutrientAmountAdmin,
     NutrientAmountInline,
+    NutrientDefinitionAdmin,
     SourceReferenceAdmin,
     SourceReferenceInline,
 )
@@ -192,10 +193,26 @@ class FoodAdminTests(TestCase):
         self.site = AdminSite()
         self.request = RequestFactory().get("/admin/")
 
-    def test_food_current_version_is_not_editable_in_admin(self):
+    def test_food_privacy_fields_cannot_change_after_creation_in_admin(self):
         food_admin = FoodItemAdmin(FoodItem, self.site)
+        existing_food = FoodItem(
+            name="Private food",
+            scope=FoodItem.Scope.PERSONAL,
+            owner_id=1,
+        )
 
-        self.assertIn("current_version", food_admin.get_readonly_fields(self.request))
+        add_readonly_fields = food_admin.get_readonly_fields(self.request)
+        change_readonly_fields = food_admin.get_readonly_fields(
+            self.request,
+            existing_food,
+        )
+
+        self.assertIn("current_version", add_readonly_fields)
+        self.assertNotIn("scope", add_readonly_fields)
+        self.assertNotIn("owner", add_readonly_fields)
+        self.assertIn("current_version", change_readonly_fields)
+        self.assertIn("scope", change_readonly_fields)
+        self.assertIn("owner", change_readonly_fields)
         self.assertNotIn(
             "current_version", food_admin.get_autocomplete_fields(self.request)
         )
@@ -203,6 +220,7 @@ class FoodAdminTests(TestCase):
     def test_version_and_related_records_are_immutable_in_admin(self):
         admin_classes = (
             (FoodItemVersionAdmin, FoodItemVersion),
+            (NutrientDefinitionAdmin, NutrientDefinition),
             (FoodComponentAdmin, FoodComponent),
             (NutrientAmountAdmin, NutrientAmount),
             (SourceReferenceAdmin, SourceReference),

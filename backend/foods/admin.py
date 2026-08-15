@@ -83,7 +83,12 @@ class FoodItemAdmin(admin.ModelAdmin):
     list_filter = ("scope", "origin_type", "archived_at")
     search_fields = ("name", "provider_name", "owner__email")
     autocomplete_fields = ("owner",)
-    readonly_fields = ("current_version",)
+
+    def get_readonly_fields(self, request, obj=None):
+        fields = ["current_version"]
+        if obj is not None:
+            fields.extend(("scope", "owner"))
+        return fields
 
 
 @admin.register(FoodItemVersion)
@@ -112,11 +117,12 @@ class FoodItemVersionAdmin(ImmutableAdminMixin, admin.ModelAdmin):
 
 
 @admin.register(NutrientDefinition)
-class NutrientDefinitionAdmin(admin.ModelAdmin):
+class NutrientDefinitionAdmin(ImmutableAdminMixin, admin.ModelAdmin):
     list_display = ("name", "key", "unit", "is_core", "display_order")
     list_filter = ("unit", "is_core")
     search_fields = ("name", "key")
     ordering = ("display_order", "name")
+    readonly_fields = ("key", "name", "unit", "is_core", "display_order")
 
 
 @admin.register(FoodComponent)
