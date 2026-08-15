@@ -9,13 +9,12 @@ All notable changes to this project are documented in this file.
 - Added an intentional MacroMapper dashboard that explains the product's
   privacy, review, and tracking principles while clearly identifying the
   account capabilities available today.
+- Added Vite and Vitest frontend tooling with explicit development, test,
+  production-build, and Docker configuration.
 ### Fixed
 - Prevented Django admin users from mutating historical Food Item definitions,
   their related nutrient/source/component rows, or the managed current-version
   pointer.
-- Added Vite and Vitest frontend tooling with explicit development, test,
-  production-build, and Docker configuration.
-### Fixed
 - Corrected the GitHub setup cross-reference and separated the local console
   email sender from the verified-domain Resend production example.
 - Prevented RoboCop from treating neutral CodeQL summaries for intentionally
