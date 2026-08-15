@@ -150,7 +150,7 @@ Credential-handling GitHub Actions are pinned the same way. When a complete
 pull-request diff exceeds an AI reviewer's configured budget, that reviewer's
 GitHub App posts an explicit incomplete-review comment under its own identity
 and then fails the check without publishing a verdict.
-All three reviewers inherit the same 512 KiB diff budget from
+All three reviewers inherit the same 2 MiB diff budget from
 `.github/actions/get-pr-diff/action.yml`; reviewer workflows do not override it.
 OpenAI review requests also cap combined reasoning and visible output at 16,000
 tokens so they do not reserve the model's full output allowance against project
