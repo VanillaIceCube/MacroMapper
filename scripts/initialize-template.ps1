@@ -27,9 +27,9 @@ if ([string]::IsNullOrWhiteSpace($compactName)) {
 
 $upperSlug = ($ApplicationSlug -replace '-', '_').ToUpperInvariant()
 $replacementPairs = @(
-    [pscustomobject]@{ Old = 'FullStackTemplate'; New = $compactName },
-    [pscustomobject]@{ Old = 'fullstacktemplate'; New = $ApplicationSlug },
-    [pscustomobject]@{ Old = 'FULLSTACKTEMPLATE'; New = $upperSlug },
+    [pscustomobject]@{ Old = 'MacroMapper'; New = $compactName },
+    [pscustomobject]@{ Old = 'macromapper'; New = $ApplicationSlug },
+    [pscustomobject]@{ Old = 'MACROMAPPER'; New = $upperSlug },
     [pscustomobject]@{ Old = 'app.example.com'; New = $ProductionHost },
     [pscustomobject]@{ Old = 'vanillaicecube'; New = $GitHubOwner.ToLowerInvariant() }
 )
@@ -70,11 +70,11 @@ foreach ($file in $files) {
 
 $renames = @(
     @{
-        Source = Join-Path $repoRoot 'frontend/public/fullstacktemplate-mark.svg'
+        Source = Join-Path $repoRoot 'frontend/public/macromapper-mark.svg'
         Target = Join-Path $repoRoot "frontend/public/$ApplicationSlug-mark.svg"
     },
     @{
-        Source = Join-Path $repoRoot 'frontend/src/__tests__/fullStackTemplateThemeStyles.test.js'
+        Source = Join-Path $repoRoot 'frontend/src/__tests__/macroMapperThemeStyles.test.js'
         Target = Join-Path $repoRoot "frontend/src/__tests__/${compactName}ThemeStyles.test.js"
     }
 )

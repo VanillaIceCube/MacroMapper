@@ -48,7 +48,7 @@ export default function AppNavigationDrawer({ open, setOpen }) {
       >
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ p: 2 }}>
           <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'var(--secondary-color)' }}>
-            Full Stack Template
+            MacroMapper
           </Typography>
           <IconButton
             aria-label="close navigation"

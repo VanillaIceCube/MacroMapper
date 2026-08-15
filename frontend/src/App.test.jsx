@@ -17,7 +17,7 @@ describe('App', () => {
     sessionStorage.setItem('accessToken', 'token');
     render(<App />);
 
-    expect(await screen.findByText('Full Stack Template')).toBeInTheDocument();
+    expect(await screen.findByText('MacroMapper')).toBeInTheDocument();
     expect(screen.getByText(/Lorem ipsum dolor sit amet/)).toBeInTheDocument();
     expect(screen.getByLabelText('notifications')).toBeInTheDocument();
     expect(screen.getByLabelText('user profile')).toBeInTheDocument();

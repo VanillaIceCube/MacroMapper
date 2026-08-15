@@ -2,7 +2,7 @@
 Complete this setup before opening the first pull request so every required workflow can run.
 
 ## 0. Match the repository settings
-FullStackTemplate starts from the live Notoli repository baseline. Apply this
+MacroMapper starts from the live Notoli repository baseline. Apply this
 configuration to a new repository before opening its first pull request. The
 template intentionally keeps a read-only Actions default and omits the
 standalone `CodeQL` required check; see the rationale below.
@@ -190,7 +190,7 @@ Notoli-inspired ruleset for `main`:
 - block force pushes and branch deletion;
 - configure no bypass actors.
 
-Do not require a standalone `CodeQL` context. FullStackTemplate's reusable
+Do not require a standalone `CodeQL` context. MacroMapper's reusable
 CodeQL workflow emits `CodeQL / Detect CodeQL Scope` and the three analyzer
 contexts. Scope-empty pull requests skip the analyzers and do not emit a
 standalone parent check, so requiring that context would leave a permanent

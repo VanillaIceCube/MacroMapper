@@ -7,7 +7,7 @@ describe('AppNavigationDrawer', () => {
   test('renders generic navigation without workspace controls', () => {
     renderWithProviders(<AppNavigationDrawer open setOpen={jest.fn()} />);
 
-    expect(screen.getByText('Full Stack Template')).toBeInTheDocument();
+    expect(screen.getByText('MacroMapper')).toBeInTheDocument();
     expect(screen.getByText('Home')).toBeInTheDocument();
     expect(screen.getByText('Add application navigation here.')).toBeInTheDocument();
     expect(screen.queryByText(/Workspace/)).not.toBeInTheDocument();

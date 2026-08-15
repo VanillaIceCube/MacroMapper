@@ -255,7 +255,7 @@ function addedLinesByFile(files) {
 
 function unavailableReviewMarker(personaName, headSha) {
   const persona = personaName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-  return `<!-- fullstacktemplate-ai-review-unavailable:${persona}:${headSha} -->`;
+  return `<!-- macromapper-ai-review-unavailable:${persona}:${headSha} -->`;
 }
 
 async function publishUnavailableReview({

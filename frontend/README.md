@@ -1,4 +1,4 @@
-# FullStackTemplate frontend
+# MacroMapper frontend
 The frontend is a Create React App-powered React 19 single-page application
 built with Material UI and React Router. Its intentionally small authenticated
 shell is ready for an application-specific feature set and retains Notoli's
@@ -20,7 +20,7 @@ Signed-out users who request a protected route are redirected to `/login`.
 - API requests that receive a `401` attempt one refresh-token exchange.
 - An invalid refresh token clears the session and redirects to login.
 - Login and registration navigate directly to the protected home page.
-- The app header title is `Full Stack Template`.
+- The app header title is `MacroMapper`.
 - The header retains the generic navigation drawer, recipient-scoped
   notifications, profile display, and logout action.
 - The drawer contains one Home destination and placeholder copy for future
@@ -41,7 +41,7 @@ npm start
 ```
 
 Open the development frontend at
-`http://fullstacktemplate.localhost:3000`. The development API default is
+`http://macromapper.localhost:3000`. The development API default is
 `http://localhost:8000`. Override it with:
 
 ```env
@@ -65,9 +65,9 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml up --buil
 The development image uses `Dockerfile.dev`, mounts `frontend/`, and keeps
 `node_modules` in a Docker volume. React watches the mounted source and reloads
 without rebuilding the production image. Open
-`http://fullstacktemplate.localhost:3000`; the development API runs at
-`http://fullstacktemplate.localhost:8000`. Both ports are localhost-only by
-default and can be changed with the `FULLSTACKTEMPLATE_DEV_*_PORT` variables
+`http://macromapper.localhost:3000`; the development API runs at
+`http://macromapper.localhost:8000`. Both ports are localhost-only by
+default and can be changed with the `MACROMAPPER_DEV_*_PORT` variables
 in `deploy/.env`.
 
 ## Checks

@@ -157,7 +157,7 @@ class PasswordResetTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         mock_send_mail.assert_called_once()
         args = mock_send_mail.call_args.args
-        self.assertEqual(args[0], "Reset your FullStackTemplate password")
+        self.assertEqual(args[0], "Reset your MacroMapper password")
         self.assertIn("/reset-password?uid=", args[1])
         self.assertIn("token=", args[1])
 
@@ -203,7 +203,7 @@ class ResendApiEmailBackendTests(APITestCase):
         EMAIL_BACKEND="authentication.email_backends.ResendApiEmailBackend",
         EMAIL_HOST_PASSWORD="resend-api-key",
         EMAIL_TIMEOUT=7,
-        DEFAULT_FROM_EMAIL="fullstacktemplate@example.com",
+        DEFAULT_FROM_EMAIL="macromapper@example.com",
     )
     @patch("authentication.email_backends.request.urlopen")
     def test_send_messages_posts_to_resend_api(self, mock_urlopen):
@@ -215,7 +215,7 @@ class ResendApiEmailBackendTests(APITestCase):
         sent_count = get_connection().send_messages(
             [
                 EmailMessage(
-                    "Reset your FullStackTemplate password",
+                    "Reset your MacroMapper password",
                     "Use this link.",
                     None,
                     ["mapper@example.com"],
@@ -231,10 +231,10 @@ class ResendApiEmailBackendTests(APITestCase):
         )
         self.assertEqual(
             request_arg.get_header("User-agent"),
-            "FullStackTemplate/1.0 (+https://app.example.com)",
+            "MacroMapper/1.0 (+https://app.example.com)",
         )
         payload = json.loads(request_arg.data.decode("utf-8"))
-        self.assertEqual(payload["from"], "fullstacktemplate@example.com")
+        self.assertEqual(payload["from"], "macromapper@example.com")
         self.assertEqual(payload["to"], ["mapper@example.com"])
 
     @override_settings(
@@ -248,7 +248,7 @@ class ResendApiEmailBackendTests(APITestCase):
                     EmailMessage(
                         "Subject",
                         "Body",
-                        "fullstacktemplate@example.com",
+                        "macromapper@example.com",
                         ["mapper@example.com"],
                     )
                 ]

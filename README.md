@@ -1,4 +1,4 @@
-# FullStackTemplate
+# MacroMapper
 An authentication-first React, Material UI, Django REST Framework, Docker,
 notification, CI/CD, and deployment foundation. It keeps the proven stack and
 automation patterns from Notoli without carrying an opinionated application
@@ -73,7 +73,7 @@ DigitalOcean, Cloudflare, and Resend values listed in
 application pull request.
 
 ## Create an application from this template
-After creating a repository from FullStackTemplate, clone it and run:
+After creating a repository from MacroMapper, clone it and run:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/initialize-template.ps1 `
@@ -127,15 +127,15 @@ Copy-Item deploy/backend.env deploy/.env
 New-Item -ItemType File -Path deploy/db.sqlite3 -Force
 ./deploy/create-local-certificate.ps1
 
-docker build -t ghcr.io/vanillaicecube/fullstacktemplate-backend:latest ./backend
-docker build -t ghcr.io/vanillaicecube/fullstacktemplate-frontend:latest ./frontend
+docker build -t ghcr.io/vanillaicecube/macromapper-backend:latest ./backend
+docker build -t ghcr.io/vanillaicecube/macromapper-frontend:latest ./frontend
 
 Set-Location deploy
 docker compose up -d
 docker compose exec -T backend python manage.py migrate
 ```
 
-Open `https://fullstacktemplate.localhost`, register, and log in. The protected
+Open `https://macromapper.localhost`, register, and log in. The protected
 home page contains the reusable application header and a minimal placeholder
 Paper.
 
@@ -154,10 +154,10 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml up --buil
 docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml exec -T backend python manage.py migrate
 ```
 
-Open `http://fullstacktemplate.localhost:3000`. The frontend calls Django at
-`http://fullstacktemplate.localhost:8000`. Both ports bind to localhost only.
-To override them, set `FULLSTACKTEMPLATE_DEV_FRONTEND_PORT` or
-`FULLSTACKTEMPLATE_DEV_BACKEND_PORT` in `deploy/.env`. Stop this workflow with:
+Open `http://macromapper.localhost:3000`. The frontend calls Django at
+`http://macromapper.localhost:8000`. Both ports bind to localhost only.
+To override them, set `MACROMAPPER_DEV_FRONTEND_PORT` or
+`MACROMAPPER_DEV_BACKEND_PORT` in `deploy/.env`. Stop this workflow with:
 
 ```powershell
 docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml down
@@ -187,7 +187,7 @@ npm ci
 npm start
 ```
 
-Open `http://fullstacktemplate.localhost:3000`.
+Open `http://macromapper.localhost:3000`.
 
 ## Validate changes
 ```powershell
@@ -234,7 +234,7 @@ direct; it is not an extra merge gate.
 - [Changelog](CHANGELOG.md)
 
 ## License
-FullStackTemplate uses the
+MacroMapper uses the
 [Modified MIT License (Non-Commercial Use Only)](LICENSE.md). It permits use,
 copying, modification, and distribution for non-commercial purposes; commercial
 use requires separate permission from the copyright holder.

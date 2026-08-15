@@ -22,7 +22,7 @@ export default function Register({ showSnackbar }) {
       const response = await register({ email, username, password });
       const data = await readOkJson(response, 'Registration failed.');
       persistAuthSession(data);
-      showSnackbar('success', 'Account created! Welcome to FullStackTemplate!');
+      showSnackbar('success', 'Account created! Welcome to MacroMapper!');
       navigate('/');
     } catch (error) {
       const isNetworkError =

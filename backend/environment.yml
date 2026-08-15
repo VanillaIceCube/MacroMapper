@@ -1,4 +1,4 @@
-name: fullstacktemplate_env
+name: macromapper_env
 channels:
   - conda-forge
   - defaults

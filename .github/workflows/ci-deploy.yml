@@ -69,8 +69,8 @@ jobs:
         run: |
           {
             echo "owner_lower=${GITHUB_REPOSITORY_OWNER,,}"
-            echo "backend_image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/fullstacktemplate-backend"
-            echo "frontend_image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/fullstacktemplate-frontend"
+            echo "backend_image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/macromapper-backend"
+            echo "frontend_image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/macromapper-frontend"
           } >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
@@ -238,7 +238,7 @@ jobs:
             DJANGO_EMAIL_HOST_KEY=$DJANGO_EMAIL_HOST_KEY
             DJANGO_EMAIL_TIMEOUT=$DJANGO_EMAIL_TIMEOUT
             DJANGO_DEFAULT_FROM_EMAIL=$DJANGO_DEFAULT_FROM_EMAIL
-            FULLSTACKTEMPLATE_CERTS_DIR=./certs
+            MACROMAPPER_CERTS_DIR=./certs
             EOF
             docker system prune -af
             docker compose pull

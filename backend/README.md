@@ -1,4 +1,4 @@
-# FullStackTemplate backend
+# MacroMapper backend
 The backend is a Django REST Framework application with JWT authentication, a
 custom user model whose email address is unique, password-reset email delivery,
 and a generic recipient-scoped notification API.
@@ -61,14 +61,14 @@ Optional `backend/.env` values are loaded automatically:
 ```env
 DJANGO_SECRET_KEY=local-only-key
 DJANGO_DEBUG=1
-DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,fullstacktemplate.localhost
-DJANGO_CORS_ALLOWED_ORIGINS=http://fullstacktemplate.localhost:3000
-DJANGO_CSRF_TRUSTED_ORIGINS=http://fullstacktemplate.localhost:3000
-DJANGO_FRONTEND_BASE_URL=http://fullstacktemplate.localhost:3000
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,macromapper.localhost
+DJANGO_CORS_ALLOWED_ORIGINS=http://macromapper.localhost:3000
+DJANGO_CSRF_TRUSTED_ORIGINS=http://macromapper.localhost:3000
+DJANGO_FRONTEND_BASE_URL=http://macromapper.localhost:3000
 ```
 
 The default database is `backend/db.sqlite3`. Override it with
-`DJANGO_SQLITE_PATH`. The `fullstacktemplate.localhost` host is accepted by
+`DJANGO_SQLITE_PATH`. The `macromapper.localhost` host is accepted by
 default.
 
 ## Docker hot reload
@@ -80,7 +80,7 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml up --buil
 docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml exec -T backend python manage.py migrate
 ```
 
-The development backend listens on `http://fullstacktemplate.localhost:8000`.
+The development backend listens on `http://macromapper.localhost:8000`.
 Use the production Dockerfile and Compose file when testing Gunicorn, Nginx,
 HTTPS, or deployment-shaped behavior.
 
@@ -92,7 +92,7 @@ use the included Resend HTTPS backend:
 DJANGO_EMAIL_BACKEND=authentication.email_backends.ResendApiEmailBackend
 DJANGO_EMAIL_HOST_KEY=<resend-api-key>
 DJANGO_EMAIL_TIMEOUT=10
-DJANGO_DEFAULT_FROM_EMAIL=fullstacktemplate.no-reply@example.com
+DJANGO_DEFAULT_FROM_EMAIL=macromapper.no-reply@example.com
 ```
 
 SMTP-compatible backends can instead use the documented `DJANGO_EMAIL_HOST`,

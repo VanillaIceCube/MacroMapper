@@ -3,9 +3,9 @@
 const crypto = require("node:crypto");
 
 const MANAGED_MARKER_PATTERN =
-  /<!--\s*fullstacktemplate-security-alert:([a-z0-9-]+):([a-f0-9]{20})\s*-->/;
+  /<!--\s*macromapper-security-alert:([a-z0-9-]+):([a-f0-9]{20})\s*-->/;
 const SOURCE_REF_PATTERN = /^\s*-\s+\[([a-z][a-z0-9-]*:\d+)\]\([^)]+\)/gm;
-const LIFECYCLE_MARKER = "<!-- fullstacktemplate-security-alert-lifecycle -->";
+const LIFECYCLE_MARKER = "<!-- macromapper-security-alert-lifecycle -->";
 
 function normalizeAlertRefs(refs) {
   return [
@@ -27,7 +27,7 @@ function markerFor(feed, refs) {
     .update(`${feed}:${alertRefKey(refs)}`)
     .digest("hex")
     .slice(0, 20);
-  return `<!-- fullstacktemplate-security-alert:${feed}:${signature} -->`;
+  return `<!-- macromapper-security-alert:${feed}:${signature} -->`;
 }
 
 function managedFeedFromBody(body) {

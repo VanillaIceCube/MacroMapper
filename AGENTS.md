@@ -1,5 +1,5 @@
 # AGENTS.md
-FullStackTemplate uses manual setup steps; do not assume Django or Node dependencies are installed.
+MacroMapper uses manual setup steps; do not assume Django or Node dependencies are installed.
 
 When setup, routing, environment variables, deployment, or CI/CD changes, update the relevant documentation:
 
@@ -80,8 +80,8 @@ Production is designed for `https://app.example.com` behind Cloudflare and an or
 - Django admin: `/admin/`
 - Notification and future application APIs: `/api/`
 - GitHub deployment branch: `env-prod`
-- GHCR images: `fullstacktemplate-backend` and `fullstacktemplate-frontend`
-- Suggested deployment path: `/root/apps/fullstacktemplate`
+- GHCR images: `macromapper-backend` and `macromapper-frontend`
+- Suggested deployment path: `/root/apps/macromapper`
 
 Review `deploy/nginx-proxy.conf`, the deploy workflow, Cloudflare settings, and all allowlist/base-URL variables whenever domains or routes change.
 
