@@ -1,4 +1,4 @@
-# Field Atlas design direction
+# 🧭 Field Atlas design direction
 
 Field Atlas is MacroMapper's recommended product identity. It turns the idea of
 "mapping a meal" into a quiet interface language: users describe food, inspect
@@ -9,7 +9,7 @@ The system should feel editorial and grounded rather than clinical, athletic,
 or gamified. Cartographic details provide orientation and provenance; they are
 not decoration applied to every card.
 
-## Brand character
+## 🌿 Brand character
 
 - **Clear:** show how totals were built and what can be changed.
 - **Grounded:** favor warm paper surfaces, ink lines, and factual language.
@@ -18,7 +18,7 @@ not decoration applied to every card.
 - **Personal:** a saved meal is the user's accepted version, not a canonical
   correction to the shared catalog.
 
-## Core palette
+## 🎨 Core palette
 
 | Role | Token | Value | Typical use |
 | --- | --- | --- | --- |
@@ -31,7 +31,7 @@ not decoration applied to every card.
 Use tints of the five core colors before adding new hues. Status must never be
 communicated by color alone: pair it with a label and an icon.
 
-## Typography
+## ✍️ Typography
 
 - Use a confident editorial serif for page titles, meal names, dates, and key
   totals. The mockups use a Canela-like voice; `Newsreader` or `Source Serif 4`
@@ -40,7 +40,7 @@ communicated by color alone: pair it with a label and an icon.
 - Use tabular numerals for nutrients, quantities, dates, and charts.
 - Keep sentence case throughout. Avoid all-caps except tiny provenance stamps.
 
-## Shape and surface
+## 🧱 Shape and surface
 
 - Use 1 px midnight-ink borders at low opacity to define structure.
 - Prefer 10–14 px corner radii. Primary controls may be slightly softer; data
@@ -49,7 +49,7 @@ communicated by color alone: pair it with a label and an icon.
   warm/cool surface shifts.
 - Keep 44 px minimum interactive targets and generous vertical rhythm.
 
-## Cartographic language
+## 🗺️ Cartographic language
 
 - **Compass:** orientation, active steps, and primary mapping actions.
 - **Route line:** progress from description to reviewed meal to saved diary.
@@ -59,7 +59,7 @@ communicated by color alone: pair it with a label and an icon.
 - **Contour lines:** background texture only, at very low contrast. Do not place
   them behind tables, form fields, or charts.
 
-## Data and state language
+## 📊 Data and state language
 
 - Protein uses forest, carbohydrates use mineral blue, and fat uses persimmon
   across diary, food detail, goals, and trends.
@@ -70,7 +70,7 @@ communicated by color alone: pair it with a label and an icon.
 - Use wording such as `within target`, `above target`, and `below target` rather
   than success/failure language.
 
-## Responsive shell
+## 📱 Responsive shell
 
 - Desktop uses a persistent 240–264 px left rail and a flexible content canvas.
 - Detail-heavy pages may open a right-side inspector without losing list context.
@@ -80,51 +80,51 @@ communicated by color alone: pair it with a label and an icon.
 - Primary actions remain near the bottom of mobile forms and are never hidden
   behind fixed navigation.
 
-## Page concepts
+## 🖼️ Page concepts
 
-### Today and estimate review
+### ☀️ Today and estimate review
 
 The original direction establishes the daily budget, meal sections, and the
 editable source-aware estimate review.
 
-![Today and estimate review](./field-atlas.png)
+![Today and estimate review](./field-atlas-pages/today-and-estimate-review.png)
 
-### Map a meal
+### 🧭 Map a meal
 
 Natural-language logging is framed as a three-step route: Describe, Review
 components, Save to diary. Recent meals provide fast repeat logging.
 
 ![Map a meal](./field-atlas-pages/map-a-meal.png)
 
-### Food catalog
+### 🍎 Food catalog
 
 The catalog keeps provenance beside every result and uses a persistent detail
 inspector for composite foods.
 
 ![Food catalog](./field-atlas-pages/food-catalog.png)
 
-### Trends
+### 📈 Trends
 
 Charts use restrained semantic colors and factual annotations. Insight cards
 describe patterns without praise, blame, or medical interpretation.
 
 ![Trends](./field-atlas-pages/trends.png)
 
-### Goals
+### 🎯 Goals
 
 Targets stay directly editable. The budget equation explains exactly how
 counted activity changes the day without presenting the calculation as advice.
 
 ![Goals](./field-atlas-pages/goals.png)
 
-### Activity
+### 🏃 Activity
 
 Activity entries separate recording an event from deciding whether its estimated
 calories count toward the food budget.
 
 ![Activity](./field-atlas-pages/activity.png)
 
-## Signature product language
+## 💬 Signature product language
 
 - `Map this meal` — begin estimate creation from the diary.
 - `Build estimate` — submit a natural-language meal description.
