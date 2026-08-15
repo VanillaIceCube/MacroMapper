@@ -1,8 +1,11 @@
-const path = require('path');
+import { createRequire } from 'node:module';
 
-test('eslint config uses the Create React App presets', () => {
-  const configPath = path.resolve(__dirname, '../../.eslintrc.js');
-  const eslintConfig = require(configPath);
+const require = createRequire(import.meta.url);
+
+test('eslint config keeps React rules and recognizes Vitest globals', () => {
+  const eslintConfig = require('../../.eslintrc.js');
 
   expect(eslintConfig.extends).toEqual(['react-app', 'react-app/jest']);
+  expect(eslintConfig.globals.vi).toBe('readonly');
+  expect(eslintConfig.ignorePatterns).toContain('dist/**');
 });

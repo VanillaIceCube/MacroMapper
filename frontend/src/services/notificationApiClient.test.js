@@ -7,13 +7,13 @@ import {
   markNotificationRead,
 } from './notificationApiClient';
 
-jest.mock('./requestClient', () => ({
-  apiFetch: jest.fn(),
+vi.mock('./requestClient', () => ({
+  apiFetch: vi.fn(),
 }));
 
 describe('notificationApiClient', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   test('lists notifications with authentication', () => {

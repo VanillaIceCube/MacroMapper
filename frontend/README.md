@@ -1,6 +1,6 @@
 # MacroMapper frontend
-The frontend is a Create React App-powered React 19 single-page application
-built with Material UI and React Router. Its intentionally small authenticated
+The frontend is a Vite-powered React 19 single-page application built with
+Material UI and React Router 7. Its intentionally small authenticated
 shell is ready for an application-specific feature set and retains Notoli's
 yellow-and-gray visual theme.
 
@@ -32,8 +32,8 @@ refresh and unauthorized-response behavior live in
 `src/services/requestClient.js`.
 
 ## Local setup
-The checked-in frontend dependencies require Node.js 25, matching
-`package.json`, CI, and the production Docker image.
+The checked-in frontend dependencies require Node.js 24.15 or newer. CI reads
+that range from `package.json`, and the production Docker image uses Node.js 26.
 
 ```powershell
 npm ci
@@ -45,15 +45,15 @@ Open the development frontend at
 `http://localhost:8000`. Override it with:
 
 ```env
-REACT_APP_API_BASE_URL=http://localhost:8000
+VITE_API_BASE_URL=http://localhost:8000
 ```
 
-Production builds should normally leave `REACT_APP_API_BASE_URL` blank so
+Production builds should normally leave `VITE_API_BASE_URL` blank so
 `/auth/...` and `/api/...` requests use the current origin.
 
-The production frontend image uses `nginx.conf` to serve the CRA `build`
-directory and forward `/auth/`, `/api/`, and `/admin/` to the Compose backend
-service.
+Vite exposes client-side variables only when they use the `VITE_` prefix. The
+production frontend image uses `nginx.conf` to serve Vite's `dist` directory
+and forward `/auth/`, `/api/`, and `/admin/` to the Compose backend service.
 
 ## Docker hot reload
 From the repository root, run:
@@ -63,7 +63,7 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml up --buil
 ```
 
 The development image uses `Dockerfile.dev`, mounts `frontend/`, and keeps
-`node_modules` in a Docker volume. React watches the mounted source and reloads
+`node_modules` in a Docker volume. Vite watches the mounted source and reloads
 without rebuilding the production image. Open
 `http://macromapper.localhost:3000`; the development API runs at
 `http://macromapper.localhost:8000`. Both ports are localhost-only by
@@ -72,7 +72,8 @@ in `deploy/.env`.
 
 ## Checks
 ```powershell
-npm test -- --runInBand
+npm test
+npm run test:watch
 npm run lint:strict
 npm run format:check
 npm run build

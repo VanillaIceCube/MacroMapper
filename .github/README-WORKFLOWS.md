@@ -24,7 +24,7 @@ recreate these settings, labels, and the `SECURITY_ALERTS_TOKEN` secret; see
 
 - Frontend Prettier and ESLint checks
 - Backend Ruff checks and formatting
-- React/Jest tests
+- React/Vitest tests and the Vite production build
 - Django tests
 - Node tests for repository automation
 - CodeQL for Python, JavaScript/TypeScript, and GitHub Actions
@@ -139,7 +139,7 @@ Repository variables:
 - `DJANGO_ALLOWED_HOSTS`, `DJANGO_CORS_ALLOWED_ORIGINS`, `DJANGO_CSRF_TRUSTED_ORIGINS`
 - optional `DJANGO_FORCE_SCRIPT_NAME`
 - `DJANGO_FRONTEND_BASE_URL`, `DJANGO_EMAIL_BACKEND`, `DJANGO_EMAIL_TIMEOUT`, `DJANGO_DEFAULT_FROM_EMAIL`
-- optional `REACT_APP_API_BASE_URL`
+- optional `VITE_API_BASE_URL`
 
 Repository secrets:
 
@@ -166,8 +166,11 @@ Credential-handling GitHub Actions are pinned the same way. When a complete
 pull-request diff exceeds an AI reviewer's configured budget, that reviewer's
 GitHub App posts an explicit incomplete-review comment under its own identity
 and then fails the check without publishing a verdict.
-All three reviewers inherit the same 512 KiB diff budget from
+All three reviewers inherit the same 512 KiB source-diff budget from
 `.github/actions/get-pr-diff/action.yml`; reviewer workflows do not override it.
+Raw generated dependency lockfile payloads are omitted from AI prompts because
+the dependency and malware gates review those files directly. Reviewers still
+receive the manifests, changed-file metadata, check results, and scanner evidence.
 OpenAI review requests also cap combined reasoning and visible output at 16,000
 tokens so they do not reserve the model's full output allowance against project
 rate limits.

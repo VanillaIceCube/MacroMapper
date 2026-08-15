@@ -2,9 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 describe('MacroMapper theme styles', () => {
-  const appCss = fs.readFileSync(path.join(__dirname, '../App.css'), 'utf8');
-  const readSource = (relativePath) =>
-    fs.readFileSync(path.join(__dirname, '..', relativePath), 'utf8');
+  const sourceRoot = path.resolve(process.cwd(), 'src');
+  const appCss = fs.readFileSync(path.join(sourceRoot, 'App.css'), 'utf8');
+  const readSource = (relativePath) => fs.readFileSync(path.join(sourceRoot, relativePath), 'utf8');
 
   test('keeps the exact Notoli yellow and gray theme tokens', () => {
     expect(appCss).toContain('--background-color: #1a1a1a');

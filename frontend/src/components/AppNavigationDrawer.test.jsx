@@ -5,7 +5,7 @@ import { renderWithProviders } from '../test-support/utils';
 
 describe('AppNavigationDrawer', () => {
   test('renders generic navigation without workspace controls', () => {
-    renderWithProviders(<AppNavigationDrawer open setOpen={jest.fn()} />);
+    renderWithProviders(<AppNavigationDrawer open setOpen={vi.fn()} />);
 
     expect(screen.getByText('MacroMapper')).toBeInTheDocument();
     expect(screen.getByText('Home')).toBeInTheDocument();
@@ -15,7 +15,7 @@ describe('AppNavigationDrawer', () => {
 
   test('closes from the close control', async () => {
     const user = userEvent.setup();
-    const setOpen = jest.fn();
+    const setOpen = vi.fn();
     renderWithProviders(<AppNavigationDrawer open setOpen={setOpen} />);
 
     await user.click(screen.getByLabelText('close navigation'));

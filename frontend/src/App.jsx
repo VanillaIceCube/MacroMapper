@@ -1,6 +1,6 @@
 import './App.css';
 import { useState } from 'react';
-import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router';
 import AppHeader from './components/AppHeader';
 import AppNavigationDrawer from './components/AppNavigationDrawer';
 import AppSnackbar from './components/AppSnackbar';
@@ -26,10 +26,7 @@ export default function App() {
 
   return (
     <>
-      <Router
-        basename={process.env.PUBLIC_URL || '/'}
-        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
-      >
+      <Router>
         <NavigationBridge />
         <AppHeader title="MacroMapper" setDrawerOpen={setDrawerOpen} />
         <AppNavigationDrawer open={drawerOpen} setOpen={setDrawerOpen} />
