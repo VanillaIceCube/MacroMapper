@@ -1,6 +1,6 @@
 Modified MIT License (Non-Commercial Use Only)
 
-Copyright (c) 2025 Jude Andrew Alaba
+Copyright (c) 2025-2026 Jude Andrew Alaba
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the “Software”), to deal
