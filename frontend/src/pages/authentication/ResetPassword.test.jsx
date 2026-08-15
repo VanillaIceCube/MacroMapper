@@ -4,13 +4,13 @@ import { resetPassword } from '../../services/authApiClient';
 import { renderWithProviders } from '../../test-support/utils';
 import ResetPassword from './ResetPassword';
 
-jest.mock('../../services/authApiClient', () => ({
-  resetPassword: jest.fn(),
+vi.mock('../../services/authApiClient', () => ({
+  resetPassword: vi.fn(),
 }));
 
 describe('ResetPassword', () => {
   test('submits a valid reset link and matching passwords', async () => {
-    const showSnackbar = jest.fn();
+    const showSnackbar = vi.fn();
     resetPassword.mockResolvedValue({
       ok: true,
       json: async () => ({ message: 'Password reset successful.' }),
@@ -33,7 +33,7 @@ describe('ResetPassword', () => {
   });
 
   test('rejects a reset page without link credentials', async () => {
-    const showSnackbar = jest.fn();
+    const showSnackbar = vi.fn();
     renderWithProviders(<ResetPassword showSnackbar={showSnackbar} />, {
       routeEntries: ['/reset-password'],
     });

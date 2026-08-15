@@ -7,7 +7,7 @@ function makeResponse({ ok, status = 200, json }) {
 describe('authSession', () => {
   beforeEach(() => {
     sessionStorage.clear();
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('getResponseErrorMessage', () => {

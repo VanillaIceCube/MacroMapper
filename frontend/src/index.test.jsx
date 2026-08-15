@@ -1,6 +1,13 @@
-import ReactDOM from 'react-dom/client';
+const { createRootMock, renderMock } = vi.hoisted(() => ({
+  createRootMock: vi.fn(),
+  renderMock: vi.fn(),
+}));
 
-jest.mock('./App', () => ({
+vi.mock('react-dom/client', () => ({
+  createRoot: createRootMock,
+}));
+
+vi.mock('./App', () => ({
   default: () => <div>AppRoot</div>,
 }));
 
@@ -8,12 +15,11 @@ describe('index', () => {
   test('when the app boots, it mounts App into the root element', async () => {
     document.body.innerHTML = '<div id="root"></div>';
 
-    const render = jest.fn();
-    ReactDOM.createRoot = jest.fn(() => ({ render }));
+    createRootMock.mockReturnValue({ render: renderMock });
 
     await import('./index');
 
-    expect(ReactDOM.createRoot).toHaveBeenCalledWith(document.getElementById('root'));
-    expect(render).toHaveBeenCalled();
+    expect(createRootMock).toHaveBeenCalledWith(document.getElementById('root'));
+    expect(renderMock).toHaveBeenCalled();
   });
 });

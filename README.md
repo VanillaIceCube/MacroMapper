@@ -118,7 +118,7 @@ Review the initializer diff, replace the starter SVG mark, then complete the
 GitHub settings above before opening the first PR.
 
 ## 🚀 Current Implementation
-- React 19, Create React App, Material UI, and a responsive application shell
+- React 19, Vite, Vitest, Material UI, and a responsive application shell
 - Django REST Framework, custom user model, and versioned migrations
 - Email-first registration and JWT login/refresh
 - Forgot-password and tokenized reset email delivery through Resend
@@ -189,8 +189,8 @@ Use the production Compose workflow above when testing the HTTPS proxy and
 deployment-shaped containers.
 
 ## 💻 Run Without Docker
-Requirements: Python 3.12 and Node.js 25. Docker remains the simplest option
-when those exact versions are not already installed.
+Requirements: Python 3.12 and Node.js 24.15 or newer. Docker remains the simplest option
+when suitable local runtimes are not already installed.
 
 Backend:
 

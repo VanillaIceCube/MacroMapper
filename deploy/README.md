@@ -50,10 +50,10 @@ DJANGO_EMAIL_HOST_USER=resend
 DJANGO_EMAIL_TIMEOUT=10
 DJANGO_DEFAULT_FROM_EMAIL=Example Application <no-reply@updates.example.com>
 
-REACT_APP_API_BASE_URL=
+VITE_API_BASE_URL=
 ```
 
-Keep `REACT_APP_API_BASE_URL` blank for same-origin requests. The email host,
+Keep `VITE_API_BASE_URL` blank for same-origin requests. The email host,
 port, TLS, and username values are only used if you switch to Django’s SMTP
 backend; retaining them makes that change straightforward.
 

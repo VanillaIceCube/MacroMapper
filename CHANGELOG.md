@@ -2,6 +2,9 @@
 All notable changes to this project are documented in this file.
 
 ## 2026-08-14
+### Added
+- Added Vite and Vitest frontend tooling with explicit development, test,
+  production-build, and Docker configuration.
 ### Fixed
 - Prevented RoboCop from treating neutral CodeQL summaries for intentionally
   path-scoped language omissions as security coverage gaps when the authoritative
@@ -9,15 +12,21 @@ All notable changes to this project are documented in this file.
 ### Changed
 - Adopted FullStackTemplate's explicit CodeQL scope outputs, default-branch
   baseline interpretation, regression coverage, and documented policy.
-
-## 2026-08-14
-### Changed
 - Rebranded the application, local routing, container and image names,
   environment variables, CI automation, tests, and documentation from the
   starter terminology to MacroMapper.
 - Defined MacroMapper as a personal nutrition and activity tracker, documented
   the initial product roadmap, and aligned application-facing descriptions and
   documentation heading style with that direction.
+- Migrated the frontend to React Router 7's `react-router` package and changed
+  the client API configuration contract to `VITE_API_BASE_URL`.
+- Raised the supported frontend runtime to Node.js 24.15 or newer and kept the
+  production image on Node.js 26.
+- Kept generated dependency lockfile payloads out of AI reviewer prompts so
+  large lockfile migrations do not crowd out source, build, and security review.
+### Removed
+- Removed Create React App, its Jest runtime, the `react-router-dom`
+  compatibility package, and the unused `web-vitals` dependency.
 
 ## 2026-08-12
 ### Added
