@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     "corsheaders",
     # My apps
     "authentication",
+    "foods",
     "notifications",
 ]
 

@@ -11,8 +11,9 @@ transparent Food Item catalog that can break meals into reusable components.
 MacroMapper tracks nutrition and activity information without providing
 medical, clinical, or prescriptive dietary advice.
 
-The authentication and application foundation is implemented. Nutrition,
-activity, and GPT-estimation features are planned in the
+The authentication, application, and Food Item catalog foundations are
+implemented. Meal diary, activity, goal, and GPT-estimation features are
+planned in the
 [product roadmap](docs/PRODUCT_VISION.md).
 
 ## ✨ Features
@@ -20,9 +21,9 @@ activity, and GPT-estimation features are planned in the
   reset, protected routes, and recipient-scoped notifications
 - **Meal logging (planned):** manual entries and editable, source-aware GPT
   proposals that require review before saving
-- **Reusable Food Items (planned):** standalone foods and composite meals with
-  editable ingredients, portions, nutrients, provenance, and confidence
-- **Catalog separation (planned):** official, community-estimate, and personal
+- **Reusable Food Items:** authenticated catalog APIs for standalone and
+  composite foods with portions, nutrients, provenance, sources, and confidence
+- **Catalog separation:** official, community-estimate, and private personal
   records remain distinguishable
 - **Goals and trends (planned):** nutrition targets, activity-adjusted budgets,
   and factual daily, weekly, and monthly reporting

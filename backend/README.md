@@ -7,22 +7,26 @@ advice.
 
 The current Django REST Framework implementation supplies JWT authentication,
 a custom email-first user model, password-reset email delivery, and a
-recipient-scoped notification API. The nutrition domain is planned work; see
-the [product vision](../docs/PRODUCT_VISION.md).
+recipient-scoped notification API. It also supplies a source-aware Food Item
+catalog with versioned definitions, components, nutrients, and private personal
+foods. See the [product vision](../docs/PRODUCT_VISION.md) for the remaining
+roadmap.
 
 ## 🧭 Structure
 - `app/`: Django settings, URL routing, ASGI, and WSGI
 - `authentication/`: custom user, registration, login, refresh, password reset,
   and email delivery
+- `foods/`: reusable Food Items, immutable versions, components, nutrient
+  definitions and amounts, source references, and authenticated catalog APIs
 - `notifications/`: persisted notifications for the authenticated app
   header
 - `environment.yml`: Conda environment definition
 - `requirements.txt`: pip dependencies used locally, in CI, and in Docker
 - `ruff.toml`: backend lint and formatting configuration
 
-Nutrition-specific models and APIs have not been implemented yet. Add them as
-new Django apps beside `authentication` and `notifications`, following the
-domain boundaries in the product vision.
+Meal diary, goals, activity, and GPT-estimation domains remain separate planned
+apps. The `foods` app provides their shared catalog foundation without taking
+ownership of those later workflows.
 
 ## 🔐 Authentication API
 - `POST /auth/register/`
@@ -39,6 +43,60 @@ domain boundaries in the product vision.
   - Always returns a generic success response for valid email-shaped input
 - `POST /auth/reset-password/`
   - Body: `uid`, `token`, `password`
+
+## Food Catalog API
+All food and nutrient endpoints require a JWT access token.
+
+- `GET /api/foods/`
+  - Returns active shared foods plus personal foods owned by the current user.
+  - Accepts `?search=` for case-insensitive name and provider lookup.
+- `GET /api/foods/{id}/`
+  - Returns the current serving, provenance, confidence, nutrients, sources,
+    and exact component-version references.
+- `POST /api/foods/`
+  - Creates a private personal Food Item and its first definition.
+- `PATCH /api/foods/{id}/`
+  - Updates owned identity fields and creates a new immutable definition when
+    `definition` is supplied.
+- `DELETE /api/foods/{id}/`
+  - Archives an owned personal food without erasing its definitions.
+- `GET /api/nutrients/`
+- `GET /api/nutrients/{key}/`
+
+Shared foods are read-only through the user API. Other users' personal foods
+resolve as not found. Composite definitions store quantities as a decimal count
+of each child's serving and pin the exact child version, so later catalog edits
+do not rewrite a composite.
+
+Nutrient amounts use canonical units and apply to the definition's declared
+serving. The initial migration seeds calories (`kcal`); protein,
+carbohydrates, fat, fiber, and sugar (`g`); and sodium and cholesterol (`mg`).
+A missing nutrient row means unavailable, while an explicit zero means a known
+zero. Additional micronutrients use the same normalized models without schema
+changes.
+
+Create and update requests supply a nested `definition` object:
+
+```json
+{
+  "name": "Example toast",
+  "origin_type": "branded",
+  "provider_name": "Example Bakery",
+  "definition": {
+    "serving_quantity": "1",
+    "serving_unit": "item",
+    "serving_label": "one slice",
+    "provenance": "user_entered",
+    "confidence_score": null,
+    "nutrients": [
+      {"nutrient": "calories", "amount": "80"},
+      {"nutrient": "fiber", "amount": "0"}
+    ],
+    "sources": [],
+    "components": []
+  }
+}
+```
 
 ## 🔔 Notification API
 All `/api/` endpoints require a JWT access token. Notification querysets are

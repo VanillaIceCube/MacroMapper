@@ -3,6 +3,9 @@ All notable changes to this project are documented in this file.
 
 ## 2026-08-14
 ### Added
+- Added Django-native Food Item catalog models and authenticated APIs for
+  versioned nutrient definitions, composite foods, source references, shared
+  catalog lookup, and private personal-food management.
 - Added an intentional MacroMapper dashboard that explains the product's
   privacy, review, and tracking principles while clearly identifying the
   account capabilities available today.
