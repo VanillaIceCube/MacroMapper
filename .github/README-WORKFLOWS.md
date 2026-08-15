@@ -52,6 +52,22 @@ existing lint, test, CodeQL, vulnerability, malware, or reviewer gates.
 
 Path detection prevents unrelated application suites from running. A detector failure is treated as a CI failure instead of silently skipping checks.
 
+RoboCop consumes the CodeQL scope detector's explicit language outputs and
+normalizes them against successful analyzer checks and CodeQL analyses on the
+default branch. A neutral GitHub summary saying that a default-branch language
+configuration was omitted from a pull-request analysis is informational when
+that language was intentionally out of scope and its default-branch baseline
+exists. It does not block RoboCop approval when the scope and aggregate CodeQL
+gates succeeded. Scope-detection failures, aggregate failures, required
+analyzer failures, baseline-query failures, and genuinely absent baselines
+remain visible evidence gaps.
+
+Repositories generated before this policy was added must adopt the
+`.github/actions/collect-codeql-evidence` action and the corresponding changes
+to `gate-codeql.yml`, `ci-orchestrator.yml`, `review-security.yml`, and
+`gate-test.yml`. Newly generated repositories inherit the policy from the
+template automatically.
+
 ## AI review apps
 Three GitHub Apps provide separate review identities:
 

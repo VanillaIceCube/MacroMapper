@@ -205,6 +205,7 @@ python manage.py test
 
 Set-Location ..
 node --test .github/actions/collect-upstream-major-upgrade-evidence/collect-upstream-major-upgrade-evidence.test.js `
+  .github/actions/collect-codeql-evidence/collect-codeql-evidence.test.js `
   .github/actions/publish-ai-review/publish-ai-review.test.js `
   .github/actions/security-alerts/sync-security-alerts.test.js
 ```
@@ -213,6 +214,12 @@ CI runs the same application and automation checks, plus CodeQL, dependency,
 malware, AI review gates, and a stable `Auto Merge` status check. The latter
 reports every pull request while a separate Dependabot-only job enables
 auto-merge for eligible dependency updates.
+
+RoboCop treats a path-scoped CodeQL language skip as expected only when the
+scope detector and aggregate gate succeed and the omitted language has a
+default-branch baseline. Neutral GitHub summaries for those expected omissions
+are informational; failed scope detection, failed gates, and missing baselines
+remain review-blocking evidence gaps.
 
 Obi-Wan's review adds an advisory **Major upgrade brief** to Dependabot
 semver-major updates. It combines upstream release evidence, primary-source
