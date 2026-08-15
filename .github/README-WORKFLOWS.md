@@ -1,9 +1,8 @@
-# MacroMapper GitHub automation
+# 🤖 MacroMapper GitHub Automation
 MacroMapper carries forward the proven CI/CD and security automation from
-Notoli and MacroMapper, adapted to the template's repository, images, and
-generic GitHub Project.
+Notoli, adapted to MacroMapper's repository, images, and product Project.
 
-## Repository settings baseline
+## ⚙️ Repository Settings Baseline
 The live MacroMapper repository uses the Notoli baseline with intentional
 least-privilege differences: auto-merge is enabled; merge commits, squash
 merges, and rebases are allowed; Actions allow all actions with a read-only
@@ -19,7 +18,7 @@ labels are used by the alert and operational automation. New repositories must
 recreate these settings, labels, and the `SECURITY_ALERTS_TOKEN` secret; see
 [`docs/GITHUB_SETUP.md`](../docs/GITHUB_SETUP.md).
 
-## Pull-request CI
+## ✅ Pull-Request CI
 `.github/workflows/ci-orchestrator.yml` coordinates:
 
 - Frontend Prettier and ESLint checks
@@ -68,7 +67,7 @@ to `gate-codeql.yml`, `ci-orchestrator.yml`, `review-security.yml`, and
 `gate-test.yml`. Newly generated repositories inherit the policy from the
 template automatically.
 
-## AI review apps
+## 🤖 AI Review Apps
 Three GitHub Apps provide separate review identities:
 
 - Obi-Wan Code-nobi: code review
@@ -96,7 +95,7 @@ receive only Dependabot secrets, so this duplication lets their pull requests
 run the required reviewers. Fork pull requests never receive either store's
 secrets and cannot satisfy the required reviewer child checks.
 
-## Security-alert aggregation
+## 🛡️ Security-Alert Aggregation
 The daily/manual `alert-codeql.yml`, `alert-vulnerability.yml`, and `alert-malware.yml` workflows group open alerts into managed MacroMapper issues and synchronize them with the MacroMapper Project.
 
 Additional configuration:
@@ -125,7 +124,7 @@ and sets `SECURITY_ALERTS_PROJECT_ID`. GitHub excludes the repository-scoped
 target repository in the GitHub UI as described in
 [`docs/GITHUB_SETUP.md`](../docs/GITHUB_SETUP.md).
 
-## Deployment
+## 🚀 Deployment
 `.github/workflows/ci-deploy.yml` runs on `env-prod` pushes or manually. It:
 
 1. Builds and pushes `macromapper-backend` and `macromapper-frontend` to GHCR.
@@ -150,7 +149,7 @@ Repository secrets:
 
 See `deploy/README.md` for server and Cloudflare details.
 
-## Dependabot
+## 📦 Dependabot
 `.github/dependabot.yml` checks npm, pip, GitHub Actions, and Docker dependencies daily. Patch and minor Dependabot updates can auto-merge only after the lint, test, CodeQL, vulnerability, and malware gates succeed.
 
 The main-branch ruleset mirrors Notoli and includes the orchestrator-level
@@ -175,7 +174,7 @@ OpenAI review requests also cap combined reasoning and visible output at 16,000
 tokens so they do not reserve the model's full output allowance against project
 rate limits.
 
-## Main branch protection
+## 🔒 Main Branch Protection
 The active `main` ruleset requires pull requests, resolved review threads, the
 lint/test/CodeQL scope and analyzer/dependency checks, the Automation Tests
 check, all three AI reviewer child checks, and `Auto Merge`. The reviewers run
@@ -187,7 +186,7 @@ parent check for scope-empty pull requests. This is an intentional compatibility
 difference from Notoli; validate exact check names after the first CI run when
 creating the ruleset.
 
-## Local automation checks
+## 🧰 Local Automation Checks
 ```powershell
 node --test .github/actions/collect-upstream-major-upgrade-evidence/collect-upstream-major-upgrade-evidence.test.js .github/actions/publish-ai-review/publish-ai-review.test.js .github/actions/security-alerts/sync-security-alerts.test.js
 docker run --rm -v "${PWD}:/repo" --workdir /repo rhysd/actionlint:latest -color

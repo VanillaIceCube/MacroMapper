@@ -1,10 +1,26 @@
-# MacroMapper
-An authentication-first React, Material UI, Django REST Framework, Docker,
-notification, CI/CD, and deployment foundation. It keeps the proven stack and
-automation patterns from Notoli without carrying an opinionated application
-domain.
+# 🥗 MacroMapper
+MacroMapper is a personal nutrition and activity tracker. Users will log meals
+manually or describe them in natural language, then review an editable,
+source-aware GPT estimate before it becomes part of their diary.
 
-## Before the first pull request
+It is inspired by the fast daily logging experience of MyFitnessPal, with a
+transparent Food Item catalog that can break a restaurant meal into editable
+components while allowing each component to be logged on its own. MacroMapper
+tracks calories, macros, nutrients, activity, goals, and trends without giving
+medical, clinical, or prescriptive dietary advice.
+
+Read the full [product vision and roadmap](docs/PRODUCT_VISION.md).
+
+## ✨ Product Direction
+
+- Individual accounts and private meal/activity histories.
+- Manual food logging plus GPT-assisted, editable text-to-meal proposals.
+- Reusable Food Items that may be standalone or composed from other Food Items.
+- A shared, source-aware catalog with official, community-estimate, and personal
+  records kept distinct.
+- Daily nutrition goals, activity-adjusted budgets, and factual trend reporting.
+
+## 🤖 GitHub Automation Setup
 Start here. The pull-request workflow deliberately exposes missing reviewer
 configuration, so add these GitHub repository settings before asking CI to run.
 
@@ -14,7 +30,7 @@ It covers merge methods, auto-merge, least-privilege Actions permissions, fork
 approvals,
 Dependabot, secret scanning, CodeQL, required labels, and the main-branch
 ruleset. Apply it before opening the first pull request; repository settings are
-not copied automatically when a repository is created from this template.
+not configured automatically; apply it before relying on the pull-request gates.
 
 ### Required CI and reviewer secrets
 Add these under both **Settings → Secrets and variables → Actions → Secrets**
@@ -72,8 +88,9 @@ DigitalOcean, Cloudflare, and Resend values listed in
 [deploy/README.md](deploy/README.md), but those do not block the first
 application pull request.
 
-## Create an application from this template
-After creating a repository from MacroMapper, clone it and run:
+## 🧰 Legacy Template Initializer
+MacroMapper began as a reusable application foundation. The initializer remains
+for historical maintenance but is not part of the MacroMapper product workflow:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/initialize-template.ps1 `
@@ -100,7 +117,7 @@ All browser traffic stays same-origin; Nginx routes `/auth`, `/api`, and
 Review the initializer diff, replace the starter SVG mark, then complete the
 GitHub settings above before opening the first PR.
 
-## What is included
+## 🚀 Current Implementation
 - React 19, Vite, Vitest, Material UI, and a responsive application shell
 - Django REST Framework, custom user model, and versioned migrations
 - Email-first registration and JWT login/refresh
@@ -119,7 +136,11 @@ GitHub settings above before opening the first PR.
   aggregation
 - Modified MIT License restricted to non-commercial use
 
-## Run locally in Docker
+Food, meal, activity, goal, and GPT-estimation features are planned work, not
+present application behavior. Their scoped issues live on the
+[MacroMapper Project](https://github.com/users/VanillaIceCube/projects/11).
+
+## 🐳 Run Locally In Docker
 Requirements: Docker Desktop and either `mkcert` or OpenSSL.
 
 ```powershell
@@ -142,7 +163,7 @@ Paper.
 `deploy/.env`, `deploy/db.sqlite3`, and certificate keys are ignored. Do not
 commit them.
 
-## Run Docker hot-reload development
+## Run Docker Hot-Reload Development
 Use the development Compose file when iterating on source code. It mounts the
 frontend and backend directories into development containers, so React and
 Django reload changes without rebuilding production images:
@@ -167,7 +188,7 @@ This development workflow does not need a local certificate or Nginx proxy.
 Use the production Compose workflow above when testing the HTTPS proxy and
 deployment-shaped containers.
 
-## Run without Docker
+## 💻 Run Without Docker
 Requirements: Python 3.12 and Node.js 24.15 or newer. Docker remains the simplest option
 when suitable local runtimes are not already installed.
 
@@ -189,7 +210,7 @@ npm start
 
 Open `http://macromapper.localhost:3000`.
 
-## Validate changes
+## ✅ Validate Changes
 ```powershell
 Set-Location frontend
 npm run format:check
@@ -231,7 +252,8 @@ matters, repository impact, recommendation, and sources. The verdict retains
 Obi-Wan's calm mentor voice while the structured brief stays technically
 direct; it is not an extra merge gate.
 
-## Documentation
+## 📚 Documentation
+- [Product vision and delivery roadmap](docs/PRODUCT_VISION.md)
 - [GitHub Apps, Project, reviewers, and branch rules](docs/GITHUB_SETUP.md)
 - [Cloudflare, DigitalOcean, Resend, Docker, and deployment](deploy/README.md)
 - [Backend API and email settings](backend/README.md)
@@ -240,7 +262,7 @@ direct; it is not an extra merge gate.
 - [Repository working conventions](AGENTS.md)
 - [Changelog](CHANGELOG.md)
 
-## License
+## 📜 License
 MacroMapper uses the
 [Modified MIT License (Non-Commercial Use Only)](LICENSE.md). It permits use,
 copying, modification, and distribution for non-commercial purposes; commercial

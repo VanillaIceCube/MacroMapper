@@ -1,7 +1,7 @@
 {
   "short_name": "MacroMapper",
   "name": "MacroMapper",
-  "description": "MacroMapper full-stack application.",
+  "description": "A personal nutrition and activity tracker with transparent GPT-assisted meal logging.",
   "icons": [
     {
       "src": "macromapper-mark.svg",

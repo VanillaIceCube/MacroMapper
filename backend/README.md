@@ -1,9 +1,16 @@
-# MacroMapper backend
-The backend is a Django REST Framework application with JWT authentication, a
-custom user model whose email address is unique, password-reset email delivery,
-and a generic recipient-scoped notification API.
+# 🛠️ MacroMapper Backend (Django)
+MacroMapper is a personal nutrition and activity tracker. Its backend will
+support individual meal/activity histories, reusable Food Items and composite
+ingredient breakdowns, source-aware GPT estimates, and factual nutrition
+reporting. It does not provide medical, clinical, or prescriptive dietary
+advice.
 
-## Structure
+The current Django REST Framework implementation supplies JWT authentication,
+a custom email-first user model, password-reset email delivery, and a generic
+recipient-scoped notification API. The nutrition domain is planned work; see
+the [product vision](../docs/PRODUCT_VISION.md).
+
+## 🧭 Structure
 - `app/`: Django settings, URL routing, ASGI, and WSGI
 - `authentication/`: custom user, registration, login, refresh, password reset,
   and email delivery
@@ -13,10 +20,11 @@ and a generic recipient-scoped notification API.
 - `requirements.txt`: pip dependencies used locally, in CI, and in Docker
 - `ruff.toml`: backend lint and formatting configuration
 
-Application-specific models and APIs intentionally do not ship with the
-template. Add new Django apps beside `authentication` and `notifications`.
+Nutrition-specific models and APIs have not been implemented yet. Add them as
+new Django apps beside `authentication` and `notifications`, following the
+domain boundaries in the product vision.
 
-## Authentication API
+## 🔐 Authentication API
 - `POST /auth/register/`
   - Body: `email`, `password`, and optional `username`
   - Returns: `access`, `refresh`, `username`, `email`, and a success message
@@ -32,7 +40,7 @@ template. Add new Django apps beside `authentication` and `notifications`.
 - `POST /auth/reset-password/`
   - Body: `uid`, `token`, `password`
 
-## Notification API
+## 🔔 Notification API
 All `/api/` endpoints require a JWT access token. Notification querysets are
 always scoped to the authenticated recipient.
 
@@ -47,7 +55,7 @@ Notifications retain a generic event type, title, message, optional actor, and
 optional frontend `target_path`. Future application apps can create them
 without depending on a template-owned domain model.
 
-## Local setup
+## 💻 Local Setup
 From the repository root:
 
 ```powershell
@@ -71,7 +79,7 @@ The default database is `backend/db.sqlite3`. Override it with
 `DJANGO_SQLITE_PATH`. The `macromapper.localhost` host is accepted by
 default.
 
-## Docker hot reload
+## Docker Hot Reload
 The development Compose workflow builds `backend/Dockerfile.dev`, mounts the
 backend source, and runs Django's autoreloading development server:
 
@@ -84,7 +92,7 @@ The development backend listens on `http://macromapper.localhost:8000`.
 Use the production Dockerfile and Compose file when testing Gunicorn, Nginx,
 HTTPS, or deployment-shaped behavior.
 
-## Email
+## ✉️ Email
 Local development defaults to Django's console email backend. Production can
 use the included Resend HTTPS backend:
 
@@ -99,7 +107,7 @@ SMTP-compatible backends can instead use the documented `DJANGO_EMAIL_HOST`,
 `DJANGO_EMAIL_PORT`, `DJANGO_EMAIL_USE_TLS`, and
 `DJANGO_EMAIL_HOST_USER` settings.
 
-## Checks
+## 🧰 Checks
 ```powershell
 python backend/manage.py test
 ruff check backend

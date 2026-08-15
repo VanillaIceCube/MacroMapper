@@ -15,6 +15,9 @@ All notable changes to this project are documented in this file.
 - Rebranded the application, local routing, container and image names,
   environment variables, CI automation, tests, and documentation from the
   starter terminology to MacroMapper.
+- Defined MacroMapper as a personal nutrition and activity tracker, documented
+  the initial product roadmap, and aligned application-facing descriptions and
+  documentation heading style with that direction.
 - Migrated the frontend to React Router 7's `react-router` package and changed
   the client API configuration contract to `VITE_API_BASE_URL`.
 - Raised the supported frontend runtime to Node.js 24.15 or newer and kept the
