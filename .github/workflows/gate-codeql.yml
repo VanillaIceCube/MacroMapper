@@ -2,6 +2,19 @@ name: CodeQL Gate
 
 on:
   workflow_call:
+    outputs:
+      scope_status:
+        description: Whether path-aware CodeQL scope detection succeeded.
+        value: ${{ jobs.changes.outputs.scope_status }}
+      scope_python:
+        description: Whether the pull request requires Python analysis.
+        value: ${{ jobs.changes.outputs.python }}
+      scope_javascript:
+        description: Whether the pull request requires JavaScript/TypeScript analysis.
+        value: ${{ jobs.changes.outputs.javascript }}
+      scope_actions:
+        description: Whether the pull request requires GitHub Actions analysis.
+        value: ${{ jobs.changes.outputs.actions }}
   push:
     branches:
       - main
@@ -33,6 +46,7 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
+      scope_status: ${{ steps.scope.outputs.scope_status }}
       python: ${{ steps.scope.outputs.python }}
       javascript: ${{ steps.scope.outputs.javascript }}
       actions: ${{ steps.scope.outputs.actions }}
@@ -80,6 +94,7 @@ jobs:
         id: scope
         run: |
           {
+            echo "scope_status=success"
             if [ "${{ github.event_name }}" = "pull_request" ]; then
               echo "python=${{ steps.filter.outputs.python }}"
               echo "javascript=${{ steps.filter.outputs.javascript }}"
