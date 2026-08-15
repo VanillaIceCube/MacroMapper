@@ -3,12 +3,18 @@ All notable changes to this project are documented in this file.
 
 ## 2026-08-14
 ### Added
+- Added Django-native Food Item catalog models and authenticated APIs for
+  versioned nutrient definitions, composite foods, source references, shared
+  catalog lookup, and private personal-food management.
 - Added an intentional MacroMapper dashboard that explains the product's
   privacy, review, and tracking principles while clearly identifying the
   account capabilities available today.
 - Added Vite and Vitest frontend tooling with explicit development, test,
   production-build, and Docker configuration.
 ### Fixed
+- Prevented Django admin users from mutating historical Food Item definitions,
+  nutrient definitions, related nutrient/source/component rows, the managed
+  current-version pointer, or an existing Food Item's privacy classification.
 - Corrected the GitHub setup cross-reference and separated the local console
   email sender from the verified-domain Resend production example.
 - Prevented RoboCop from treating neutral CodeQL summaries for intentionally
