@@ -14,7 +14,7 @@ export default function AuthPageShell({ children, title }) {
       }}
     >
       <Typography variant="h3" sx={{ mt: 2, fontWeight: 'bold', color: 'white' }}>
-        FullStackTemplate
+        MacroMapper
       </Typography>
       <Paper
         elevation={3}

@@ -1,5 +1,12 @@
 # Changelog
 All notable changes to this project are documented in this file.
+
+## 2026-08-14
+### Changed
+- Rebranded the application, local routing, container and image names,
+  environment variables, CI automation, tests, and documentation from the
+  starter terminology to MacroMapper.
+
 ## 2026-08-12
 ### Added
 - Added primary-source web search and bounded tracked-repository usage evidence
@@ -53,14 +60,14 @@ All notable changes to this project are documented in this file.
 - Restored the three AI reviewer child checks and `Auto Merge` as required
   main-branch gates, matching Notoli's review policy while retaining the
   template's compatible CodeQL check set.
-- Matched FullStackTemplate's live repository settings to Notoli while keeping
+- Matched MacroMapper's live repository settings to Notoli while keeping
   a read-only default Actions permission, disabling default pull-request
   approvals by Actions, and omitting the standalone `CodeQL` context that the
   scope-aware template workflow does not emit for scope-empty pull requests.
 - Added explicit least-privilege guidance for workflow permissions and documented
   the intentional ruleset difference from Notoli.
 - Added `Tests / Automation Tests (Node)` to the required main-branch checks in
-  FullStackTemplate and Notoli.
+  MacroMapper and Notoli.
 - Restored Notoli's yellow-and-gray theme across authentication, the
   application header, navigation drawer, profile and notification surfaces,
   and the protected placeholder page.
@@ -68,15 +75,15 @@ All notable changes to this project are documented in this file.
   item.
 ### Removed
 - Removed the shared multi-application local-ingress scripts and configuration;
-  FullStackTemplate now uses its own application proxy like Notoli.
+  MacroMapper now uses its own application proxy like Notoli.
 ## 2026-07-26
 ### Added
 - Added a shared local TLS ingress that routes Notoli, MacroMapper, and
-  FullStackTemplate by `.localhost` hostname while one container owns ports
+  MacroMapper by `.localhost` hostname while one container owns ports
   80 and 443.
-- Added first-class `fullstacktemplate.localhost` support for Django, Nginx, Docker, local password-reset links, and browser access.
+- Added first-class `macromapper.localhost` support for Django, Nginx, Docker, local password-reset links, and browser access.
 - Added a PowerShell helper that generates a local TLS certificate with `mkcert` or OpenSSL.
-- Added the FullStackTemplate React and Material UI application shell.
+- Added the MacroMapper React and Material UI application shell.
 - Added a protected Material UI component showcase covering common actions,
   forms, feedback, data display, loading, empty, and confirmation states.
 - Added Django REST Framework authentication with registration, email-first JWT login, refresh tokens, forgot-password, and password-reset support.
@@ -93,7 +100,7 @@ All notable changes to this project are documented in this file.
   security alert aggregation, branch rules, Cloudflare, DigitalOcean, GHCR,
   Resend, and production deployment.
 ### Fixed
-- Prevented port-free `fullstacktemplate.localhost` authentication requests
+- Prevented port-free `macromapper.localhost` authentication requests
   from falling through to Notoli's backend when all three local applications
   are running.
 - Made workspace, collection, and item creator metadata immutable so API
@@ -126,8 +133,8 @@ All notable changes to this project are documented in this file.
   bounded each review's output-token reservation.
 - Changed Project setup to link the copied Project to the target repository and
   set `SECURITY_ALERTS_PROJECT_ID` automatically.
-- Changed local setup documentation and environment templates to use `fullstacktemplate.localhost`.
-- Adapted application names, domains, image names, environment names, workflow prompts, and deployment paths from Notoli to FullStackTemplate.
+- Changed local setup documentation and environment templates to use `macromapper.localhost`.
+- Adapted application names, domains, image names, environment names, workflow prompts, and deployment paths from Notoli to MacroMapper.
 - Limited npm malware advisory queries to the changed package versions instead of downloading the full npm malware catalog.
 - Modernized the frontend build, test, and lint toolchain to Vite, Vitest, and Biome while retaining React, Material UI, and the existing authentication behavior.
 - Configured the frontend container to proxy authentication, API, and admin requests to Django for direct-container and same-origin operation.

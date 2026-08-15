@@ -25,11 +25,11 @@ load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = (
     os.environ.get("DJANGO_SECRET_KEY")
-    or "fullstacktemplate-local-development-key-change-before-production-2026"
+    or "macromapper-local-development-key-change-before-production-2026"
 )
 DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "fullstacktemplate.localhost"]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "macromapper.localhost"]
 
 extra_hosts = os.getenv("DJANGO_ALLOWED_HOSTS")
 if extra_hosts:
@@ -45,7 +45,7 @@ if FORCE_SCRIPT_NAME:
     FORCE_SCRIPT_NAME = FORCE_SCRIPT_NAME.rstrip("/")
 
 FRONTEND_BASE_URL = os.getenv(
-    "DJANGO_FRONTEND_BASE_URL", "http://fullstacktemplate.localhost:3000"
+    "DJANGO_FRONTEND_BASE_URL", "http://macromapper.localhost:3000"
 ).rstrip("/")
 
 
@@ -83,10 +83,10 @@ MIDDLEWARE = [
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "http://fullstacktemplate.localhost:3000",
-    "http://fullstacktemplate.localhost:3001",
-    "https://fullstacktemplate.localhost",
-    "https://fullstacktemplate.localhost:8443",
+    "http://macromapper.localhost:3000",
+    "http://macromapper.localhost:3001",
+    "https://macromapper.localhost",
+    "https://macromapper.localhost:8443",
 ]
 
 extra_origins = os.getenv("DJANGO_CORS_ALLOWED_ORIGINS")
@@ -95,10 +95,10 @@ if extra_origins:
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
-    "http://fullstacktemplate.localhost:3000",
-    "http://fullstacktemplate.localhost:3001",
-    "https://fullstacktemplate.localhost",
-    "https://fullstacktemplate.localhost:8443",
+    "http://macromapper.localhost:3000",
+    "http://macromapper.localhost:3001",
+    "https://macromapper.localhost",
+    "https://macromapper.localhost:8443",
 ]
 
 extra_csrf_origins = os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS")
@@ -203,6 +203,4 @@ EMAIL_USE_TLS = os.getenv("DJANGO_EMAIL_USE_TLS", "1") == "1"
 EMAIL_HOST_USER = os.getenv("DJANGO_EMAIL_HOST_USER") or "resend"
 EMAIL_HOST_PASSWORD = os.getenv("DJANGO_EMAIL_HOST_KEY", "")
 EMAIL_TIMEOUT = int(os.getenv("DJANGO_EMAIL_TIMEOUT") or "10")
-DEFAULT_FROM_EMAIL = (
-    os.getenv("DJANGO_DEFAULT_FROM_EMAIL") or "fullstacktemplate@example.com"
-)
+DEFAULT_FROM_EMAIL = os.getenv("DJANGO_DEFAULT_FROM_EMAIL") or "macromapper@example.com"

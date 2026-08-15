@@ -1,10 +1,10 @@
-# FullStackTemplate GitHub automation
-FullStackTemplate carries forward the proven CI/CD and security automation from
+# MacroMapper GitHub automation
+MacroMapper carries forward the proven CI/CD and security automation from
 Notoli and MacroMapper, adapted to the template's repository, images, and
 generic GitHub Project.
 
 ## Repository settings baseline
-The live FullStackTemplate repository uses the Notoli baseline with intentional
+The live MacroMapper repository uses the Notoli baseline with intentional
 least-privilege differences: auto-merge is enabled; merge commits, squash
 merges, and rebases are allowed; Actions allow all actions with a read-only
 default workflow permission; and GitHub Actions cannot create or approve pull
@@ -81,7 +81,7 @@ run the required reviewers. Fork pull requests never receive either store's
 secrets and cannot satisfy the required reviewer child checks.
 
 ## Security-alert aggregation
-The daily/manual `alert-codeql.yml`, `alert-vulnerability.yml`, and `alert-malware.yml` workflows group open alerts into managed FullStackTemplate issues and synchronize them with the FullStackTemplate Project.
+The daily/manual `alert-codeql.yml`, `alert-vulnerability.yml`, and `alert-malware.yml` workflows group open alerts into managed MacroMapper issues and synchronize them with the MacroMapper Project.
 
 Additional configuration:
 
@@ -112,7 +112,7 @@ target repository in the GitHub UI as described in
 ## Deployment
 `.github/workflows/ci-deploy.yml` runs on `env-prod` pushes or manually. It:
 
-1. Builds and pushes `fullstacktemplate-backend` and `fullstacktemplate-frontend` to GHCR.
+1. Builds and pushes `macromapper-backend` and `macromapper-frontend` to GHCR.
 2. Uploads Docker Compose, Nginx, and optional Cloudflare origin certificates.
 3. Connects over SSH, writes the backend environment, recreates the stack, and runs Django migrations.
 

@@ -130,7 +130,7 @@ class ForgotPasswordView(APIView):
             reset_link = _build_password_reset_link(user)
             try:
                 send_mail(
-                    "Reset your FullStackTemplate password",
+                    "Reset your MacroMapper password",
                     (
                         "We received a request to reset your password.\n\n"
                         f"Use this link to reset it:\n{reset_link}\n\n"

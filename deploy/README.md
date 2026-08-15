@@ -166,7 +166,7 @@ curl -I https://example-application.example.com
 Keep `env-prod` protected and update it only from reviewed `main`.
 
 ## Local Docker with `[application].localhost`
-The template itself uses `fullstacktemplate.localhost`. A generated repository
+The template itself uses `macromapper.localhost`. A generated repository
 uses the slug passed to `initialize-template.ps1`.
 
 For fast source iteration, use the development Compose file instead of the
@@ -181,10 +181,10 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml exec -T b
 
 This mounts both source trees, runs React's hot-reload server and Django's
 autoreloading `runserver`, and uses direct HTTP ports 3000 and 8000 bound to
-localhost only. Set `FULLSTACKTEMPLATE_DEV_FRONTEND_PORT` or
-`FULLSTACKTEMPLATE_DEV_BACKEND_PORT` in `deploy/.env` to override the host
+localhost only. Set `MACROMAPPER_DEV_FRONTEND_PORT` or
+`MACROMAPPER_DEV_BACKEND_PORT` in `deploy/.env` to override the host
 ports. It does not require a certificate, Nginx proxy, or shared local
-ingress. Open `http://fullstacktemplate.localhost:3000`.
+ingress. Open `http://macromapper.localhost:3000`.
 
 Use the production-shaped commands below when testing HTTPS, Nginx, or the
 deployment image path.
@@ -193,20 +193,20 @@ deployment image path.
 Copy-Item deploy/backend.env deploy/.env
 New-Item -ItemType File -Path deploy/db.sqlite3 -Force
 ./deploy/create-local-certificate.ps1
-docker build -t ghcr.io/vanillaicecube/fullstacktemplate-backend:latest ./backend
-docker build -t ghcr.io/vanillaicecube/fullstacktemplate-frontend:latest ./frontend
+docker build -t ghcr.io/vanillaicecube/macromapper-backend:latest ./backend
+docker build -t ghcr.io/vanillaicecube/macromapper-frontend:latest ./frontend
 Set-Location deploy
 docker compose up -d
 docker compose exec -T backend python manage.py migrate
 ```
 
-Open `https://fullstacktemplate.localhost`.
+Open `https://macromapper.localhost`.
 
-The Compose project is named `fullstacktemplate`. Defaults are ports
-80/443/8000/3000. FullStackTemplate owns its own proxy and can be run
+The Compose project is named `macromapper`. Defaults are ports
+80/443/8000/3000. MacroMapper owns its own proxy and can be run
 independently of other application repositories.
 
-Open `https://fullstacktemplate.localhost` after starting the stack. If another
+Open `https://macromapper.localhost` after starting the stack. If another
 application already owns ports 80/443, override this application's proxy,
 backend, and frontend host ports in `deploy/.env` and use that application's
 direct host ports instead.

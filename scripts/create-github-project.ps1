@@ -313,7 +313,7 @@ $description = "$Repository is a full-stack React and Django application. This P
 $readme = @"
 This board is used to plan and track work for $Repository.
 
-Issues here cover product features, bugs, UI improvements, backend changes, refactors, security, deployment, and long-term ideas. The goal is to keep development organized while the application grows from the reusable FullStackTemplate foundation.
+Issues here cover product features, bugs, UI improvements, backend changes, refactors, security, deployment, and long-term ideas. The goal is to keep development organized while the application grows from the reusable MacroMapper foundation.
 "@
 
 Invoke-Gh -Arguments @(

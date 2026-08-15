@@ -31,7 +31,7 @@ export default function App() {
         future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
       >
         <NavigationBridge />
-        <AppHeader title="Full Stack Template" setDrawerOpen={setDrawerOpen} />
+        <AppHeader title="MacroMapper" setDrawerOpen={setDrawerOpen} />
         <AppNavigationDrawer open={drawerOpen} setOpen={setDrawerOpen} />
         <Routes>
           <Route path="/login" element={<Login showSnackbar={showSnackbar} />} />

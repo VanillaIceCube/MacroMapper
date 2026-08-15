@@ -544,7 +544,7 @@ test("source refs remain parseable and lifecycle notes are replaced idempotently
   const second = withLifecycleNote(first, "_Closed with updated context._");
 
   assert.deepEqual(alertRefsFromBody(second), ["dependabot:1", "dependabot:2"]);
-  assert.equal(second.match(/fullstacktemplate-security-alert-lifecycle/g)?.length, 1);
+  assert.equal(second.match(/macromapper-security-alert-lifecycle/g)?.length, 1);
   assert.match(second, /Closed with updated context/);
   assert.doesNotMatch(second, /Closed once/);
 });

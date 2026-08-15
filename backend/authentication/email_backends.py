@@ -8,7 +8,7 @@ from django.core.mail.message import EmailMultiAlternatives
 
 class ResendApiEmailBackend(BaseEmailBackend):
     api_url = "https://api.resend.com/emails"
-    user_agent = "FullStackTemplate/1.0 (+https://app.example.com)"
+    user_agent = "MacroMapper/1.0 (+https://app.example.com)"
 
     def send_messages(self, email_messages):
         if not email_messages:

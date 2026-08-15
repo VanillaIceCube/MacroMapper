@@ -80,7 +80,7 @@ function createCore() {
 
 function context({ number = 626, sha = "abc123" } = {}) {
   return {
-    repo: { owner: "VanillaIceCube", repo: "FullStackTemplate" },
+    repo: { owner: "VanillaIceCube", repo: "MacroMapper" },
     payload: {
       pull_request: {
         number,
@@ -566,7 +566,7 @@ test("publishes one concise native fallback review when OpenAI is unavailable", 
   assert.equal(createdReviews[0].event, "COMMENT");
   assert.match(
     createdReviews[0].body,
-    /fullstacktemplate-ai-review-unavailable:lint-eastwood:abc123/,
+    /macromapper-ai-review-unavailable:lint-eastwood:abc123/,
   );
   assert.match(createdReviews[0].body, /## 🤠 Lint Eastwood/);
   assert.match(createdReviews[0].body, /\*\*Review unavailable\.\*\*/);

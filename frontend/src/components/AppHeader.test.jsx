@@ -52,19 +52,19 @@ describe('AppHeader', () => {
   test.each(['/login', '/register', '/forgot-password', '/reset-password'])(
     'does not render on the public route %s',
     (route) => {
-      renderWithProviders(<AppHeader title="Full Stack Template" setDrawerOpen={setDrawerOpen} />, {
+      renderWithProviders(<AppHeader title="MacroMapper" setDrawerOpen={setDrawerOpen} />, {
         routeEntries: [route],
       });
 
-      expect(screen.queryByText('Full Stack Template')).not.toBeInTheDocument();
+      expect(screen.queryByText('MacroMapper')).not.toBeInTheDocument();
     },
   );
 
   test('renders the title and global controls for authenticated pages', async () => {
     sessionStorage.setItem('accessToken', 'access');
-    renderWithProviders(<AppHeader title="Full Stack Template" setDrawerOpen={setDrawerOpen} />);
+    renderWithProviders(<AppHeader title="MacroMapper" setDrawerOpen={setDrawerOpen} />);
 
-    expect(screen.getByText('Full Stack Template')).toBeInTheDocument();
+    expect(screen.getByText('MacroMapper')).toBeInTheDocument();
     expect(screen.getByLabelText('notifications')).toBeInTheDocument();
     expect(screen.getByLabelText('user profile')).toBeInTheDocument();
     expect(screen.getByLabelText('menu')).toBeInTheDocument();
@@ -73,7 +73,7 @@ describe('AppHeader', () => {
 
   test('opens the navigation drawer', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<AppHeader title="Full Stack Template" setDrawerOpen={setDrawerOpen} />);
+    renderWithProviders(<AppHeader title="MacroMapper" setDrawerOpen={setDrawerOpen} />);
 
     await user.click(screen.getByLabelText('menu'));
 
@@ -84,7 +84,7 @@ describe('AppHeader', () => {
     const user = userEvent.setup();
     sessionStorage.setItem('username', 'template-user');
     sessionStorage.setItem('email', 'template@example.com');
-    renderWithProviders(<AppHeader title="Full Stack Template" setDrawerOpen={setDrawerOpen} />);
+    renderWithProviders(<AppHeader title="MacroMapper" setDrawerOpen={setDrawerOpen} />);
 
     await user.click(screen.getByLabelText('user profile'));
     expect(screen.getByText('template-user')).toBeInTheDocument();
@@ -108,7 +108,7 @@ describe('AppHeader', () => {
         },
       ]),
     );
-    renderWithProviders(<AppHeader title="Full Stack Template" setDrawerOpen={setDrawerOpen} />);
+    renderWithProviders(<AppHeader title="MacroMapper" setDrawerOpen={setDrawerOpen} />);
 
     await waitFor(() => expect(fetchNotifications).toHaveBeenCalled());
     await user.click(screen.getByLabelText('notifications'));

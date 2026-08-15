@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-describe('FullStackTemplate theme styles', () => {
+describe('MacroMapper theme styles', () => {
   const appCss = fs.readFileSync(path.join(__dirname, '../App.css'), 'utf8');
   const readSource = (relativePath) =>
     fs.readFileSync(path.join(__dirname, '..', relativePath), 'utf8');

@@ -1,10 +1,10 @@
 {
-  "short_name": "FullStackTemplate",
-  "name": "FullStackTemplate",
-  "description": "FullStackTemplate full-stack application.",
+  "short_name": "MacroMapper",
+  "name": "MacroMapper",
+  "description": "MacroMapper full-stack application.",
   "icons": [
     {
-      "src": "fullstacktemplate-mark.svg",
+      "src": "macromapper-mark.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"

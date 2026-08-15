@@ -11,11 +11,11 @@ $privateKeyPath = Join-Path $certificateDirectory "origin.key"
 
 if (Get-Command mkcert -ErrorAction SilentlyContinue) {
     & mkcert -cert-file $certificatePath -key-file $privateKeyPath `
-        "fullstacktemplate.localhost" "localhost" "127.0.0.1" "::1"
+        "macromapper.localhost" "localhost" "127.0.0.1" "::1"
     if ($LASTEXITCODE -ne 0) {
         throw "mkcert could not generate the local certificate."
     }
-    Write-Output "Created a locally trusted certificate for fullstacktemplate.localhost."
+    Write-Output "Created a locally trusted certificate for macromapper.localhost."
     exit 0
 }
 
@@ -26,8 +26,8 @@ if (-not (Get-Command openssl -ErrorAction SilentlyContinue)) {
 & openssl req -x509 -nodes -newkey rsa:2048 -sha256 -days 365 `
     -keyout $privateKeyPath `
     -out $certificatePath `
-    -subj "/CN=fullstacktemplate.localhost" `
-    -addext "subjectAltName=DNS:fullstacktemplate.localhost,DNS:localhost,IP:127.0.0.1,IP:::1" `
+    -subj "/CN=macromapper.localhost" `
+    -addext "subjectAltName=DNS:macromapper.localhost,DNS:localhost,IP:127.0.0.1,IP:::1" `
     -config NUL
 
 if ($LASTEXITCODE -ne 0) {
