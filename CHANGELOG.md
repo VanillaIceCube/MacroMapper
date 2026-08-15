@@ -13,8 +13,8 @@ All notable changes to this project are documented in this file.
   the client API configuration contract to `VITE_API_BASE_URL`.
 - Raised the supported frontend runtime to Node.js 24.15 or newer and kept the
   production image on Node.js 26.
-- Raised the shared AI reviewer diff budget to 2 MiB so generated dependency
-  lockfile migrations can receive complete code, build, and security reviews.
+- Kept generated dependency lockfile payloads out of AI reviewer prompts so
+  large lockfile migrations do not crowd out source, build, and security review.
 ### Removed
 - Removed Create React App, its Jest runtime, the `react-router-dom`
   compatibility package, and the unused `web-vitals` dependency.
