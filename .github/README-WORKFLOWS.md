@@ -24,7 +24,7 @@ recreate these settings, labels, and the `SECURITY_ALERTS_TOKEN` secret; see
 
 - Frontend Prettier and ESLint checks
 - Backend Ruff checks and formatting
-- React/Jest tests
+- React/Vitest tests and the Vite production build
 - Django tests
 - Node tests for repository automation
 - CodeQL for Python, JavaScript/TypeScript, and GitHub Actions
@@ -123,7 +123,7 @@ Repository variables:
 - `DJANGO_ALLOWED_HOSTS`, `DJANGO_CORS_ALLOWED_ORIGINS`, `DJANGO_CSRF_TRUSTED_ORIGINS`
 - optional `DJANGO_FORCE_SCRIPT_NAME`
 - `DJANGO_FRONTEND_BASE_URL`, `DJANGO_EMAIL_BACKEND`, `DJANGO_EMAIL_TIMEOUT`, `DJANGO_DEFAULT_FROM_EMAIL`
-- optional `REACT_APP_API_BASE_URL`
+- optional `VITE_API_BASE_URL`
 
 Repository secrets:
 

@@ -103,7 +103,7 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Run frontend tests
+      - name: Run frontend tests and production build
         id: test_run
         continue-on-error: true
         env:
@@ -112,6 +112,7 @@ jobs:
           set -o pipefail
           status=0
           npm test 2>&1 | tee test_output.txt || status=$?
+          npm run build 2>&1 | tee -a test_output.txt || status=$?
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
 
       - name: Test summary

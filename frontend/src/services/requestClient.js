@@ -1,8 +1,7 @@
 import { navigate } from './navigationService';
 
 const API_BASE_URL =
-  process.env.REACT_APP_API_BASE_URL ??
-  (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8000');
+  import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.PROD ? '' : 'http://localhost:8000');
 
 function shouldRedirectToLogin(path) {
   // Auth endpoints may legitimately return 401 (bad credentials) and should be handled by the UI.
@@ -30,8 +29,7 @@ export function redirectToLogin() {
 
   if (didNavigate || typeof window === 'undefined') return;
 
-  const publicUrl = process.env.PUBLIC_URL || '';
-  const normalizedBase = publicUrl.replace(/\/+$/, '');
+  const normalizedBase = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '');
   const loginPath = normalizedBase ? `${normalizedBase}/login` : '/login';
   const loginUrl = `${window.location?.origin ?? ''}${loginPath.startsWith('/') ? '' : '/'}${loginPath}`;
   if (window.location?.replace) {

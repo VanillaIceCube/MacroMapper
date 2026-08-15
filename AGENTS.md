@@ -56,7 +56,7 @@ Optional backend variables:
 
 Optional frontend variable:
 
-- `REACT_APP_API_BASE_URL` (development default: `http://localhost:8000`; leave blank in same-origin production)
+- `VITE_API_BASE_URL` (development default: `http://localhost:8000`; leave blank in same-origin production)
 
 ## Checks
 Run checks in proportion to the change:

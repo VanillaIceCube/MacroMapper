@@ -10,8 +10,6 @@ RUN npm ci
 # Copy your React project code
 COPY . .
 
-ENV HOST=0.0.0.0
-
 # Document dev server port
 EXPOSE 3000
 

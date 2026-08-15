@@ -1,6 +1,6 @@
 import { Box, Button, TextField, Typography } from '@mui/material';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import AuthPageShell from '../../components/AuthPageShell';
 import { register } from '../../services/authApiClient';
 import { persistAuthSession, readOkJson } from '../../services/authSession';

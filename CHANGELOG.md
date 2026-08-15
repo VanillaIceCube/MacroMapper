@@ -2,10 +2,20 @@
 All notable changes to this project are documented in this file.
 
 ## 2026-08-14
+### Added
+- Added Vite and Vitest frontend tooling with explicit development, test,
+  production-build, and Docker configuration.
 ### Changed
 - Rebranded the application, local routing, container and image names,
   environment variables, CI automation, tests, and documentation from the
   starter terminology to MacroMapper.
+- Migrated the frontend to React Router 7's `react-router` package and changed
+  the client API configuration contract to `VITE_API_BASE_URL`.
+- Raised the supported frontend runtime to Node.js 24.15 or newer and kept the
+  production image on Node.js 26.
+### Removed
+- Removed Create React App, its Jest runtime, the `react-router-dom`
+  compatibility package, and the unused `web-vitals` dependency.
 
 ## 2026-08-12
 ### Added

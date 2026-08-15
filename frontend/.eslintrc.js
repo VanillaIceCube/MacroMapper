@@ -6,7 +6,10 @@ module.exports = {
     jest: true,
     es2020: true,
   },
-  ignorePatterns: ['build/**', 'coverage/**', 'node_modules/**'],
+  globals: {
+    vi: 'readonly',
+  },
+  ignorePatterns: ['coverage/**', 'dist/**', 'node_modules/**'],
   settings: {
     react: {
       version: 'detect',

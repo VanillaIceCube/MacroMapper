@@ -11,28 +11,28 @@ import {
 } from '../services/notificationApiClient';
 import { logout } from '../services/requestClient';
 
-jest.mock('../services/notificationApiClient', () => ({
-  clearAllNotifications: jest.fn(),
-  clearNotification: jest.fn(),
-  fetchNotifications: jest.fn(),
-  markAllNotificationsRead: jest.fn(),
-  markNotificationRead: jest.fn(),
+vi.mock('../services/notificationApiClient', () => ({
+  clearAllNotifications: vi.fn(),
+  clearNotification: vi.fn(),
+  fetchNotifications: vi.fn(),
+  markAllNotificationsRead: vi.fn(),
+  markNotificationRead: vi.fn(),
 }));
 
-jest.mock('../services/requestClient', () => ({
-  logout: jest.fn(),
+vi.mock('../services/requestClient', () => ({
+  logout: vi.fn(),
 }));
 
 const response = (body, ok = true) => ({
   ok,
-  json: jest.fn().mockResolvedValue(body),
+  json: vi.fn().mockResolvedValue(body),
 });
 
 describe('AppHeader', () => {
-  const setDrawerOpen = jest.fn();
+  const setDrawerOpen = vi.fn();
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     sessionStorage.clear();
     fetchNotifications.mockResolvedValue(response([]));
     clearAllNotifications.mockResolvedValue(response({ deleted: 1 }));
