@@ -1,6 +1,6 @@
-# MacroMapper product vision
+# 🥗 MacroMapper Product Vision
 
-## Product promise
+## 🎯 Product Promise
 
 MacroMapper is a personal nutrition and activity tracker for people who want a
 fast, understandable daily record of what they ate and how it relates to their
@@ -13,7 +13,7 @@ MacroMapper is inspired by the quick diary experience of MyFitnessPal. Its
 distinction is transparency: an estimate explains what it contains, the source
 or confidence behind it, and what the user may edit.
 
-## Initial product boundary
+## 🧭 Initial Product Boundary
 
 MacroMapper is personal-use first. Accounts, meal histories, activity records,
 goals, and saved custom foods belong to individual users. Household, social,
@@ -24,7 +24,7 @@ treat, or manage medical conditions, provide clinical guidance, or prescribe
 diets. It may calculate and display user-editable tracking targets, but must
 not present them as medical or professional advice.
 
-## Core experience
+## ✨ Core Experience
 
 1. A user sets a nutrition target manually or receives an editable starting
    calculation from basic profile inputs and normal non-exercise activity.
@@ -38,9 +38,9 @@ not present them as medical or professional advice.
 5. The diary and trends show food calories, nutrients, activity calories, net
    calories, and progress against the user's goals.
 
-## Food data principles
+## 🧱 Food Data Principles
 
-### One Food Item concept
+### 🥬 One Food Item Concept
 
 A Food Item may be consumed directly or be composed from other Food Items. A
 lettuce serving is a Food Item. A restaurant burger is also a Food Item whose
@@ -53,7 +53,7 @@ carbohydrates, fat, fiber, sugar, sodium, and cholesterol, with micronutrients
 recorded whenever source data is available. Unknown nutrients are unavailable,
 not zero.
 
-### Shared and personal catalog records
+### 🌐 Shared And Personal Catalog Records
 
 Catalog records have one of three trust states:
 
@@ -69,7 +69,7 @@ redefines the canonical shared restaurant item. Candidate shared entries should
 be deduplicated, checked for nutrient/component consistency, and reviewed or
 verified before promotion to the official state.
 
-## Activity and calorie accounting
+## 🏃 Activity And Calorie Accounting
 
 The baseline calorie target represents normal daily life excluding workouts and
 sports that the user plans to log. The user selects the baseline that describes
@@ -94,7 +94,7 @@ calories to the day's food budget. A future simplicity setting may let users
 choose a target that already includes regular exercise; that setting must not
 double-count logged activities.
 
-## MVP scope
+## 🚀 MVP Scope
 
 - Individual accounts and a dated daily diary.
 - Manual food logging and editable custom foods.
@@ -108,14 +108,14 @@ double-count logged activities.
 - Daily, weekly, and monthly trends for intake, macro adherence, activity, net
   calories, meal timing, and frequently logged foods.
 
-## Deferred work
+## ⏳ Deferred Work
 
 - Photo recognition and barcode scanning.
 - Weight tracking.
 - Social, household, coach, and sharing features.
 - Clinical, medical, or prescriptive dietary recommendations.
 
-## Delivery sequence
+## 🗺️ Delivery Sequence
 
 1. Build the Food Item/composite catalog and nutrition data model.
 2. Build the private editable meal diary with durable meal snapshots.

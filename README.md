@@ -1,4 +1,4 @@
-# MacroMapper
+# 🥗 MacroMapper
 MacroMapper is a personal nutrition and activity tracker. Users will log meals
 manually or describe them in natural language, then review an editable,
 source-aware GPT estimate before it becomes part of their diary.
@@ -11,7 +11,7 @@ medical, clinical, or prescriptive dietary advice.
 
 Read the full [product vision and roadmap](docs/PRODUCT_VISION.md).
 
-## Product direction
+## ✨ Product Direction
 
 - Individual accounts and private meal/activity histories.
 - Manual food logging plus GPT-assisted, editable text-to-meal proposals.
@@ -20,7 +20,7 @@ Read the full [product vision and roadmap](docs/PRODUCT_VISION.md).
   records kept distinct.
 - Daily nutrition goals, activity-adjusted budgets, and factual trend reporting.
 
-## GitHub automation setup
+## 🤖 GitHub Automation Setup
 Start here. The pull-request workflow deliberately exposes missing reviewer
 configuration, so add these GitHub repository settings before asking CI to run.
 
@@ -88,7 +88,7 @@ DigitalOcean, Cloudflare, and Resend values listed in
 [deploy/README.md](deploy/README.md), but those do not block the first
 application pull request.
 
-## Legacy template initializer
+## 🧰 Legacy Template Initializer
 MacroMapper began as a reusable application foundation. The initializer remains
 for historical maintenance but is not part of the MacroMapper product workflow:
 
@@ -117,7 +117,7 @@ All browser traffic stays same-origin; Nginx routes `/auth`, `/api`, and
 Review the initializer diff, replace the starter SVG mark, then complete the
 GitHub settings above before opening the first PR.
 
-## Current implementation
+## 🚀 Current Implementation
 - React 19, Create React App, Material UI, and a responsive application shell
 - Django REST Framework, custom user model, and versioned migrations
 - Email-first registration and JWT login/refresh
@@ -140,7 +140,7 @@ Food, meal, activity, goal, and GPT-estimation features are planned work, not
 present application behavior. Their scoped issues live on the
 [MacroMapper Project](https://github.com/users/VanillaIceCube/projects/11).
 
-## Run locally in Docker
+## 🐳 Run Locally In Docker
 Requirements: Docker Desktop and either `mkcert` or OpenSSL.
 
 ```powershell
@@ -163,7 +163,7 @@ Paper.
 `deploy/.env`, `deploy/db.sqlite3`, and certificate keys are ignored. Do not
 commit them.
 
-## Run Docker hot-reload development
+## Run Docker Hot-Reload Development
 Use the development Compose file when iterating on source code. It mounts the
 frontend and backend directories into development containers, so React and
 Django reload changes without rebuilding production images:
@@ -188,7 +188,7 @@ This development workflow does not need a local certificate or Nginx proxy.
 Use the production Compose workflow above when testing the HTTPS proxy and
 deployment-shaped containers.
 
-## Run without Docker
+## 💻 Run Without Docker
 Requirements: Python 3.12 and Node.js 25. Docker remains the simplest option
 when those exact versions are not already installed.
 
@@ -210,7 +210,7 @@ npm start
 
 Open `http://macromapper.localhost:3000`.
 
-## Validate changes
+## ✅ Validate Changes
 ```powershell
 Set-Location frontend
 npm run format:check
@@ -252,7 +252,7 @@ matters, repository impact, recommendation, and sources. The verdict retains
 Obi-Wan's calm mentor voice while the structured brief stays technically
 direct; it is not an extra merge gate.
 
-## Documentation
+## 📚 Documentation
 - [Product vision and delivery roadmap](docs/PRODUCT_VISION.md)
 - [GitHub Apps, Project, reviewers, and branch rules](docs/GITHUB_SETUP.md)
 - [Cloudflare, DigitalOcean, Resend, Docker, and deployment](deploy/README.md)
@@ -262,7 +262,7 @@ direct; it is not an extra merge gate.
 - [Repository working conventions](AGENTS.md)
 - [Changelog](CHANGELOG.md)
 
-## License
+## 📜 License
 MacroMapper uses the
 [Modified MIT License (Non-Commercial Use Only)](LICENSE.md). It permits use,
 copying, modification, and distribution for non-commercial purposes; commercial

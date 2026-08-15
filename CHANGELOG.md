@@ -16,8 +16,8 @@ All notable changes to this project are documented in this file.
   environment variables, CI automation, tests, and documentation from the
   starter terminology to MacroMapper.
 - Defined MacroMapper as a personal nutrition and activity tracker, documented
-  the initial product roadmap, and aligned application-facing descriptions with
-  that direction.
+  the initial product roadmap, and aligned application-facing descriptions and
+  documentation heading style with that direction.
 
 ## 2026-08-12
 ### Added

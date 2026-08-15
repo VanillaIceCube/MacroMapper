@@ -1,4 +1,4 @@
-# MacroMapper frontend
+# 🎨 MacroMapper Frontend (React)
 MacroMapper's frontend is a React 19 single-page application built with
 Material UI and React Router. It will provide an individual meal and activity
 diary, source-aware GPT meal proposals, nutrition goals, and trend reporting.
@@ -7,7 +7,7 @@ The current implementation is the authenticated application shell that those
 features will build on. See the [product vision](../docs/PRODUCT_VISION.md) for
 the planned user experience and release sequence.
 
-## Routes
+## 🧭 Routes
 - `/login`: email and password login
 - `/register`: account creation with an optional username
 - `/forgot-password`: password-reset email request
@@ -17,7 +17,7 @@ the planned user experience and release sequence.
 
 Signed-out users who request a protected route are redirected to `/login`.
 
-## Authentication and shell behavior
+## 🔐 Authentication And Shell Behavior
 - Access and refresh tokens are stored in `sessionStorage`.
 - The profile name and email are stored for the app header.
 - API requests that receive a `401` attempt one refresh-token exchange.
@@ -29,7 +29,7 @@ Signed-out users who request a protected route are redirected to `/login`.
 - The drawer contains one Home destination and placeholder copy for future
   application navigation.
 
-## Planned product surfaces
+## ✨ Planned Product Surfaces
 
 The authenticated shell will grow to include a daily diary, Food Item search
 and editing, an AI meal-review flow, nutrition and activity goals, and trends.
@@ -41,7 +41,7 @@ Notification functions live in `src/services/notificationApiClient.js`. Token
 refresh and unauthorized-response behavior live in
 `src/services/requestClient.js`.
 
-## Local setup
+## 💻 Local Setup
 The checked-in frontend dependencies require Node.js 25, matching
 `package.json`, CI, and the production Docker image.
 
@@ -65,7 +65,7 @@ The production frontend image uses `nginx.conf` to serve the CRA `build`
 directory and forward `/auth/`, `/api/`, and `/admin/` to the Compose backend
 service.
 
-## Docker hot reload
+## Docker Hot Reload
 From the repository root, run:
 
 ```powershell
@@ -80,7 +80,7 @@ without rebuilding the production image. Open
 default and can be changed with the `MACROMAPPER_DEV_*_PORT` variables
 in `deploy/.env`.
 
-## Checks
+## 🧰 Checks
 ```powershell
 npm test -- --runInBand
 npm run lint:strict
