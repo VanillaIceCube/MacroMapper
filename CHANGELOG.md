@@ -1,6 +1,12 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 2026-08-16
+### Changed
+- Upgraded the frontend to React Router 8.3 and raised the declared React
+  compatibility floor to 19.2.8, removed obsolete v7 test-router flags, and
+  added browser-routing regression coverage.
+
 ## 2026-08-14
 ### Added
 - Added Django-native Food Item catalog models and authenticated APIs for
