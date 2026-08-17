@@ -1,5 +1,6 @@
 import CloseIcon from '@mui/icons-material/Close';
 import HomeIcon from '@mui/icons-material/Home';
+import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu';
 import {
   Box,
   Divider,
@@ -20,6 +21,11 @@ export default function AppNavigationDrawer({ open, setOpen }) {
   const goHome = () => {
     setOpen(false);
     navigate('/');
+  };
+
+  const goDiary = () => {
+    setOpen(false);
+    navigate('/diary');
   };
 
   return (
@@ -65,6 +71,12 @@ export default function AppNavigationDrawer({ open, setOpen }) {
               <HomeIcon />
             </ListItemIcon>
             <ListItemText primary="Home" />
+          </ListItemButton>
+          <ListItemButton onClick={goDiary} sx={{ color: 'var(--secondary-color)' }}>
+            <ListItemIcon sx={{ color: 'var(--secondary-color)' }}>
+              <RestaurantMenuIcon />
+            </ListItemIcon>
+            <ListItemText primary="Meal diary" />
           </ListItemButton>
         </List>
         <Typography

@@ -14,6 +14,7 @@ the planned user experience and release sequence.
 - `/forgot-password`: password-reset email request
 - `/reset-password?uid=...&token=...`: choose a new password
 - `/`: protected MacroMapper dashboard and product-status overview
+- `/diary`: protected dated meal diary with daily nutrition totals
 - Any unknown route resolves to the protected home page
 
 Signed-out users who request a protected route are redirected to `/login`.
@@ -28,19 +29,24 @@ Signed-out users who request a protected route are redirected to `/login`.
 - The header provides MacroMapper navigation, recipient-scoped
   notifications, profile display, and logout action.
 - The drawer contains the Home destination and MacroMapper product description.
+- The drawer links to the responsive meal diary, where users can search the
+  visible catalog, create a personal food, add/remove foods, change quantities,
+  inspect saved composite ingredients, and create, edit, or delete meals.
 
 ## ✨ Planned Product Surfaces
 
-The authenticated shell will grow to include a daily diary, Food Item search
-and editing, an AI meal-review flow, nutrition and activity goals, and trends.
-These are planned features. The current Home page is an intentional
-MacroMapper dashboard that clearly distinguishes active account capabilities
-from product features still on the roadmap.
+The authenticated shell now includes the daily diary and Food Item search and
+creation needed for manual meal logging. It will grow to include an AI
+meal-review flow, nutrition and activity goals, and trends. The Home page is an
+intentional MacroMapper dashboard that distinguishes active account
+capabilities from product features still on the roadmap.
 
 Authentication endpoint functions live in `src/services/authApiClient.js`.
 Notification functions live in `src/services/notificationApiClient.js`. Token
 refresh and unauthorized-response behavior live in
 `src/services/requestClient.js`.
+Meal, daily-total, catalog-search, and personal-food requests live in
+`src/services/mealApiClient.js`.
 
 ## 💻 Local Setup
 The checked-in frontend dependencies require Node.js 24.15 or newer. CI reads

@@ -106,9 +106,9 @@ export default function HomePage() {
             Your account is ready
           </Typography>
           <Typography sx={{ mt: 1 }}>
-            Secure sign-in, password recovery, session renewal, and in-app notifications are active.
-            Meal, activity, goal, and trend tracking will arrive through the published MacroMapper
-            roadmap.
+            Secure sign-in, password recovery, session renewal, in-app notifications, and your
+            private meal diary are active. Activity, goal, GPT-estimation, and trend tracking will
+            arrive through the published MacroMapper roadmap.
           </Typography>
         </Paper>
       </Stack>

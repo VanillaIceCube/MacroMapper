@@ -1,6 +1,24 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 2026-08-16
+### Added
+- Added an owner-scoped meal diary API with dated create, edit, delete, and
+  daily-total endpoints backed by durable Food Item, composite-component, and
+  nutrient snapshots.
+- Added a responsive meal diary interface with catalog search, personal-food
+  creation, editable quantities and components, composite ingredient detail,
+  launch-nutrient totals, and delete confirmation.
+- Added backend authorization and snapshot regression coverage plus frontend
+  create, edit, delete, and daily-total tests.
+### Changed
+- Added the protected `/diary` route and Meal diary navigation destination,
+  and documented the implemented diary workflow across the product overview
+  and component guides.
+- Simplified catalog and meal nutrition storage to explicit nullable nutrient
+  columns, preserving unknown-versus-zero semantics without database nutrient
+  definition or amount tables.
+
 ## 2026-08-14
 ### Added
 - Added Django-native Food Item catalog models and authenticated APIs for

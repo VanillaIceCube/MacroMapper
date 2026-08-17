@@ -9,6 +9,7 @@ describe('AppNavigationDrawer', () => {
 
     expect(screen.getByText('MacroMapper')).toBeInTheDocument();
     expect(screen.getByText('Home')).toBeInTheDocument();
+    expect(screen.getByText('Meal diary')).toBeInTheDocument();
     expect(screen.getByText('Nutrition and activity, mapped clearly.')).toBeInTheDocument();
     expect(screen.queryByText(/Workspace/)).not.toBeInTheDocument();
   });
