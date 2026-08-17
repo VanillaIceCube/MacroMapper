@@ -4,25 +4,8 @@ from .models import (
     FoodComponent,
     FoodItem,
     FoodItemVersion,
-    NutrientAmount,
-    NutrientDefinition,
     SourceReference,
 )
-
-
-class NutrientAmountInline(admin.TabularInline):
-    model = NutrientAmount
-    extra = 0
-    readonly_fields = ("nutrient", "amount")
-
-    def has_add_permission(self, request, obj=None):
-        return False
-
-    def has_change_permission(self, request, obj=None):
-        return False
-
-    def has_delete_permission(self, request, obj=None):
-        return False
 
 
 class SourceReferenceInline(admin.TabularInline):
@@ -110,31 +93,24 @@ class FoodItemVersionAdmin(ImmutableAdminMixin, admin.ModelAdmin):
         "serving_label",
         "provenance",
         "confidence_score",
+        "calories",
+        "protein",
+        "carbohydrates",
+        "fat",
+        "fiber",
+        "sugar",
+        "sodium",
+        "cholesterol",
         "created_by",
         "created_at",
     )
-    inlines = (NutrientAmountInline, SourceReferenceInline, FoodComponentInline)
-
-
-@admin.register(NutrientDefinition)
-class NutrientDefinitionAdmin(ImmutableAdminMixin, admin.ModelAdmin):
-    list_display = ("name", "key", "unit", "is_core", "display_order")
-    list_filter = ("unit", "is_core")
-    search_fields = ("name", "key")
-    ordering = ("display_order", "name")
-    readonly_fields = ("key", "name", "unit", "is_core", "display_order")
+    inlines = (SourceReferenceInline, FoodComponentInline)
 
 
 @admin.register(FoodComponent)
 class FoodComponentAdmin(ImmutableAdminMixin, admin.ModelAdmin):
     list_display = ("parent_version", "child_version", "servings", "order")
     readonly_fields = ("parent_version", "child_version", "servings", "order")
-
-
-@admin.register(NutrientAmount)
-class NutrientAmountAdmin(ImmutableAdminMixin, admin.ModelAdmin):
-    list_display = ("food_version", "nutrient", "amount")
-    readonly_fields = ("food_version", "nutrient", "amount")
 
 
 @admin.register(SourceReference)

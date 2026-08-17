@@ -9,24 +9,27 @@ The current Django REST Framework implementation supplies JWT authentication,
 a custom email-first user model, password-reset email delivery, and a
 recipient-scoped notification API. It also supplies a source-aware Food Item
 catalog with versioned definitions, components, nutrients, and private personal
-foods. See the [product vision](../docs/PRODUCT_VISION.md) for the remaining
-roadmap.
+foods, plus an owner-scoped meal diary with durable food, component, and
+nutrient snapshots. See the [product vision](../docs/PRODUCT_VISION.md) for the
+remaining roadmap.
 
 ## 🧭 Structure
 - `app/`: Django settings, URL routing, ASGI, and WSGI
 - `authentication/`: custom user, registration, login, refresh, password reset,
   and email delivery
-- `foods/`: reusable Food Items, immutable versions, components, nutrient
-  definitions and amounts, source references, and authenticated catalog APIs
+- `foods/`: reusable Food Items, immutable versions, components, nullable
+  nutrient columns, source references, and authenticated catalog APIs
+- `meals/`: private dated meal entries, immutable saved component/nutrient
+  snapshots, owner-scoped CRUD, and daily totals
 - `notifications/`: persisted notifications for the authenticated app
   header
 - `environment.yml`: Conda environment definition
 - `requirements.txt`: pip dependencies used locally, in CI, and in Docker
 - `ruff.toml`: backend lint and formatting configuration
 
-Meal diary, goals, activity, and GPT-estimation domains remain separate planned
-apps. The `foods` app provides their shared catalog foundation without taking
-ownership of those later workflows.
+Goals, activity, and GPT-estimation domains remain separate planned apps. The
+`foods` app provides their shared catalog foundation without taking ownership
+of diary history.
 
 ## 🔐 Authentication API
 - `POST /auth/register/`
@@ -60,20 +63,17 @@ All food and nutrient endpoints require a JWT access token.
     `definition` is supplied.
 - `DELETE /api/foods/{id}/`
   - Archives an owned personal food without erasing its definitions.
-- `GET /api/nutrients/`
-- `GET /api/nutrients/{key}/`
-
 Shared foods are read-only through the user API. Other users' personal foods
 resolve as not found. Composite definitions store quantities as a decimal count
 of each child's serving and pin the exact child version, so later catalog edits
 do not rewrite a composite.
 
-Nutrient amounts use canonical units and apply to the definition's declared
-serving. The initial migration seeds calories (`kcal`); protein,
-carbohydrates, fat, fiber, and sugar (`g`); and sodium and cholesterol (`mg`).
-A missing nutrient row means unavailable, while an explicit zero means a known
-zero. Additional micronutrients use the same normalized models without schema
-changes.
+Nutrient columns use canonical units and apply to the definition's declared
+serving: calories (`kcal`); protein, carbohydrates, fat, fiber, and sugar (`g`);
+and sodium and cholesterol (`mg`). A null column means unavailable, while an
+explicit zero means a known zero. Additional nutrients can be introduced with
+nullable schema migrations so existing catalog versions remain unknown rather
+than being rewritten as zero.
 
 Create and update requests supply a nested `definition` object:
 
@@ -88,15 +88,35 @@ Create and update requests supply a nested `definition` object:
     "serving_label": "one slice",
     "provenance": "user_entered",
     "confidence_score": null,
-    "nutrients": [
-      {"nutrient": "calories", "amount": "80"},
-      {"nutrient": "fiber", "amount": "0"}
-    ],
+    "nutrients": {
+      "calories": "80",
+      "fiber": "0"
+    },
     "sources": [],
     "components": []
   }
 }
 ```
+
+## Meal Diary API
+All meal endpoints require a JWT access token and expose only the authenticated
+user's entries.
+
+- `GET /api/meals/?date=YYYY-MM-DD`
+- `GET /api/meals/{id}/`
+- `POST /api/meals/`
+- `PATCH /api/meals/{id}/`
+- `DELETE /api/meals/{id}/`
+- `GET /api/meals/daily/?date=YYYY-MM-DD`
+  - Returns the day's meals and summed nutrient snapshots.
+
+Create requests provide `entry_date`, `name`, optional `notes`, and
+`item_inputs`. Each item contains a visible `food_item`, positive `servings`,
+and a unique `order`. Saved items pin and copy the selected Food Item version,
+including its nested composite components and nullable nutrient columns.
+Editing an existing item submits its returned `food_version_id` as
+`food_version` so quantity changes continue to use the original snapshot even
+if the catalog has since changed.
 
 ## 🔔 Notification API
 All `/api/` endpoints require a JWT access token. Notification querysets are

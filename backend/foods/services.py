@@ -6,7 +6,6 @@ from .models import (
     FoodComponent,
     FoodItem,
     FoodItemVersion,
-    NutrientAmount,
     SourceReference,
 )
 
@@ -47,7 +46,7 @@ def create_food_version(*, food_item, definition, created_by):
     ) + 1
 
     definition = definition.copy()
-    nutrients = definition.pop("nutrients", [])
+    nutrients = definition.pop("nutrients", {})
     sources = definition.pop("sources", [])
     components = definition.pop("components", [])
 
@@ -55,15 +54,11 @@ def create_food_version(*, food_item, definition, created_by):
         food_item=locked_item,
         version_number=next_version,
         created_by=created_by,
+        **nutrients,
         **definition,
     )
     version.full_clean()
     version.save()
-
-    for nutrient_data in nutrients:
-        amount = NutrientAmount(food_version=version, **nutrient_data)
-        amount.full_clean()
-        amount.save()
 
     for source_data in sources:
         source = SourceReference(food_version=version, **source_data)

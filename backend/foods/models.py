@@ -141,6 +141,62 @@ class FoodItemVersion(models.Model):
             MaxValueValidator(Decimal("1")),
         ],
     )
+    calories = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0"))],
+    )
+    protein = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0"))],
+    )
+    carbohydrates = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0"))],
+    )
+    fat = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0"))],
+    )
+    fiber = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0"))],
+    )
+    sugar = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0"))],
+    )
+    sodium = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0"))],
+    )
+    cholesterol = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0"))],
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -183,61 +239,6 @@ class FoodItemVersion(models.Model):
 
     def __str__(self):
         return f"{self.food_item} v{self.version_number}"
-
-
-class NutrientDefinition(models.Model):
-    class Unit(models.TextChoices):
-        KILOCALORIE = "kcal", "Kilocalorie"
-        GRAM = "g", "Gram"
-        MILLIGRAM = "mg", "Milligram"
-        MICROGRAM = "mcg", "Microgram"
-        INTERNATIONAL_UNIT = "iu", "International unit"
-
-    key = models.SlugField(max_length=64, unique=True)
-    name = models.CharField(max_length=100)
-    unit = models.CharField(max_length=8, choices=Unit)
-    is_core = models.BooleanField(default=False)
-    display_order = models.PositiveSmallIntegerField(default=0)
-
-    class Meta:
-        ordering = ["display_order", "name"]
-
-    def __str__(self):
-        return f"{self.name} ({self.unit})"
-
-
-class NutrientAmount(models.Model):
-    food_version = models.ForeignKey(
-        FoodItemVersion,
-        on_delete=models.CASCADE,
-        related_name="nutrient_amounts",
-    )
-    nutrient = models.ForeignKey(
-        NutrientDefinition,
-        on_delete=models.PROTECT,
-        related_name="amounts",
-    )
-    amount = models.DecimalField(
-        max_digits=12,
-        decimal_places=4,
-        validators=[MinValueValidator(Decimal("0"))],
-    )
-
-    class Meta:
-        ordering = ["nutrient__display_order", "nutrient__name"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["food_version", "nutrient"],
-                name="unique_nutrient_per_food_version",
-            ),
-            models.CheckConstraint(
-                condition=Q(amount__gte=0),
-                name="nutrient_amount_nonnegative",
-            ),
-        ]
-
-    def __str__(self):
-        return f"{self.nutrient.key}: {self.amount} {self.nutrient.unit}"
 
 
 class SourceReference(models.Model):

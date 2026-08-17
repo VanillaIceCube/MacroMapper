@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     # My apps
     "authentication",
     "foods",
+    "meals",
     "notifications",
 ]
 
