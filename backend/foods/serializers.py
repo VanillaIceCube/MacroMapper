@@ -8,27 +8,10 @@ from .models import (
     FoodComponent,
     FoodItem,
     FoodItemVersion,
-    NutrientAmount,
-    NutrientDefinition,
     SourceReference,
 )
+from .nutrients import NUTRIENT_METADATA
 from .services import create_food_item, create_food_version
-
-
-class NutrientDefinitionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = NutrientDefinition
-        fields = ("key", "name", "unit", "is_core", "display_order")
-
-
-class NutrientAmountSerializer(serializers.ModelSerializer):
-    key = serializers.CharField(source="nutrient.key")
-    name = serializers.CharField(source="nutrient.name")
-    unit = serializers.CharField(source="nutrient.unit")
-
-    class Meta:
-        model = NutrientAmount
-        fields = ("key", "name", "unit", "amount")
 
 
 class SourceReferenceSerializer(serializers.ModelSerializer):
@@ -65,11 +48,7 @@ class FoodComponentSerializer(serializers.ModelSerializer):
 
 
 class FoodItemVersionSerializer(serializers.ModelSerializer):
-    nutrients = NutrientAmountSerializer(
-        source="nutrient_amounts",
-        many=True,
-        read_only=True,
-    )
+    nutrients = serializers.SerializerMethodField()
     sources = SourceReferenceSerializer(many=True, read_only=True)
     components = FoodComponentSerializer(many=True, read_only=True)
 
@@ -89,13 +68,55 @@ class FoodItemVersionSerializer(serializers.ModelSerializer):
             "created_at",
         )
 
+    def get_nutrients(self, instance):
+        return [
+            {
+                "key": key,
+                "name": metadata["name"],
+                "unit": metadata["unit"],
+                "amount": f"{value:.4f}",
+            }
+            for key, metadata in NUTRIENT_METADATA.items()
+            if (value := getattr(instance, key)) is not None
+        ]
 
-class NutrientAmountInputSerializer(serializers.Serializer):
-    nutrient = serializers.SlugRelatedField(
-        slug_field="key",
-        queryset=NutrientDefinition.objects.all(),
+
+class NutrientValuesInputSerializer(serializers.Serializer):
+    calories = serializers.DecimalField(
+        max_digits=12, decimal_places=4, min_value=0, required=False, allow_null=True
     )
-    amount = serializers.DecimalField(max_digits=12, decimal_places=4, min_value=0)
+    protein = serializers.DecimalField(
+        max_digits=12, decimal_places=4, min_value=0, required=False, allow_null=True
+    )
+    carbohydrates = serializers.DecimalField(
+        max_digits=12, decimal_places=4, min_value=0, required=False, allow_null=True
+    )
+    fat = serializers.DecimalField(
+        max_digits=12, decimal_places=4, min_value=0, required=False, allow_null=True
+    )
+    fiber = serializers.DecimalField(
+        max_digits=12, decimal_places=4, min_value=0, required=False, allow_null=True
+    )
+    sugar = serializers.DecimalField(
+        max_digits=12, decimal_places=4, min_value=0, required=False, allow_null=True
+    )
+    sodium = serializers.DecimalField(
+        max_digits=12, decimal_places=4, min_value=0, required=False, allow_null=True
+    )
+    cholesterol = serializers.DecimalField(
+        max_digits=12, decimal_places=4, min_value=0, required=False, allow_null=True
+    )
+
+    def to_internal_value(self, data):
+        unknown_fields = set(data) - set(self.fields)
+        if unknown_fields:
+            raise serializers.ValidationError(
+                {
+                    key: "This nutrient is not supported."
+                    for key in sorted(unknown_fields)
+                }
+            )
+        return super().to_internal_value(data)
 
 
 class SourceReferenceInputSerializer(serializers.Serializer):
@@ -150,18 +171,11 @@ class FoodDefinitionInputSerializer(serializers.Serializer):
         required=False,
         allow_null=True,
     )
-    nutrients = NutrientAmountInputSerializer(many=True, required=False)
+    nutrients = NutrientValuesInputSerializer(required=False)
     sources = SourceReferenceInputSerializer(many=True, required=False)
     components = FoodComponentInputSerializer(many=True, required=False)
 
     def validate(self, attrs):
-        nutrients = attrs.get("nutrients", [])
-        nutrient_ids = [item["nutrient"].pk for item in nutrients]
-        if len(nutrient_ids) != len(set(nutrient_ids)):
-            raise serializers.ValidationError(
-                {"nutrients": "Each nutrient may appear only once."}
-            )
-
         sources = attrs.get("sources", [])
         source_urls = [item["url"] for item in sources]
         if len(source_urls) != len(set(source_urls)):

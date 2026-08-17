@@ -140,8 +140,8 @@ export default function HomePage() {
               sx={{ mt: 1, maxWidth: 880, color: 'var(--atlas-ink-muted)', lineHeight: 1.6 }}
             >
               Secure sign-in, password recovery, session renewal, and in-app notifications are
-              active. Meal, activity, goal, and trend tracking will arrive through the published
-              MacroMapper roadmap.
+              active, and your private meal diary is ready. Activity, goal, GPT-estimation, and
+              trend tracking will arrive through the published MacroMapper roadmap.
             </Typography>
           </Paper>
         </Stack>

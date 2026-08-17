@@ -8,6 +8,7 @@ import AppSnackbar from './components/AppSnackbar';
 import AuthenticatedRoute from './components/AuthenticatedRoute';
 import NavigationBridge from './components/NavigationBridge';
 import HomePage from './pages/HomePage';
+import DiaryPage from './pages/DiaryPage';
 import ForgotPassword from './pages/authentication/ForgotPassword';
 import Login from './pages/authentication/Login';
 import Register from './pages/authentication/Register';
@@ -43,6 +44,14 @@ export default function App() {
             element={
               <Protected>
                 <HomePage />
+              </Protected>
+            }
+          />
+          <Route
+            path="/diary"
+            element={
+              <Protected>
+                <DiaryPage showSnackbar={showSnackbar} />
               </Protected>
             }
           />

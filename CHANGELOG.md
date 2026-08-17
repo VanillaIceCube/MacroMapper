@@ -8,6 +8,25 @@ All notable changes to this project are documented in this file.
 - Added a centralized Material UI Field Atlas theme, semantic nutrition and
   activity color tokens, responsive contour treatments, accessible focus
   states, reduced-motion safeguards, and updated visual regression assertions.
+- Added an owner-scoped meal diary API with dated create, edit, delete, and
+  daily-total endpoints backed by durable saved food, component, and nutrient
+  values.
+- Added a responsive meal diary interface with catalog search, personal-food
+  creation, editable quantities and components, composite ingredient detail,
+  launch-nutrient totals, and delete confirmation.
+- Added backend authorization and historical-value regression coverage plus frontend
+  create, edit, delete, and daily-total tests.
+
+### Fixed
+
+- Preserved complete nutrient totals and component detail when independent
+  composite-food branches reuse the same descendant definition.
+- Rejected malformed meal-list dates and allowed metadata-only meal PATCH
+  requests without replacing saved meal items.
+- Made the nullable nutrient-column migration safely reversible while retaining
+  seeded nutrient definitions and saved nutrient values.
+- Allowed existing meals to retain and resize archived personal foods through
+  their pinned historical versions without making those foods newly selectable.
 
 ### Changed
 
@@ -20,6 +39,18 @@ All notable changes to this project are documented in this file.
 - Upgraded the frontend to React Router 8.3 and raised the declared React
   compatibility floor to 19.2.8, removed obsolete v7 test-router flags, and
   added browser-routing regression coverage.
+- Added the protected `/diary` route and Meal diary navigation destination,
+  and documented the implemented diary workflow across the product overview
+  and component guides.
+- Extended the Field Atlas design system across the meal diary, meal editor,
+  nutrition totals, empty states, and route-aware navigation treatments.
+- Improved Django admin navigation with linked related records, inline meal
+  contents, nutrition summaries, search, filters, and grouped detail forms.
+- Renamed saved meal records to Meal Items throughout the backend and admin
+  while preserving their historically stable nutrition values.
+- Simplified catalog and meal nutrition storage to explicit nullable nutrient
+  columns, preserving unknown-versus-zero semantics without database nutrient
+  definition or amount tables.
 
 ## 2026-08-14
 ### Added

@@ -42,6 +42,7 @@ describe('MacroMapper theme styles', () => {
     'components/AppNavigationDrawer.jsx',
     'components/AuthPageShell.jsx',
     'pages/HomePage.jsx',
+    'pages/DiaryPage.jsx',
   ])('%s uses shared Field Atlas surfaces', (relativePath) => {
     const source = readSource(relativePath);
 
@@ -65,7 +66,18 @@ describe('MacroMapper theme styles', () => {
     const drawerSource = readSource('components/AppNavigationDrawer.jsx');
 
     expect(drawerSource).toContain('var(--atlas-forest-soft)');
-    expect(drawerSource).toContain("border: '1px solid rgba(46, 107, 79, 0.2)'");
+    expect(drawerSource).toContain("'1px solid rgba(46, 107, 79, 0.2)'");
+  });
+
+  test('uses semantic nutrition colors and numeric typography in the meal diary', () => {
+    const diarySource = readSource('pages/DiaryPage.jsx');
+
+    expect(diarySource).toContain('var(--protein-color)');
+    expect(diarySource).toContain('var(--carbohydrate-color)');
+    expect(diarySource).toContain('var(--fat-color)');
+    expect(diarySource).toContain('className="numeric-data"');
+    expect(diarySource).not.toContain('var(--secondary-background-color)');
+    expect(diarySource).not.toContain('var(--secondary-color)');
   });
 
   test('provides focus and reduced-motion safeguards', () => {

@@ -13,9 +13,6 @@ from .admin import (
     FoodComponentInline,
     FoodItemAdmin,
     FoodItemVersionAdmin,
-    NutrientAmountAdmin,
-    NutrientAmountInline,
-    NutrientDefinitionAdmin,
     SourceReferenceAdmin,
     SourceReferenceInline,
 )
@@ -23,29 +20,22 @@ from .models import (
     FoodComponent,
     FoodItem,
     FoodItemVersion,
-    NutrientAmount,
-    NutrientDefinition,
     SourceReference,
 )
+from .nutrients import NUTRIENT_METADATA
 from .services import create_food_item, create_food_version
 
 User = get_user_model()
 
 
 def food_definition(*, calories="100", confidence="0.900", components=None):
-    calories_definition = NutrientDefinition.objects.get(key="calories")
     return {
         "serving_quantity": Decimal("1"),
         "serving_unit": FoodItemVersion.ServingUnit.ITEM,
         "serving_label": "one item",
         "provenance": FoodItemVersion.Provenance.USER_ENTERED,
         "confidence_score": (Decimal(confidence) if confidence is not None else None),
-        "nutrients": [
-            {
-                "nutrient": calories_definition,
-                "amount": Decimal(calories),
-            }
-        ],
+        "nutrients": {"calories": Decimal(calories)},
         "sources": [],
         "components": components or [],
     }
@@ -59,7 +49,7 @@ class FoodModelTests(TestCase):
             password="owner-password",
         )
 
-    def test_core_nutrients_are_seeded_with_canonical_units(self):
+    def test_core_nutrient_metadata_has_canonical_units(self):
         expected = {
             "calories": "kcal",
             "protein": "g",
@@ -71,9 +61,7 @@ class FoodModelTests(TestCase):
             "cholesterol": "mg",
         }
 
-        actual = dict(
-            NutrientDefinition.objects.filter(is_core=True).values_list("key", "unit")
-        )
+        actual = {key: metadata["unit"] for key, metadata in NUTRIENT_METADATA.items()}
 
         self.assertEqual(actual, expected)
 
@@ -162,7 +150,7 @@ class FoodModelTests(TestCase):
         with self.assertRaises(ValidationError):
             component.full_clean()
 
-    def test_new_version_preserves_the_old_nutrient_definition(self):
+    def test_new_version_preserves_the_old_nutrient_values(self):
         food = create_food_item(
             name="Versioned food",
             scope=FoodItem.Scope.PERSONAL,
@@ -183,7 +171,7 @@ class FoodModelTests(TestCase):
         self.assertEqual(new_version.version_number, 2)
         self.assertEqual(food.current_version_id, new_version.id)
         self.assertEqual(
-            old_version.nutrient_amounts.get(nutrient__key="calories").amount,
+            old_version.calories,
             Decimal("100"),
         )
 
@@ -220,9 +208,7 @@ class FoodAdminTests(TestCase):
     def test_version_and_related_records_are_immutable_in_admin(self):
         admin_classes = (
             (FoodItemVersionAdmin, FoodItemVersion),
-            (NutrientDefinitionAdmin, NutrientDefinition),
             (FoodComponentAdmin, FoodComponent),
-            (NutrientAmountAdmin, NutrientAmount),
             (SourceReferenceAdmin, SourceReference),
         )
 
@@ -235,7 +221,6 @@ class FoodAdminTests(TestCase):
 
     def test_version_related_inlines_are_immutable_in_admin(self):
         inline_classes = (
-            NutrientAmountInline,
             SourceReferenceInline,
             FoodComponentInline,
         )
@@ -246,6 +231,55 @@ class FoodAdminTests(TestCase):
                 self.assertFalse(inline.has_add_permission(self.request))
                 self.assertFalse(inline.has_change_permission(self.request))
                 self.assertFalse(inline.has_delete_permission(self.request))
+
+    def test_food_lists_show_current_nutrition_and_related_counts(self):
+        owner = User.objects.create_user(
+            username="catalog-owner",
+            email="catalog@example.com",
+            password="owner-password",
+        )
+        food = create_food_item(
+            name="Chocolate Shake",
+            scope=FoodItem.Scope.PERSONAL,
+            origin_type=FoodItem.OriginType.RESTAURANT,
+            provider_name="In-N-Out",
+            owner=owner,
+            definition={
+                **food_definition(calories="610", confidence=None),
+                "serving_quantity": Decimal("15"),
+                "serving_unit": FoodItemVersion.ServingUnit.FLUID_OUNCE,
+                "serving_label": "15 fl oz shake",
+            },
+            created_by=owner,
+        )
+        food_admin = FoodItemAdmin(FoodItem, self.site)
+
+        listed_food = food_admin.get_queryset(self.request).get(pk=food.pk)
+        summary = str(food_admin.current_version_summary(listed_food))
+
+        self.assertIn("15 fl oz shake", summary)
+        self.assertIn("610 kcal", summary)
+        self.assertIn(
+            f"/admin/foods/fooditemversion/{food.current_version_id}/change/",
+            summary,
+        )
+        self.assertEqual(food_admin.version_count(listed_food), 1)
+        self.assertEqual(food_admin.meal_log_count(listed_food), 0)
+
+    def test_food_add_page_renders_grouped_fields(self):
+        admin_user = User.objects.create_superuser(
+            username="catalog-admin",
+            email="catalog-admin@example.com",
+            password="admin-password",
+        )
+        self.client.force_login(admin_user)
+
+        response = self.client.get("/admin/foods/fooditem/add/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Food identity")
+        self.assertContains(response, "Ownership and visibility")
+        self.assertContains(response, "Available after the food is created.")
 
 
 class FoodApiTests(APITestCase):
@@ -309,10 +343,7 @@ class FoodApiTests(APITestCase):
                 "serving_label": "one slice",
                 "provenance": FoodItemVersion.Provenance.USER_ENTERED,
                 "confidence_score": None,
-                "nutrients": [
-                    {"nutrient": "calories", "amount": "80"},
-                    {"nutrient": "fiber", "amount": "0"},
-                ],
+                "nutrients": {"calories": "80", "fiber": "0"},
                 "sources": [],
                 "components": [],
             },
@@ -320,12 +351,10 @@ class FoodApiTests(APITestCase):
         payload.update(overrides)
         return payload
 
-    def test_food_and_nutrient_endpoints_require_authentication(self):
+    def test_food_endpoint_requires_authentication(self):
         food_response = self.client.get("/api/foods/")
-        nutrient_response = self.client.get("/api/nutrients/")
 
         self.assertEqual(food_response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertEqual(nutrient_response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_catalog_lists_shared_and_owned_foods_only(self):
         self.client.force_authenticate(user=self.owner)
@@ -387,27 +416,15 @@ class FoodApiTests(APITestCase):
         self.assertEqual(nutrient_values["fiber"], "0.0000")
         self.assertNotIn("sugar", nutrient_values)
 
-    def test_personal_food_can_record_an_optional_micronutrient(self):
-        NutrientDefinition.objects.create(
-            key="potassium",
-            name="Potassium",
-            unit=NutrientDefinition.Unit.MILLIGRAM,
-            display_order=90,
-        )
+    def test_personal_food_rejects_an_unsupported_nutrient(self):
         payload = self.personal_food_payload()
-        payload["definition"]["nutrients"].append(
-            {"nutrient": "potassium", "amount": "120"}
-        )
+        payload["definition"]["nutrients"]["potassium"] = "120"
         self.client.force_authenticate(user=self.owner)
 
         response = self.client.post("/api/foods/", payload, format="json")
 
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
-        nutrient_values = {
-            item["key"]: item["amount"]
-            for item in response.data["current_version"]["nutrients"]
-        }
-        self.assertEqual(nutrient_values["potassium"], "120.0000")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("nutrients", response.data["definition"])
 
     def test_personal_foods_are_private_for_retrieve_update_and_delete(self):
         self.client.force_authenticate(user=self.owner)
@@ -447,7 +464,7 @@ class FoodApiTests(APITestCase):
         self.client.force_authenticate(user=self.owner)
         old_version = self.personal_food.current_version
         payload = self.personal_food_payload()["definition"]
-        payload["nutrients"] = [{"nutrient": "calories", "amount": "225"}]
+        payload["nutrients"] = {"calories": "225"}
 
         response = self.client.patch(
             f"/api/foods/{self.personal_food.id}/",
@@ -460,7 +477,7 @@ class FoodApiTests(APITestCase):
         self.assertEqual(self.personal_food.current_version.version_number, 2)
         self.assertNotEqual(self.personal_food.current_version_id, old_version.id)
         self.assertEqual(
-            old_version.nutrient_amounts.get(nutrient__key="calories").amount,
+            old_version.calories,
             Decimal("210"),
         )
 
@@ -487,7 +504,7 @@ class FoodApiTests(APITestCase):
         )
 
         updated_definition = self.personal_food_payload()["definition"]
-        updated_definition["nutrients"] = [{"nutrient": "calories", "amount": "250"}]
+        updated_definition["nutrients"] = {"calories": "250"}
         update_response = self.client.patch(
             f"/api/foods/{self.personal_food.id}/",
             {"definition": updated_definition},
@@ -511,24 +528,4 @@ class FoodApiTests(APITestCase):
         self.assertNotIn(
             self.personal_food.id,
             [item["id"] for item in list_response.data],
-        )
-
-    def test_nutrient_catalog_exposes_the_core_definitions(self):
-        self.client.force_authenticate(user=self.owner)
-
-        response = self.client.get("/api/nutrients/")
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            {item["key"] for item in response.data if item["is_core"]},
-            {
-                "calories",
-                "protein",
-                "carbohydrates",
-                "fat",
-                "fiber",
-                "sugar",
-                "sodium",
-                "cholesterol",
-            },
         )

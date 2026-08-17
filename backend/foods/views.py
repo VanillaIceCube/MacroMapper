@@ -1,10 +1,10 @@
 from django.utils import timezone
-from rest_framework import filters, mixins, viewsets
+from rest_framework import filters, viewsets
 from rest_framework.permissions import IsAuthenticated
 
-from .models import FoodItem, NutrientDefinition
+from .models import FoodItem
 from .permissions import IsPersonalFoodOwnerOrReadOnly
-from .serializers import FoodItemSerializer, NutrientDefinitionSerializer
+from .serializers import FoodItemSerializer
 
 
 class FoodItemViewSet(viewsets.ModelViewSet):
@@ -22,7 +22,6 @@ class FoodItemViewSet(viewsets.ModelViewSet):
             .visible_to(self.request.user)
             .select_related("owner", "current_version")
             .prefetch_related(
-                "current_version__nutrient_amounts__nutrient",
                 "current_version__sources",
                 "current_version__components__child_version__food_item",
             )
@@ -31,14 +30,3 @@ class FoodItemViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         instance.archived_at = timezone.now()
         instance.save(update_fields=["archived_at", "updated_at"])
-
-
-class NutrientDefinitionViewSet(
-    mixins.ListModelMixin,
-    mixins.RetrieveModelMixin,
-    viewsets.GenericViewSet,
-):
-    queryset = NutrientDefinition.objects.all()
-    serializer_class = NutrientDefinitionSerializer
-    permission_classes = [IsAuthenticated]
-    lookup_field = "key"
