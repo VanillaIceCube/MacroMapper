@@ -31,6 +31,8 @@ All notable changes to this project are documented in this file.
 - Added the protected `/diary` route and Meal diary navigation destination,
   and documented the implemented diary workflow across the product overview
   and component guides.
+- Extended the Field Atlas design system across the meal diary, meal editor,
+  nutrition totals, empty states, and route-aware navigation treatments.
 - Improved Django admin navigation with linked related records, inline meal
   contents, nutrition summaries, search, filters, and grouped detail forms.
 - Renamed saved meal records to Meal Items throughout the backend and admin

@@ -13,10 +13,21 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 
 export default function AppNavigationDrawer({ open, setOpen }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isHome = location.pathname === '/';
+  const isDiary = location.pathname === '/diary';
+
+  const navigationItemStyles = (active) => ({
+    color: active ? 'var(--atlas-forest-dark)' : 'var(--atlas-ink)',
+    bgcolor: active ? 'var(--atlas-forest-soft)' : 'transparent',
+    borderRadius: 1.5,
+    border: active ? '1px solid rgba(46, 107, 79, 0.2)' : '1px solid transparent',
+    '&:hover': { bgcolor: active ? 'var(--atlas-forest-soft)' : 'var(--atlas-mineral-soft)' },
+  });
 
   const goHome = () => {
     setOpen(false);
@@ -76,22 +87,28 @@ export default function AppNavigationDrawer({ open, setOpen }) {
         </Stack>
         <Divider sx={{ mx: 2, borderColor: 'var(--atlas-border)' }} />
         <List sx={{ px: 1.5, pt: 2 }}>
-          <ListItemButton
-            onClick={goHome}
-            sx={{
-              color: 'var(--atlas-forest-dark)',
-              bgcolor: 'var(--atlas-forest-soft)',
-              borderRadius: 1.5,
-              border: '1px solid rgba(46, 107, 79, 0.2)',
-            }}
-          >
-            <ListItemIcon sx={{ color: 'var(--atlas-forest)', minWidth: 40 }}>
+          <ListItemButton onClick={goHome} selected={isHome} sx={navigationItemStyles(isHome)}>
+            <ListItemIcon
+              sx={{
+                color: isHome ? 'var(--atlas-forest)' : 'var(--atlas-ink-muted)',
+                minWidth: 40,
+              }}
+            >
               <HomeIcon />
             </ListItemIcon>
             <ListItemText primary="Home" />
           </ListItemButton>
-          <ListItemButton onClick={goDiary} sx={{ color: 'var(--secondary-color)' }}>
-            <ListItemIcon sx={{ color: 'var(--secondary-color)' }}>
+          <ListItemButton
+            onClick={goDiary}
+            selected={isDiary}
+            sx={{ mt: 0.75, ...navigationItemStyles(isDiary) }}
+          >
+            <ListItemIcon
+              sx={{
+                color: isDiary ? 'var(--atlas-forest)' : 'var(--atlas-ink-muted)',
+                minWidth: 40,
+              }}
+            >
               <RestaurantMenuIcon />
             </ListItemIcon>
             <ListItemText primary="Meal diary" />

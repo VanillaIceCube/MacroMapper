@@ -47,3 +47,14 @@
   visualizations.
 - Concentrate mapping language around meal creation and provenance; use plain
   language for ordinary settings and account actions.
+
+## Nutrition surfaces
+
+- Present daily totals as bordered data cards with tabular numerals. Use the
+  semantic protein, carbohydrate, and fat tokens; keep calories and secondary
+  nutrients on neutral paper surfaces.
+- Use Forest to identify saved meals and confirmed catalog actions, Mineral for
+  neutral date and search surfaces, and Persimmon for user-entered food
+  estimates.
+- Call saved records “meal items” in the interface. Reserve component language
+  for the optional ingredient breakdown within a composite food.

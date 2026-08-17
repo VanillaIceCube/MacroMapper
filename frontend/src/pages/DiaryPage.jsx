@@ -3,6 +3,7 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import RestaurantMenuOutlinedIcon from '@mui/icons-material/RestaurantMenuOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import {
   Alert,
@@ -35,14 +36,62 @@ import {
 } from '../services/mealApiClient';
 
 const launchNutrients = [
-  { key: 'calories', label: 'Calories', unit: 'kcal' },
-  { key: 'protein', label: 'Protein', unit: 'g' },
-  { key: 'carbohydrates', label: 'Carbs', unit: 'g' },
-  { key: 'fat', label: 'Fat', unit: 'g' },
-  { key: 'fiber', label: 'Fiber', unit: 'g' },
-  { key: 'sugar', label: 'Sugar', unit: 'g' },
-  { key: 'sodium', label: 'Sodium', unit: 'mg' },
-  { key: 'cholesterol', label: 'Cholesterol', unit: 'mg' },
+  {
+    key: 'calories',
+    label: 'Calories',
+    unit: 'kcal',
+    color: 'var(--atlas-ink)',
+    background: 'var(--atlas-paper)',
+  },
+  {
+    key: 'protein',
+    label: 'Protein',
+    unit: 'g',
+    color: 'var(--protein-color)',
+    background: 'var(--atlas-forest-soft)',
+  },
+  {
+    key: 'carbohydrates',
+    label: 'Carbs',
+    unit: 'g',
+    color: 'var(--carbohydrate-color)',
+    background: 'var(--atlas-mineral-soft)',
+  },
+  {
+    key: 'fat',
+    label: 'Fat',
+    unit: 'g',
+    color: 'var(--fat-color)',
+    background: 'var(--atlas-persimmon-soft)',
+  },
+  {
+    key: 'fiber',
+    label: 'Fiber',
+    unit: 'g',
+    color: 'var(--atlas-ink-muted)',
+    background: 'var(--atlas-paper)',
+  },
+  {
+    key: 'sugar',
+    label: 'Sugar',
+    unit: 'g',
+    color: 'var(--atlas-ink-muted)',
+    background: 'var(--atlas-paper)',
+  },
+  {
+    key: 'sodium',
+    label: 'Sodium',
+    unit: 'mg',
+    color: 'var(--atlas-ink-muted)',
+    background: 'var(--atlas-paper)',
+  },
+  {
+    key: 'cholesterol',
+    label: 'Cholesterol',
+    unit: 'mg',
+    color: 'var(--atlas-ink-muted)',
+    background: 'var(--atlas-paper)',
+  },
 ];
 
 const emptyPersonalFood = () => ({
@@ -81,7 +130,7 @@ async function responseError(response, fallback) {
   return fallback;
 }
 
-function ComponentSnapshot({ components }) {
+function MealItemBreakdown({ components }) {
   if (!components?.length) return null;
   return (
     <Box component="ul" sx={{ mt: 0.75, mb: 0, pl: 2.5 }}>
@@ -90,7 +139,7 @@ function ComponentSnapshot({ components }) {
           <Typography variant="caption">
             {formatAmount(component.servings)} × {component.food_name}
           </Typography>
-          <ComponentSnapshot components={component.components} />
+          <MealItemBreakdown components={component.components} />
         </Box>
       ))}
     </Box>
@@ -225,7 +274,7 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
     if (response.ok) {
       const food = await response.json();
       addFood(food);
-      setFoods((current) => [food, ...current]);
+      setFoods((current) => [food, ...current.filter((value) => value.id !== food.id)]);
       setNewFood(emptyPersonalFood());
     } else {
       setError(await responseError(response, 'Could not create this personal food.'));
@@ -240,9 +289,24 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
       fullWidth
       maxWidth="md"
       fullScreen={false}
+      sx={{
+        '& .MuiDialog-paper': {
+          bgcolor: 'var(--atlas-paper)',
+          border: '1px solid var(--atlas-border-strong)',
+          boxShadow: '0 24px 64px rgba(23, 50, 77, 0.16)',
+        },
+      }}
     >
-      <DialogTitle>{meal ? 'Edit meal' : 'Add meal'}</DialogTitle>
-      <DialogContent dividers>
+      <DialogTitle
+        sx={{
+          bgcolor: 'var(--atlas-mineral-soft)',
+          color: 'var(--atlas-ink)',
+          borderBottom: '1px solid var(--atlas-border)',
+        }}
+      >
+        {meal ? 'Edit meal' : 'Add meal'}
+      </DialogTitle>
+      <DialogContent dividers sx={{ bgcolor: 'var(--atlas-paper)', borderColor: 'transparent' }}>
         <Stack spacing={2.5}>
           {error && <Alert severity="error">{error}</Alert>}
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
@@ -263,9 +327,16 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
             minRows={2}
           />
 
-          <Box>
-            <Typography component="h3" variant="h6" sx={{ fontWeight: 800 }}>
-              Meal components
+          <Box
+            sx={{
+              p: { xs: 2, sm: 2.5 },
+              bgcolor: 'var(--atlas-mineral-soft)',
+              border: '1px solid rgba(71, 121, 138, 0.24)',
+              borderRadius: 2,
+            }}
+          >
+            <Typography component="h3" variant="h6">
+              Meal items
             </Typography>
             {!items.length && (
               <Typography color="text.secondary" sx={{ mt: 1 }}>
@@ -277,6 +348,7 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
                 <ListItem
                   key={`${item.food_item}-${index}`}
                   disableGutters
+                  sx={{ borderBottom: '1px solid var(--atlas-border)' }}
                   secondaryAction={
                     <IconButton
                       aria-label={`remove ${item.name}`}
@@ -313,9 +385,8 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
             </List>
           </Box>
 
-          <Divider />
           <Box>
-            <Typography component="h3" variant="h6" sx={{ fontWeight: 800 }}>
+            <Typography component="h3" variant="h6">
               Find a food
             </Typography>
             <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
@@ -340,11 +411,19 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
             {searching ? (
               <CircularProgress size={24} sx={{ mt: 2 }} />
             ) : (
-              <List sx={{ maxHeight: 230, overflow: 'auto' }}>
+              <List
+                sx={{
+                  maxHeight: 230,
+                  mt: 1,
+                  overflow: 'auto',
+                  borderBlock: '1px solid var(--atlas-border)',
+                }}
+              >
                 {foods.map((food) => (
                   <ListItem
                     key={food.id}
                     disableGutters
+                    sx={{ borderBottom: '1px solid var(--atlas-border)' }}
                     secondaryAction={<Button onClick={() => addFood(food)}>Add</Button>}
                   >
                     <ListItemText
@@ -357,9 +436,20 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
             )}
           </Box>
 
-          <Divider />
-          <Box component="details">
-            <Typography component="summary" sx={{ fontWeight: 800, cursor: 'pointer' }}>
+          <Box
+            component="details"
+            sx={{
+              p: { xs: 2, sm: 2.5 },
+              bgcolor: 'var(--atlas-persimmon-soft)',
+              border: '1px solid rgba(169, 68, 32, 0.24)',
+              borderRadius: 2,
+            }}
+          >
+            <Typography
+              component="summary"
+              variant="h6"
+              sx={{ color: 'var(--atlas-persimmon-dark)', cursor: 'pointer' }}
+            >
               Create a personal food
             </Typography>
             <Stack spacing={1.5} sx={{ mt: 2 }}>
@@ -390,14 +480,16 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
                   />
                 ))}
               </Box>
-              <Button variant="outlined" onClick={createFood} disabled={saving}>
+              <Button variant="outlined" color="secondary" onClick={createFood} disabled={saving}>
                 Create and add food
               </Button>
             </Stack>
           </Box>
         </Stack>
       </DialogContent>
-      <DialogActions>
+      <DialogActions
+        sx={{ bgcolor: 'var(--atlas-paper)', borderTop: '1px solid var(--atlas-border)' }}
+      >
         <Button onClick={onClose} disabled={saving}>
           Cancel
         </Button>
@@ -452,211 +544,265 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 2.5, sm: 4 } }}>
-      <Stack spacing={3}>
-        <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          alignItems={{ sm: 'center' }}
-          justifyContent="space-between"
-          spacing={2}
-        >
-          <Box>
-            <Typography
-              component="h1"
-              variant="h3"
-              sx={{ fontWeight: 800, fontSize: { xs: '2rem', sm: '3rem' } }}
-            >
-              Meal diary
-            </Typography>
-            <Typography color="rgba(255,255,255,0.75)">
-              Your saved meals keep their original nutrition values.
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setEditor({ open: true, meal: null })}
+    <Box className="atlas-contours" sx={{ minHeight: 'calc(100vh - 65px)' }}>
+      <Container maxWidth="lg" sx={{ py: { xs: 3, sm: 5 } }}>
+        <Stack spacing={3}>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            alignItems={{ sm: 'center' }}
+            justifyContent="space-between"
+            spacing={2}
           >
-            Add meal
-          </Button>
-        </Stack>
-
-        <Paper sx={{ p: 1.5, bgcolor: 'var(--secondary-background-color)' }}>
-          <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}>
-            <IconButton
-              aria-label="previous day"
-              onClick={() => setDate((current) => shiftDate(current, -1))}
+            <Box>
+              <Typography
+                variant="overline"
+                sx={{ color: 'var(--atlas-forest-dark)', fontWeight: 700, letterSpacing: '0.12em' }}
+              >
+                Daily map
+              </Typography>
+              <Typography
+                component="h1"
+                variant="h3"
+                sx={{ fontSize: { xs: '2.35rem', sm: '3.5rem' }, lineHeight: 1.05 }}
+              >
+                Meal diary
+              </Typography>
+              <Typography sx={{ mt: 1, color: 'var(--atlas-ink-muted)' }}>
+                Your saved meals keep their original nutrition values.
+              </Typography>
+            </Box>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setEditor({ open: true, meal: null })}
             >
-              <ChevronLeftIcon />
-            </IconButton>
-            <TextField
-              aria-label="diary date"
-              type="date"
-              value={date}
-              onChange={(event) => setDate(event.target.value)}
-              size="small"
-            />
-            <IconButton
-              aria-label="next day"
-              onClick={() => setDate((current) => shiftDate(current, 1))}
-            >
-              <ChevronRightIcon />
-            </IconButton>
+              Add meal
+            </Button>
           </Stack>
-        </Paper>
 
-        {error && <Alert severity="error">{error}</Alert>}
-
-        <Box>
-          <Typography component="h2" variant="h5" sx={{ fontWeight: 800, mb: 1.5 }}>
-            Daily totals
-          </Typography>
-          <Box
+          <Paper
+            elevation={0}
             sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' },
-              gap: 1.5,
+              p: 1.5,
+              bgcolor: 'var(--atlas-mineral-soft)',
+              color: 'var(--atlas-ink)',
+              border: '1px solid rgba(71, 121, 138, 0.24)',
             }}
           >
-            {launchNutrients.map((nutrient) => (
-              <Paper
-                key={nutrient.key}
-                sx={{
-                  p: 2,
-                  bgcolor: 'var(--secondary-background-color)',
-                  color: 'var(--secondary-color)',
-                }}
+            <Stack direction="row" alignItems="center" justifyContent="center" spacing={1.25}>
+              <IconButton
+                aria-label="previous day"
+                onClick={() => setDate((current) => shiftDate(current, -1))}
               >
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                  {nutrient.label}
-                </Typography>
-                <Typography variant="h5" sx={{ fontWeight: 900 }}>
-                  {totalsByKey[nutrient.key] ? formatAmount(totalsByKey[nutrient.key].amount) : '—'}{' '}
-                  <Typography component="span" variant="caption">
-                    {nutrient.unit}
-                  </Typography>
-                </Typography>
-              </Paper>
-            ))}
-          </Box>
-        </Box>
+                <ChevronLeftIcon />
+              </IconButton>
+              <TextField
+                aria-label="diary date"
+                type="date"
+                value={date}
+                onChange={(event) => setDate(event.target.value)}
+                size="small"
+              />
+              <IconButton
+                aria-label="next day"
+                onClick={() => setDate((current) => shiftDate(current, 1))}
+              >
+                <ChevronRightIcon />
+              </IconButton>
+            </Stack>
+          </Paper>
 
-        <Box>
-          <Typography component="h2" variant="h5" sx={{ fontWeight: 800, mb: 1.5 }}>
-            Meals
-          </Typography>
-          {loading ? (
-            <CircularProgress aria-label="loading diary" />
-          ) : !data.meals.length ? (
-            <Paper
+          {error && <Alert severity="error">{error}</Alert>}
+
+          <Box>
+            <Typography component="h2" variant="h5" sx={{ mb: 1.5 }}>
+              Daily totals
+            </Typography>
+            <Box
               sx={{
-                p: 4,
-                textAlign: 'center',
-                bgcolor: 'transparent',
-                color: 'var(--text-color)',
-                border: '1px dashed rgba(255,255,255,0.45)',
+                display: 'grid',
+                gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' },
+                gap: 1.5,
               }}
             >
-              <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                Nothing logged yet
-              </Typography>
-              <Typography sx={{ mt: 0.5 }}>Add a meal to start this day’s diary.</Typography>
-            </Paper>
-          ) : (
-            <Stack spacing={2}>
-              {data.meals.map((meal) => (
+              {launchNutrients.map((nutrient) => (
                 <Paper
-                  key={meal.id}
+                  key={nutrient.key}
+                  elevation={0}
                   sx={{
-                    p: { xs: 2, sm: 2.5 },
-                    bgcolor: 'var(--secondary-background-color)',
-                    color: 'var(--secondary-color)',
+                    p: 2,
+                    bgcolor: nutrient.background,
+                    color: 'var(--atlas-ink)',
+                    border: '1px solid var(--atlas-border)',
+                    borderTop: `4px solid ${nutrient.color}`,
                   }}
                 >
-                  <Stack
-                    direction="row"
-                    justifyContent="space-between"
-                    alignItems="flex-start"
-                    spacing={1}
+                  <Typography variant="body2" sx={{ color: nutrient.color, fontWeight: 700 }}>
+                    {nutrient.label}
+                  </Typography>
+                  <Typography
+                    variant="h5"
+                    className="numeric-data"
+                    sx={{ mt: 0.5, fontWeight: 650 }}
                   >
-                    <Box>
-                      <Typography component="h3" variant="h6" sx={{ fontWeight: 900 }}>
-                        {meal.name}
-                      </Typography>
-                      {meal.notes && <Typography variant="body2">{meal.notes}</Typography>}
-                    </Box>
-                    <Stack direction="row">
-                      <IconButton
-                        aria-label={`edit ${meal.name}`}
-                        onClick={() => setEditor({ open: true, meal })}
-                      >
-                        <EditOutlinedIcon />
-                      </IconButton>
-                      <IconButton
-                        aria-label={`delete ${meal.name}`}
-                        onClick={() => setPendingDelete(meal)}
-                      >
-                        <DeleteOutlineIcon />
-                      </IconButton>
-                    </Stack>
-                  </Stack>
-                  <Divider sx={{ my: 1.5 }} />
-                  <List disablePadding>
-                    {meal.items.map((item) => (
-                      <ListItem key={item.id} disableGutters alignItems="flex-start">
-                        <ListItemText
-                          primary={`${formatAmount(item.servings)} × ${item.food_name}`}
-                          secondaryTypographyProps={{ component: 'div' }}
-                          secondary={
-                            <>
-                              {item.provider_name ||
-                                item.serving_label ||
-                                `${item.serving_quantity} ${item.serving_unit}`}
-                              <ComponentSnapshot components={item.component_snapshot} />
-                            </>
-                          }
-                        />
-                        <Typography sx={{ fontWeight: 800, whiteSpace: 'nowrap' }}>
-                          {formatAmount(
-                            item.nutrients.find((value) => value.key === 'calories')?.amount,
-                          )}{' '}
-                          kcal
-                        </Typography>
-                      </ListItem>
-                    ))}
-                  </List>
+                    {totalsByKey[nutrient.key]
+                      ? formatAmount(totalsByKey[nutrient.key].amount)
+                      : '—'}{' '}
+                    <Typography component="span" variant="caption">
+                      {nutrient.unit}
+                    </Typography>
+                  </Typography>
                 </Paper>
               ))}
-            </Stack>
-          )}
-        </Box>
-      </Stack>
+            </Box>
+          </Box>
 
-      <MealEditor
-        date={date}
-        meal={editor.meal}
-        open={editor.open}
-        token={token}
-        onClose={() => setEditor({ open: false, meal: null })}
-        onSaved={async (message) => {
-          setEditor({ open: false, meal: null });
-          showSnackbar('success', message);
-          await loadDiary();
-        }}
-      />
+          <Box>
+            <Typography component="h2" variant="h5" sx={{ mb: 1.5 }}>
+              Meals
+            </Typography>
+            {loading ? (
+              <CircularProgress aria-label="loading diary" />
+            ) : !data.meals.length ? (
+              <Paper
+                sx={{
+                  p: 4,
+                  textAlign: 'center',
+                  bgcolor: 'var(--atlas-paper)',
+                  color: 'var(--atlas-ink)',
+                  border: '1px dashed var(--atlas-border-strong)',
+                }}
+              >
+                <RestaurantMenuOutlinedIcon
+                  sx={{ fontSize: 38, color: 'var(--atlas-forest)', mb: 1 }}
+                />
+                <Typography variant="h6">Nothing logged yet</Typography>
+                <Typography sx={{ mt: 0.5, color: 'var(--atlas-ink-muted)' }}>
+                  Add a meal to start this day’s diary.
+                </Typography>
+              </Paper>
+            ) : (
+              <Stack spacing={2}>
+                {data.meals.map((meal) => (
+                  <Paper
+                    key={meal.id}
+                    elevation={0}
+                    sx={{
+                      p: { xs: 2, sm: 2.5 },
+                      bgcolor: 'var(--atlas-paper)',
+                      color: 'var(--atlas-ink)',
+                      border: '1px solid var(--atlas-border)',
+                      borderLeft: '5px solid var(--atlas-forest)',
+                      boxShadow: '0 12px 30px rgba(23, 50, 77, 0.05)',
+                    }}
+                  >
+                    <Stack
+                      direction="row"
+                      justifyContent="space-between"
+                      alignItems="flex-start"
+                      spacing={1}
+                    >
+                      <Box>
+                        <Typography component="h3" variant="h6">
+                          {meal.name}
+                        </Typography>
+                        {meal.notes && (
+                          <Typography variant="body2" sx={{ color: 'var(--atlas-ink-muted)' }}>
+                            {meal.notes}
+                          </Typography>
+                        )}
+                      </Box>
+                      <Stack direction="row">
+                        <IconButton
+                          aria-label={`edit ${meal.name}`}
+                          onClick={() => setEditor({ open: true, meal })}
+                          sx={{ color: 'var(--atlas-forest)' }}
+                        >
+                          <EditOutlinedIcon />
+                        </IconButton>
+                        <IconButton
+                          aria-label={`delete ${meal.name}`}
+                          onClick={() => setPendingDelete(meal)}
+                          sx={{ color: 'var(--atlas-persimmon-dark)' }}
+                        >
+                          <DeleteOutlineIcon />
+                        </IconButton>
+                      </Stack>
+                    </Stack>
+                    <Divider sx={{ my: 1.5 }} />
+                    <List disablePadding>
+                      {meal.items.map((item) => (
+                        <ListItem key={item.id} disableGutters alignItems="flex-start">
+                          <ListItemText
+                            primary={`${formatAmount(item.servings)} × ${item.food_name}`}
+                            secondaryTypographyProps={{ component: 'div' }}
+                            secondary={
+                              <>
+                                {item.provider_name ||
+                                  item.serving_label ||
+                                  `${item.serving_quantity} ${item.serving_unit}`}
+                                <MealItemBreakdown components={item.component_snapshot} />
+                              </>
+                            }
+                          />
+                          <Typography
+                            className="numeric-data"
+                            sx={{
+                              color: 'var(--atlas-forest-dark)',
+                              fontWeight: 700,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {formatAmount(
+                              item.nutrients.find((value) => value.key === 'calories')?.amount,
+                            )}{' '}
+                            kcal
+                          </Typography>
+                        </ListItem>
+                      ))}
+                    </List>
+                  </Paper>
+                ))}
+              </Stack>
+            )}
+          </Box>
+        </Stack>
 
-      <Dialog open={Boolean(pendingDelete)} onClose={() => setPendingDelete(null)}>
-        <DialogTitle>Delete {pendingDelete?.name}?</DialogTitle>
-        <DialogContent>
-          <Typography>This removes the meal from your diary and cannot be undone.</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPendingDelete(null)}>Cancel</Button>
-          <Button color="error" variant="contained" onClick={removeMeal}>
-            Delete meal
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Container>
+        <MealEditor
+          date={date}
+          meal={editor.meal}
+          open={editor.open}
+          token={token}
+          onClose={() => setEditor({ open: false, meal: null })}
+          onSaved={async (message) => {
+            setEditor({ open: false, meal: null });
+            showSnackbar('success', message);
+            await loadDiary();
+          }}
+        />
+
+        <Dialog
+          open={Boolean(pendingDelete)}
+          onClose={() => setPendingDelete(null)}
+          sx={{
+            '& .MuiDialog-paper': {
+              bgcolor: 'var(--atlas-paper)',
+              border: '1px solid var(--atlas-border-strong)',
+            },
+          }}
+        >
+          <DialogTitle>Delete {pendingDelete?.name}?</DialogTitle>
+          <DialogContent>
+            <Typography>This removes the meal from your diary and cannot be undone.</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setPendingDelete(null)}>Cancel</Button>
+            <Button color="error" variant="contained" onClick={removeMeal}>
+              Delete meal
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Container>
+    </Box>
   );
 }
