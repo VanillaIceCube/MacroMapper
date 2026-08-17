@@ -1,6 +1,6 @@
 # 🎨 MacroMapper Frontend (React)
 MacroMapper's frontend is a Vite-powered React 19 single-page application built
-with Material UI and React Router 7. It will provide an individual meal and
+with Material UI and React Router 8. It will provide an individual meal and
 activity diary, source-aware GPT meal proposals, nutrition goals, and trend
 reporting through MacroMapper's warm, editorial Field Atlas visual system.
 
@@ -35,6 +35,13 @@ components.
 - Any unknown route resolves to the protected home page
 
 Signed-out users who request a protected route are redirected to `/login`.
+
+React Router 8 requires no production routing API changes in MacroMapper. The
+application already imports its DOM routing APIs from `react-router` rather than
+the removed `react-router-dom` compatibility package. The test wrapper no
+longer passes the v7 future flags, whose behavior is standard in v8, and the
+application integration tests cover browser-router navigation, protected
+redirects, and unknown-route fallback behavior.
 
 ## 🔐 Authentication And Shell Behavior
 - Access and refresh tokens are stored in `sessionStorage`.

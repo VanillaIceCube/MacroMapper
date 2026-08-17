@@ -3,7 +3,7 @@ import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { MemoryRouter } from 'react-router';
 import fieldAtlasTheme from '../theme';
 
-// Shared test setup: disable MUI ripples (act warnings) and silence router v7 warnings.
+// Shared test setup: apply Field Atlas and disable MUI ripples to avoid act warnings.
 const testTheme = createTheme(fieldAtlasTheme, {
   components: {
     MuiButtonBase: {
@@ -14,14 +14,10 @@ const testTheme = createTheme(fieldAtlasTheme, {
   },
 });
 
-const routerFuture = { v7_startTransition: true, v7_relativeSplatPath: true };
-
 export function renderWithProviders(ui, { routeEntries = ['/'], ...renderOptions } = {}) {
   return render(
     <ThemeProvider theme={testTheme}>
-      <MemoryRouter future={routerFuture} initialEntries={routeEntries}>
-        {ui}
-      </MemoryRouter>
+      <MemoryRouter initialEntries={routeEntries}>{ui}</MemoryRouter>
     </ThemeProvider>,
     renderOptions,
   );
