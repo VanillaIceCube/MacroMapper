@@ -18,6 +18,13 @@ the planned user experience and release sequence.
 
 Signed-out users who request a protected route are redirected to `/login`.
 
+React Router 8 requires no production routing API changes in MacroMapper. The
+application already imports its DOM routing APIs from `react-router` rather than
+the removed `react-router-dom` compatibility package. The test wrapper no
+longer passes the v7 future flags, whose behavior is standard in v8, and the
+application integration tests cover browser-router navigation, protected
+redirects, and unknown-route fallback behavior.
+
 ## 🔐 Authentication And Shell Behavior
 - Access and refresh tokens are stored in `sessionStorage`.
 - The profile name and email are stored for the app header.

@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import App from './App';
 
 describe('App', () => {
@@ -11,6 +12,7 @@ describe('App', () => {
     render(<App />);
 
     expect(await screen.findByRole('heading', { name: 'Login' })).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/login');
   });
 
   test('shows the protected application shell to signed-in users', async () => {
@@ -23,5 +25,27 @@ describe('App', () => {
     expect(screen.getByLabelText('notifications')).toBeInTheDocument();
     expect(screen.getByLabelText('user profile')).toBeInTheDocument();
     expect(screen.getByLabelText('menu')).toBeInTheDocument();
+  });
+
+  test('navigates between authentication routes through the browser router', async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, '', '/login');
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: 'Create Account' }));
+
+    expect(await screen.findByRole('heading', { name: 'Create account' })).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/register');
+  });
+
+  test('redirects an unknown route to the protected home page', async () => {
+    sessionStorage.setItem('accessToken', 'token');
+    window.history.replaceState({}, '', '/not-a-macromapper-route');
+    render(<App />);
+
+    expect(
+      await screen.findByRole('heading', { name: 'Welcome to MacroMapper' }),
+    ).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/');
   });
 });
