@@ -10,7 +10,7 @@ a custom email-first user model, password-reset email delivery, and a
 recipient-scoped notification API. It also supplies a source-aware Food Item
 catalog with versioned definitions, components, nutrients, and private personal
 foods, plus an owner-scoped meal diary with durable food, component, and
-nutrient snapshots. See the [product vision](../docs/PRODUCT_VISION.md) for the
+nutrient values. See the [product vision](../docs/PRODUCT_VISION.md) for the
 remaining roadmap.
 
 ## 🧭 Structure
@@ -19,8 +19,8 @@ remaining roadmap.
   and email delivery
 - `foods/`: reusable Food Items, immutable versions, components, nullable
   nutrient columns, source references, and authenticated catalog APIs
-- `meals/`: private dated meal entries, immutable saved component/nutrient
-  snapshots, owner-scoped CRUD, and daily totals
+- `meals/`: private dated meal entries, historically stable saved
+  component/nutrient values, owner-scoped CRUD, and daily totals
 - `notifications/`: persisted notifications for the authenticated app
   header
 - `environment.yml`: Conda environment definition
@@ -108,14 +108,14 @@ user's entries.
 - `PATCH /api/meals/{id}/`
 - `DELETE /api/meals/{id}/`
 - `GET /api/meals/daily/?date=YYYY-MM-DD`
-  - Returns the day's meals and summed nutrient snapshots.
+  - Returns the day's meals and summed saved nutrient values.
 
 Create requests provide `entry_date`, `name`, optional `notes`, and
 `item_inputs`. Each item contains a visible `food_item`, positive `servings`,
 and a unique `order`. Saved items pin and copy the selected Food Item version,
 including its nested composite components and nullable nutrient columns.
 Editing an existing item submits its returned `food_version_id` as
-`food_version` so quantity changes continue to use the original snapshot even
+`food_version` so quantity changes continue to use the original saved values even
 if the catalog has since changed.
 
 ## 🔔 Notification API

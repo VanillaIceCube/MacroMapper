@@ -21,12 +21,13 @@ class MealEntry(models.Model):
     class Meta:
         ordering = ["entry_date", "created_at", "id"]
         indexes = [models.Index(fields=["owner", "entry_date"])]
+        verbose_name_plural = "meal entries"
 
     def __str__(self):
         return f"{self.entry_date}: {self.name}"
 
 
-class MealItemSnapshot(models.Model):
+class MealItem(models.Model):
     meal_entry = models.ForeignKey(
         MealEntry,
         on_delete=models.CASCADE,
@@ -35,7 +36,7 @@ class MealItemSnapshot(models.Model):
     food_version = models.ForeignKey(
         "foods.FoodItemVersion",
         on_delete=models.PROTECT,
-        related_name="meal_item_snapshots",
+        related_name="meal_items",
     )
     servings = models.DecimalField(
         max_digits=10,
@@ -108,6 +109,8 @@ class MealItemSnapshot(models.Model):
 
     class Meta:
         ordering = ["order", "id"]
+        verbose_name = "meal item"
+        verbose_name_plural = "meal items"
         constraints = [
             models.UniqueConstraint(
                 fields=["meal_entry", "order"],

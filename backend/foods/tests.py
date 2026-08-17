@@ -232,6 +232,55 @@ class FoodAdminTests(TestCase):
                 self.assertFalse(inline.has_change_permission(self.request))
                 self.assertFalse(inline.has_delete_permission(self.request))
 
+    def test_food_lists_show_current_nutrition_and_related_counts(self):
+        owner = User.objects.create_user(
+            username="catalog-owner",
+            email="catalog@example.com",
+            password="owner-password",
+        )
+        food = create_food_item(
+            name="Chocolate Shake",
+            scope=FoodItem.Scope.PERSONAL,
+            origin_type=FoodItem.OriginType.RESTAURANT,
+            provider_name="In-N-Out",
+            owner=owner,
+            definition={
+                **food_definition(calories="610", confidence=None),
+                "serving_quantity": Decimal("15"),
+                "serving_unit": FoodItemVersion.ServingUnit.FLUID_OUNCE,
+                "serving_label": "15 fl oz shake",
+            },
+            created_by=owner,
+        )
+        food_admin = FoodItemAdmin(FoodItem, self.site)
+
+        listed_food = food_admin.get_queryset(self.request).get(pk=food.pk)
+        summary = str(food_admin.current_version_summary(listed_food))
+
+        self.assertIn("15 fl oz shake", summary)
+        self.assertIn("610 kcal", summary)
+        self.assertIn(
+            f"/admin/foods/fooditemversion/{food.current_version_id}/change/",
+            summary,
+        )
+        self.assertEqual(food_admin.version_count(listed_food), 1)
+        self.assertEqual(food_admin.meal_log_count(listed_food), 0)
+
+    def test_food_add_page_renders_grouped_fields(self):
+        admin_user = User.objects.create_superuser(
+            username="catalog-admin",
+            email="catalog-admin@example.com",
+            password="admin-password",
+        )
+        self.client.force_login(admin_user)
+
+        response = self.client.get("/admin/foods/fooditem/add/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Food identity")
+        self.assertContains(response, "Ownership and visibility")
+        self.assertContains(response, "Available after the food is created.")
+
 
 class FoodApiTests(APITestCase):
     def setUp(self):

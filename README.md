@@ -19,7 +19,7 @@ planned in the [product roadmap](docs/PRODUCT_VISION.md).
 - **Account foundation:** email-first registration, JWT sessions, password
   reset, protected routes, and recipient-scoped notifications
 - **Private meal diary:** dated meal entry creation, editing, deletion, durable
-  food/component snapshots, and daily launch-nutrient totals
+  saved food/component details, and daily launch-nutrient totals
 - **GPT meal proposals (planned):** editable, source-aware estimates that
   require review before saving
 - **Reusable Food Items:** authenticated catalog APIs for standalone and
