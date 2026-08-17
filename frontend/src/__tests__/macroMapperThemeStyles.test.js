@@ -4,22 +4,37 @@ import path from 'node:path';
 describe('MacroMapper theme styles', () => {
   const sourceRoot = path.resolve(process.cwd(), 'src');
   const appCss = fs.readFileSync(path.join(sourceRoot, 'App.css'), 'utf8');
+  const themeSource = fs.readFileSync(path.join(sourceRoot, 'theme.js'), 'utf8');
   const readSource = (relativePath) => fs.readFileSync(path.join(sourceRoot, relativePath), 'utf8');
 
-  test('keeps the MacroMapper yellow and gray theme tokens', () => {
-    expect(appCss).toContain('--background-color: #1a1a1a');
-    expect(appCss).toContain('--secondary-background-color: #f5e79e');
-    expect(appCss).toContain('--primary-color: #ffc107');
-    expect(appCss).toContain('--secondary-color: #555555');
-    expect(appCss).toContain('--text-color: #ffffff');
+  test('defines the Field Atlas core and semantic tokens centrally', () => {
+    expect(appCss).toContain('--atlas-bone: #f6f1e7');
+    expect(appCss).toContain('--atlas-ink: #17324d');
+    expect(appCss).toContain('--atlas-forest: #2e6b4f');
+    expect(appCss).toContain('--atlas-persimmon: #e46b3c');
+    expect(appCss).toContain('--atlas-mineral: #a9cad4');
+    expect(appCss).toContain('--protein-color: var(--atlas-forest)');
+    expect(appCss).toContain('--carbohydrate-color: var(--atlas-mineral-dark)');
+    expect(appCss).toContain('--fat-color: var(--atlas-persimmon)');
+    expect(appCss).toContain('--activity-color: #356b7f');
   });
 
-  test('keeps MUI text field focus states gray instead of default blue', () => {
+  test('configures the Material UI theme with Field Atlas typography and palette', () => {
+    expect(themeSource).toContain("bone: '#F6F1E7'");
+    expect(themeSource).toContain("ink: '#17324D'");
+    expect(themeSource).toContain("forest: '#2E6B4F'");
+    expect(themeSource).toContain("persimmon: '#E46B3C'");
+    expect(themeSource).toContain("mineral: '#A9CAD4'");
+    expect(themeSource).toContain('"Newsreader"');
+    expect(themeSource).toContain('"Inter"');
+    expect(themeSource).toContain("textTransform: 'none'");
+  });
+
+  test('uses Forest for focused form controls', () => {
     expect(appCss).toContain('.MuiInputLabel-root.Mui-focused');
     expect(appCss).toContain('.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline');
-    expect(appCss).toContain('color: var(--secondary-color) !important');
-    expect(appCss).toContain('border-color: var(--secondary-color) !important');
-    expect(appCss).toContain('border-bottom-color: var(--secondary-color) !important');
+    expect(appCss).toContain('color: var(--atlas-forest-dark) !important');
+    expect(appCss).toContain('border-color: var(--atlas-forest) !important');
   });
 
   test.each([
@@ -27,11 +42,11 @@ describe('MacroMapper theme styles', () => {
     'components/AppNavigationDrawer.jsx',
     'components/AuthPageShell.jsx',
     'pages/HomePage.jsx',
-  ])('%s uses the shared yellow and gray surfaces', (relativePath) => {
+  ])('%s uses shared Field Atlas surfaces', (relativePath) => {
     const source = readSource(relativePath);
 
-    expect(source).toContain('var(--secondary-background-color)');
-    expect(source).toContain('var(--secondary-color)');
+    expect(source).toMatch(/var\(--atlas-(paper|bone|mineral-soft)\)/);
+    expect(source).toContain('var(--atlas-ink)');
   });
 
   test.each([
@@ -39,14 +54,22 @@ describe('MacroMapper theme styles', () => {
     'pages/authentication/Login.jsx',
     'pages/authentication/Register.jsx',
     'pages/authentication/ResetPassword.jsx',
-  ])('%s keeps actions and links on the shared gray treatment', (relativePath) => {
-    expect(readSource(relativePath)).toContain('var(--secondary-color)');
+  ])('%s uses shared Field Atlas form and link treatments', (relativePath) => {
+    const source = readSource(relativePath);
+
+    expect(source).toContain('variant="contained"');
+    expect(source).toContain('var(--atlas-ink-muted)');
   });
 
-  test('keeps the drawer navigation surface free of a selected-row overlay', () => {
+  test('uses an explicit non-color navigation state treatment', () => {
     const drawerSource = readSource('components/AppNavigationDrawer.jsx');
 
-    expect(drawerSource).not.toContain('selected');
-    expect(drawerSource).not.toContain('rgba(85, 85, 85');
+    expect(drawerSource).toContain('var(--atlas-forest-soft)');
+    expect(drawerSource).toContain("border: '1px solid rgba(46, 107, 79, 0.2)'");
+  });
+
+  test('provides focus and reduced-motion safeguards', () => {
+    expect(appCss).toContain('.auth-link:focus-visible');
+    expect(appCss).toContain('@media (prefers-reduced-motion: reduce)');
   });
 });

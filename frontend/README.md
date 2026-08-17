@@ -2,11 +2,29 @@
 MacroMapper's frontend is a Vite-powered React 19 single-page application built
 with Material UI and React Router 8. It will provide an individual meal and
 activity diary, source-aware GPT meal proposals, nutrition goals, and trend
-reporting with MacroMapper's dark, pale-yellow, amber, and gray visual theme.
+reporting through MacroMapper's warm, editorial Field Atlas visual system.
 
 The current implementation is the authenticated application shell that those
 features will build on. See the [product vision](../docs/PRODUCT_VISION.md) for
 the planned user experience and release sequence.
+
+## 🧭 Visual system
+
+The frontend uses the Field Atlas direction described in
+[`docs/design/FIELD_ATLAS.md`](../docs/design/FIELD_ATLAS.md). Shared theme
+configuration lives in `src/theme.js`, with matching semantic CSS tokens in
+`src/App.css`.
+
+- Bone and warm paper surfaces keep the application calm and editorial.
+- Midnight ink provides text and structural contrast.
+- Forest marks primary actions and confirmed states, Persimmon marks editable
+  estimates, and Mineral blue supports neutral nutrition and activity data.
+- Newsreader supplies editorial headings; Inter is used for controls, labels,
+  navigation, and body copy.
+- Color is always paired with labels, icons, borders, or other non-color cues.
+
+See [`STYLE_GUIDE.md`](STYLE_GUIDE.md) before adding or restyling frontend
+components.
 
 ## 🧭 Routes
 - `/login`: email and password login

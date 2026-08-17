@@ -1,13 +1,28 @@
 # MacroMapper frontend style guide
+
 ## Foundations
+
 - Use Material UI components and responsive `sx` values before adding custom
   layout primitives.
-- Keep colors in the CSS custom properties declared in `src/App.css`.
-- Preserve MacroMapper's theme tokens: dark `#1a1a1a` backgrounds, pale-yellow
-  `#f5e79e` surfaces, amber `#ffc107` accents, gray `#555555` controls and
-  surface text, and white `#ffffff` text on dark backgrounds.
-- Use the MacroMapper secondary color for focused Material UI text
-  fields.
+- Use the centralized Material UI theme in `src/theme.js` and the matching CSS
+  custom properties in `src/App.css`; do not introduce one-off brand colors.
+- Follow the Field Atlas direction documented in
+  `../docs/design/FIELD_ATLAS.md`: warm paper surfaces, ink structure, restrained
+  cartographic details, and factual rather than clinical language.
+- Use Bone `#F6F1E7` for the canvas, Midnight ink `#17324D` for text and
+  structure, Forest `#2E6B4F` for confirmed states and primary actions,
+  Persimmon `#E46B3C` for editable estimates, and Mineral blue `#A9CAD4` for
+  neutral data surfaces.
+- Use Forest for protein, the accessible dark Mineral token for carbohydrates,
+  Persimmon for fat, and the deeper activity token for activity. Pair every
+  state color with text, an icon, or another non-color cue.
+- Use `Newsreader` for editorial headings and `Inter` for navigation, controls,
+  labels, and body copy. Apply tabular numerals to nutrition data with the
+  `numeric-data` class.
+- Prefer one-pixel ink borders, 10–14 px radii, and surface shifts to elevation.
+  Shadows should remain subtle and limited to floating menus or focus layers.
+- Preserve 44 px minimum interactive targets, visible keyboard focus, reduced
+  motion behavior, and WCAG 2.2 AA contrast.
 - Keep authenticated and public routes visually consistent with the shared
   application shell.
 
@@ -20,6 +35,7 @@
   forgot-password responses.
 
 ## Application shell
+
 - Keep `MacroMapper` as the app-header title.
 - Preserve the drawer, notification, profile, and logout entry points when
   adding product routes.
@@ -27,3 +43,7 @@
   capabilities from roadmap features.
 - Add future product routes behind `AuthenticatedRoute` unless they are
   intentionally public.
+- Keep contour lines low contrast and away from dense forms, tables, and data
+  visualizations.
+- Concentrate mapping language around meal creation and provenance; use plain
+  language for ordinary settings and account actions.

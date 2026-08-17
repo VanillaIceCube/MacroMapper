@@ -159,24 +159,41 @@ export default function AppHeader({ title, setDrawerOpen }) {
   return (
     <Box sx={{ flexGrow: 1 }}>
       <AppBar
-        position="static"
+        position="sticky"
         sx={{
-          color: 'var(--secondary-background-color)',
-          background: 'var(--background-color)',
+          color: 'var(--atlas-ink)',
+          background: 'rgba(255, 253, 248, 0.96)',
           boxShadow: 'none',
+          borderBottom: '1px solid var(--atlas-border)',
+          backdropFilter: 'blur(12px)',
         }}
       >
-        <Toolbar>
-          <Typography variant="h6" component="div" noWrap sx={{ flexGrow: 1 }}>
-            {title}
-          </Typography>
+        <Toolbar sx={{ width: '100%', maxWidth: 1280, mx: 'auto', gap: { xs: 0, sm: 0.5 } }}>
+          <Stack direction="row" alignItems="center" spacing={1.25} sx={{ flexGrow: 1 }}>
+            <Box
+              component="img"
+              src="/macromapper-mark.svg"
+              alt=""
+              aria-hidden="true"
+              sx={{ width: 34, height: 34 }}
+            />
+            <Typography
+              variant="h5"
+              component="div"
+              noWrap
+              sx={{ color: 'var(--atlas-ink)', fontWeight: 650, letterSpacing: '-0.02em' }}
+            >
+              {title}
+            </Typography>
+          </Stack>
           <IconButton
             size="large"
             color="inherit"
             aria-label="notifications"
             onClick={(event) => setNotificationAnchorEl(event.currentTarget)}
+            sx={{ color: 'var(--atlas-ink)', '&:hover': { bgcolor: 'var(--atlas-mineral-soft)' } }}
           >
-            <Badge badgeContent={unreadCount} color="error">
+            <Badge badgeContent={unreadCount} color="secondary">
               <NotificationsIcon />
             </Badge>
           </IconButton>
@@ -189,11 +206,11 @@ export default function AppHeader({ title, setDrawerOpen }) {
             slotProps={{
               paper: {
                 sx: {
-                  backgroundColor: 'var(--secondary-background-color)',
-                  color: 'var(--secondary-color)',
-                  boxShadow: 3,
-                  border: '2.5px solid var(--background-color)',
-                  borderRadius: 1.5,
+                  backgroundColor: 'var(--atlas-paper)',
+                  color: 'var(--atlas-ink)',
+                  boxShadow: '0 18px 50px rgba(23, 50, 77, 0.14)',
+                  border: '1px solid var(--atlas-border-strong)',
+                  borderRadius: 2,
                   width: { xs: 320, sm: 380 },
                   maxWidth: 'calc(100vw - 24px)',
                 },
@@ -208,7 +225,7 @@ export default function AppHeader({ title, setDrawerOpen }) {
                 {notifications.length > 0 && (
                   <Button
                     size="small"
-                    sx={{ color: 'var(--secondary-color)', fontWeight: 'bold' }}
+                    sx={{ color: 'var(--atlas-forest-dark)', fontWeight: 'bold' }}
                     onClick={unreadCount > 0 ? handleMarkAllRead : handleClearAll}
                   >
                     {unreadCount > 0 ? 'Mark all read' : 'Clear all'}
@@ -241,7 +258,10 @@ export default function AppHeader({ title, setDrawerOpen }) {
                         onClick={() => handleOpenNotification(notification)}
                         sx={{
                           alignItems: 'flex-start',
-                          bgcolor: notification.is_read ? 'transparent' : 'rgba(0, 0, 0, 0.06)',
+                          borderRadius: 1,
+                          bgcolor: notification.is_read
+                            ? 'transparent'
+                            : 'var(--atlas-mineral-soft)',
                         }}
                       >
                         <ListItemText
@@ -250,11 +270,11 @@ export default function AppHeader({ title, setDrawerOpen }) {
                           slotProps={{
                             primary: {
                               sx: {
-                                color: 'var(--secondary-color)',
+                                color: 'var(--atlas-ink)',
                                 fontWeight: notification.is_read ? 500 : 'bold',
                               },
                             },
-                            secondary: { sx: { color: 'var(--secondary-color)' } },
+                            secondary: { sx: { color: 'var(--atlas-ink-muted)' } },
                           }}
                         />
                         <Tooltip title="Clear notification">
@@ -271,7 +291,7 @@ export default function AppHeader({ title, setDrawerOpen }) {
                               ml: 1,
                               alignSelf: 'center',
                               flexShrink: 0,
-                              color: 'var(--secondary-color)',
+                              color: 'var(--atlas-ink)',
                             }}
                           >
                             <ClearIcon fontSize="small" />
@@ -289,6 +309,7 @@ export default function AppHeader({ title, setDrawerOpen }) {
             color="inherit"
             aria-label="user profile"
             onClick={(event) => setProfileAnchorEl(event.currentTarget)}
+            sx={{ color: 'var(--atlas-ink)', '&:hover': { bgcolor: 'var(--atlas-mineral-soft)' } }}
           >
             <AccountCircle />
           </IconButton>
@@ -301,11 +322,11 @@ export default function AppHeader({ title, setDrawerOpen }) {
             slotProps={{
               paper: {
                 sx: {
-                  backgroundColor: 'var(--secondary-background-color)',
-                  color: 'var(--secondary-color)',
-                  boxShadow: 3,
-                  border: '2.5px solid var(--background-color)',
-                  borderRadius: 1.5,
+                  backgroundColor: 'var(--atlas-paper)',
+                  color: 'var(--atlas-ink)',
+                  boxShadow: '0 18px 50px rgba(23, 50, 77, 0.14)',
+                  border: '1px solid var(--atlas-border-strong)',
+                  borderRadius: 2,
                   minWidth: 220,
                 },
               },
@@ -323,14 +344,14 @@ export default function AppHeader({ title, setDrawerOpen }) {
                 primary={profilePrimary}
                 secondary={profileSecondary}
                 slotProps={{
-                  primary: { sx: { fontWeight: 'bold', color: 'var(--secondary-color)' } },
-                  secondary: { sx: { color: 'var(--secondary-color)', opacity: 1 } },
+                  primary: { sx: { fontWeight: 'bold', color: 'var(--atlas-ink)' } },
+                  secondary: { sx: { color: 'var(--atlas-ink-muted)', opacity: 1 } },
                 }}
               />
             </MenuItem>
             <Divider
               variant="middle"
-              sx={{ my: 0.25, mx: 1, borderBottomWidth: 2, bgcolor: 'var(--secondary-color)' }}
+              sx={{ my: 0.25, mx: 1, borderColor: 'var(--atlas-border)' }}
             />
             <MenuItem
               sx={{
@@ -338,7 +359,7 @@ export default function AppHeader({ title, setDrawerOpen }) {
                 px: 1.5,
                 minHeight: 'auto',
                 fontWeight: 'bold',
-                color: 'var(--secondary-color)',
+                color: 'var(--atlas-forest-dark)',
               }}
               onClick={() => {
                 setProfileAnchorEl(null);
@@ -354,6 +375,7 @@ export default function AppHeader({ title, setDrawerOpen }) {
             color="inherit"
             aria-label="menu"
             onClick={() => setDrawerOpen((current) => !current)}
+            sx={{ color: 'var(--atlas-ink)', '&:hover': { bgcolor: 'var(--atlas-mineral-soft)' } }}
           >
             <MenuIcon />
           </IconButton>

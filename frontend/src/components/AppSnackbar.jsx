@@ -8,7 +8,11 @@ export default function AppSnackbar({ open, severity, message, onClose }) {
       onClose={onClose}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
     >
-      <Alert sx={{ width: '100%' }} onClose={onClose} severity={severity}>
+      <Alert
+        sx={{ width: '100%', boxShadow: '0 12px 32px rgba(23, 50, 77, 0.14)' }}
+        onClose={onClose}
+        severity={severity}
+      >
         {message}
       </Alert>
     </Snackbar>
