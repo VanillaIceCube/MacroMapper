@@ -37,7 +37,7 @@ def restore_nutrient_rows(apps, schema_editor):
     NutrientAmount = apps.get_model("foods", "NutrientAmount")
     definitions = {}
     for display_order, (key, name, unit) in enumerate(NUTRIENTS, start=1):
-        definitions[key], _created = NutrientDefinition.objects.get_or_create(
+        definitions[key] = NutrientDefinition.objects.get_or_create(
             key=key,
             defaults={
                 "name": name,
@@ -45,7 +45,7 @@ def restore_nutrient_rows(apps, schema_editor):
                 "is_core": True,
                 "display_order": display_order * 10,
             },
-        )
+        )[0]
     for version in FoodItemVersion.objects.all():
         for key in NUTRIENT_FIELDS:
             value = getattr(version, key)
