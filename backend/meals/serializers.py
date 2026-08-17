@@ -55,18 +55,6 @@ class MealItemInputSerializer(serializers.Serializer):
     )
     order = serializers.IntegerField(min_value=0, max_value=32767)
 
-    def validate_food_item(self, food_item):
-        request = self.context.get("request")
-        if (
-            not request
-            or not FoodItem.objects.active()
-            .visible_to(request.user)
-            .filter(pk=food_item.pk, current_version__isnull=False)
-            .exists()
-        ):
-            raise serializers.ValidationError("This food is not available.")
-        return food_item
-
 
 class MealEntrySerializer(serializers.ModelSerializer):
     items = MealItemSerializer(many=True, read_only=True)
@@ -103,6 +91,34 @@ class MealEntrySerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"item_inputs": "Add at least one food to the meal."}
             )
+        existing_versions = set()
+        if self.instance is not None:
+            existing_versions = set(
+                self.instance.items.values_list(
+                    "food_version__food_item_id", "food_version_id"
+                )
+            )
+        request = self.context.get("request")
+        available_food_ids = set()
+        if request:
+            available_food_ids = set(
+                FoodItem.objects.active()
+                .visible_to(request.user)
+                .filter(
+                    pk__in=[item["food_item"].pk for item in item_inputs],
+                    current_version__isnull=False,
+                )
+                .values_list("pk", flat=True)
+            )
+        if any(
+            item["food_item"].pk not in available_food_ids
+            and (item["food_item"].pk, item.get("food_version"))
+            not in existing_versions
+            for item in item_inputs
+        ):
+            raise serializers.ValidationError(
+                {"item_inputs": "This food is not available."}
+            )
         orders = [item["order"] for item in item_inputs]
         if len(orders) != len(set(orders)):
             raise serializers.ValidationError(
@@ -118,11 +134,6 @@ class MealEntrySerializer(serializers.ModelSerializer):
                 {"item_inputs": "New meals always use each food's current definition."}
             )
         if self.instance is not None:
-            existing_versions = set(
-                self.instance.items.values_list(
-                    "food_version__food_item_id", "food_version_id"
-                )
-            )
             if any(pair not in existing_versions for pair in supplied_versions):
                 raise serializers.ValidationError(
                     {

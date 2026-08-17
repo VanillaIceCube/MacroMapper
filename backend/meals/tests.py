@@ -151,6 +151,44 @@ class MealEntryApiTests(APITestCase):
         self.assertEqual(edited_item["food_version_id"], saved_version)
         self.assertEqual(edited_item["nutrients"][0]["amount"], "190.0000")
 
+    def test_archived_food_meal_item_can_reuse_its_saved_version(self):
+        created = self.create_meal(
+            item_inputs=[{"food_item": self.apple.id, "servings": "1", "order": 0}]
+        )
+        saved_version = created.data["items"][0]["food_version_id"]
+        archive_response = self.client.delete(f"/api/foods/{self.apple.id}/")
+        self.assertEqual(archive_response.status_code, status.HTTP_204_NO_CONTENT)
+
+        edit_response = self.client.patch(
+            f"/api/meals/{created.data['id']}/",
+            {
+                "item_inputs": [
+                    {
+                        "food_item": self.apple.id,
+                        "food_version": saved_version,
+                        "servings": "2",
+                        "order": 0,
+                    }
+                ]
+            },
+            format="json",
+        )
+
+        self.assertEqual(edit_response.status_code, status.HTTP_200_OK)
+        edited_item = edit_response.data["items"][0]
+        self.assertEqual(edited_item["food_version_id"], saved_version)
+        self.assertEqual(edited_item["servings"], "2.0000")
+        self.assertEqual(edited_item["nutrients"][0]["amount"], "190.0000")
+
+        new_meal_response = self.client.post(
+            "/api/meals/",
+            self.payload(
+                item_inputs=[{"food_item": self.apple.id, "servings": "1", "order": 0}]
+            ),
+            format="json",
+        )
+        self.assertEqual(new_meal_response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_composite_component_tree_is_copied_into_meal(self):
         composite = create_food_item(
             name="Apple toast",

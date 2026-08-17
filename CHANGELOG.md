@@ -25,6 +25,8 @@ All notable changes to this project are documented in this file.
   requests without replacing saved meal items.
 - Made the nullable nutrient-column migration safely reversible while retaining
   seeded nutrient definitions and saved nutrient values.
+- Allowed existing meals to retain and resize archived personal foods through
+  their pinned historical versions without making those foods newly selectable.
 
 ### Changed
 
