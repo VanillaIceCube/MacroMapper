@@ -1,6 +1,23 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 2026-08-16
+
+### Added
+
+- Added a centralized Material UI Field Atlas theme, semantic nutrition and
+  activity color tokens, responsive contour treatments, accessible focus
+  states, reduced-motion safeguards, and updated visual regression assertions.
+
+### Changed
+
+- Replaced the inherited dark, pale-yellow, amber, and gray placeholder styling
+  across the application shell, authentication screens, dashboard, menus,
+  notifications, forms, feedback states, manifest, and application mark with
+  the warm paper, ink, forest, persimmon, and mineral-blue Field Atlas identity.
+- Updated frontend guidance with the Field Atlas palette, typography, spacing,
+  elevation, semantic data color, and accessibility rules.
+
 ## 2026-08-14
 ### Added
 - Added Django-native Food Item catalog models and authenticated APIs for

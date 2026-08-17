@@ -51,7 +51,6 @@ export default function ResetPassword({ showSnackbar }) {
       >
         <TextField
           fullWidth
-          sx={{ background: 'white' }}
           label="New Password"
           type="password"
           autoComplete="new-password"
@@ -60,22 +59,16 @@ export default function ResetPassword({ showSnackbar }) {
         />
         <TextField
           fullWidth
-          sx={{ background: 'white' }}
           label="Confirm Password"
           type="password"
           autoComplete="new-password"
           value={confirmPassword}
           onChange={(event) => setConfirmPassword(event.target.value)}
         />
-        <Button
-          fullWidth
-          sx={{ backgroundColor: 'var(--secondary-color)' }}
-          type="submit"
-          variant="contained"
-        >
+        <Button fullWidth type="submit" variant="contained">
           Reset Password
         </Button>
-        <Typography variant="caption" sx={{ textAlign: 'center', color: 'var(--secondary-color)' }}>
+        <Typography variant="caption" sx={{ textAlign: 'center', color: 'var(--atlas-ink-muted)' }}>
           <Box
             component="button"
             type="button"

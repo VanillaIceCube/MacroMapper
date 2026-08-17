@@ -46,7 +46,6 @@ export default function Register({ showSnackbar }) {
       >
         <TextField
           fullWidth
-          sx={{ background: 'white' }}
           label="Email"
           type="email"
           autoComplete="email"
@@ -55,7 +54,6 @@ export default function Register({ showSnackbar }) {
         />
         <TextField
           fullWidth
-          sx={{ background: 'white' }}
           label="Username (optional)"
           autoComplete="username"
           value={username}
@@ -63,7 +61,6 @@ export default function Register({ showSnackbar }) {
         />
         <TextField
           fullWidth
-          sx={{ background: 'white' }}
           label="Password"
           type="password"
           autoComplete="new-password"
@@ -72,22 +69,16 @@ export default function Register({ showSnackbar }) {
         />
         <TextField
           fullWidth
-          sx={{ background: 'white' }}
           label="Confirm Password"
           type="password"
           autoComplete="new-password"
           value={confirmPassword}
           onChange={(event) => setConfirmPassword(event.target.value)}
         />
-        <Button
-          fullWidth
-          sx={{ backgroundColor: 'var(--secondary-color)' }}
-          type="submit"
-          variant="contained"
-        >
+        <Button fullWidth type="submit" variant="contained">
           Register
         </Button>
-        <Typography variant="caption" sx={{ textAlign: 'center', color: 'var(--secondary-color)' }}>
+        <Typography variant="caption" sx={{ textAlign: 'center', color: 'var(--atlas-ink-muted)' }}>
           Already have an account?{' '}
           <Box
             component="button"

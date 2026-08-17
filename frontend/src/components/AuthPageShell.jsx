@@ -3,30 +3,45 @@ import { Box, Paper, Stack, Typography } from '@mui/material';
 export default function AuthPageShell({ children, title }) {
   return (
     <Stack
+      className="atlas-contours"
       spacing={2}
       alignItems="center"
-      maxWidth="sm"
       sx={{
-        p: { xs: 3, sm: 5.5 },
-        mx: 'auto',
+        px: { xs: 2, sm: 4 },
+        py: { xs: 4, sm: 6 },
         justifyContent: 'center',
-        minHeight: '85vh',
+        minHeight: '100vh',
       }}
     >
-      <Typography variant="h3" sx={{ mt: 2, fontWeight: 'bold', color: 'white' }}>
-        MacroMapper
-      </Typography>
+      <Stack alignItems="center" spacing={1}>
+        <Box component="img" src="/macromapper-mark.svg" alt="" sx={{ width: 64, height: 64 }} />
+        <Typography variant="h3" sx={{ fontWeight: 650, color: 'var(--atlas-ink)' }}>
+          MacroMapper
+        </Typography>
+        <Typography
+          variant="overline"
+          sx={{ color: 'var(--atlas-forest-dark)', textAlign: 'center' }}
+        >
+          Nutrition mapped clearly
+        </Typography>
+      </Stack>
       <Paper
-        elevation={3}
+        elevation={0}
         sx={{
           p: { xs: 3, sm: 4 },
-          pb: 2,
+          pb: { xs: 3, sm: 4 },
           width: '100%',
-          background: 'var(--secondary-background-color)',
+          maxWidth: 520,
+          background: 'var(--atlas-paper)',
+          border: '1px solid var(--atlas-border-strong)',
+          boxShadow: '0 24px 70px rgba(23, 50, 77, 0.1)',
         }}
       >
-        <Typography component="h1" variant="h5" sx={{ mb: 2, color: 'var(--secondary-color)' }}>
+        <Typography component="h1" variant="h4" sx={{ mb: 1, color: 'var(--atlas-ink)' }}>
           {title}
+        </Typography>
+        <Typography sx={{ mb: 3, color: 'var(--atlas-ink-muted)' }}>
+          Your private nutrition workspace is one step away.
         </Typography>
         <Box>{children}</Box>
       </Paper>

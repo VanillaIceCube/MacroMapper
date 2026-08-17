@@ -1,4 +1,5 @@
 import './App.css';
+import { CssBaseline, ThemeProvider } from '@mui/material';
 import { useState } from 'react';
 import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router';
 import AppHeader from './components/AppHeader';
@@ -11,6 +12,7 @@ import ForgotPassword from './pages/authentication/ForgotPassword';
 import Login from './pages/authentication/Login';
 import Register from './pages/authentication/Register';
 import ResetPassword from './pages/authentication/ResetPassword';
+import fieldAtlasTheme from './theme';
 
 function Protected({ children }) {
   return <AuthenticatedRoute>{children}</AuthenticatedRoute>;
@@ -25,7 +27,8 @@ export default function App() {
   };
 
   return (
-    <>
+    <ThemeProvider theme={fieldAtlasTheme}>
+      <CssBaseline />
       <Router>
         <NavigationBridge />
         <AppHeader title="MacroMapper" setDrawerOpen={setDrawerOpen} />
@@ -56,6 +59,6 @@ export default function App() {
           }
         }}
       />
-    </>
+    </ThemeProvider>
   );
 }

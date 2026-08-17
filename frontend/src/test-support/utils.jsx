@@ -1,9 +1,10 @@
 import { render, waitFor } from '@testing-library/react';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { MemoryRouter } from 'react-router';
+import fieldAtlasTheme from '../theme';
 
 // Shared test setup: disable MUI ripples (act warnings) and silence router v7 warnings.
-const testTheme = createTheme({
+const testTheme = createTheme(fieldAtlasTheme, {
   components: {
     MuiButtonBase: {
       defaultProps: {

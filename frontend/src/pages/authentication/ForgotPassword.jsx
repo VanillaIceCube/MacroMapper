@@ -40,7 +40,6 @@ export default function ForgotPassword({ showSnackbar }) {
       >
         <TextField
           fullWidth
-          sx={{ background: 'white' }}
           label="Email"
           type="email"
           name="email"
@@ -48,15 +47,10 @@ export default function ForgotPassword({ showSnackbar }) {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
         />
-        <Button
-          fullWidth
-          sx={{ backgroundColor: 'var(--secondary-color)' }}
-          type="submit"
-          variant="contained"
-        >
+        <Button fullWidth type="submit" variant="contained">
           Send Reset Link
         </Button>
-        <Typography variant="caption" sx={{ textAlign: 'center', color: 'var(--secondary-color)' }}>
+        <Typography variant="caption" sx={{ textAlign: 'center', color: 'var(--atlas-ink-muted)' }}>
           <Box
             component="button"
             type="button"
