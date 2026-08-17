@@ -9,12 +9,12 @@ All notable changes to this project are documented in this file.
   activity color tokens, responsive contour treatments, accessible focus
   states, reduced-motion safeguards, and updated visual regression assertions.
 - Added an owner-scoped meal diary API with dated create, edit, delete, and
-  daily-total endpoints backed by durable Food Item, composite-component, and
-  nutrient snapshots.
+  daily-total endpoints backed by durable saved food, component, and nutrient
+  values.
 - Added a responsive meal diary interface with catalog search, personal-food
   creation, editable quantities and components, composite ingredient detail,
   launch-nutrient totals, and delete confirmation.
-- Added backend authorization and snapshot regression coverage plus frontend
+- Added backend authorization and historical-value regression coverage plus frontend
   create, edit, delete, and daily-total tests.
 
 ### Changed
@@ -31,6 +31,10 @@ All notable changes to this project are documented in this file.
 - Added the protected `/diary` route and Meal diary navigation destination,
   and documented the implemented diary workflow across the product overview
   and component guides.
+- Improved Django admin navigation with linked related records, inline meal
+  contents, nutrition summaries, search, filters, and grouped detail forms.
+- Renamed saved meal records to Meal Items throughout the backend and admin
+  while preserving their historically stable nutrition values.
 - Simplified catalog and meal nutrition storage to explicit nullable nutrient
   columns, preserving unknown-versus-zero semantics without database nutrient
   definition or amount tables.

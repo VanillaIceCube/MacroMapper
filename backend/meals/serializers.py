@@ -6,17 +6,17 @@ from rest_framework import serializers
 from foods.models import FoodItem
 from foods.nutrients import NUTRIENT_METADATA
 
-from .models import MealEntry, MealItemSnapshot
+from .models import MealEntry, MealItem
 from .services import replace_meal_items
 
 
-class MealItemSnapshotSerializer(serializers.ModelSerializer):
+class MealItemSerializer(serializers.ModelSerializer):
     food_item_id = serializers.IntegerField(source="food_version.food_item_id")
     food_version_id = serializers.IntegerField(read_only=True)
     nutrients = serializers.SerializerMethodField()
 
     class Meta:
-        model = MealItemSnapshot
+        model = MealItem
         fields = (
             "id",
             "food_item_id",
@@ -69,7 +69,7 @@ class MealItemInputSerializer(serializers.Serializer):
 
 
 class MealEntrySerializer(serializers.ModelSerializer):
-    items = MealItemSnapshotSerializer(many=True, read_only=True)
+    items = MealItemSerializer(many=True, read_only=True)
     item_inputs = MealItemInputSerializer(many=True, write_only=True, source="items")
 
     class Meta:

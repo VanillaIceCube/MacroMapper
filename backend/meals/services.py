@@ -5,7 +5,7 @@ from django.db import transaction
 from foods.models import FoodItemVersion
 from foods.nutrients import NUTRIENT_FIELDS, NUTRIENT_METADATA
 
-from .models import MealItemSnapshot
+from .models import MealItem
 
 
 def _effective_nutrients(version, visited=None):
@@ -90,7 +90,7 @@ def replace_meal_items(*, meal_entry, item_inputs):
         version_id = item_input.get("food_version")
         version = pinned_versions.get(version_id) or current_versions[food_item.pk]
         servings = item_input["servings"]
-        MealItemSnapshot.objects.create(
+        MealItem.objects.create(
             meal_entry=meal_entry,
             food_version=version,
             servings=servings,

@@ -1,14 +1,17 @@
 from datetime import date
 from decimal import Decimal
 
+from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
+from django.test import RequestFactory, TestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from foods.models import FoodItem, FoodItemVersion
 from foods.services import create_food_item, create_food_version
 
-from .models import MealEntry
+from .admin import MealEntryAdmin, MealItemAdmin, MealItemInline
+from .models import MealEntry, MealItem
 
 User = get_user_model()
 
@@ -101,7 +104,7 @@ class MealEntryApiTests(APITestCase):
         self.assertEqual(list_response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertEqual(create_response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_create_copies_food_and_nutrient_snapshots(self):
+    def test_create_copies_food_and_nutrient_values(self):
         response = self.create_meal()
 
         self.assertEqual(response.data["name"], "Breakfast")
@@ -113,7 +116,7 @@ class MealEntryApiTests(APITestCase):
         self.assertEqual(nutrients["calories"], "190.0000")
         self.assertEqual(nutrients["protein"], "1.0000")
 
-    def test_saved_snapshot_does_not_change_after_catalog_update(self):
+    def test_saved_meal_item_does_not_change_after_catalog_update(self):
         response = self.create_meal(
             item_inputs=[{"food_item": self.apple.id, "servings": "1", "order": 0}]
         )
@@ -176,7 +179,7 @@ class MealEntryApiTests(APITestCase):
         }
         self.assertEqual(component_names, {"Apple", "Toast"})
 
-    def test_daily_totals_sum_saved_meal_snapshots(self):
+    def test_daily_totals_sum_saved_meal_items(self):
         self.create_meal(name="Breakfast")
         self.create_meal(
             name="Snack",
@@ -260,3 +263,89 @@ class MealEntryApiTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(date.fromisoformat("2026-08-16").year, 2026)
+
+
+class MealAdminTests(TestCase):
+    def setUp(self):
+        self.site = AdminSite()
+        self.request = RequestFactory().get("/admin/")
+        self.owner = User.objects.create_superuser(
+            username="admin-owner",
+            email="admin@example.com",
+            password="admin-password",
+        )
+        self.shake = create_food_item(
+            name="Chocolate Shake",
+            scope=FoodItem.Scope.SHARED,
+            origin_type=FoodItem.OriginType.RESTAURANT,
+            provider_name="In-N-Out",
+            owner=None,
+            definition={
+                **definition(calories="610", protein="16"),
+                "provenance": FoodItemVersion.Provenance.OFFICIAL,
+                "confidence_score": Decimal("0.990"),
+                "nutrients": {
+                    "calories": Decimal("610"),
+                    "protein": Decimal("16"),
+                    "carbohydrates": Decimal("74"),
+                    "fat": Decimal("30"),
+                },
+            },
+            created_by=self.owner,
+        )
+        self.meal = MealEntry.objects.create(
+            owner=self.owner,
+            entry_date=date(2026, 8, 10),
+            name="Monday snack",
+            notes="Chocolate shake from In-N-Out",
+        )
+        self.meal_item = MealItem.objects.create(
+            meal_entry=self.meal,
+            food_version=self.shake.current_version,
+            servings=Decimal("1"),
+            order=0,
+            food_name="Chocolate Shake",
+            provider_name="In-N-Out",
+            serving_quantity=Decimal("15"),
+            serving_unit=FoodItemVersion.ServingUnit.FLUID_OUNCE,
+            serving_label="15 fl oz shake",
+            calories=Decimal("610"),
+            protein=Decimal("16"),
+            carbohydrates=Decimal("74"),
+            fat=Decimal("30"),
+        )
+
+    def test_meal_list_summarizes_items_and_nutrition(self):
+        meal_admin = MealEntryAdmin(MealEntry, self.site)
+
+        meal = meal_admin.get_queryset(self.request).get(pk=self.meal.pk)
+
+        self.assertEqual(meal_admin.item_count(meal), 1)
+        self.assertEqual(meal_admin.calorie_total(meal), "610 kcal")
+        self.assertEqual(meal_admin.macro_totals(meal), "16g / 74g / 30g")
+        self.assertIn(MealItemInline, meal_admin.inlines)
+
+    def test_meal_item_admin_remains_read_only_and_links_related_records(self):
+        meal_item_admin = MealItemAdmin(MealItem, self.site)
+
+        self.assertFalse(meal_item_admin.has_add_permission(self.request))
+        self.assertFalse(meal_item_admin.has_change_permission(self.request))
+        self.assertFalse(meal_item_admin.has_delete_permission(self.request))
+        self.assertIn(
+            f"/admin/meals/mealentry/{self.meal.pk}/change/",
+            str(meal_item_admin.meal_entry_link(self.meal_item)),
+        )
+        self.assertIn(
+            f"/admin/foods/fooditemversion/{self.shake.current_version_id}/change/",
+            str(meal_item_admin.food_version_link(self.meal_item)),
+        )
+
+    def test_meal_change_page_shows_logged_food_inline(self):
+        self.client.force_login(self.owner)
+
+        response = self.client.get(f"/admin/meals/mealentry/{self.meal.pk}/change/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Meal items")
+        self.assertContains(response, "Chocolate Shake")
+        self.assertContains(response, "610 kcal")

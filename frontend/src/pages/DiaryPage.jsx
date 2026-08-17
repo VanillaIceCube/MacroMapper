@@ -469,7 +469,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
               Meal diary
             </Typography>
             <Typography color="rgba(255,255,255,0.75)">
-              Your saved meals keep their original nutrition snapshot.
+              Your saved meals keep their original nutrition values.
             </Typography>
           </Box>
           <Button

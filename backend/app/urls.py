@@ -18,6 +18,10 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
+admin.site.site_header = "MacroMapper administration"
+admin.site.site_title = "MacroMapper admin"
+admin.site.index_title = "Data management"
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include("foods.urls")),
