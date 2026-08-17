@@ -19,6 +19,9 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Made native AI `REQUEST_CHANGES` verdicts fail their corresponding required
+  reviewer checks, including repeated blocking verdicts, while approvals and
+  non-blocking comments continue to pass.
 - Preserved complete nutrient totals and component detail when independent
   composite-food branches reuse the same descendant definition.
 - Rejected malformed meal-list dates and allowed metadata-only meal PATCH
