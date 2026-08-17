@@ -566,6 +566,10 @@ async function publishAiReview({
     body,
     comments: comments.length ? comments : undefined,
   });
+
+  if (event === "REQUEST_CHANGES") {
+    core.setFailed(`${personaName} requested changes.`);
+  }
 }
 
 module.exports = {

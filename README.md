@@ -45,7 +45,8 @@ planned in the [product roadmap](docs/PRODUCT_VISION.md).
 - **Email:** Resend
 - **CI/CD & Workflows:** GitHub Actions
 - **Security automation:** CodeQL, dependency and malware review, Dependabot,
-  AI PR reviewers, and scheduled security-alert aggregation
+  blocking AI PR reviewer verdicts enforced through required checks, and
+  scheduled security-alert aggregation
 
 ## 📚 Documentation
 - Product vision and delivery roadmap: [`docs/PRODUCT_VISION.md`](docs/PRODUCT_VISION.md)

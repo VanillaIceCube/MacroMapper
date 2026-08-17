@@ -174,6 +174,13 @@ OpenAI review requests also cap combined reasoning and visible output at 16,000
 tokens so they do not reserve the model's full output allowance against project
 rate limits.
 
+The shared AI review publisher keeps each native review verdict aligned with
+its required Actions check. `APPROVE` and non-blocking `COMMENT` verdicts leave
+the check successful. A successfully published `REQUEST_CHANGES` verdict,
+including an unchanged repeat of an earlier blocking verdict, fails the
+reviewer's required check so the branch ruleset prevents merging. A later
+approval on a new head commit can restore a passing reviewer check.
+
 ## 🔒 Main Branch Protection
 The active `main` ruleset requires pull requests, resolved review threads, the
 lint/test/CodeQL scope and analyzer/dependency checks, the Automation Tests

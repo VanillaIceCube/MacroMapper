@@ -208,6 +208,14 @@ AI Security Review / RoboCop security review
 Auto Merge
 ```
 
+Each AI child check must reflect its native review verdict. The shared review
+publisher leaves `APPROVE` and `COMMENT` checks successful, but fails the
+corresponding required check after publishing `REQUEST_CHANGES`. Repeated
+blocking verdicts remain failed; a later approval for the updated head commit
+produces a passing check. When validating or recovering the ruleset, exercise
+both verdicts and confirm GitHub blocks merging while a changes-requested check
+is failing.
+
 The reviewers run for trusted same-repository pull requests, including
 Dependabot pull requests once [the Dependabot secrets](#3-configure-secrets-for-dependabot-triggered-reviews)
 are present. CI always emits the required top-level `Auto Merge` context: it
