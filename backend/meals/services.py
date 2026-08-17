@@ -12,7 +12,7 @@ def _effective_nutrients(version, visited=None):
     visited = set(visited or ())
     if version.pk in visited:
         return {field: None for field in NUTRIENT_FIELDS}
-    visited.add(version.pk)
+    path = visited | {version.pk}
 
     direct = {field: getattr(version, field) for field in NUTRIENT_FIELDS}
     if any(value is not None for value in direct.values()):
@@ -27,7 +27,7 @@ def _effective_nutrients(version, visited=None):
     totals = {field: Decimal("0") for field in NUTRIENT_FIELDS}
     complete = {field: True for field in NUTRIENT_FIELDS}
     for component in components:
-        child_nutrients = _effective_nutrients(component.child_version, visited)
+        child_nutrients = _effective_nutrients(component.child_version, path)
         for field, amount in child_nutrients.items():
             if amount is None:
                 complete[field] = False
@@ -42,7 +42,7 @@ def _component_tree(version, visited=None):
     visited = set(visited or ())
     if version.pk in visited:
         return []
-    visited.add(version.pk)
+    path = visited | {version.pk}
 
     snapshots = []
     for component in version.components.select_related(
@@ -59,7 +59,7 @@ def _component_tree(version, visited=None):
                 "serving_quantity": str(child.serving_quantity),
                 "serving_unit": child.serving_unit,
                 "serving_label": child.serving_label,
-                "components": _component_tree(child, visited),
+                "components": _component_tree(child, path),
             }
         )
     return snapshots

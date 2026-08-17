@@ -1,6 +1,7 @@
 from django.utils.dateparse import parse_date
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -21,10 +22,13 @@ class MealEntryViewSet(viewsets.ModelViewSet):
             .select_related("owner")
         )
         requested_date = self.request.query_params.get("date")
-        if requested_date:
+        if requested_date is not None:
             parsed_date = parse_date(requested_date)
-            if parsed_date:
-                queryset = queryset.filter(entry_date=parsed_date)
+            if parsed_date is None:
+                raise ValidationError(
+                    {"date": "Supply a valid date in YYYY-MM-DD format."}
+                )
+            queryset = queryset.filter(entry_date=parsed_date)
         return queryset
 
     @action(detail=False, methods=["get"], url_path="daily")

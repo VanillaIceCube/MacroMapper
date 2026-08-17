@@ -17,6 +17,15 @@ All notable changes to this project are documented in this file.
 - Added backend authorization and historical-value regression coverage plus frontend
   create, edit, delete, and daily-total tests.
 
+### Fixed
+
+- Preserved complete nutrient totals and component detail when independent
+  composite-food branches reuse the same descendant definition.
+- Rejected malformed meal-list dates and allowed metadata-only meal PATCH
+  requests without replacing saved meal items.
+- Made the nullable nutrient-column migration safely reversible while retaining
+  seeded nutrient definitions and saved nutrient values.
+
 ### Changed
 
 - Replaced the inherited dark, pale-yellow, amber, and gray placeholder styling

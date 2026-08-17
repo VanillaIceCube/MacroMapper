@@ -36,26 +36,26 @@ def restore_nutrient_rows(apps, schema_editor):
     NutrientDefinition = apps.get_model("foods", "NutrientDefinition")
     NutrientAmount = apps.get_model("foods", "NutrientAmount")
     definitions = {}
-    for display_order, (key, name, unit) in enumerate(NUTRIENTS):
-        definitions[key] = NutrientDefinition.objects.create(
+    for display_order, (key, name, unit) in enumerate(NUTRIENTS, start=1):
+        definitions[key], _created = NutrientDefinition.objects.get_or_create(
             key=key,
-            name=name,
-            unit=unit,
-            is_core=True,
-            display_order=display_order,
+            defaults={
+                "name": name,
+                "unit": unit,
+                "is_core": True,
+                "display_order": display_order * 10,
+            },
         )
-    NutrientAmount.objects.bulk_create(
-        [
-            NutrientAmount(
+    for version in FoodItemVersion.objects.all():
+        for key in NUTRIENT_FIELDS:
+            value = getattr(version, key)
+            if value is None:
+                continue
+            NutrientAmount.objects.update_or_create(
                 food_version=version,
                 nutrient=definitions[key],
-                amount=value,
+                defaults={"amount": value},
             )
-            for version in FoodItemVersion.objects.all()
-            for key in NUTRIENT_FIELDS
-            if (value := getattr(version, key)) is not None
-        ]
-    )
 
 
 class Migration(migrations.Migration):

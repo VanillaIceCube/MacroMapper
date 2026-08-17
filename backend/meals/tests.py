@@ -179,6 +179,77 @@ class MealEntryApiTests(APITestCase):
         }
         self.assertEqual(component_names, {"Apple", "Toast"})
 
+    def test_composite_reuses_descendant_across_independent_branches(self):
+        branch_definition = {
+            **definition(),
+            "nutrients": {},
+            "components": [
+                {"food_item": self.apple, "servings": Decimal("1"), "order": 0}
+            ],
+        }
+        first_branch = create_food_item(
+            name="First apple branch",
+            scope=FoodItem.Scope.PERSONAL,
+            origin_type=FoodItem.OriginType.GENERIC,
+            provider_name="",
+            owner=self.owner,
+            definition=branch_definition,
+            created_by=self.owner,
+        )
+        second_branch = create_food_item(
+            name="Second apple branch",
+            scope=FoodItem.Scope.PERSONAL,
+            origin_type=FoodItem.OriginType.GENERIC,
+            provider_name="",
+            owner=self.owner,
+            definition={
+                **branch_definition,
+                "components": [
+                    {
+                        "food_item": self.apple,
+                        "servings": Decimal("2"),
+                        "order": 0,
+                    }
+                ],
+            },
+            created_by=self.owner,
+        )
+        composite = create_food_item(
+            name="Shared descendant composite",
+            scope=FoodItem.Scope.PERSONAL,
+            origin_type=FoodItem.OriginType.GENERIC,
+            provider_name="",
+            owner=self.owner,
+            definition={
+                **definition(),
+                "nutrients": {},
+                "components": [
+                    {"food_item": first_branch, "servings": Decimal("1"), "order": 0},
+                    {
+                        "food_item": second_branch,
+                        "servings": Decimal("1"),
+                        "order": 1,
+                    },
+                ],
+            },
+            created_by=self.owner,
+        )
+
+        response = self.create_meal(
+            item_inputs=[{"food_item": composite.id, "servings": "1", "order": 0}]
+        )
+
+        item = response.data["items"][0]
+        nutrients = {value["key"]: value["amount"] for value in item["nutrients"]}
+        nested_names = [
+            nested["food_name"]
+            for branch in item["component_snapshot"]
+            for nested in branch["components"]
+        ]
+        self.assertEqual(nutrients["calories"], "285.0000")
+        self.assertEqual(nutrients["protein"], "1.5000")
+        self.assertEqual(nested_names, ["Apple", "Apple"])
+
     def test_daily_totals_sum_saved_meal_items(self):
         self.create_meal(name="Breakfast")
         self.create_meal(
@@ -215,6 +286,24 @@ class MealEntryApiTests(APITestCase):
             item["key"]: item["amount"] for item in totals_response.data["totals"]
         }
         self.assertEqual(totals["calories"], Decimal("160.0000"))
+
+    def test_partial_edit_preserves_meal_items_when_they_are_omitted(self):
+        created = self.create_meal()
+        original_items = created.data["items"]
+
+        response = self.client.patch(
+            f"/api/meals/{created.data['id']}/",
+            {"name": "Renamed breakfast", "notes": "Metadata only"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["name"], "Renamed breakfast")
+        self.assertEqual(response.data["notes"], "Metadata only")
+        self.assertEqual(response.data["items"], original_items)
+        self.assertEqual(
+            MealItem.objects.filter(meal_entry_id=created.data["id"]).count(), 2
+        )
 
     def test_users_cannot_read_edit_or_delete_another_users_meal(self):
         created = self.create_meal()
@@ -263,6 +352,19 @@ class MealEntryApiTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(date.fromisoformat("2026-08-16").year, 2026)
+
+    def test_collection_endpoint_rejects_an_invalid_date(self):
+        self.create_meal()
+
+        for requested_date in ("not-a-date", ""):
+            with self.subTest(requested_date=requested_date):
+                response = self.client.get("/api/meals/", {"date": requested_date})
+
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertEqual(
+                    response.data["date"],
+                    "Supply a valid date in YYYY-MM-DD format.",
+                )
 
 
 class MealAdminTests(TestCase):

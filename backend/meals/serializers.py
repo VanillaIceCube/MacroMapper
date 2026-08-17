@@ -94,9 +94,11 @@ class MealEntrySerializer(serializers.ModelSerializer):
 
         item_inputs = attrs.get("items")
         if item_inputs is None:
-            raise serializers.ValidationError(
-                {"item_inputs": "Meal items are required."}
-            )
+            if self.instance is None or not self.partial:
+                raise serializers.ValidationError(
+                    {"item_inputs": "Meal items are required."}
+                )
+            return attrs
         if not item_inputs:
             raise serializers.ValidationError(
                 {"item_inputs": "Add at least one food to the meal."}
@@ -141,9 +143,10 @@ class MealEntrySerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        item_inputs = validated_data.pop("items")
+        item_inputs = validated_data.pop("items", None)
         for field, value in validated_data.items():
             setattr(instance, field, value)
         instance.save()
-        replace_meal_items(meal_entry=instance, item_inputs=item_inputs)
+        if item_inputs is not None:
+            replace_meal_items(meal_entry=instance, item_inputs=item_inputs)
         return instance
