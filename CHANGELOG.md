@@ -1,6 +1,13 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 2026-08-22
+
+### Fixed
+
+- Removed the invalid root-level Docker Dependabot scan and documented that
+  Docker dependency checks run from the backend and frontend directories.
+
 ## 2026-08-16
 
 ### Added
