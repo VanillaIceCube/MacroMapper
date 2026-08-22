@@ -69,6 +69,16 @@ const proposal = {
   ],
 };
 
+const kefir = {
+  ...component,
+  key: 'ai-1',
+  name: 'Plain kefir yogurt',
+  servings: '1',
+  serving_label: 'one cup',
+  nutrients: { calories: '104', protein: '9.2', carbohydrates: '11.6', fat: '2.5' },
+  components: [],
+};
+
 const apple = {
   id: 7,
   name: 'Apple',
@@ -122,15 +132,15 @@ describe('MealEstimateDialog', () => {
       name: 'Meal macro breakdown',
     });
     expect(macroBreakdown).toHaveTextContent(/400\s*kcal/);
+    expect(within(reviewDialog).getByLabelText('Full meal nutrition values')).toBeVisible();
     expect(
-      within(reviewDialog).queryByLabelText('Full meal nutrition values'),
-    ).not.toBeInTheDocument();
-
-    await user.click(
-      within(reviewDialog).getByRole('button', { name: 'Expand meal nutrition summary' }),
-    );
-    expect(await within(reviewDialog).findByLabelText('Full meal nutrition values')).toBeVisible();
+      within(reviewDialog).getByRole('img', {
+        name: 'Macro calorie split: protein 100%, carbs 0%, fat 0%',
+      }),
+    ).toBeVisible();
+    expect(within(reviewDialog).getByLabelText('Burger patty 400 kcal')).toBeVisible();
     expect(macroBreakdown).toHaveTextContent(/24\s*g/);
+
     await user.click(
       within(reviewDialog).getByRole('button', { name: 'Collapse meal nutrition summary' }),
     );
@@ -139,6 +149,10 @@ describe('MealEstimateDialog', () => {
         within(reviewDialog).queryByLabelText('Full meal nutrition values'),
       ).not.toBeInTheDocument();
     });
+    await user.click(
+      within(reviewDialog).getByRole('button', { name: 'Expand meal nutrition summary' }),
+    );
+    expect(await within(reviewDialog).findByLabelText('Full meal nutrition values')).toBeVisible();
 
     expect(within(reviewDialog).getByLabelText('Double burger macro values')).toHaveTextContent(
       /Protein\s*24\s*g/,
@@ -177,6 +191,7 @@ describe('MealEstimateDialog', () => {
     expect(
       within(reviewDialog).getByRole('region', { name: 'Meal macro breakdown' }),
     ).toHaveTextContent(/200\s*kcal/);
+    expect(within(reviewDialog).getByLabelText('Burger patty 200 kcal')).toBeVisible();
     await user.click(within(reviewDialog).getByRole('button', { name: 'remove Burger patty' }));
     expect(within(reviewDialog).queryByText('Burger patty')).not.toBeInTheDocument();
 
@@ -187,7 +202,7 @@ describe('MealEstimateDialog', () => {
     await user.type(within(reviewDialog).getByRole('textbox', { name: 'Search catalog' }), 'Apple');
     await user.click(within(reviewDialog).getByRole('button', { name: 'search proposal foods' }));
     await user.click(await within(reviewDialog).findByRole('button', { name: 'Add' }));
-    expect(within(reviewDialog).getByText('Apple')).toBeInTheDocument();
+    expect(within(reviewDialog).getByRole('heading', { name: 'Apple' })).toBeInTheDocument();
 
     await user.click(within(reviewDialog).getByRole('button', { name: 'Save to diary' }));
 
@@ -222,5 +237,39 @@ describe('MealEstimateDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Create estimate' }));
     expect(await screen.findByText('Meal estimation is not configured.')).toBeInTheDocument();
     expect(screen.getByRole('dialog', { name: 'Estimate a meal' })).toBeInTheDocument();
+  });
+
+  test('charts the largest meal-level components instead of nested ingredients', async () => {
+    const user = userEvent.setup();
+    createMealProposal.mockResolvedValue(
+      response({
+        ...proposal,
+        name: 'Burger and kefir',
+        items: [...proposal.items, kefir],
+      }),
+    );
+    renderWithProviders(
+      <MealEstimateDialog
+        date="2026-08-16"
+        open
+        token="access-token"
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+    );
+
+    await user.type(
+      screen.getByRole('textbox', { name: 'Describe what you ate' }),
+      'Burger and kefir',
+    );
+    await user.click(screen.getByRole('button', { name: 'Create estimate' }));
+
+    const reviewDialog = await screen.findByRole('dialog', { name: 'Review meal estimate' });
+    const componentChart = within(reviewDialog).getByLabelText('Component calorie chart');
+    expect(within(componentChart).getByLabelText('Double burger 400 kcal')).toBeVisible();
+    expect(within(componentChart).getByLabelText('Plain kefir yogurt 104 kcal')).toBeVisible();
+    expect(
+      within(componentChart).queryByLabelText('Burger patty 400 kcal'),
+    ).not.toBeInTheDocument();
   });
 });

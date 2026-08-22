@@ -121,6 +121,32 @@ function mealNutrientTotal(items, key) {
   return values.reduce((total, value) => total + value, 0);
 }
 
+function calorieContributions(items) {
+  const singleComposite = items.length === 1 && items[0].components?.length;
+  const chartItems = singleComposite ? items[0].components : items;
+  const parentServings = singleComposite ? servingsValue(items[0]) : 1;
+
+  return chartItems.flatMap((item) => {
+    const calories = itemNutrientTotal(item, 'calories');
+    return calories == null
+      ? []
+      : [{ key: item.key, name: item.name, calories: calories * parentServings }];
+  });
+}
+
+function summarizedContributions(items) {
+  const sorted = calorieContributions(items).sort((a, b) => b.calories - a.calories);
+  if (sorted.length <= 5) return sorted;
+  return [
+    ...sorted.slice(0, 4),
+    {
+      key: 'other-components',
+      name: `Other (${sorted.length - 4})`,
+      calories: sorted.slice(4).reduce((total, item) => total + item.calories, 0),
+    },
+  ];
+}
+
 function NutritionCards({ values, ariaLabel, compact = false }) {
   return (
     <Box
@@ -183,8 +209,142 @@ function ItemNutritionCards({ item, compact = false }) {
   );
 }
 
+function MacroCalorieChart({ values }) {
+  const macroCalories = {
+    protein: Math.max(Number(values.protein) || 0, 0) * 4,
+    carbohydrates: Math.max(Number(values.carbohydrates) || 0, 0) * 4,
+    fat: Math.max(Number(values.fat) || 0, 0) * 9,
+  };
+  const total = Object.values(macroCalories).reduce((sum, value) => sum + value, 0);
+  const proteinEnd = total ? (macroCalories.protein / total) * 100 : 0;
+  const carbohydrateEnd = total ? proteinEnd + (macroCalories.carbohydrates / total) * 100 : 0;
+  const percentages = {
+    protein: total ? Math.round((macroCalories.protein / total) * 100) : 0,
+    carbohydrates: total ? Math.round((macroCalories.carbohydrates / total) * 100) : 0,
+    fat: total ? Math.round((macroCalories.fat / total) * 100) : 0,
+  };
+  const background = total
+    ? `conic-gradient(
+        var(--atlas-forest) 0 ${proteinEnd}%,
+        var(--atlas-mineral) ${proteinEnd}% ${carbohydrateEnd}%,
+        var(--atlas-persimmon) ${carbohydrateEnd}% 100%
+      )`
+    : 'var(--atlas-border)';
+
+  return (
+    <Paper elevation={0} sx={{ p: 1, border: '1px solid var(--atlas-border)' }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.75 }}>
+        Macro calorie split
+      </Typography>
+      <Stack direction="row" spacing={1.5} alignItems="center">
+        <Box
+          role="img"
+          aria-label={`Macro calorie split: protein ${percentages.protein}%, carbs ${percentages.carbohydrates}%, fat ${percentages.fat}%`}
+          sx={{
+            position: 'relative',
+            width: 96,
+            height: 96,
+            flex: '0 0 auto',
+            borderRadius: '50%',
+            background,
+            display: 'grid',
+            placeItems: 'center',
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              inset: 14,
+              borderRadius: '50%',
+              bgcolor: 'var(--atlas-paper)',
+            },
+          }}
+        >
+          <Box sx={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.1 }}>
+              {formatAmount(values.calories)}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'var(--atlas-ink-muted)' }}>
+              kcal
+            </Typography>
+          </Box>
+        </Box>
+        <Stack spacing={0.5} sx={{ minWidth: 0, flex: 1 }}>
+          {[
+            ['Protein', percentages.protein, 'var(--atlas-forest)'],
+            ['Carbs', percentages.carbohydrates, 'var(--atlas-mineral)'],
+            ['Fat', percentages.fat, 'var(--atlas-persimmon)'],
+          ].map(([label, percentage, color]) => (
+            <Stack key={label} direction="row" alignItems="center" spacing={0.75}>
+              <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color }} />
+              <Typography variant="caption" sx={{ flex: 1 }}>
+                {label}
+              </Typography>
+              <Typography variant="caption" sx={{ fontWeight: 800 }}>
+                {percentage}%
+              </Typography>
+            </Stack>
+          ))}
+        </Stack>
+      </Stack>
+    </Paper>
+  );
+}
+
+function ComponentCalorieChart({ items }) {
+  const contributions = summarizedContributions(items);
+  const total = contributions.reduce((sum, item) => sum + item.calories, 0);
+
+  return (
+    <Paper elevation={0} sx={{ p: 1, border: '1px solid var(--atlas-border)' }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.75 }}>
+        Calories by component
+      </Typography>
+      {contributions.length ? (
+        <Stack spacing={0.6} aria-label="Component calorie chart">
+          {contributions.map((item) => {
+            const percentage = total ? (item.calories / total) * 100 : 0;
+            return (
+              <Box key={item.key} aria-label={`${item.name} ${formatAmount(item.calories)} kcal`}>
+                <Stack direction="row" spacing={0.75} alignItems="center">
+                  <Typography variant="caption" noWrap title={item.name} sx={{ width: 112 }}>
+                    {item.name}
+                  </Typography>
+                  <Box
+                    sx={{
+                      height: 8,
+                      flex: 1,
+                      borderRadius: 4,
+                      bgcolor: 'var(--atlas-border)',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        height: '100%',
+                        width: `${Math.max(percentage, item.calories > 0 ? 2 : 0)}%`,
+                        bgcolor: 'var(--atlas-persimmon)',
+                        borderRadius: 4,
+                      }}
+                    />
+                  </Box>
+                  <Typography variant="caption" sx={{ width: 58, textAlign: 'right' }}>
+                    {formatAmount(item.calories)} kcal
+                  </Typography>
+                </Stack>
+              </Box>
+            );
+          })}
+        </Stack>
+      ) : (
+        <Typography variant="caption" sx={{ color: 'var(--atlas-ink-muted)' }}>
+          Component calories are unavailable.
+        </Typography>
+      )}
+    </Paper>
+  );
+}
+
 function MacroChart({ items }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const values = Object.fromEntries(
     NUTRIENT_FIELDS.map(({ key }) => [key, mealNutrientTotal(items, key)]),
   );
@@ -226,6 +386,17 @@ function MacroChart({ items }) {
       <Collapse in={open} unmountOnExit>
         <Box sx={{ mt: 1 }}>
           <NutritionCards values={values} ariaLabel="Full meal nutrition values" />
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: 'minmax(210px, 0.8fr) minmax(0, 1.2fr)' },
+              gap: 0.75,
+              mt: 0.75,
+            }}
+          >
+            <MacroCalorieChart values={values} />
+            <ComponentCalorieChart items={items} />
+          </Box>
         </Box>
       </Collapse>
     </Paper>
