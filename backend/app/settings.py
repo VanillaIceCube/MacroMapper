@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     # My apps
     "authentication",
     "foods",
+    "estimates",
     "meals",
     "notifications",
 ]
@@ -208,4 +209,13 @@ EMAIL_TIMEOUT = int(os.getenv("DJANGO_EMAIL_TIMEOUT") or "10")
 DEFAULT_FROM_EMAIL = (
     os.getenv("DJANGO_DEFAULT_FROM_EMAIL")
     or "MacroMapper <no-reply@macromapper.localhost>"
+)
+
+# GPT-assisted meal proposals. The OpenAI key is intentionally optional so
+# catalog-first matches and the rest of the application remain available when
+# model estimation is not configured.
+OPENAI_API_KEY = os.getenv("MACROMAPPER_OPENAI_API_KEY", "")
+OPENAI_MEAL_ESTIMATION_MODEL = os.getenv("OPENAI_MEAL_ESTIMATION_MODEL", "gpt-5.5")
+OPENAI_MEAL_ESTIMATION_TIMEOUT = float(
+    os.getenv("OPENAI_MEAL_ESTIMATION_TIMEOUT", "45")
 )

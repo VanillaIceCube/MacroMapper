@@ -68,14 +68,19 @@ def create_food_version(*, food_item, definition, created_by):
     for component_data in components:
         component_data = component_data.copy()
         child_food = component_data.pop("food_item")
+        pinned_child_version = component_data.pop("food_version", None)
         if child_food.pk == locked_item.pk:
             raise ValidationError(
                 {"components": "A food cannot include itself as a component."}
             )
-        child_version = child_food.current_version
+        child_version = pinned_child_version or child_food.current_version
         if child_version is None:
             raise ValidationError(
                 {"components": f"{child_food.name} has no current definition."}
+            )
+        if child_version.food_item_id != child_food.pk:
+            raise ValidationError(
+                {"components": "A pinned component version must belong to its food."}
             )
         component = FoodComponent(
             parent_version=version,

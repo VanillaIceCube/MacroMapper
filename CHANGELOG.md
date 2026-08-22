@@ -1,10 +1,29 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 2026-08-22
+
+### Fixed
+
+- Rolled composite meal nutrition up from component values even when a parent
+  food version contains stale or zero direct nutrient columns.
+
+### Changed
+
+- Expanded meal-estimate review with a meal-level calorie summary, macro chart,
+  and per-component protein, carbohydrate, and fat values that recalculate as
+  servings and ingredients change.
+
 ## 2026-08-16
 
 ### Added
 
+- Added owner-scoped, catalog-first GPT meal proposals with structured OpenAI
+  web research, persisted sources/confidence/provider metadata, editable
+  component review, and acceptance into durable private diary snapshots.
+- Added a responsive estimate-review interface with explicit official,
+  catalog-estimate, and AI-estimate labels; source links; quantity and ingredient
+  editing; catalog additions; and non-medical product language.
 - Added a centralized Material UI Field Atlas theme, semantic nutrition and
   activity color tokens, responsive contour treatments, accessible focus
   states, reduced-motion safeguards, and updated visual regression assertions.
@@ -22,6 +41,9 @@ All notable changes to this project are documented in this file.
 - Made native AI `REQUEST_CHANGES` verdicts fail their corresponding required
   reviewer checks, including repeated blocking verdicts, while approvals and
   non-blocking comments continue to pass.
+- Kept meal-estimate source URLs and numeric values server-validated while
+  removing unsupported `uri` and decimal-regex constructs from the OpenAI
+  Structured Outputs schema.
 - Preserved complete nutrient totals and component detail when independent
   composite-food branches reuse the same descendant definition.
 - Rejected malformed meal-list dates and allowed metadata-only meal PATCH

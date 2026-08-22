@@ -4,9 +4,10 @@ with Material UI and React Router 8. It will provide an individual meal and
 activity diary, source-aware GPT meal proposals, nutrition goals, and trend
 reporting through MacroMapper's warm, editorial Field Atlas visual system.
 
-The current implementation is the authenticated application shell that those
-features will build on. See the [product vision](../docs/PRODUCT_VISION.md) for
-the planned user experience and release sequence.
+The current implementation includes the authenticated application shell,
+private meal diary, and GPT-assisted estimate-review flow. See the
+[product vision](../docs/PRODUCT_VISION.md) for the remaining user experience
+and release sequence.
 
 ## 🧭 Visual system
 
@@ -36,6 +37,13 @@ components.
 - Any unknown route resolves to the protected home page
 
 Signed-out users who request a protected route are redirected to `/login`.
+
+The diary offers manual entry and an **Estimate meal** path. Estimation searches
+the visible catalog first, then requests a sourced GPT proposal when needed.
+Users must review the persisted draft before saving: they can rename the meal,
+change item/component quantities, remove ingredients, and add catalog foods.
+Official/verified, catalog-estimate, and AI-estimate labels always accompany
+their sources and confidence rather than relying on color alone.
 
 React Router 8 requires no production routing API changes in MacroMapper. The
 application already imports its DOM routing APIs from `react-router` rather than

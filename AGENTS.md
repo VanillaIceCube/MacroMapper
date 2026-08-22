@@ -53,6 +53,9 @@ Optional backend variables:
 - `DJANGO_EMAIL_HOST_KEY`
 - `DJANGO_EMAIL_TIMEOUT`
 - `DJANGO_DEFAULT_FROM_EMAIL`
+- `MACROMAPPER_OPENAI_API_KEY` (required for GPT estimates that do not match the catalog)
+- `OPENAI_MEAL_ESTIMATION_MODEL` (default: `gpt-5.5`)
+- `OPENAI_MEAL_ESTIMATION_TIMEOUT` (default: `45` seconds)
 
 Optional frontend variable:
 

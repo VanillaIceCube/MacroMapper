@@ -10,7 +10,9 @@ a custom email-first user model, password-reset email delivery, and a
 recipient-scoped notification API. It also supplies a source-aware Food Item
 catalog with versioned definitions, components, nutrients, and private personal
 foods, plus an owner-scoped meal diary with durable food, component, and
-nutrient values. See the [product vision](../docs/PRODUCT_VISION.md) for the
+nutrient values. It also persists catalog-first, GPT-assisted meal proposals
+and materializes accepted estimates as private food definitions plus durable
+meal snapshots. See the [product vision](../docs/PRODUCT_VISION.md) for the
 remaining roadmap.
 
 ## 🧭 Structure
@@ -19,6 +21,8 @@ remaining roadmap.
   and email delivery
 - `foods/`: reusable Food Items, immutable versions, components, nullable
   nutrient columns, source references, and authenticated catalog APIs
+- `estimates/`: owner-scoped draft meal proposals, catalog-first matching,
+  OpenAI Responses API integration, editable review persistence, and acceptance
 - `meals/`: private dated meal entries, historically stable saved
   component/nutrient values, owner-scoped CRUD, and daily totals
 - `notifications/`: persisted notifications for the authenticated app
@@ -27,9 +31,9 @@ remaining roadmap.
 - `requirements.txt`: pip dependencies used locally, in CI, and in Docker
 - `ruff.toml`: backend lint and formatting configuration
 
-Goals, activity, and GPT-estimation domains remain separate planned apps. The
-`foods` app provides their shared catalog foundation without taking ownership
-of diary history.
+Goals and activity remain separate planned apps. The `estimates` app uses the
+`foods` catalog and creates private reviewed food definitions without taking
+ownership of diary history.
 
 ## 🔐 Authentication API
 - `POST /auth/register/`
@@ -118,6 +122,30 @@ Editing an existing item submits its returned `food_version_id` as
 `food_version` so quantity changes continue to use the original saved values even
 if the catalog has since changed.
 
+## GPT Meal Proposal API
+All proposal endpoints require a JWT access token and expose only the current
+user's proposals.
+
+- `GET /api/meal-proposals/`
+- `GET /api/meal-proposals/{id}/`
+- `POST /api/meal-proposals/` with `description` and `entry_date`
+  - Searches visible catalog identities first and returns matching pinned
+    definitions without calling the model.
+  - If there is no suitable catalog match, requests structured component,
+    nutrient, source, provenance, and confidence data from OpenAI with web
+    search enabled.
+- `PATCH /api/meal-proposals/{id}/` with an edited `name` and/or `items`
+- `DELETE /api/meal-proposals/{id}/` for unaccepted drafts
+- `POST /api/meal-proposals/{id}/accept/`
+  - Materializes estimated or edited composites as private Food Items, creates
+    a dated meal snapshot, and locks the proposal against further edits.
+
+Proposal labels distinguish `official_verified`, `catalog_estimate`, and
+`ai_estimate`. The saved record retains provider/model/response metadata,
+confidence, and source URLs. OpenAI requests use structured outputs, enable web
+search for source discovery, and set `store=false`. They return nutrition data
+only and explicitly exclude dietary, medical, clinical, and treatment advice.
+
 ## 🔔 Notification API
 All `/api/` endpoints require a JWT access token. Notification querysets are
 always scoped to the authenticated recipient.
@@ -151,7 +179,14 @@ DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,macromapper.localhost
 DJANGO_CORS_ALLOWED_ORIGINS=http://macromapper.localhost:3000
 DJANGO_CSRF_TRUSTED_ORIGINS=http://macromapper.localhost:3000
 DJANGO_FRONTEND_BASE_URL=http://macromapper.localhost:3000
+MACROMAPPER_OPENAI_API_KEY=<openai-project-api-key>
+OPENAI_MEAL_ESTIMATION_MODEL=gpt-5.5
+OPENAI_MEAL_ESTIMATION_TIMEOUT=45
 ```
+
+The OpenAI key is optional for local catalog/manual workflows. An unmatched
+description returns `503 Service Unavailable` with a safe explanation when the
+key is absent or the provider cannot respond.
 
 The default database is `backend/db.sqlite3`. Override it with
 `DJANGO_SQLITE_PATH`. The `macromapper.localhost` host is accepted by

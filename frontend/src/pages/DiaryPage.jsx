@@ -1,4 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -34,6 +35,7 @@ import {
   searchFoods,
   updateMeal,
 } from '../services/mealApiClient';
+import MealEstimateDialog from '../components/MealEstimateDialog';
 
 const launchNutrients = [
   {
@@ -507,6 +509,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [editor, setEditor] = useState({ open: false, meal: null });
+  const [estimateOpen, setEstimateOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(null);
   const token = sessionStorage.getItem('accessToken');
 
@@ -571,13 +574,23 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                 Your saved meals keep their original nutrition values.
               </Typography>
             </Box>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setEditor({ open: true, meal: null })}
-            >
-              Add meal
-            </Button>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={<AutoAwesomeIcon />}
+                onClick={() => setEstimateOpen(true)}
+              >
+                Estimate meal
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setEditor({ open: true, meal: null })}
+              >
+                Add manually
+              </Button>
+            </Stack>
           </Stack>
 
           <Paper
@@ -776,6 +789,18 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
           onClose={() => setEditor({ open: false, meal: null })}
           onSaved={async (message) => {
             setEditor({ open: false, meal: null });
+            showSnackbar('success', message);
+            await loadDiary();
+          }}
+        />
+
+        <MealEstimateDialog
+          date={date}
+          open={estimateOpen}
+          token={token}
+          onClose={() => setEstimateOpen(false)}
+          onSaved={async (message) => {
+            setEstimateOpen(false);
             showSnackbar('success', message);
             await loadDiary();
           }}
