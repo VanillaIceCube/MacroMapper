@@ -71,9 +71,17 @@ export default function AppNavigationDrawer({ open, setOpen }) {
               component="img"
               src="/macromapper-mark.svg"
               alt=""
-              sx={{ width: 34, height: 34 }}
+              sx={{ width: 38, height: 38 }}
             />
-            <Typography variant="h5" sx={{ fontWeight: 650, color: 'var(--atlas-ink)' }}>
+            <Typography
+              variant="h5"
+              sx={{
+                fontFamily: '"Inter", "Segoe UI", Arial, sans-serif',
+                fontWeight: 800,
+                letterSpacing: '-0.035em',
+                color: '#06285F',
+              }}
+            >
               MacroMapper
             </Typography>
           </Stack>
