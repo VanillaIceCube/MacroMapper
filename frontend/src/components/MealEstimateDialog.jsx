@@ -825,8 +825,7 @@ export default function MealEstimateDialog({ date, open, token, onClose, onSaved
         <Stack spacing={proposal ? 1.25 : 2.5}>
           {error && <Alert severity="error">{error}</Alert>}
           <Alert severity="info" variant="outlined">
-            Estimates are nutrition-tracking data, not dietary or medical advice. Review every item
-            before saving.
+            Nutrition values are estimates and may vary. Review and adjust each item before saving.
           </Alert>
           {!proposal ? (
             <>

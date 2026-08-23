@@ -28,6 +28,8 @@ All notable changes to this project are documented in this file.
   components by default for faster top-level scanning.
 - Enlarged the macro donut responsively so it fills its summary card more
   evenly without stretching the legend.
+- Simplified the meal-estimate review guidance to emphasize checking and
+  adjusting nutrition values before saving.
 
 ## 2026-08-16
 
