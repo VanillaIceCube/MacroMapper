@@ -688,7 +688,7 @@ function ProposalFood({
               md: '"identity nutrition controls actions"',
             },
             columnGap: 0.75,
-            rowGap: 0.5,
+            rowGap: { xs: 0, sm: 0.5 },
             alignItems: 'center',
           }}
         >
@@ -721,6 +721,7 @@ function ProposalFood({
           <Box
             sx={{
               gridArea: 'controls',
+              mt: { xs: 1.1, sm: 0 },
               display: 'grid',
               width: '100%',
               gridTemplateColumns: {
@@ -774,7 +775,15 @@ function ProposalFood({
                 aria-expanded={componentsOpen}
                 onClick={() => setComponentsOpen((current) => !current)}
                 title={`${componentsOpen ? 'Hide' : 'Show'} components`}
-                sx={{ minWidth: 0, px: 0.5, color: 'var(--atlas-ink-muted)', fontWeight: 800 }}
+                sx={{
+                  minWidth: 0,
+                  minHeight: 24,
+                  px: 0.35,
+                  py: 0,
+                  color: 'var(--atlas-ink-muted)',
+                  fontWeight: 800,
+                  '& .MuiButton-endIcon': { ml: 0.2 },
+                }}
               >
                 {item.components.length}
               </Button>
@@ -785,7 +794,7 @@ function ProposalFood({
               aria-haspopup="menu"
               aria-expanded={Boolean(actionsAnchorEl)}
               onClick={(event) => setActionsAnchorEl(event.currentTarget)}
-              sx={{ p: 0.45 }}
+              sx={{ p: 0.2 }}
             >
               <MoreVertIcon fontSize="small" />
             </IconButton>
