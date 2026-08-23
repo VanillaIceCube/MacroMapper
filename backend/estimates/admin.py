@@ -1,6 +1,28 @@
 from django.contrib import admin
 
-from .models import MealProposal
+from .models import MealProposal, MealProposalRevision
+
+
+class MealProposalRevisionInline(admin.TabularInline):
+    model = MealProposalRevision
+    extra = 0
+    fields = (
+        "revision_number",
+        "kind",
+        "parent_revision",
+        "created_by",
+        "created_at",
+    )
+    readonly_fields = fields
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(MealProposal)
@@ -32,6 +54,39 @@ class MealProposalAdmin(admin.ModelAdmin):
         "accepted_at",
         "created_at",
         "updated_at",
+    )
+    inlines = (MealProposalRevisionInline,)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(MealProposalRevision)
+class MealProposalRevisionAdmin(admin.ModelAdmin):
+    list_display = (
+        "proposal",
+        "revision_number",
+        "kind",
+        "created_by",
+        "created_at",
+    )
+    list_filter = ("kind", "created_at")
+    search_fields = ("proposal__name", "proposal__owner__email")
+    readonly_fields = (
+        "proposal",
+        "revision_number",
+        "kind",
+        "name",
+        "items",
+        "parent_revision",
+        "created_by",
+        "created_at",
     )
 
     def has_add_permission(self, request):

@@ -1,10 +1,46 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 2026-08-23
+
+### Added
+
+- Added conversational AI follow-ups to meal-estimate review so users can add
+  forgotten foods or request clear removals and serving corrections while
+  preserving the current editable draft, provenance, and revision history.
+
+### Fixed
+
+- Resolved meal descriptions by complete food clause so partial fuzzy catalog
+  matches cannot discard defining terms or be combined with unrelated AI
+  fallback foods; unresolved clauses now retain shared provider context.
+- Prevented conversational descriptions such as fries from two different
+  restaurants from bypassing existing catalog foods and creating duplicate AI
+  estimates.
+- Added a server-side publication boundary for provider-derived shared foods so
+  only allowlisted, normalized, source-validated catalog fields can be made
+  globally visible; unsafe or instruction-like metadata is rejected atomically.
+- Kept meal review usable after an AI follow-up request fails by preserving the
+  draft and request, showing a retryable error, and always unlocking the dialog.
+
+### Changed
+
+- Added structured AI food-intent extraction for descriptions the deterministic
+  catalog path cannot fully resolve. Each provider-aware intent now searches the
+  visible catalog before nutrition estimation, and AI follow-up additions use
+  the same catalog-reuse step.
+
 ## 2026-08-22
 
 ### Added
 
+- Added typo-tolerant multi-food catalog resolution that extracts quantities,
+  prefers complete composites, groups duplicate identities, and sends only
+  unmatched foods to GPT.
+- Added deduplicated shared Food Items for initial AI estimates so later users
+  can reuse the same sourced base definition without another model request.
+- Added immutable generated, user-reviewed, and accepted proposal revisions,
+  plus food-version lineage and retained AI provider/model metadata.
 - Added a top-level calorie editor for composite foods that proportionally
   scales component quantities and all resulting macros in one adjustment.
 - Made estimated calories, protein, carbohydrates, and fat editable through a
@@ -15,6 +51,10 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Prevented a partial catalog hit from dropping other requested foods or
+  silently resetting their requested counts to one.
+- Normalized GPT nutrient totals back to their declared base serving so a
+  multi-serving estimate cannot multiply calories and macros twice.
 - Required AI-generated composite foods to split identifiable ingredients into
   separate components instead of grouping multiple toppings into one row.
 - Snapped AI-estimated component weights and liquid volumes to readable gram
@@ -40,6 +80,9 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Kept unchanged AI definitions shared while saving substantive nutrient or
+  component edits as private user-modified versions derived from the shared
+  base, with explicit adjusted-by-user attribution in the review UI.
 - Reworked meal-estimate foods into aligned database-style rows with wrapping
   titles, compact count/unit controls, responsive mobile spacing, and secondary
   actions in overflow menus.

@@ -7,6 +7,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import SearchIcon from '@mui/icons-material/Search';
+import SendIcon from '@mui/icons-material/Send';
 import {
   Alert,
   Box,
@@ -36,6 +37,7 @@ import { useEffect, useState } from 'react';
 import {
   acceptMealProposal,
   createMealProposal,
+  followUpMealProposal,
   searchFoods,
   updateMealProposal,
 } from '../services/mealApiClient';
@@ -44,6 +46,7 @@ const sourceLabels = {
   official_verified: { label: 'Official / verified', color: 'success' },
   catalog_estimate: { label: 'Catalog estimate', color: 'info' },
   ai_estimate: { label: 'AI estimate', color: 'warning' },
+  user_modified_estimate: { label: 'AI estimate — adjusted by you', color: 'warning' },
 };
 
 const nutrientMap = (nutrients = []) =>
@@ -654,7 +657,7 @@ function ProposalFood({
   const hasDetails =
     item.confidence_score != null || item.provider_name || Boolean(item.sources?.length);
   const accentColor =
-    item.source_kind === 'ai_estimate'
+    item.source_kind === 'ai_estimate' || item.source_kind === 'user_modified_estimate'
       ? 'var(--atlas-persimmon)'
       : item.source_kind === 'official_verified'
         ? 'var(--atlas-forest)'
@@ -901,7 +904,9 @@ function catalogProposalItem(food) {
       ? 'official_verified'
       : version.provenance === 'ai_estimate'
         ? 'ai_estimate'
-        : 'catalog_estimate';
+        : version.provenance === 'user_modified_estimate'
+          ? 'user_modified_estimate'
+          : 'catalog_estimate';
   const item = {
     key: `catalog-added-${food.id}-${Date.now()}`,
     food_item_id: food.id,
@@ -943,6 +948,9 @@ export default function MealEstimateDialog({ date, open, token, onClose, onSaved
   const [foods, setFoods] = useState([]);
   const [searching, setSearching] = useState(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
+  const [followUp, setFollowUp] = useState('');
+  const [followUpBusy, setFollowUpBusy] = useState(false);
+  const [followUpFeedback, setFollowUpFeedback] = useState(null);
 
   useEffect(() => {
     if (!open) return;
@@ -952,6 +960,9 @@ export default function MealEstimateDialog({ date, open, token, onClose, onSaved
     setQuery('');
     setFoods([]);
     setCatalogOpen(false);
+    setFollowUp('');
+    setFollowUpBusy(false);
+    setFollowUpFeedback(null);
   }, [open]);
 
   const estimate = async () => {
@@ -1084,10 +1095,70 @@ export default function MealEstimateDialog({ date, open, token, onClose, onSaved
     }));
   };
 
+  const applyFollowUp = async () => {
+    const request = followUp.trim();
+    if (!request) {
+      setFollowUpFeedback({
+        severity: 'warning',
+        message: 'Describe what you want to add, remove, or correct.',
+      });
+      return;
+    }
+    if (!proposal.name.trim() || !proposal.items.length) {
+      setFollowUpFeedback({
+        severity: 'warning',
+        message: 'Name the meal and keep at least one food before asking for a change.',
+      });
+      return;
+    }
+
+    setFollowUpBusy(true);
+    setError('');
+    setFollowUpFeedback(null);
+    try {
+      const response = await followUpMealProposal(
+        proposal.id,
+        {
+          follow_up: request,
+          name: proposal.name.trim(),
+          items: proposal.items,
+        },
+        token,
+      );
+      if (response.ok) {
+        const result = await response.json();
+        if (result.applied) {
+          setProposal(result.proposal);
+          setFollowUp('');
+          setFollowUpFeedback({ severity: 'success', message: result.message });
+        } else {
+          setFollowUpFeedback({ severity: 'warning', message: result.message });
+        }
+      } else {
+        setFollowUpFeedback({
+          severity: 'error',
+          message: await responseError(
+            response,
+            'Could not apply that change. Your current draft is still here.',
+          ),
+        });
+      }
+    } catch (_error) {
+      setFollowUpFeedback({
+        severity: 'error',
+        message: 'Could not reach AI. Try again—your current draft and request are still here.',
+      });
+    } finally {
+      setFollowUpBusy(false);
+    }
+  };
+
+  const dialogBusy = busy || followUpBusy;
+
   return (
     <Dialog
       open={open}
-      onClose={busy ? undefined : onClose}
+      onClose={dialogBusy ? undefined : onClose}
       fullWidth
       maxWidth="md"
       sx={{
@@ -1234,20 +1305,78 @@ export default function MealEstimateDialog({ date, open, token, onClose, onSaved
                   )}
                 </Collapse>
               </Paper>
+              <Paper elevation={0} sx={{ p: 1.25, border: '1px solid var(--atlas-border)' }}>
+                <Stack spacing={0.75}>
+                  <Stack direction="row" spacing={0.75} alignItems="center">
+                    <AutoAwesomeIcon
+                      fontSize="small"
+                      sx={{ color: 'var(--atlas-persimmon-dark)' }}
+                    />
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                      Adjust with AI
+                    </Typography>
+                  </Stack>
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={0.75}
+                    alignItems={{ sm: 'flex-end' }}
+                  >
+                    <TextField
+                      label="Ask AI to make changes"
+                      value={followUp}
+                      onChange={(event) => {
+                        setFollowUp(event.target.value);
+                        setFollowUpFeedback(null);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                          event.preventDefault();
+                          applyFollowUp();
+                        }
+                      }}
+                      placeholder="I also had a medium chocolate milkshake"
+                      multiline
+                      minRows={1}
+                      maxRows={3}
+                      size="small"
+                      inputProps={{ maxLength: 500 }}
+                      disabled={followUpBusy}
+                      fullWidth
+                    />
+                    <Button
+                      variant="outlined"
+                      color="secondary"
+                      startIcon={
+                        followUpBusy ? <CircularProgress size={16} color="inherit" /> : <SendIcon />
+                      }
+                      onClick={applyFollowUp}
+                      disabled={followUpBusy || !followUp.trim()}
+                      sx={{ whiteSpace: 'nowrap', width: { xs: '100%', sm: 'auto' } }}
+                    >
+                      {followUpBusy ? 'Applying…' : 'Apply'}
+                    </Button>
+                  </Stack>
+                  {followUpFeedback && (
+                    <Alert severity={followUpFeedback.severity} sx={{ py: 0 }}>
+                      {followUpFeedback.message}
+                    </Alert>
+                  )}
+                </Stack>
+              </Paper>
             </>
           )}
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={busy}>
+        <Button onClick={onClose} disabled={dialogBusy}>
           Cancel
         </Button>
         {!proposal ? (
-          <Button variant="contained" color="secondary" onClick={estimate} disabled={busy}>
+          <Button variant="contained" color="secondary" onClick={estimate} disabled={dialogBusy}>
             {busy ? 'Estimating…' : 'Create estimate'}
           </Button>
         ) : (
-          <Button variant="contained" onClick={save} disabled={busy}>
+          <Button variant="contained" onClick={save} disabled={dialogBusy}>
             {busy ? 'Saving…' : 'Save to diary'}
           </Button>
         )}

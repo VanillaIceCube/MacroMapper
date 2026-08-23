@@ -40,13 +40,25 @@ components.
 
 Signed-out users who request a protected route are redirected to `/login`.
 
-The diary offers manual entry and an **Estimate meal** path. Estimation searches
-the visible catalog first, then requests a sourced GPT proposal when needed.
+The diary offers manual entry and an **Estimate meal** path. Estimation keeps a
+fast deterministic catalog path for complete matches. When natural-language
+input remains unresolved, AI extracts separate provider-aware food searches;
+the app resolves each one against the visible catalog and requests sourced
+nutrition estimates only for foods still missing. Product-defining terms keep
+partial matches from selecting a different menu item.
+During review, an **Adjust with AI** field can add a forgotten food or apply a
+clear top-level removal or serving correction without discarding current edits.
+New follow-up foods also search the catalog before a shared estimate is created.
+Ambiguous quantities and targets receive a disclosed best-effort assumption at
+lower confidence; failed requests keep the draft and input available for retry.
 Users must review the persisted draft before saving: they can rename the meal,
 switch between validated unit/portion options, adjust the amount without
 changing the nutritional basis, remove ingredients, and add catalog foods.
-Official/verified, catalog-estimate, and AI-estimate labels always accompany
-their sources and confidence rather than relying on color alone.
+Official/verified, catalog-estimate, AI-estimate, and **AI estimate — adjusted
+by you** labels always accompany their sources and confidence rather than
+relying on color alone. Initial AI definitions are reusable shared catalog
+foods; substantive review edits are saved as private versions derived from the
+shared base.
 
 React Router 8 requires no production routing API changes in MacroMapper. The
 application already imports its DOM routing APIs from `react-router` rather than

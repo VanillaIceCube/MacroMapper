@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
@@ -56,3 +57,58 @@ class MealProposal(models.Model):
 
     def __str__(self):
         return f"{self.entry_date}: {self.name} ({self.get_status_display()})"
+
+
+class MealProposalRevision(models.Model):
+    class Kind(models.TextChoices):
+        GENERATED = "generated", "Generated"
+        USER_REVIEWED = "user_reviewed", "User reviewed"
+        AI_FOLLOW_UP = "ai_follow_up", "AI follow-up"
+        ACCEPTED = "accepted", "Accepted"
+
+    proposal = models.ForeignKey(
+        MealProposal,
+        on_delete=models.CASCADE,
+        related_name="revisions",
+    )
+    revision_number = models.PositiveIntegerField()
+    kind = models.CharField(max_length=24, choices=Kind)
+    name = models.CharField(max_length=120)
+    items = models.JSONField(default=list)
+    parent_revision = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="child_revisions",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="meal_proposal_revisions",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["revision_number", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["proposal", "revision_number"],
+                name="unique_meal_proposal_revision_number",
+            )
+        ]
+
+    def clean(self):
+        super().clean()
+        if (
+            self.parent_revision_id
+            and self.parent_revision.proposal_id != self.proposal_id
+        ):
+            raise ValidationError(
+                {"parent_revision": "The parent must belong to the same proposal."}
+            )
+
+    def __str__(self):
+        return f"{self.proposal} revision {self.revision_number}"

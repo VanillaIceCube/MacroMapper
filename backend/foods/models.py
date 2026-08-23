@@ -35,6 +35,13 @@ class FoodItem(models.Model):
         default=OriginType.GENERIC,
     )
     provider_name = models.CharField(max_length=160, blank=True)
+    shared_fingerprint = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        unique=True,
+        editable=False,
+    )
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -65,6 +72,10 @@ class FoodItem(models.Model):
                 ),
                 name="food_scope_matches_owner",
             ),
+            models.CheckConstraint(
+                condition=(Q(shared_fingerprint__isnull=True) | Q(scope="shared")),
+                name="food_shared_fingerprint_scope",
+            ),
         ]
         indexes = [
             models.Index(fields=["scope", "name"]),
@@ -77,6 +88,12 @@ class FoodItem(models.Model):
             raise ValidationError({"owner": "Shared foods cannot have an owner."})
         if self.scope == self.Scope.PERSONAL and self.owner_id is None:
             raise ValidationError({"owner": "Personal foods require an owner."})
+        if self.scope == self.Scope.PERSONAL and self.shared_fingerprint is not None:
+            raise ValidationError(
+                {
+                    "shared_fingerprint": "Personal foods cannot have a shared fingerprint."
+                }
+            )
         if (
             self.origin_type in {self.OriginType.BRANDED, self.OriginType.RESTAURANT}
             and not self.provider_name.strip()
@@ -115,6 +132,10 @@ class FoodItemVersion(models.Model):
         OFFICIAL = "official", "Official"
         COMMUNITY_ESTIMATE = "community_estimate", "Community estimate"
         AI_ESTIMATE = "ai_estimate", "AI estimate"
+        USER_MODIFIED_ESTIMATE = (
+            "user_modified_estimate",
+            "User-modified estimate",
+        )
         USER_ENTERED = "user_entered", "User entered"
 
     food_item = models.ForeignKey(
@@ -130,6 +151,20 @@ class FoodItemVersion(models.Model):
     )
     serving_unit = models.CharField(max_length=16, choices=ServingUnit)
     serving_label = models.CharField(max_length=120, blank=True)
+    serving_weight_grams = models.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0.001"))],
+    )
+    serving_volume_ml = models.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0.001"))],
+    )
     provenance = models.CharField(max_length=24, choices=Provenance)
     confidence_score = models.DecimalField(
         max_digits=4,
@@ -204,6 +239,16 @@ class FoodItemVersion(models.Model):
         blank=True,
         related_name="created_food_versions",
     )
+    derived_from = models.ForeignKey(
+        "self",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="derived_versions",
+    )
+    estimation_provider = models.CharField(max_length=80, blank=True)
+    estimation_model = models.CharField(max_length=120, blank=True)
+    estimation_response_id = models.CharField(max_length=160, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -228,6 +273,10 @@ class FoodItemVersion(models.Model):
 
     def clean(self):
         super().clean()
+        if self.derived_from_id and self.pk and self.derived_from_id == self.pk:
+            raise ValidationError(
+                {"derived_from": "A food version cannot be derived from itself."}
+            )
         if (
             self.food_item_id
             and self.food_item.scope == FoodItem.Scope.SHARED

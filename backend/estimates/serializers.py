@@ -2,16 +2,28 @@ from decimal import Decimal, InvalidOperation
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.validators import URLValidator
+from django.db import transaction
 from rest_framework import serializers
 
 from foods.models import FoodItem, FoodItemVersion
 from foods.nutrients import NUTRIENT_FIELDS
 from foods.portions import portion_options_for_serving
 
-from .models import MealProposal
-from .services import create_proposal, normalize_items, secure_review_items
+from .models import MealProposal, MealProposalRevision
+from .services import (
+    apply_proposal_follow_up,
+    create_proposal,
+    create_proposal_revision,
+    normalize_items,
+    secure_review_items,
+)
 
-SOURCE_KINDS = {"official_verified", "catalog_estimate", "ai_estimate"}
+SOURCE_KINDS = {
+    "official_verified",
+    "catalog_estimate",
+    "ai_estimate",
+    "user_modified_estimate",
+}
 ITEM_FIELDS = {
     "key",
     "food_item_id",
@@ -23,11 +35,14 @@ ITEM_FIELDS = {
     "serving_quantity",
     "serving_unit",
     "serving_label",
+    "serving_weight_grams",
+    "serving_volume_ml",
     "portion_options",
     "selected_portion_key",
     "provenance",
     "source_kind",
     "confidence_score",
+    "is_user_modified",
     "nutrients",
     "sources",
     "components",
@@ -222,6 +237,18 @@ def _validate_item(item, *, depth=0, seen_keys=None):
         positive=True,
     )
     serving_label = str(item.get("serving_label", ""))[:120]
+    serving_weight_grams = _decimal(
+        item.get("serving_weight_grams"),
+        field="serving_weight_grams",
+        allow_null=True,
+        positive=True,
+    )
+    serving_volume_ml = _decimal(
+        item.get("serving_volume_ml"),
+        field="serving_volume_ml",
+        allow_null=True,
+        positive=True,
+    )
     portion_options, selected_portion_key = _validate_portion_options(
         item,
         serving_quantity=serving_quantity,
@@ -242,11 +269,14 @@ def _validate_item(item, *, depth=0, seen_keys=None):
         "serving_quantity": serving_quantity,
         "serving_unit": serving_unit,
         "serving_label": serving_label,
+        "serving_weight_grams": serving_weight_grams,
+        "serving_volume_ml": serving_volume_ml,
         "portion_options": portion_options,
         "selected_portion_key": selected_portion_key,
         "provenance": provenance,
         "source_kind": source_kind,
         "confidence_score": confidence,
+        "is_user_modified": bool(item.get("is_user_modified", False)),
         "nutrients": nutrients,
         "sources": [_validate_source(source) for source in sources],
         "components": [
@@ -270,9 +300,67 @@ class ProposalItemsField(serializers.JSONField):
         )
 
 
+class MealProposalFollowUpSerializer(serializers.Serializer):
+    follow_up = serializers.CharField(max_length=500, trim_whitespace=True)
+    name = serializers.CharField(max_length=120, trim_whitespace=True)
+    items = ProposalItemsField()
+
+    def validate_follow_up(self, value):
+        if not value:
+            raise serializers.ValidationError("Describe what should change.")
+        return value
+
+    def validate_name(self, value):
+        if not value:
+            raise serializers.ValidationError("Name the proposed meal.")
+        return value
+
+    def validate(self, attrs):
+        proposal = self.context["proposal"]
+        if proposal.status != MealProposal.Status.DRAFT:
+            raise serializers.ValidationError(
+                "Accepted proposals cannot receive follow-up changes."
+            )
+        try:
+            attrs["items"] = secure_review_items(
+                proposal=proposal,
+                owner=self.context["request"].user,
+                items=attrs["items"],
+            )
+        except DjangoValidationError:
+            raise serializers.ValidationError(
+                "Current proposal edits could not be validated."
+            ) from None
+        return attrs
+
+    def apply(self, result):
+        return apply_proposal_follow_up(
+            proposal=self.context["proposal"],
+            owner=self.context["request"].user,
+            name=self.validated_data["name"],
+            items=self.validated_data["items"],
+            result=result,
+        )
+
+
+class MealProposalRevisionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MealProposalRevision
+        fields = (
+            "id",
+            "revision_number",
+            "kind",
+            "name",
+            "items",
+            "parent_revision_id",
+            "created_at",
+        )
+
+
 class MealProposalSerializer(serializers.ModelSerializer):
     items = ProposalItemsField(required=False)
     accepted_meal_id = serializers.IntegerField(read_only=True)
+    revisions = MealProposalRevisionSerializer(many=True, read_only=True)
 
     class Meta:
         model = MealProposal
@@ -288,6 +376,7 @@ class MealProposalSerializer(serializers.ModelSerializer):
             "provider_response_id",
             "confidence_score",
             "items",
+            "revisions",
             "accepted_meal_id",
             "accepted_at",
             "created_at",
@@ -343,6 +432,16 @@ class MealProposalSerializer(serializers.ModelSerializer):
                         "Proposal edits could not be validated."
                     ) from None
         return attrs
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        instance = super().update(instance, validated_data)
+        create_proposal_revision(
+            proposal=instance,
+            kind=MealProposalRevision.Kind.USER_REVIEWED,
+            created_by=self.context["request"].user,
+        )
+        return instance
 
     def create(self, validated_data):
         return create_proposal(

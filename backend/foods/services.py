@@ -20,6 +20,7 @@ def create_food_item(
     owner,
     definition,
     created_by,
+    shared_fingerprint=None,
 ):
     food_item = FoodItem(
         name=name,
@@ -27,6 +28,7 @@ def create_food_item(
         origin_type=origin_type,
         provider_name=provider_name,
         owner=owner,
+        shared_fingerprint=shared_fingerprint,
     )
     food_item.full_clean()
     food_item.save()

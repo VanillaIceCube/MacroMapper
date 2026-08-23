@@ -62,9 +62,14 @@ class FoodItemVersionSerializer(serializers.ModelSerializer):
             "serving_quantity",
             "serving_unit",
             "serving_label",
+            "serving_weight_grams",
+            "serving_volume_ml",
             "portion_options",
             "provenance",
             "confidence_score",
+            "derived_from",
+            "estimation_provider",
+            "estimation_model",
             "nutrients",
             "sources",
             "components",
@@ -88,6 +93,8 @@ class FoodItemVersionSerializer(serializers.ModelSerializer):
             quantity=instance.serving_quantity,
             unit=instance.serving_unit,
             label=instance.serving_label,
+            weight_grams=instance.serving_weight_grams,
+            volume_milliliters=instance.serving_volume_ml,
         )
 
 
@@ -171,6 +178,20 @@ class FoodDefinitionInputSerializer(serializers.Serializer):
         max_length=120,
         required=False,
         allow_blank=True,
+    )
+    serving_weight_grams = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        min_value=Decimal("0.001"),
+        required=False,
+        allow_null=True,
+    )
+    serving_volume_ml = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        min_value=Decimal("0.001"),
+        required=False,
+        allow_null=True,
     )
     provenance = serializers.ChoiceField(choices=FoodItemVersion.Provenance)
     confidence_score = serializers.DecimalField(

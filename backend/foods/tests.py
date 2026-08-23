@@ -143,6 +143,15 @@ class FoodModelTests(TestCase):
                 scope=FoodItem.Scope.PERSONAL,
             )
 
+    def test_personal_food_cannot_use_a_shared_fingerprint(self):
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            FoodItem.objects.create(
+                name="Personal fingerprint",
+                scope=FoodItem.Scope.PERSONAL,
+                owner=self.user,
+                shared_fingerprint="a" * 64,
+            )
+
     def test_shared_version_requires_confidence(self):
         shared_food = FoodItem.objects.create(
             name="Shared food",
