@@ -10,6 +10,7 @@ from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from foods.models import FoodItemVersion
+from foods.portions import portion_options_for_serving
 
 
 class EstimationProviderError(Exception):
@@ -57,9 +58,19 @@ class EstimatedFood(BaseModel):
     servings: float = Field(default=1, gt=0)
     serving_quantity: float = Field(default=1, gt=0)
     serving_unit: Literal[
-        "g", "ml", "oz", "fl_oz", "cup", "tbsp", "tsp", "item", "serving"
+        "g",
+        "ml",
+        "oz",
+        "fl_oz",
+        "cup",
+        "tbsp",
+        "tsp",
+        "item",
+        "serving",
     ] = "serving"
     serving_label: str = Field(default="one serving", max_length=120)
+    serving_weight_grams: float = Field(gt=0)
+    serving_volume_ml: float | None = Field(default=None, gt=0)
     provenance: Literal["official", "ai_estimate"] = "ai_estimate"
     confidence_score: float = Field(ge=0, le=1)
     nutrients: EstimatedNutrients
@@ -79,14 +90,35 @@ EstimatedFood.model_rebuild()
 
 
 SYSTEM_PROMPT = """You create factual, editable nutrition estimates from meal descriptions.
-Return only the requested structured meal data. Search for official brand or restaurant
+Return only the requested structured meal data. Set the meal-level name to a concise,
+user-facing title that summarizes the foods, such as "Pub Burger, Poutine & Milkshake",
+rather than copying the full input description. Search for official brand or restaurant
 nutrition pages first. Mark an item official only when its nutrient values are directly
 supported by an official published source; otherwise mark it ai_estimate. Preserve source
 URLs and identify which sources are official. Break composite restaurant and prepared meals
 into useful ingredient-level components. Nutrients apply to the declared serving and use
 kcal for calories, grams for protein/carbohydrates/fat/fiber/sugar, and milligrams for
-sodium/cholesterol. Use null for unavailable nutrients, never zero. Do not provide dietary,
-medical, clinical, or treatment advice."""
+sodium/cholesterol. Anchor nutrients to exactly one stable serving_quantity, serving_unit,
+and serving_label. Choose a concise natural base serving for every item and component.
+For countable foods, prefer serving_quantity 1, serving_unit item, and labels such as
+"1 burger", "1 medium carrot", or "1 bun". For plated or bowled foods, prefer
+serving_quantity 1, serving_unit serving, and labels such as "1 plate" or "1 bowl".
+For beverages, always use a natural container as the base serving instead of a volume.
+Use serving_quantity 1 and serving_unit serving. Use "1 can" for canned beer or soda,
+"1 bottle" for bottled drinks, "1 glass" for an otherwise unspecified drink, and
+"1 shake" for a milkshake. Put the number of containers consumed in servings: six
+12 fl oz cans of Modelo must be servings 6 with serving_label "1 can", never Quantity
+72 with Unit "fl oz". Set serving_volume_ml to the volume of exactly one container so
+the application can offer ml, fl oz, and cup conversions. Set serving_volume_ml to null
+for non-liquid foods. Prefer standard whole or half-fluid-ounce container sizes instead
+of unnecessarily precise liquid volumes.
+Use servings to represent how many base servings the user ate. Do not put ingredient lists,
+alternate sizes, explanations, parenthetical gram estimates, or the food name in
+serving_label. The food name is already displayed as the item title. Always provide
+serving_weight_grams as the estimated edible gram weight of exactly one declared base
+serving. The application uses it to add a deterministic grams option for every item.
+Use null for unavailable nutrients, never zero. Do not provide dietary, medical, clinical,
+or treatment advice."""
 
 
 def _json_value(value):
@@ -99,8 +131,26 @@ def _json_value(value):
     return value
 
 
-def _serialize_food(food: EstimatedFood, *, key: str) -> dict:
+def _serialize_food(food: EstimatedFood, *, key: str, depth: int = 0) -> dict:
     data = food.model_dump(mode="python")
+    serving_weight_grams = data.pop("serving_weight_grams")
+    serving_volume_ml = data.pop("serving_volume_ml")
+    data["portion_options"] = portion_options_for_serving(
+        quantity=data["serving_quantity"],
+        unit=data["serving_unit"],
+        label=data["serving_label"],
+        weight_grams=serving_weight_grams,
+        volume_milliliters=serving_volume_ml,
+    )
+    option_keys = {option["key"] for option in data["portion_options"]}
+    if depth and "fl_oz" in option_keys:
+        data["selected_portion_key"] = "fl_oz"
+    elif depth and "g" in option_keys:
+        data["selected_portion_key"] = "g"
+    else:
+        data["selected_portion_key"] = (
+            data["serving_unit"] if data["serving_unit"] in option_keys else "base"
+        )
     data["key"] = key
     data["food_item_id"] = None
     data["food_version_id"] = None
@@ -110,7 +160,7 @@ def _serialize_food(food: EstimatedFood, *, key: str) -> dict:
         else "ai_estimate"
     )
     data["components"] = [
-        _serialize_food(component, key=f"{key}.{index}")
+        _serialize_food(component, key=f"{key}.{index}", depth=depth + 1)
         for index, component in enumerate(food.components)
     ]
     return _json_value(data)

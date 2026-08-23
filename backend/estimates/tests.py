@@ -352,6 +352,35 @@ class MealProposalApiTests(TestCase):
         self.assertEqual(saved_component.child_version.calories, Decimal("175"))
         self.assertEqual(saved_component.child_version.protein, Decimal("10"))
 
+    def test_ai_proposal_rolls_up_known_nutrients_when_a_component_is_unknown(self):
+        estimate = ai_estimate()
+        first_component = estimate["items"][0]["components"][0]
+        first_component["nutrients"]["carbohydrates"] = None
+        second_component = deepcopy(first_component)
+        second_component["key"] = "ai-0.1"
+        second_component["name"] = "Burger bun"
+        second_component["servings"] = "1"
+        second_component["nutrients"]["protein"] = None
+        second_component["nutrients"]["carbohydrates"] = "30"
+        estimate["items"][0]["components"].append(second_component)
+        provider = Mock()
+        provider.estimate.return_value = estimate
+
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
+            created = self.client.post(
+                "/api/meal-proposals/",
+                {
+                    "description": "A burger with a bun",
+                    "entry_date": "2026-08-16",
+                },
+                format="json",
+            )
+
+        self.assertEqual(created.status_code, 201)
+        nutrients = created.data["items"][0]["nutrients"]
+        self.assertEqual(nutrients["protein"], "24")
+        self.assertEqual(nutrients["carbohydrates"], "30")
+
     def test_catalog_nutrient_adjustment_creates_a_personal_copy(self):
         catalog_food = shared_food(name="Protein bar")
         created = self.client.post(
@@ -437,6 +466,39 @@ class MealProposalApiTests(TestCase):
         self.assertEqual(proposal.status, MealProposal.Status.DRAFT)
         self.assertFalse(MealEntry.objects.exists())
 
+    def test_proposal_edits_cannot_inject_untrusted_portion_options(self):
+        provider = Mock()
+        provider.estimate.return_value = ai_estimate()
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
+            created = self.client.post(
+                "/api/meal-proposals/",
+                {
+                    "description": "A burger with portion choices",
+                    "entry_date": "2026-08-16",
+                },
+                format="json",
+            )
+
+        item = deepcopy(created.data["items"][0])
+        item["portion_options"].append(
+            {
+                "key": "triple",
+                "label": "Untrusted triple portion",
+                "unit_label": "triple",
+                "serving_multiplier": "3",
+            }
+        )
+        item["selected_portion_key"] = "triple"
+
+        response = self.client.patch(
+            f"/api/meal-proposals/{created.data['id']}/",
+            {"items": [item]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("could not be validated", str(response.data))
+
     def test_provider_failure_returns_safe_service_unavailable(self):
         provider = Mock()
         provider.estimate.side_effect = EstimationProviderError("Provider unavailable.")
@@ -487,6 +549,10 @@ class OpenAIProviderTests(TestCase):
             items=[
                 EstimatedFood(
                     name="Toast",
+                    serving_quantity=40,
+                    serving_unit="g",
+                    serving_label="40 g slice",
+                    serving_weight_grams=40,
                     confidence_score=Decimal("0.7"),
                     nutrients=EstimatedNutrients(calories=Decimal("80")),
                     sources=[
@@ -516,7 +582,106 @@ class OpenAIProviderTests(TestCase):
         self.assertEqual(
             result["items"][0]["sources"][0]["url"], "https://example.com/label"
         )
+        self.assertEqual(
+            result["items"][0]["portion_options"][0]["unit_label"], "serving"
+        )
+        self.assertEqual(result["items"][0]["portion_options"][1]["key"], "g")
+        self.assertEqual(result["items"][0]["selected_portion_key"], "g")
+
+    def test_provider_defaults_beverages_to_natural_containers(self):
+        parsed = EstimatedMeal(
+            name="Modelo",
+            confidence_score=Decimal("0.8"),
+            items=[
+                EstimatedFood(
+                    name="Modelo beer",
+                    servings=6,
+                    serving_quantity=1,
+                    serving_unit="serving",
+                    serving_label="1 can",
+                    serving_weight_grams=355,
+                    serving_volume_ml=Decimal("354.88235475"),
+                    confidence_score=Decimal("0.8"),
+                    nutrients=EstimatedNutrients(calories=Decimal("144")),
+                )
+            ],
+        )
+        client = Mock()
+        client.responses.parse.return_value = SimpleNamespace(
+            id="resp_modelo", output_parsed=parsed
+        )
+
+        result = OpenAIMealEstimationProvider(client=client).estimate(
+            "6 cans of Modelo"
+        )
+
+        item = result["items"][0]
+        options = {option["key"]: option for option in item["portion_options"]}
+        self.assertEqual(item["servings"], 6)
+        self.assertEqual(item["serving_quantity"], 1)
+        self.assertEqual(item["serving_label"], "1 can")
+        self.assertEqual(item["selected_portion_key"], "base")
+        self.assertEqual(options["fl_oz"]["serving_multiplier"], str(Decimal("1") / 12))
+
+    def test_provider_defaults_nested_components_to_measurement_units(self):
+        parsed = EstimatedMeal(
+            name="California Burrito",
+            confidence_score=Decimal("0.8"),
+            items=[
+                EstimatedFood(
+                    name="California burrito",
+                    serving_quantity=1,
+                    serving_unit="item",
+                    serving_label="1 burrito",
+                    serving_weight_grams=600,
+                    confidence_score=Decimal("0.8"),
+                    nutrients=EstimatedNutrients(calories=Decimal("1200")),
+                    components=[
+                        EstimatedFood(
+                            name="Carne asada",
+                            serving_quantity=1,
+                            serving_unit="serving",
+                            serving_label="1 portion",
+                            serving_weight_grams=140,
+                            confidence_score=Decimal("0.8"),
+                            nutrients=EstimatedNutrients(calories=Decimal("275")),
+                        ),
+                        EstimatedFood(
+                            name="Salsa",
+                            serving_quantity=1,
+                            serving_unit="serving",
+                            serving_label="1 portion",
+                            serving_weight_grams=60,
+                            serving_volume_ml=60,
+                            confidence_score=Decimal("0.8"),
+                            nutrients=EstimatedNutrients(calories=Decimal("10")),
+                        ),
+                    ],
+                )
+            ],
+        )
+        client = Mock()
+        client.responses.parse.return_value = SimpleNamespace(
+            id="resp_burrito", output_parsed=parsed
+        )
+
+        result = OpenAIMealEstimationProvider(client=client).estimate(
+            "California burrito"
+        )
+
+        burrito = result["items"][0]
+        self.assertEqual(burrito["selected_portion_key"], "base")
+        self.assertEqual(burrito["components"][0]["selected_portion_key"], "g")
+        self.assertEqual(burrito["components"][1]["selected_portion_key"], "fl_oz")
 
     def test_prompt_forbids_medical_advice(self):
         self.assertIn("Do not provide dietary", SYSTEM_PROMPT)
         self.assertIn("medical", SYSTEM_PROMPT)
+
+    def test_prompt_anchors_grams_to_a_concise_stable_serving(self):
+        self.assertIn("meal-level name", SYSTEM_PROMPT)
+        self.assertIn("stable serving_quantity", SYSTEM_PROMPT)
+        self.assertIn('"1 burger"', SYSTEM_PROMPT)
+        self.assertIn("serving_weight_grams", SYSTEM_PROMPT)
+        self.assertIn('serving_label "1 can"', SYSTEM_PROMPT)
+        self.assertIn("serving_volume_ml", SYSTEM_PROMPT)

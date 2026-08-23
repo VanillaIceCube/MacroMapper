@@ -24,6 +24,7 @@ import {
   List,
   ListItem,
   ListItemText,
+  MenuItem,
   Paper,
   Stack,
   TextField,
@@ -107,15 +108,72 @@ const servingDescription = (item) => {
   return `${quantity} ${unit}`;
 };
 
+const portionOptions = (item) =>
+  item.portion_options?.length
+    ? item.portion_options
+    : [
+        {
+          key: 'base',
+          label: servingDescription(item),
+          unit_label: 'serving',
+          serving_multiplier: '1',
+        },
+      ];
+
+const STANDARD_PORTION_LABELS = {
+  g: 'g',
+  ml: 'ml',
+  oz: 'oz',
+  fl_oz: 'fl oz',
+  cup: 'cup',
+  tbsp: 'tbsp',
+  tsp: 'tsp',
+};
+
+const nativeMeasurementPortion = (item) =>
+  STANDARD_PORTION_LABELS[item.serving_unit]
+    ? portionOptions(item).find((option) => option.key === item.serving_unit)
+    : null;
+
+const displayedPortionOptions = (item) => {
+  const options = portionOptions(item);
+  return nativeMeasurementPortion(item)
+    ? options.filter((option) => option.key !== 'base')
+    : options;
+};
+
+const selectedPortion = (item) => {
+  const options = portionOptions(item);
+  const selected = options.find((option) => option.key === item.selected_portion_key);
+  return (selected?.key === 'base' && nativeMeasurementPortion(item)) || selected || options[0];
+};
+
+const portionOptionLabel = (option) => STANDARD_PORTION_LABELS[option.key] || option.label;
+
+const roundedNumberString = (value, fractionDigits = 8) =>
+  String(Number(value.toFixed(fractionDigits)));
+
+const servingAmountValue = (item) => {
+  if (item.servings === '') return '';
+  const servings = Number(item.servings);
+  const multiplier = Number(selectedPortion(item).serving_multiplier);
+  if (!Number.isFinite(servings) || !Number.isFinite(multiplier) || multiplier <= 0) {
+    return item.servings;
+  }
+  return roundedNumberString(servings / multiplier, 6);
+};
+
 function perServingNutrient(item, key) {
   const components = item.components || [];
   if (components.length) {
-    const values = components.map((component) => perServingNutrient(component, key));
-    if (values.some((value) => value == null)) return null;
-    return values.reduce(
-      (total, value, index) => total + value * servingsValue(components[index]),
-      0,
-    );
+    const knownValues = components
+      .map((component) => ({
+        value: perServingNutrient(component, key),
+        servings: servingsValue(component),
+      }))
+      .filter(({ value }) => value != null);
+    if (!knownValues.length) return null;
+    return knownValues.reduce((total, entry) => total + entry.value * entry.servings, 0);
   }
   const value = item.nutrients?.[key];
   if (value == null || value === '') return null;
@@ -129,9 +187,11 @@ function itemNutrientTotal(item, key) {
 }
 
 function mealNutrientTotal(items, key) {
-  const values = items.map((item) => itemNutrientTotal(item, key));
-  if (values.some((value) => value == null)) return null;
-  return values.reduce((total, value) => total + value, 0);
+  const knownValues = items
+    .map((item) => itemNutrientTotal(item, key))
+    .filter((value) => value != null);
+  if (!knownValues.length) return null;
+  return knownValues.reduce((total, value) => total + value, 0);
 }
 
 function calorieContributions(items) {
@@ -171,9 +231,9 @@ function summarizedContributions(items) {
       ...Object.fromEntries(
         MACRO_CALORIE_FIELDS.map(({ key }) => [
           key,
-          remaining.some((item) => item[key] == null)
-            ? null
-            : remaining.reduce((total, item) => total + item[key], 0),
+          remaining.some((item) => item[key] != null)
+            ? remaining.reduce((total, item) => total + (item[key] || 0), 0)
+            : null,
         ]),
       ),
     },
@@ -181,8 +241,7 @@ function summarizedContributions(items) {
 }
 
 function macroCalorieSegments(item) {
-  if (MACRO_CALORIE_FIELDS.some(({ key }) => item[key] == null)) return [];
-  const segments = MACRO_CALORIE_FIELDS.map((field) => ({
+  const segments = MACRO_CALORIE_FIELDS.filter((field) => item[field.key] != null).map((field) => ({
     ...field,
     calories: Math.max(Number(item[field.key]) || 0, 0) * field.caloriesPerGram,
   }));
@@ -195,7 +254,14 @@ function macroCalorieSegments(item) {
     : [];
 }
 
-function NutritionCards({ values, ariaLabel, compact = false, itemName, onNutrientChange }) {
+function NutritionCards({
+  values,
+  ariaLabel,
+  compact = false,
+  itemName,
+  onNutrientChange,
+  editableNutrientKeys,
+}) {
   return (
     <Box
       aria-label={ariaLabel}
@@ -208,73 +274,81 @@ function NutritionCards({ values, ariaLabel, compact = false, itemName, onNutrie
         gap: compact ? 0.5 : 0.75,
       }}
     >
-      {NUTRIENT_FIELDS.map(({ key, label, unit, note, color }) => (
-        <Paper
-          key={key}
-          elevation={0}
-          sx={{
-            minWidth: 0,
-            p: compact ? 0.75 : 1,
-            border: '1px solid var(--atlas-border)',
-            borderTop: `${compact ? 2 : 3}px solid ${color}`,
-            bgcolor: 'var(--atlas-paper)',
-          }}
-        >
-          <Typography
-            variant={compact ? 'caption' : 'overline'}
-            sx={{ color: 'var(--atlas-ink-muted)', lineHeight: 1.1, fontWeight: 700 }}
+      {NUTRIENT_FIELDS.map(({ key, label, unit, note, color }) => {
+        const isEditable =
+          onNutrientChange && (!editableNutrientKeys || editableNutrientKeys.includes(key));
+        return (
+          <Paper
+            key={key}
+            elevation={0}
+            sx={{
+              minWidth: 0,
+              p: compact ? 0.75 : 1,
+              border: '1px solid var(--atlas-border)',
+              borderTop: `${compact ? 2 : 3}px solid ${color}`,
+              bgcolor: 'var(--atlas-paper)',
+            }}
           >
-            {label}
-          </Typography>
-          {onNutrientChange ? (
-            <TextField
-              type="number"
-              variant="standard"
-              size="small"
-              fullWidth
-              value={values[key] ?? ''}
-              onChange={(event) => onNutrientChange(key, event.target.value)}
-              inputProps={{
-                min: 0,
-                step: 'any',
-                'aria-label': `${label} for ${itemName}`,
-              }}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <Typography variant="caption">{unit}</Typography>
-                  </InputAdornment>
-                ),
-              }}
-              sx={{
-                '& .MuiInputBase-input': {
-                  py: 0.25,
-                  fontSize: '1rem',
-                  fontWeight: 700,
-                  lineHeight: 1.15,
-                },
-              }}
-            />
-          ) : (
-            <Stack direction="row" spacing={0.4} alignItems="baseline">
-              <Typography variant={compact ? 'subtitle1' : 'h6'} sx={{ lineHeight: 1.15 }}>
-                {formatAmount(values[key])}
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'var(--atlas-ink-muted)' }}>
-                {unit}
-              </Typography>
-            </Stack>
-          )}
-          {!compact && (
             <Typography
-              variant="caption"
-              sx={{ color: 'var(--atlas-ink-muted)', display: 'block', mt: 0.15 }}
+              variant={compact ? 'caption' : 'overline'}
+              sx={{
+                color: 'var(--atlas-ink-muted)',
+                lineHeight: 1.1,
+                fontWeight: 700,
+              }}
             >
-              {note}
+              {label}
             </Typography>
-          )}
-        </Paper>
-      ))}
+            {isEditable ? (
+              <TextField
+                type="number"
+                variant="standard"
+                size="small"
+                fullWidth
+                value={values[key] ?? ''}
+                onChange={(event) => onNutrientChange(key, event.target.value)}
+                inputProps={{
+                  min: 0,
+                  step: 'any',
+                  'aria-label': `${label} for ${itemName}`,
+                }}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Typography variant="caption">{unit}</Typography>
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  '& .MuiInputBase-input': {
+                    py: 0.25,
+                    fontSize: '1rem',
+                    fontWeight: 700,
+                    lineHeight: 1.15,
+                  },
+                }}
+              />
+            ) : (
+              <Stack direction="row" spacing={0.4} alignItems="baseline">
+                <Typography variant={compact ? 'subtitle1' : 'h6'} sx={{ lineHeight: 1.15 }}>
+                  {formatAmount(values[key])}
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'var(--atlas-ink-muted)' }}>
+                  {unit}
+                </Typography>
+              </Stack>
+            )}
+            {!compact && (
+              <Typography
+                variant="caption"
+                sx={{ color: 'var(--atlas-ink-muted)', display: 'block', mt: 0.15 }}
+              >
+                {note}
+              </Typography>
+            )}
+          </Paper>
+        );
+      })}
     </Box>
   );
 }
@@ -289,7 +363,8 @@ function ItemNutritionCards({ item, compact = false, onNutrientChange }) {
       ariaLabel={`${item.name} macro values`}
       compact={compact}
       itemName={item.name}
-      onNutrientChange={item.components?.length ? undefined : onNutrientChange}
+      onNutrientChange={onNutrientChange}
+      editableNutrientKeys={item.components?.length ? ['calories'] : undefined}
     />
   );
 }
@@ -383,6 +458,7 @@ function MacroCalorieChart({ values }) {
 function ComponentCalorieChart({ items }) {
   const contributions = summarizedContributions(items);
   const total = contributions.reduce((sum, item) => sum + item.calories, 0);
+  const highestCalories = Math.max(...contributions.map((item) => item.calories), 0);
 
   return (
     <Paper elevation={0} sx={{ p: 1, border: '1px solid var(--atlas-border)' }}>
@@ -393,6 +469,7 @@ function ComponentCalorieChart({ items }) {
         <Stack spacing={0.6} aria-label="Component calorie chart">
           {contributions.map((item) => {
             const percentage = total ? (item.calories / total) * 100 : 0;
+            const relativeBarWidth = highestCalories ? (item.calories / highestCalories) * 100 : 0;
             const roundedPercentage = Math.round(percentage);
             const segments = macroCalorieSegments(item);
             const stackLabel = segments.length
@@ -423,7 +500,7 @@ function ComponentCalorieChart({ items }) {
                     <Box
                       sx={{
                         height: '100%',
-                        width: `${Math.max(percentage, item.calories > 0 ? 2 : 0)}%`,
+                        width: `${Math.max(relativeBarWidth, item.calories > 0 ? 2 : 0)}%`,
                         display: 'flex',
                         bgcolor: segments.length ? 'transparent' : 'var(--calorie-color)',
                         borderRadius: 7,
@@ -550,163 +627,75 @@ function removeFromTree(items, key) {
     }));
 }
 
-function ProposalFood({ item, depth = 0, onServings, onNutrientChange, onRemove }) {
+function ProposalFood({
+  item,
+  depth = 0,
+  onServings,
+  onPortionChange,
+  onNutrientChange,
+  onRemove,
+}) {
   const [componentsOpen, setComponentsOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [nutritionEditing, setNutritionEditing] = useState(false);
   const source = sourceLabels[item.source_kind] || sourceLabels.ai_estimate;
   const isComponent = depth > 0;
-  const canEditNutrition = !item.components?.length;
+  const options = displayedPortionOptions(item);
+  const activePortion = selectedPortion(item);
   const hasDetails =
     item.confidence_score != null || item.provider_name || Boolean(item.sources?.length);
+  const accentColor =
+    item.source_kind === 'ai_estimate'
+      ? 'var(--atlas-persimmon)'
+      : item.source_kind === 'official_verified'
+        ? 'var(--atlas-forest)'
+        : 'var(--atlas-mineral)';
+  const headerBackground =
+    item.source_kind === 'ai_estimate'
+      ? 'var(--atlas-persimmon-soft)'
+      : item.source_kind === 'official_verified'
+        ? 'var(--atlas-forest-soft)'
+        : 'var(--atlas-mineral-soft)';
   return (
     <Paper
       elevation={0}
       sx={{
-        p: isComponent ? 0.75 : 1,
         ml: depth > 1 ? { xs: 1, sm: 2 } : 0,
+        my: isComponent ? 0.25 : 0.35,
         bgcolor: isComponent ? 'var(--atlas-bone)' : 'var(--atlas-paper)',
         border: isComponent
           ? '1px solid var(--atlas-border-strong)'
           : '1px solid var(--atlas-border)',
-        borderLeft: `4px solid ${
-          item.source_kind === 'ai_estimate'
-            ? 'var(--atlas-persimmon)'
-            : item.source_kind === 'official_verified'
-              ? 'var(--atlas-forest)'
-              : 'var(--atlas-mineral)'
-        }`,
+        borderLeft: `4px solid ${accentColor}`,
+        overflow: 'hidden',
       }}
     >
       <Box
         sx={{
-          display: 'grid',
-          gridTemplateColumns: {
-            xs: 'minmax(0, 1fr) auto',
-            md: 'minmax(170px, 1.35fr) minmax(360px, 3fr) auto',
-          },
-          gridTemplateAreas: {
-            xs: '"name controls" "nutrition nutrition"',
-            md: '"name nutrition controls"',
-          },
-          columnGap: 0.75,
-          rowGap: 0.5,
+          px: 1,
+          py: 0.55,
+          bgcolor: headerBackground,
+          borderBottom: '1px solid var(--atlas-border)',
+          display: 'flex',
           alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 0.75,
         }}
       >
-        <Box sx={{ minWidth: 0, gridArea: 'name' }}>
-          <Typography variant={depth ? 'subtitle2' : 'subtitle1'} sx={{ fontWeight: 800 }}>
-            {item.name}
-          </Typography>
-          <Typography variant="caption" sx={{ color: 'var(--atlas-ink-muted)' }}>
-            {formatAmount(item.servings)} × {servingDescription(item)}
-          </Typography>
-        </Box>
-        <Box sx={{ minWidth: 0, gridArea: 'nutrition' }}>
-          <ItemNutritionCards
-            item={item}
-            compact
-            onNutrientChange={
-              nutritionEditing
-                ? (nutrient, value) => onNutrientChange(item.key, nutrient, value)
-                : undefined
-            }
-          />
-        </Box>
-        <Stack
-          direction="row"
-          alignItems="center"
-          spacing={0.25}
-          justifyContent="flex-end"
-          sx={{ gridArea: 'controls' }}
+        <Typography
+          variant={depth ? 'subtitle1' : 'h6'}
+          sx={{
+            minWidth: 0,
+            color: 'var(--atlas-ink)',
+            fontWeight: 850,
+            fontSize: depth ? '0.98rem' : { xs: '1.02rem', sm: '1.1rem' },
+            lineHeight: 1.25,
+          }}
         >
-          {hasDetails && (
-            <IconButton
-              size="small"
-              aria-label={`${detailsOpen ? 'Hide' : 'Show'} estimate details for ${item.name}`}
-              aria-expanded={detailsOpen}
-              onClick={() => setDetailsOpen((current) => !current)}
-            >
-              <InfoOutlinedIcon fontSize="small" />
-            </IconButton>
-          )}
-          <TextField
-            label={isComponent ? 'Amount' : 'Servings'}
-            type="number"
-            size="small"
-            value={item.servings}
-            onChange={(event) => onServings(item.key, event.target.value)}
-            inputProps={{ min: 0.0001, step: 0.25 }}
-            sx={{ width: { xs: 88, sm: 104 } }}
-          />
-          <Stack direction="row" spacing={0} alignItems="center">
-            <IconButton
-              size="small"
-              aria-label={
-                canEditNutrition
-                  ? `${nutritionEditing ? 'Finish editing' : 'Edit'} nutrition for ${item.name}`
-                  : undefined
-              }
-              aria-hidden={!canEditNutrition}
-              aria-pressed={nutritionEditing}
-              tabIndex={canEditNutrition ? undefined : -1}
-              disabled={!canEditNutrition}
-              onClick={
-                canEditNutrition ? () => setNutritionEditing((current) => !current) : undefined
-              }
-              color={nutritionEditing ? 'primary' : 'default'}
-              sx={{ p: 0.5, visibility: canEditNutrition ? 'visible' : 'hidden' }}
-            >
-              <EditOutlinedIcon sx={{ transform: 'translateX(3px)' }} />
-            </IconButton>
-            <IconButton
-              size="small"
-              aria-label={`remove ${item.name}`}
-              onClick={() => onRemove(item.key)}
-              sx={{ p: 0.5 }}
-            >
-              <DeleteOutlineIcon sx={{ transform: 'translateX(-3px)' }} />
-            </IconButton>
-          </Stack>
-        </Stack>
-      </Box>
-      {hasDetails && (
-        <Collapse in={detailsOpen} unmountOnExit>
-          <Paper elevation={0} sx={{ mt: 0.5, p: 0.75, border: '1px solid var(--atlas-border)' }}>
-            <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 0.25 }}>
-              <Chip size="small" label={source.label} color={source.color} variant="outlined" />
-              {item.confidence_score != null && (
-                <Chip
-                  size="small"
-                  label={`${Math.round(Number(item.confidence_score) * 100)}% confidence`}
-                  variant="outlined"
-                />
-              )}
-              {item.provider_name && (
-                <Chip size="small" label={item.provider_name} variant="outlined" />
-              )}
-            </Stack>
-            {!!item.sources?.length && (
-              <Stack component="ul" spacing={0.25} sx={{ my: 0.5, pl: 2.25 }}>
-                {item.sources.map((entry) => (
-                  <Typography component="li" variant="caption" key={entry.url}>
-                    <Link href={entry.url} target="_blank" rel="noopener noreferrer">
-                      {entry.title}
-                    </Link>
-                    {entry.is_official ? ' · official source' : ''}
-                  </Typography>
-                ))}
-              </Stack>
-            )}
-          </Paper>
-        </Collapse>
-      )}
-      {!!item.components?.length && (
-        <Box sx={{ mt: 1 }}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-              Components ({item.components.length})
-            </Typography>
+          {item.name}
+        </Typography>
+        <Stack direction="row" spacing={0} alignItems="center" sx={{ flexShrink: 0 }}>
+          {!!item.components?.length && (
             <Button
               size="small"
               color="inherit"
@@ -714,27 +703,165 @@ function ProposalFood({ item, depth = 0, onServings, onNutrientChange, onRemove 
               aria-label={`${componentsOpen ? 'Collapse' : 'Expand'} components for ${item.name}`}
               aria-expanded={componentsOpen}
               onClick={() => setComponentsOpen((current) => !current)}
-              sx={{ color: 'var(--atlas-ink-muted)' }}
+              sx={{
+                mr: 0.25,
+                color: 'var(--atlas-ink-muted)',
+                fontWeight: 700,
+                whiteSpace: 'nowrap',
+              }}
             >
-              {componentsOpen ? 'Hide' : 'Show'}
+              {componentsOpen ? 'Hide' : 'Show'} components ({item.components.length})
             </Button>
-          </Stack>
+          )}
+          {hasDetails && (
+            <IconButton
+              size="small"
+              aria-label={`${detailsOpen ? 'Hide' : 'Show'} estimate details for ${item.name}`}
+              aria-expanded={detailsOpen}
+              onClick={() => setDetailsOpen((current) => !current)}
+              sx={{ p: 0.45 }}
+            >
+              <InfoOutlinedIcon fontSize="small" />
+            </IconButton>
+          )}
+          <IconButton
+            size="small"
+            aria-label={`${nutritionEditing ? 'Finish editing' : 'Edit'} nutrition for ${item.name}`}
+            aria-pressed={nutritionEditing}
+            onClick={() => setNutritionEditing((current) => !current)}
+            color={nutritionEditing ? 'primary' : 'default'}
+            sx={{ p: 0.45 }}
+          >
+            <EditOutlinedIcon fontSize="small" />
+          </IconButton>
+          <IconButton
+            size="small"
+            aria-label={`remove ${item.name}`}
+            onClick={() => onRemove(item.key)}
+            sx={{ p: 0.45 }}
+          >
+            <DeleteOutlineIcon fontSize="small" />
+          </IconButton>
+        </Stack>
+      </Box>
+      <Box sx={{ p: isComponent ? 0.75 : 1 }}>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: 'minmax(0, 1fr)',
+              md: 'minmax(360px, 1fr) auto',
+            },
+            gridTemplateAreas: {
+              xs: '"nutrition" "controls"',
+              md: '"nutrition controls"',
+            },
+            columnGap: 0.75,
+            rowGap: 0.75,
+            alignItems: 'center',
+          }}
+        >
+          <Box sx={{ minWidth: 0, gridArea: 'nutrition' }}>
+            <ItemNutritionCards
+              item={item}
+              compact
+              onNutrientChange={
+                nutritionEditing
+                  ? (nutrient, value) => onNutrientChange(item.key, nutrient, value)
+                  : undefined
+              }
+            />
+          </Box>
+          <Box
+            sx={{
+              gridArea: 'controls',
+              display: 'grid',
+              width: '100%',
+              gridTemplateColumns: {
+                xs: '96px minmax(0, 1fr)',
+                sm: '96px 220px',
+              },
+              gridTemplateAreas: '"quantity portion"',
+              alignItems: 'center',
+              justifyContent: { sm: 'end' },
+              columnGap: 0.75,
+            }}
+          >
+            <TextField
+              label={isComponent ? 'Amount' : 'Quantity'}
+              type="number"
+              size="small"
+              value={servingAmountValue(item)}
+              onChange={(event) => onServings(item.key, event.target.value, item)}
+              inputProps={{ min: 0, step: 1 }}
+              sx={{ gridArea: 'quantity', minWidth: 0, width: '100%' }}
+            />
+            <TextField
+              select
+              label="Unit / portion"
+              size="small"
+              value={activePortion.key}
+              onChange={(event) => onPortionChange(item.key, event.target.value)}
+              disabled={options.length < 2}
+              sx={{ gridArea: 'portion', minWidth: 0, width: '100%' }}
+            >
+              {options.map((option) => (
+                <MenuItem key={option.key} value={option.key}>
+                  {portionOptionLabel(option)}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Box>
+        </Box>
+        {hasDetails && (
+          <Collapse in={detailsOpen} unmountOnExit>
+            <Paper elevation={0} sx={{ mt: 0.5, p: 0.75, border: '1px solid var(--atlas-border)' }}>
+              <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 0.25 }}>
+                <Chip size="small" label={source.label} color={source.color} variant="outlined" />
+                {item.confidence_score != null && (
+                  <Chip
+                    size="small"
+                    label={`${Math.round(Number(item.confidence_score) * 100)}% confidence`}
+                    variant="outlined"
+                  />
+                )}
+                {item.provider_name && (
+                  <Chip size="small" label={item.provider_name} variant="outlined" />
+                )}
+              </Stack>
+              {!!item.sources?.length && (
+                <Stack component="ul" spacing={0.25} sx={{ my: 0.5, pl: 2.25 }}>
+                  {item.sources.map((entry) => (
+                    <Typography component="li" variant="caption" key={entry.url}>
+                      <Link href={entry.url} target="_blank" rel="noopener noreferrer">
+                        {entry.title}
+                      </Link>
+                      {entry.is_official ? ' · official source' : ''}
+                    </Typography>
+                  ))}
+                </Stack>
+              )}
+            </Paper>
+          </Collapse>
+        )}
+        {!!item.components?.length && (
           <Collapse in={componentsOpen} unmountOnExit>
-            <Stack spacing={0.75} sx={{ mt: 0.5 }}>
+            <Stack spacing={0.75} sx={{ mt: 0.85 }}>
               {item.components.map((component) => (
                 <ProposalFood
                   key={component.key}
                   item={component}
                   depth={depth + 1}
                   onServings={onServings}
+                  onPortionChange={onPortionChange}
                   onNutrientChange={onNutrientChange}
                   onRemove={onRemove}
                 />
               ))}
             </Stack>
           </Collapse>
-        </Box>
-      )}
+        )}
+      </Box>
     </Paper>
   );
 }
@@ -747,7 +874,7 @@ function catalogProposalItem(food) {
       : version.provenance === 'ai_estimate'
         ? 'ai_estimate'
         : 'catalog_estimate';
-  return {
+  const item = {
     key: `catalog-added-${food.id}-${Date.now()}`,
     food_item_id: food.id,
     food_version_id: version.id,
@@ -758,6 +885,8 @@ function catalogProposalItem(food) {
     serving_quantity: version.serving_quantity,
     serving_unit: version.serving_unit,
     serving_label: version.serving_label,
+    portion_options: version.portion_options || [],
+    selected_portion_key: 'base',
     provenance: version.provenance,
     source_kind: sourceKind,
     confidence_score: version.confidence_score,
@@ -768,6 +897,13 @@ function catalogProposalItem(food) {
     })),
     components: [],
   };
+  item.portion_options = portionOptions(item);
+  item.selected_portion_key = item.portion_options.some(
+    (option) => option.key === item.serving_unit,
+  )
+    ? item.serving_unit
+    : item.portion_options[0].key;
+  return item;
 }
 
 export default function MealEstimateDialog({ date, open, token, onClose, onSaved }) {
@@ -847,10 +983,31 @@ export default function MealEstimateDialog({ date, open, token, onClose, onSaved
     setBusy(false);
   };
 
-  const changeServings = (key, servings) => {
+  const changeServings = (key, amount, item) => {
+    const activePortion = selectedPortion(item);
+    const multiplier = Number(activePortion.serving_multiplier);
+    const numericAmount = Number(amount);
+    const servings =
+      amount === '' || !Number.isFinite(numericAmount) || !Number.isFinite(multiplier)
+        ? amount
+        : roundedNumberString(numericAmount * (multiplier > 0 ? multiplier : 1));
     setProposal((current) => ({
       ...current,
-      items: updateTree(current.items, key, (item) => ({ ...item, servings })),
+      items: updateTree(current.items, key, (item) => ({
+        ...item,
+        servings,
+        selected_portion_key: activePortion.key,
+      })),
+    }));
+  };
+
+  const changePortion = (key, selectedPortionKey) => {
+    setProposal((current) => ({
+      ...current,
+      items: updateTree(current.items, key, (item) => ({
+        ...item,
+        selected_portion_key: selectedPortionKey,
+      })),
     }));
   };
 
@@ -859,6 +1016,26 @@ export default function MealEstimateDialog({ date, open, token, onClose, onSaved
       ...current,
       items: updateTree(current.items, key, (item) => {
         const numeric = Number(totalValue);
+        if (item.components?.length) {
+          const currentCalories = itemNutrientTotal(item, 'calories');
+          if (
+            nutrient !== 'calories' ||
+            totalValue === '' ||
+            !Number.isFinite(numeric) ||
+            numeric < 0 ||
+            !currentCalories
+          ) {
+            return item;
+          }
+          const scale = numeric / currentCalories;
+          return {
+            ...item,
+            components: item.components.map((component) => ({
+              ...component,
+              servings: roundedNumberString(servingsValue(component) * scale),
+            })),
+          };
+        }
         const servings = servingsValue(item);
         const perServingValue =
           totalValue === '' || !Number.isFinite(numeric) || !servings
@@ -952,6 +1129,7 @@ export default function MealEstimateDialog({ date, open, token, onClose, onSaved
                     key={item.key}
                     item={item}
                     onServings={changeServings}
+                    onPortionChange={changePortion}
                     onNutrientChange={changeNutrient}
                     onRemove={removeItem}
                   />

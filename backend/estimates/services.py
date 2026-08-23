@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from foods.models import FoodItem, FoodItemVersion
 from foods.nutrients import NUTRIENT_FIELDS
+from foods.portions import portion_options_for_serving
 from foods.services import create_food_item
 from meals.models import MealEntry
 from meals.services import _effective_nutrients, replace_meal_items
@@ -75,10 +76,32 @@ def _sources(version):
     ]
 
 
-def _catalog_food(version, *, servings="1", key=None):
+def _portion_options(item):
+    return item.get("portion_options") or portion_options_for_serving(
+        quantity=item.get("serving_quantity", "1"),
+        unit=item.get("serving_unit", FoodItemVersion.ServingUnit.SERVING),
+        label=item.get("serving_label", ""),
+    )
+
+
+def _catalog_food(version, *, servings="1", key=None, depth=0):
     food = version.food_item
     item_key = key or f"catalog-{food.pk}"
     nutrients = _effective_nutrients(version)
+    portion_options = portion_options_for_serving(
+        quantity=version.serving_quantity,
+        unit=version.serving_unit,
+        label=version.serving_label,
+    )
+    option_keys = {option["key"] for option in portion_options}
+    if depth and "fl_oz" in option_keys:
+        selected_portion_key = "fl_oz"
+    elif depth and "g" in option_keys:
+        selected_portion_key = "g"
+    else:
+        selected_portion_key = (
+            version.serving_unit if version.serving_unit in option_keys else "base"
+        )
     return {
         "key": item_key,
         "food_item_id": food.pk,
@@ -90,6 +113,8 @@ def _catalog_food(version, *, servings="1", key=None):
         "serving_quantity": str(version.serving_quantity),
         "serving_unit": version.serving_unit,
         "serving_label": version.serving_label,
+        "portion_options": portion_options,
+        "selected_portion_key": selected_portion_key,
         "provenance": version.provenance,
         "source_kind": _source_kind(version.provenance),
         "confidence_score": (
@@ -107,6 +132,7 @@ def _catalog_food(version, *, servings="1", key=None):
                 component.child_version,
                 servings=component.servings,
                 key=f"{item_key}.{index}",
+                depth=depth + 1,
             )
             for index, component in enumerate(version.components.all())
         ],
@@ -151,6 +177,10 @@ def find_catalog_matches(*, description, user):
 def _recalculate_item(item):
     item = dict(item)
     item["servings"] = str(_decimal(item.get("servings"), default="1"))
+    item["portion_options"] = _portion_options(item)
+    option_keys = {option["key"] for option in item["portion_options"]}
+    if item.get("selected_portion_key") not in option_keys:
+        item["selected_portion_key"] = item["portion_options"][0]["key"]
     components = [
         _recalculate_item(component) for component in item.get("components", [])
     ]
@@ -158,10 +188,12 @@ def _recalculate_item(item):
     if components:
         nutrients = {}
         for field in NUTRIENT_FIELDS:
-            amounts = [
-                component.get("nutrients", {}).get(field) for component in components
+            known_components = [
+                component
+                for component in components
+                if component.get("nutrients", {}).get(field) is not None
             ]
-            if any(amount is None for amount in amounts):
+            if not known_components:
                 nutrients[field] = None
             else:
                 nutrients[field] = str(
@@ -169,7 +201,7 @@ def _recalculate_item(item):
                         (
                             _decimal(component["nutrients"][field])
                             * _decimal(component["servings"], default="1")
-                            for component in components
+                            for component in known_components
                         ),
                         Decimal("0"),
                     )
@@ -266,10 +298,23 @@ def secure_review_items(*, proposal, owner, items):
                 servings=item["servings"],
                 key=item["key"],
             ) | {"components": []}
+            selected_portion_key = item["selected_portion_key"]
+            if selected_portion_key not in {
+                option["key"] for option in result["portion_options"]
+            }:
+                raise ValidationError("Choose an available portion option.")
+            result["selected_portion_key"] = selected_portion_key
             result["nutrients"] = item["nutrients"]
             return result
 
         result = dict(original)
+        result["portion_options"] = _portion_options(original)
+        selected_portion_key = item["selected_portion_key"]
+        if selected_portion_key not in {
+            option["key"] for option in result["portion_options"]
+        }:
+            raise ValidationError("Choose an available portion option.")
+        result["selected_portion_key"] = selected_portion_key
         result["servings"] = item["servings"]
         result["nutrients"] = item["nutrients"]
         requested_components = item.get("components", [])

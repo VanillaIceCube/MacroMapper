@@ -5,11 +5,26 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Added a top-level calorie editor for composite foods that proportionally
+  scales component quantities and all resulting macros in one adjustment.
 - Made estimated calories, protein, carbohydrates, and fat editable through a
   per-item pencil control, with live parent, meal-total, and chart recalculation.
+- Added consistently abbreviated portion-option dropdowns that pair a concise
+  natural serving with appropriate weight or volume conversions for every
+  GPT-estimated item.
 
 ### Fixed
 
+- Snapped AI-estimated component weights and liquid volumes to readable gram
+  and fluid-ounce quantities instead of exposing conversion precision noise.
+- Defaulted beverages to natural containers such as cans, glasses, bottles,
+  and shakes while retaining standardized volume conversions in the dropdown.
+- Preserved known macro totals when another component lacks that nutrient so
+  carbohydrates and fats no longer disappear from meal breakdown charts.
+- Removed redundant measured-serving labels such as `16 fl oz` from unit
+  dropdowns when the equivalent standardized `fl oz` option is available.
+- Reflowed meal-estimate food controls into a consistent responsive layout so
+  quantity and unit/portion stay grouped while edit actions remain uncluttered.
 - Rolled composite meal nutrition up from component values even when a parent
   food version contains stale or zero direct nutrient columns.
 - Rounded GPT-estimated quantities, confidence scores, servings, and nutrients
@@ -23,6 +38,10 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Switched the default GPT meal-estimation model from GPT-5.5 to GPT-5.6
+  Luna for substantially lower per-request cost.
+- Defaulted nested meal components to grams for solids and fluid ounces for
+  liquids while preserving natural portions for top-level foods.
 - Replaced the original contour-map app mark with the selected compass-and-fork
   artwork across navigation, authentication, and installable app surfaces.
 - Expanded meal-estimate review with a meal-level calorie summary, macro chart,

@@ -58,7 +58,8 @@ All food and nutrient endpoints require a JWT access token.
   - Returns active shared foods plus personal foods owned by the current user.
   - Accepts `?search=` for case-insensitive name and provider lookup.
 - `GET /api/foods/{id}/`
-  - Returns the current serving, provenance, confidence, nutrients, sources,
+  - Returns the current serving quantity/unit and human-readable serving label,
+    provenance, confidence, nutrients, sources,
     and exact component-version references.
 - `POST /api/foods/`
   - Creates a private personal Food Item and its first definition.
@@ -140,6 +141,12 @@ user's proposals.
   - Materializes estimated or edited composites as private Food Items, creates
     a dated meal snapshot, and locks the proposal against further edits.
 
+Nutrients remain anchored to one declared serving quantity, unit, and label.
+GPT supplies a concise natural base such as `1 burger`, `1 plate`, or
+`1 medium carrot`, plus the edible gram weight of that serving. The backend
+uses that weight to generate validated `portion_options` with a deterministic
+Grams conversion for every estimated item and component.
+
 Proposal labels distinguish `official_verified`, `catalog_estimate`, and
 `ai_estimate`. The saved record retains provider/model/response metadata,
 confidence, and source URLs. OpenAI requests use structured outputs, enable web
@@ -180,7 +187,7 @@ DJANGO_CORS_ALLOWED_ORIGINS=http://macromapper.localhost:3000
 DJANGO_CSRF_TRUSTED_ORIGINS=http://macromapper.localhost:3000
 DJANGO_FRONTEND_BASE_URL=http://macromapper.localhost:3000
 MACROMAPPER_OPENAI_API_KEY=<openai-project-api-key>
-OPENAI_MEAL_ESTIMATION_MODEL=gpt-5.5
+OPENAI_MEAL_ESTIMATION_MODEL=gpt-5.6-luna
 OPENAI_MEAL_ESTIMATION_TIMEOUT=45
 ```
 

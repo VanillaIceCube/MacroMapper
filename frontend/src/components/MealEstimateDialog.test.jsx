@@ -186,6 +186,7 @@ describe('MealEstimateDialog', () => {
     ).toHaveAttribute('href', 'https://example.com/nutrition');
 
     const quantity = within(reviewDialog).getByRole('spinbutton', { name: 'Amount' });
+    expect(quantity).toHaveValue(2);
     await user.clear(quantity);
     await user.type(quantity, '1');
     expect(
@@ -303,6 +304,207 @@ describe('MealEstimateDialog', () => {
       }),
       'access-token',
     );
+  });
+
+  test('scales composite components when editing top-level calories', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <MealEstimateDialog
+        date="2026-08-16"
+        open
+        token="access-token"
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+    );
+
+    await user.type(
+      screen.getByRole('textbox', { name: 'Describe what you ate' }),
+      'Double burger',
+    );
+    await user.click(screen.getByRole('button', { name: 'Create estimate' }));
+    const reviewDialog = await screen.findByRole('dialog', { name: 'Review meal estimate' });
+    await user.click(
+      within(reviewDialog).getByRole('button', {
+        name: 'Edit nutrition for Double burger',
+      }),
+    );
+
+    const calories = within(reviewDialog).getByRole('spinbutton', {
+      name: 'Calories for Double burger',
+    });
+    expect(calories).toHaveValue(400);
+    expect(
+      within(reviewDialog).queryByRole('spinbutton', {
+        name: 'Protein for Double burger',
+      }),
+    ).not.toBeInTheDocument();
+    await user.click(calories);
+    await user.keyboard('{Control>}a{/Control}2000');
+
+    expect(calories).toHaveValue(2000);
+    expect(within(reviewDialog).getByLabelText('Double burger macro values')).toHaveTextContent(
+      /Protein\s*120\s*g/,
+    );
+    expect(
+      within(reviewDialog).getByRole('region', { name: 'Meal macro breakdown' }),
+    ).toHaveTextContent(/2,000\s*kcal/);
+
+    await user.click(within(reviewDialog).getByRole('button', { name: 'Save to diary' }));
+    expect(updateMealProposal).toHaveBeenCalledWith(
+      25,
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            components: [expect.objectContaining({ servings: '10' })],
+          }),
+        ],
+      }),
+      'access-token',
+    );
+  });
+
+  test('switches portion units without changing nutrition and converts edits to base servings', async () => {
+    const user = userEvent.setup();
+    const gramComponent = {
+      ...component,
+      serving_quantity: '150',
+      serving_unit: 'g',
+      serving_label: '150 g patty',
+      portion_options: [
+        {
+          key: 'base',
+          label: '150 g patty',
+          unit_label: 'serving',
+          serving_multiplier: '1',
+        },
+        {
+          key: 'g',
+          label: 'Grams',
+          unit_label: 'g',
+          serving_multiplier: String(1 / 150),
+        },
+        {
+          key: 'large',
+          label: 'Large plate',
+          unit_label: 'large plate',
+          serving_multiplier: '1.5',
+        },
+      ],
+      selected_portion_key: 'base',
+    };
+    createMealProposal.mockResolvedValue(
+      response({
+        ...proposal,
+        items: [
+          {
+            ...proposal.items[0],
+            components: [gramComponent],
+          },
+        ],
+      }),
+    );
+    renderWithProviders(
+      <MealEstimateDialog
+        date="2026-08-16"
+        open
+        token="access-token"
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+    );
+
+    await user.type(
+      screen.getByRole('textbox', { name: 'Describe what you ate' }),
+      'Double burger',
+    );
+    await user.click(screen.getByRole('button', { name: 'Create estimate' }));
+    const reviewDialog = await screen.findByRole('dialog', { name: 'Review meal estimate' });
+    await user.click(
+      within(reviewDialog).getByRole('button', { name: 'Expand components for Double burger' }),
+    );
+
+    const amount = within(reviewDialog).getByRole('spinbutton', { name: 'Amount' });
+    const unitSelector = within(reviewDialog)
+      .getAllByRole('combobox', { name: 'Unit / portion' })
+      .find((element) => element.getAttribute('aria-disabled') !== 'true');
+    expect(amount).toHaveValue(300);
+    expect(unitSelector).toHaveTextContent('g');
+    await user.click(unitSelector);
+    expect(screen.queryByRole('option', { name: '150 g patty' })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('option', { name: 'g' }));
+
+    expect(amount).toHaveValue(300);
+    expect(unitSelector).toHaveTextContent('g');
+    expect(
+      within(reviewDialog).getByRole('region', { name: 'Meal macro breakdown' }),
+    ).toHaveTextContent(/400\s*kcal/);
+    await user.clear(amount);
+    await user.type(amount, '450');
+
+    expect(
+      within(reviewDialog).getByRole('region', { name: 'Meal macro breakdown' }),
+    ).toHaveTextContent(/600\s*kcal/);
+    await user.click(within(reviewDialog).getByRole('button', { name: 'Save to diary' }));
+    expect(updateMealProposal).toHaveBeenCalledWith(
+      25,
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            components: [expect.objectContaining({ servings: '3', selected_portion_key: 'g' })],
+          }),
+        ],
+      }),
+      'access-token',
+    );
+  });
+
+  test('includes known carbs in rollups and charts when another component is unknown', async () => {
+    const user = userEvent.setup();
+    const proteinComponent = {
+      ...component,
+      nutrients: { calories: '200', protein: '25', carbohydrates: null, fat: null },
+      servings: '1',
+    };
+    const carbComponent = {
+      ...component,
+      key: 'ai-0.1',
+      name: 'Burger bun',
+      nutrients: { calories: '120', protein: null, carbohydrates: '30', fat: null },
+      servings: '1',
+    };
+    createMealProposal.mockResolvedValue(
+      response({
+        ...proposal,
+        items: [
+          {
+            ...proposal.items[0],
+            nutrients: { calories: '320', protein: '25', carbohydrates: '30', fat: null },
+            components: [proteinComponent, carbComponent],
+          },
+        ],
+      }),
+    );
+    renderWithProviders(
+      <MealEstimateDialog
+        date="2026-08-16"
+        open
+        token="access-token"
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+    );
+
+    await user.type(screen.getByRole('textbox', { name: 'Describe what you ate' }), 'Burger');
+    await user.click(screen.getByRole('button', { name: 'Create estimate' }));
+    const reviewDialog = await screen.findByRole('dialog', { name: 'Review meal estimate' });
+
+    expect(
+      within(reviewDialog).getByRole('img', {
+        name: 'Macro calorie split: protein 45%, carbs 55%, fat 0%',
+      }),
+    ).toBeVisible();
+    expect(within(reviewDialog).getByText('30 g (55%)')).toBeVisible();
   });
 
   test('charts the largest meal-level components instead of nested ingredients', async () => {

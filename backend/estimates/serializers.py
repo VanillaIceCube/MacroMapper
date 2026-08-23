@@ -6,6 +6,7 @@ from rest_framework import serializers
 
 from foods.models import FoodItem, FoodItemVersion
 from foods.nutrients import NUTRIENT_FIELDS
+from foods.portions import portion_options_for_serving
 
 from .models import MealProposal
 from .services import create_proposal, normalize_items, secure_review_items
@@ -22,6 +23,8 @@ ITEM_FIELDS = {
     "serving_quantity",
     "serving_unit",
     "serving_label",
+    "portion_options",
+    "selected_portion_key",
     "provenance",
     "source_kind",
     "confidence_score",
@@ -29,6 +32,7 @@ ITEM_FIELDS = {
     "sources",
     "components",
 }
+PORTION_OPTION_FIELDS = {"key", "label", "unit_label", "serving_multiplier"}
 
 
 def _decimal(value, *, field, allow_null=False, positive=False):
@@ -78,6 +82,61 @@ def _validate_source(source):
         "accessed_on": source.get("accessed_on"),
         "is_official": bool(source.get("is_official", False)),
     }
+
+
+def _validate_portion_options(item, *, serving_quantity, serving_unit, serving_label):
+    raw_options = item.get("portion_options") or portion_options_for_serving(
+        quantity=serving_quantity,
+        unit=serving_unit,
+        label=serving_label,
+    )
+    if not isinstance(raw_options, list) or len(raw_options) > 12:
+        raise serializers.ValidationError(
+            "A proposed food may contain at most 12 portion options."
+        )
+
+    options = []
+    option_keys = set()
+    for option in raw_options:
+        if not isinstance(option, dict) or set(option) - PORTION_OPTION_FIELDS:
+            raise serializers.ValidationError(
+                "Each portion option must contain only supported fields."
+            )
+        key = str(option.get("key", "")).strip()
+        label = str(option.get("label", "")).strip()
+        unit_label = str(option.get("unit_label", "")).strip()
+        if not key or len(key) > 40 or key in option_keys:
+            raise serializers.ValidationError(
+                "Each portion option needs a unique key of 40 characters or fewer."
+            )
+        if not label or len(label) > 80:
+            raise serializers.ValidationError(
+                "Each portion option needs a label of 80 characters or fewer."
+            )
+        if not unit_label or len(unit_label) > 32:
+            raise serializers.ValidationError(
+                "Each portion option needs a unit label of 32 characters or fewer."
+            )
+        option_keys.add(key)
+        options.append(
+            {
+                "key": key,
+                "label": label,
+                "unit_label": unit_label,
+                "serving_multiplier": _decimal(
+                    option.get("serving_multiplier"),
+                    field="serving_multiplier",
+                    positive=True,
+                ),
+            }
+        )
+
+    selected_key = str(item.get("selected_portion_key", "")).strip()
+    if not selected_key:
+        selected_key = options[0]["key"]
+    if selected_key not in option_keys:
+        raise serializers.ValidationError("Choose an available portion option.")
+    return options, selected_key
 
 
 def _validate_item(item, *, depth=0, seen_keys=None):
@@ -157,6 +216,18 @@ def _validate_item(item, *, depth=0, seen_keys=None):
     )
     if confidence is not None and Decimal(confidence) > 1:
         raise serializers.ValidationError("Confidence must be between zero and one.")
+    serving_quantity = _decimal(
+        item.get("serving_quantity", "1"),
+        field="serving_quantity",
+        positive=True,
+    )
+    serving_label = str(item.get("serving_label", ""))[:120]
+    portion_options, selected_portion_key = _validate_portion_options(
+        item,
+        serving_quantity=serving_quantity,
+        serving_unit=serving_unit,
+        serving_label=serving_label,
+    )
 
     return {
         "key": key,
@@ -168,13 +239,11 @@ def _validate_item(item, *, depth=0, seen_keys=None):
         "servings": _decimal(
             item.get("servings", "1"), field="servings", positive=True
         ),
-        "serving_quantity": _decimal(
-            item.get("serving_quantity", "1"),
-            field="serving_quantity",
-            positive=True,
-        ),
+        "serving_quantity": serving_quantity,
         "serving_unit": serving_unit,
-        "serving_label": str(item.get("serving_label", ""))[:120],
+        "serving_label": serving_label,
+        "portion_options": portion_options,
+        "selected_portion_key": selected_portion_key,
         "provenance": provenance,
         "source_kind": source_kind,
         "confidence_score": confidence,

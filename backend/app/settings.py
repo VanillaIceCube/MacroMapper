@@ -215,7 +215,7 @@ DEFAULT_FROM_EMAIL = (
 # catalog-first matches and the rest of the application remain available when
 # model estimation is not configured.
 OPENAI_API_KEY = os.getenv("MACROMAPPER_OPENAI_API_KEY", "")
-OPENAI_MEAL_ESTIMATION_MODEL = os.getenv("OPENAI_MEAL_ESTIMATION_MODEL", "gpt-5.5")
+OPENAI_MEAL_ESTIMATION_MODEL = os.getenv("OPENAI_MEAL_ESTIMATION_MODEL", "gpt-5.6-luna")
 OPENAI_MEAL_ESTIMATION_TIMEOUT = float(
     os.getenv("OPENAI_MEAL_ESTIMATION_TIMEOUT", "45")
 )

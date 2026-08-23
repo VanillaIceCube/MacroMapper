@@ -23,6 +23,7 @@ from .models import (
     SourceReference,
 )
 from .nutrients import NUTRIENT_METADATA
+from .portions import portion_options_for_serving
 from .services import create_food_item, create_food_version
 
 User = get_user_model()
@@ -64,6 +65,76 @@ class FoodModelTests(TestCase):
         actual = {key: metadata["unit"] for key, metadata in NUTRIENT_METADATA.items()}
 
         self.assertEqual(actual, expected)
+
+    def test_portion_options_convert_back_to_one_stable_base_serving(self):
+        options = portion_options_for_serving(
+            quantity="150",
+            unit=FoodItemVersion.ServingUnit.GRAM,
+            label="150 g cooked rice",
+        )
+        by_key = {option["key"]: option for option in options}
+
+        self.assertEqual(by_key["base"]["serving_multiplier"], "1")
+        self.assertEqual(by_key["base"]["unit_label"], "serving")
+        self.assertEqual(Decimal(by_key["g"]["serving_multiplier"]), Decimal("1") / 150)
+        self.assertEqual(
+            Decimal(by_key["oz"]["serving_multiplier"]),
+            Decimal("28.349523125") / 150,
+        )
+
+    def test_countable_serving_weight_adds_grams(self):
+        options = portion_options_for_serving(
+            quantity="1",
+            unit=FoodItemVersion.ServingUnit.ITEM,
+            label="1 medium carrot",
+            weight_grams="61",
+        )
+        by_key = {option["key"]: option for option in options}
+
+        self.assertEqual(by_key["base"]["label"], "1 medium carrot")
+        self.assertEqual(Decimal(by_key["g"]["serving_multiplier"]), Decimal("1") / 61)
+        self.assertEqual(
+            Decimal(by_key["oz"]["serving_multiplier"]), Decimal("28.349523125") / 61
+        )
+
+    def test_natural_beverage_serving_adds_volume_units(self):
+        options = portion_options_for_serving(
+            quantity="1",
+            unit=FoodItemVersion.ServingUnit.SERVING,
+            label="1 can",
+            weight_grams="355.2",
+            volume_milliliters="355",
+        )
+        by_key = {option["key"]: option for option in options}
+
+        self.assertEqual(by_key["base"]["label"], "1 can")
+        self.assertEqual(Decimal(by_key["g"]["serving_multiplier"]), Decimal("1") / 355)
+        self.assertEqual(
+            Decimal(by_key["ml"]["serving_multiplier"]),
+            Decimal("1") / Decimal("354.8823547500"),
+        )
+        self.assertEqual(
+            Decimal(by_key["fl_oz"]["serving_multiplier"]), Decimal("1") / 12
+        )
+
+    def test_estimated_liquid_components_use_clean_fluid_ounce_amounts(self):
+        expected_amounts = (("330", Decimal("11")), ("143", Decimal("5")))
+
+        for volume_milliliters, expected_fluid_ounces in expected_amounts:
+            with self.subTest(volume_milliliters=volume_milliliters):
+                options = portion_options_for_serving(
+                    quantity="1",
+                    unit=FoodItemVersion.ServingUnit.SERVING,
+                    label="1 portion",
+                    weight_grams=volume_milliliters,
+                    volume_milliliters=volume_milliliters,
+                )
+                by_key = {option["key"]: option for option in options}
+                displayed_amount = Decimal("1") / Decimal(
+                    by_key["fl_oz"]["serving_multiplier"]
+                )
+
+                self.assertEqual(displayed_amount, expected_fluid_ounces)
 
     def test_personal_food_requires_an_owner_at_database_level(self):
         with self.assertRaises(IntegrityError), transaction.atomic():
@@ -366,6 +437,10 @@ class FoodApiTests(APITestCase):
             {item["id"] for item in response.data},
             {self.shared_food.id, self.personal_food.id},
         )
+        shared = next(
+            item for item in response.data if item["id"] == self.shared_food.id
+        )
+        self.assertEqual(shared["current_version"]["portion_options"][0]["key"], "base")
 
     def test_catalog_search_matches_name_and_provider(self):
         self.client.force_authenticate(user=self.owner)
