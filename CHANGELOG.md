@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Added a top-level calorie editor for composite foods that proportionally
+  scales component quantities and all resulting macros in one adjustment.
 - Made estimated calories, protein, carbohydrates, and fat editable through a
   per-item pencil control, with live parent, meal-total, and chart recalculation.
 - Added consistently abbreviated portion-option dropdowns that pair a concise
@@ -13,6 +15,8 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Snapped AI-estimated component weights and liquid volumes to readable gram
+  and fluid-ounce quantities instead of exposing conversion precision noise.
 - Defaulted beverages to natural containers such as cans, glasses, bottles,
   and shakes while retaining standardized volume conversions in the dropdown.
 - Preserved known macro totals when another component lacks that nutrient so
@@ -34,6 +38,8 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Defaulted nested meal components to grams for solids and fluid ounces for
+  liquids while preserving natural portions for top-level foods.
 - Expanded meal-estimate review with a meal-level calorie summary, macro chart,
   and per-component protein, carbohydrate, and fat values that recalculate as
   servings and ingredients change.

@@ -256,7 +256,14 @@ function macroCalorieSegments(item) {
     : [];
 }
 
-function NutritionCards({ values, ariaLabel, compact = false, itemName, onNutrientChange }) {
+function NutritionCards({
+  values,
+  ariaLabel,
+  compact = false,
+  itemName,
+  onNutrientChange,
+  editableNutrientKeys,
+}) {
   return (
     <Box
       aria-label={ariaLabel}
@@ -269,18 +276,22 @@ function NutritionCards({ values, ariaLabel, compact = false, itemName, onNutrie
         gap: compact ? 0.5 : 0.75,
       }}
     >
-      {NUTRIENT_FIELDS.map(({ key, label, unit, note, color }) => (
-        <Paper
-          key={key}
-          elevation={0}
-          sx={{
-            minWidth: 0,
-            p: compact ? 0.75 : 1,
-            border: '1px solid var(--atlas-border)',
-            borderTop: `${compact ? 2 : 3}px solid ${color}`,
-            bgcolor: 'var(--atlas-paper)',
-          }}
-        >
+      {NUTRIENT_FIELDS.map(({ key, label, unit, note, color }) => {
+        const isEditable =
+          onNutrientChange &&
+          (!editableNutrientKeys || editableNutrientKeys.includes(key));
+        return (
+          <Paper
+            key={key}
+            elevation={0}
+            sx={{
+              minWidth: 0,
+              p: compact ? 0.75 : 1,
+              border: '1px solid var(--atlas-border)',
+              borderTop: `${compact ? 2 : 3}px solid ${color}`,
+              bgcolor: 'var(--atlas-paper)',
+            }}
+          >
           <Typography
             variant={compact ? 'caption' : 'overline'}
             sx={{
@@ -291,7 +302,7 @@ function NutritionCards({ values, ariaLabel, compact = false, itemName, onNutrie
           >
             {label}
           </Typography>
-          {onNutrientChange ? (
+          {isEditable ? (
             <TextField
               type="number"
               variant="standard"
@@ -338,8 +349,9 @@ function NutritionCards({ values, ariaLabel, compact = false, itemName, onNutrie
               {note}
             </Typography>
           )}
-        </Paper>
-      ))}
+          </Paper>
+        );
+      })}
     </Box>
   );
 }
@@ -354,7 +366,8 @@ function ItemNutritionCards({ item, compact = false, onNutrientChange }) {
       ariaLabel={`${item.name} macro values`}
       compact={compact}
       itemName={item.name}
-      onNutrientChange={item.components?.length ? undefined : onNutrientChange}
+      onNutrientChange={onNutrientChange}
+      editableNutrientKeys={item.components?.length ? ['calories'] : undefined}
     />
   );
 }
@@ -630,7 +643,6 @@ function ProposalFood({
   const [nutritionEditing, setNutritionEditing] = useState(false);
   const source = sourceLabels[item.source_kind] || sourceLabels.ai_estimate;
   const isComponent = depth > 0;
-  const canEditNutrition = !item.components?.length;
   const options = displayedPortionOptions(item);
   const activePortion = selectedPortion(item);
   const hasDetails =
@@ -715,18 +727,16 @@ function ProposalFood({
               <InfoOutlinedIcon fontSize="small" />
             </IconButton>
           )}
-          {canEditNutrition && (
-            <IconButton
-              size="small"
-              aria-label={`${nutritionEditing ? 'Finish editing' : 'Edit'} nutrition for ${item.name}`}
-              aria-pressed={nutritionEditing}
-              onClick={() => setNutritionEditing((current) => !current)}
-              color={nutritionEditing ? 'primary' : 'default'}
-              sx={{ p: 0.45 }}
-            >
-              <EditOutlinedIcon fontSize="small" />
-            </IconButton>
-          )}
+          <IconButton
+            size="small"
+            aria-label={`${nutritionEditing ? 'Finish editing' : 'Edit'} nutrition for ${item.name}`}
+            aria-pressed={nutritionEditing}
+            onClick={() => setNutritionEditing((current) => !current)}
+            color={nutritionEditing ? 'primary' : 'default'}
+            sx={{ p: 0.45 }}
+          >
+            <EditOutlinedIcon fontSize="small" />
+          </IconButton>
           <IconButton
             size="small"
             aria-label={`remove ${item.name}`}
@@ -1009,6 +1019,26 @@ export default function MealEstimateDialog({ date, open, token, onClose, onSaved
       ...current,
       items: updateTree(current.items, key, (item) => {
         const numeric = Number(totalValue);
+        if (item.components?.length) {
+          const currentCalories = itemNutrientTotal(item, 'calories');
+          if (
+            nutrient !== 'calories' ||
+            totalValue === '' ||
+            !Number.isFinite(numeric) ||
+            numeric < 0 ||
+            !currentCalories
+          ) {
+            return item;
+          }
+          const scale = numeric / currentCalories;
+          return {
+            ...item,
+            components: item.components.map((component) => ({
+              ...component,
+              servings: roundedNumberString(servingsValue(component) * scale),
+            })),
+          };
+        }
         const servings = servingsValue(item);
         const perServingValue =
           totalValue === '' || !Number.isFinite(numeric) || !servings

@@ -1,4 +1,4 @@
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 MASS_UNITS_IN_GRAMS = {
     "g": Decimal("1"),
@@ -48,6 +48,24 @@ def _decimal_string(value):
     return format(value.normalize(), "f")
 
 
+def _clean_estimated_weight(value):
+    weight = _decimal(value)
+    quantum = Decimal("1") if weight >= 1 else Decimal("0.1")
+    return weight.quantize(quantum, rounding=ROUND_HALF_UP)
+
+
+def _clean_estimated_volume(value):
+    volume = _decimal(value)
+    fluid_ounces = volume / VOLUME_UNITS_IN_MILLILITERS["fl_oz"]
+    quantum = Decimal("0.5") if fluid_ounces >= 1 else Decimal("0.25")
+    clean_fluid_ounces = (fluid_ounces / quantum).quantize(
+        Decimal("1"), rounding=ROUND_HALF_UP
+    ) * quantum
+    if clean_fluid_ounces <= 0:
+        clean_fluid_ounces = quantum
+    return clean_fluid_ounces * VOLUME_UNITS_IN_MILLILITERS["fl_oz"]
+
+
 def portion_options_for_serving(
     *, quantity, unit, label="", weight_grams=None, volume_milliliters=None
 ):
@@ -68,7 +86,7 @@ def portion_options_for_serving(
     ]
 
     if unit not in MASS_UNITS_IN_GRAMS and weight_grams is not None:
-        serving_weight = _decimal(weight_grams)
+        serving_weight = _clean_estimated_weight(weight_grams)
         for option_unit in ("g", "oz"):
             options.append(
                 {
@@ -91,7 +109,7 @@ def portion_options_for_serving(
         base_canonical_quantity = base_quantity * conversions[unit]
     elif volume_milliliters is not None:
         conversions = VOLUME_UNITS_IN_MILLILITERS
-        base_canonical_quantity = _decimal(volume_milliliters)
+        base_canonical_quantity = _clean_estimated_volume(volume_milliliters)
     if conversions is None:
         return options
 

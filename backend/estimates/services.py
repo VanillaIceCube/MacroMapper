@@ -84,7 +84,7 @@ def _portion_options(item):
     )
 
 
-def _catalog_food(version, *, servings="1", key=None):
+def _catalog_food(version, *, servings="1", key=None, depth=0):
     food = version.food_item
     item_key = key or f"catalog-{food.pk}"
     nutrients = _effective_nutrients(version)
@@ -94,6 +94,14 @@ def _catalog_food(version, *, servings="1", key=None):
         label=version.serving_label,
     )
     option_keys = {option["key"] for option in portion_options}
+    if depth and "fl_oz" in option_keys:
+        selected_portion_key = "fl_oz"
+    elif depth and "g" in option_keys:
+        selected_portion_key = "g"
+    else:
+        selected_portion_key = (
+            version.serving_unit if version.serving_unit in option_keys else "base"
+        )
     return {
         "key": item_key,
         "food_item_id": food.pk,
@@ -106,9 +114,7 @@ def _catalog_food(version, *, servings="1", key=None):
         "serving_unit": version.serving_unit,
         "serving_label": version.serving_label,
         "portion_options": portion_options,
-        "selected_portion_key": (
-            version.serving_unit if version.serving_unit in option_keys else "base"
-        ),
+        "selected_portion_key": selected_portion_key,
         "provenance": version.provenance,
         "source_kind": _source_kind(version.provenance),
         "confidence_score": (
@@ -126,6 +132,7 @@ def _catalog_food(version, *, servings="1", key=None):
                 component.child_version,
                 servings=component.servings,
                 key=f"{item_key}.{index}",
+                depth=depth + 1,
             )
             for index, component in enumerate(version.components.all())
         ],

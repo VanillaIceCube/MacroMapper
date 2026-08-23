@@ -306,6 +306,64 @@ describe('MealEstimateDialog', () => {
     );
   });
 
+  test('scales composite components when editing top-level calories', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <MealEstimateDialog
+        date="2026-08-16"
+        open
+        token="access-token"
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+    );
+
+    await user.type(
+      screen.getByRole('textbox', { name: 'Describe what you ate' }),
+      'Double burger',
+    );
+    await user.click(screen.getByRole('button', { name: 'Create estimate' }));
+    const reviewDialog = await screen.findByRole('dialog', { name: 'Review meal estimate' });
+    await user.click(
+      within(reviewDialog).getByRole('button', {
+        name: 'Edit nutrition for Double burger',
+      }),
+    );
+
+    const calories = within(reviewDialog).getByRole('spinbutton', {
+      name: 'Calories for Double burger',
+    });
+    expect(calories).toHaveValue(400);
+    expect(
+      within(reviewDialog).queryByRole('spinbutton', {
+        name: 'Protein for Double burger',
+      }),
+    ).not.toBeInTheDocument();
+    await user.click(calories);
+    await user.keyboard('{Control>}a{/Control}2000');
+
+    expect(calories).toHaveValue(2000);
+    expect(within(reviewDialog).getByLabelText('Double burger macro values')).toHaveTextContent(
+      /Protein\s*120\s*g/,
+    );
+    expect(
+      within(reviewDialog).getByRole('region', { name: 'Meal macro breakdown' }),
+    ).toHaveTextContent(/2,000\s*kcal/);
+
+    await user.click(within(reviewDialog).getByRole('button', { name: 'Save to diary' }));
+    expect(updateMealProposal).toHaveBeenCalledWith(
+      25,
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            components: [expect.objectContaining({ servings: '10' })],
+          }),
+        ],
+      }),
+      'access-token',
+    );
+  });
+
   test('switches portion units without changing nutrition and converts edits to base servings', async () => {
     const user = userEvent.setup();
     const gramComponent = {

@@ -102,19 +102,41 @@ class FoodModelTests(TestCase):
             quantity="1",
             unit=FoodItemVersion.ServingUnit.SERVING,
             label="1 can",
-            weight_grams="355",
-            volume_milliliters="354.88235475",
+            weight_grams="355.2",
+            volume_milliliters="355",
         )
         by_key = {option["key"]: option for option in options}
 
         self.assertEqual(by_key["base"]["label"], "1 can")
         self.assertEqual(
+            Decimal(by_key["g"]["serving_multiplier"]), Decimal("1") / 355
+        )
+        self.assertEqual(
             Decimal(by_key["ml"]["serving_multiplier"]),
-            Decimal("1") / Decimal("354.88235475"),
+            Decimal("1") / Decimal("354.8823547500"),
         )
         self.assertEqual(
             Decimal(by_key["fl_oz"]["serving_multiplier"]), Decimal("1") / 12
         )
+
+    def test_estimated_liquid_components_use_clean_fluid_ounce_amounts(self):
+        expected_amounts = (("330", Decimal("11")), ("143", Decimal("5")))
+
+        for volume_milliliters, expected_fluid_ounces in expected_amounts:
+            with self.subTest(volume_milliliters=volume_milliliters):
+                options = portion_options_for_serving(
+                    quantity="1",
+                    unit=FoodItemVersion.ServingUnit.SERVING,
+                    label="1 portion",
+                    weight_grams=volume_milliliters,
+                    volume_milliliters=volume_milliliters,
+                )
+                by_key = {option["key"]: option for option in options}
+                displayed_amount = Decimal("1") / Decimal(
+                    by_key["fl_oz"]["serving_multiplier"]
+                )
+
+                self.assertEqual(displayed_amount, expected_fluid_ounces)
 
     def test_personal_food_requires_an_owner_at_database_level(self):
         with self.assertRaises(IntegrityError), transaction.atomic():

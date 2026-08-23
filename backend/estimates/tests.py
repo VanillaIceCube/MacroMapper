@@ -625,6 +625,59 @@ class OpenAIProviderTests(TestCase):
             options["fl_oz"]["serving_multiplier"], str(Decimal("1") / 12)
         )
 
+    def test_provider_defaults_nested_components_to_measurement_units(self):
+        parsed = EstimatedMeal(
+            name="California Burrito",
+            confidence_score=Decimal("0.8"),
+            items=[
+                EstimatedFood(
+                    name="California burrito",
+                    serving_quantity=1,
+                    serving_unit="item",
+                    serving_label="1 burrito",
+                    serving_weight_grams=600,
+                    confidence_score=Decimal("0.8"),
+                    nutrients=EstimatedNutrients(calories=Decimal("1200")),
+                    components=[
+                        EstimatedFood(
+                            name="Carne asada",
+                            serving_quantity=1,
+                            serving_unit="serving",
+                            serving_label="1 portion",
+                            serving_weight_grams=140,
+                            confidence_score=Decimal("0.8"),
+                            nutrients=EstimatedNutrients(calories=Decimal("275")),
+                        ),
+                        EstimatedFood(
+                            name="Salsa",
+                            serving_quantity=1,
+                            serving_unit="serving",
+                            serving_label="1 portion",
+                            serving_weight_grams=60,
+                            serving_volume_ml=60,
+                            confidence_score=Decimal("0.8"),
+                            nutrients=EstimatedNutrients(calories=Decimal("10")),
+                        ),
+                    ],
+                )
+            ],
+        )
+        client = Mock()
+        client.responses.parse.return_value = SimpleNamespace(
+            id="resp_burrito", output_parsed=parsed
+        )
+
+        result = OpenAIMealEstimationProvider(client=client).estimate(
+            "California burrito"
+        )
+
+        burrito = result["items"][0]
+        self.assertEqual(burrito["selected_portion_key"], "base")
+        self.assertEqual(burrito["components"][0]["selected_portion_key"], "g")
+        self.assertEqual(
+            burrito["components"][1]["selected_portion_key"], "fl_oz"
+        )
+
     def test_prompt_forbids_medical_advice(self):
         self.assertIn("Do not provide dietary", SYSTEM_PROMPT)
         self.assertIn("medical", SYSTEM_PROMPT)

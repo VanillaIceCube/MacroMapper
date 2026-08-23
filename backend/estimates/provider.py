@@ -110,7 +110,8 @@ Use serving_quantity 1 and serving_unit serving. Use "1 can" for canned beer or 
 12 fl oz cans of Modelo must be servings 6 with serving_label "1 can", never Quantity
 72 with Unit "fl oz". Set serving_volume_ml to the volume of exactly one container so
 the application can offer ml, fl oz, and cup conversions. Set serving_volume_ml to null
-for non-liquid foods.
+for non-liquid foods. Prefer standard whole or half-fluid-ounce container sizes instead
+of unnecessarily precise liquid volumes.
 Use servings to represent how many base servings the user ate. Do not put ingredient lists,
 alternate sizes, explanations, parenthetical gram estimates, or the food name in
 serving_label. The food name is already displayed as the item title. Always provide
@@ -130,7 +131,7 @@ def _json_value(value):
     return value
 
 
-def _serialize_food(food: EstimatedFood, *, key: str) -> dict:
+def _serialize_food(food: EstimatedFood, *, key: str, depth: int = 0) -> dict:
     data = food.model_dump(mode="python")
     serving_weight_grams = data.pop("serving_weight_grams")
     serving_volume_ml = data.pop("serving_volume_ml")
@@ -142,9 +143,14 @@ def _serialize_food(food: EstimatedFood, *, key: str) -> dict:
         volume_milliliters=serving_volume_ml,
     )
     option_keys = {option["key"] for option in data["portion_options"]}
-    data["selected_portion_key"] = (
-        data["serving_unit"] if data["serving_unit"] in option_keys else "base"
-    )
+    if depth and "fl_oz" in option_keys:
+        data["selected_portion_key"] = "fl_oz"
+    elif depth and "g" in option_keys:
+        data["selected_portion_key"] = "g"
+    else:
+        data["selected_portion_key"] = (
+            data["serving_unit"] if data["serving_unit"] in option_keys else "base"
+        )
     data["key"] = key
     data["food_item_id"] = None
     data["food_version_id"] = None
@@ -154,7 +160,7 @@ def _serialize_food(food: EstimatedFood, *, key: str) -> dict:
         else "ai_estimate"
     )
     data["components"] = [
-        _serialize_food(component, key=f"{key}.{index}")
+        _serialize_food(component, key=f"{key}.{index}", depth=depth + 1)
         for index, component in enumerate(food.components)
     ]
     return _json_value(data)
