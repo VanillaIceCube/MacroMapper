@@ -4,8 +4,9 @@ from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
-from django.test import TestCase, override_settings
+from django.test import RequestFactory, TestCase, override_settings
 from pydantic import ValidationError as PydanticValidationError
 from rest_framework.test import APIClient
 
@@ -14,6 +15,7 @@ from foods.nutrients import NUTRIENT_FIELDS
 from foods.services import create_food_item
 from meals.models import MealEntry
 
+from .admin import MealProposalRevisionAdmin
 from .models import MealProposal, MealProposalRevision
 from .provider import (
     SYSTEM_PROMPT,
@@ -154,6 +156,19 @@ def simple_ai_estimate(*, name="Apple", calories="95"):
         }
     )
     return estimate
+
+
+class MealProposalAdminTests(TestCase):
+    def test_standalone_revision_admin_is_immutable(self):
+        revision_admin = MealProposalRevisionAdmin(
+            MealProposalRevision,
+            AdminSite(),
+        )
+        request = RequestFactory().get("/admin/estimates/mealproposalrevision/")
+
+        self.assertFalse(revision_admin.has_add_permission(request))
+        self.assertFalse(revision_admin.has_change_permission(request))
+        self.assertFalse(revision_admin.has_delete_permission(request))
 
 
 class MealProposalApiTests(TestCase):
