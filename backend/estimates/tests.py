@@ -621,9 +621,7 @@ class OpenAIProviderTests(TestCase):
         self.assertEqual(item["serving_quantity"], 1)
         self.assertEqual(item["serving_label"], "1 can")
         self.assertEqual(item["selected_portion_key"], "base")
-        self.assertEqual(
-            options["fl_oz"]["serving_multiplier"], str(Decimal("1") / 12)
-        )
+        self.assertEqual(options["fl_oz"]["serving_multiplier"], str(Decimal("1") / 12))
 
     def test_provider_defaults_nested_components_to_measurement_units(self):
         parsed = EstimatedMeal(
@@ -674,9 +672,7 @@ class OpenAIProviderTests(TestCase):
         burrito = result["items"][0]
         self.assertEqual(burrito["selected_portion_key"], "base")
         self.assertEqual(burrito["components"][0]["selected_portion_key"], "g")
-        self.assertEqual(
-            burrito["components"][1]["selected_portion_key"], "fl_oz"
-        )
+        self.assertEqual(burrito["components"][1]["selected_portion_key"], "fl_oz")
 
     def test_prompt_forbids_medical_advice(self):
         self.assertIn("Do not provide dietary", SYSTEM_PROMPT)
