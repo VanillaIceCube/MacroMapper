@@ -7,6 +7,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import SearchIcon from '@mui/icons-material/Search';
+import SendIcon from '@mui/icons-material/Send';
 import {
   Alert,
   Box,
@@ -36,6 +37,7 @@ import { useEffect, useState } from 'react';
 import {
   acceptMealProposal,
   createMealProposal,
+  followUpMealProposal,
   searchFoods,
   updateMealProposal,
 } from '../services/mealApiClient';
@@ -946,6 +948,9 @@ export default function MealEstimateDialog({ date, open, token, onClose, onSaved
   const [foods, setFoods] = useState([]);
   const [searching, setSearching] = useState(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
+  const [followUp, setFollowUp] = useState('');
+  const [followUpBusy, setFollowUpBusy] = useState(false);
+  const [followUpFeedback, setFollowUpFeedback] = useState(null);
 
   useEffect(() => {
     if (!open) return;
@@ -955,6 +960,9 @@ export default function MealEstimateDialog({ date, open, token, onClose, onSaved
     setQuery('');
     setFoods([]);
     setCatalogOpen(false);
+    setFollowUp('');
+    setFollowUpBusy(false);
+    setFollowUpFeedback(null);
   }, [open]);
 
   const estimate = async () => {
@@ -1087,10 +1095,62 @@ export default function MealEstimateDialog({ date, open, token, onClose, onSaved
     }));
   };
 
+  const applyFollowUp = async () => {
+    const request = followUp.trim();
+    if (!request) {
+      setFollowUpFeedback({
+        severity: 'warning',
+        message: 'Describe what you want to add, remove, or correct.',
+      });
+      return;
+    }
+    if (!proposal.name.trim() || !proposal.items.length) {
+      setFollowUpFeedback({
+        severity: 'warning',
+        message: 'Name the meal and keep at least one food before asking for a change.',
+      });
+      return;
+    }
+
+    setFollowUpBusy(true);
+    setError('');
+    setFollowUpFeedback(null);
+    const response = await followUpMealProposal(
+      proposal.id,
+      {
+        follow_up: request,
+        name: proposal.name.trim(),
+        items: proposal.items,
+      },
+      token,
+    );
+    if (response.ok) {
+      const result = await response.json();
+      if (result.applied) {
+        setProposal(result.proposal);
+        setFollowUp('');
+        setFollowUpFeedback({ severity: 'success', message: result.message });
+      } else {
+        setFollowUpFeedback({ severity: 'warning', message: result.message });
+      }
+    } else {
+      setFollowUpFeedback({
+        severity: 'error',
+        message: await responseError(
+          response,
+          'Could not apply that change. Your current draft is still here.',
+        ),
+      });
+    }
+    setFollowUpBusy(false);
+  };
+
+  const dialogBusy = busy || followUpBusy;
+
   return (
     <Dialog
       open={open}
-      onClose={busy ? undefined : onClose}
+      onClose={dialogBusy ? undefined : onClose}
       fullWidth
       maxWidth="md"
       sx={{
@@ -1237,20 +1297,74 @@ export default function MealEstimateDialog({ date, open, token, onClose, onSaved
                   )}
                 </Collapse>
               </Paper>
+              <Paper elevation={0} sx={{ p: 1.5, border: '1px solid var(--atlas-border)' }}>
+                <Stack spacing={1.25}>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <AutoAwesomeIcon
+                      fontSize="small"
+                      sx={{ color: 'var(--atlas-persimmon-dark)' }}
+                    />
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                      Adjust with AI
+                    </Typography>
+                  </Stack>
+                  <Typography variant="body2" sx={{ color: 'var(--atlas-ink-muted)' }}>
+                    Tell AI what else you ate or what changed. Approximate amounts are okay—it will
+                    make its best estimate, and your current edits stay in the draft.
+                  </Typography>
+                  <TextField
+                    label="Tell AI what changed"
+                    value={followUp}
+                    onChange={(event) => {
+                      setFollowUp(event.target.value);
+                      setFollowUpFeedback(null);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                        event.preventDefault();
+                        applyFollowUp();
+                      }
+                    }}
+                    placeholder="I also had a medium chocolate milkshake"
+                    helperText="Press Ctrl+Enter or Command+Enter to apply"
+                    multiline
+                    minRows={2}
+                    inputProps={{ maxLength: 500 }}
+                    disabled={followUpBusy}
+                    fullWidth
+                  />
+                  <Stack direction="row" justifyContent="flex-end">
+                    <Button
+                      variant="outlined"
+                      color="secondary"
+                      startIcon={
+                        followUpBusy ? <CircularProgress size={16} color="inherit" /> : <SendIcon />
+                      }
+                      onClick={applyFollowUp}
+                      disabled={followUpBusy || !followUp.trim()}
+                    >
+                      {followUpBusy ? 'Applying change…' : 'Apply change'}
+                    </Button>
+                  </Stack>
+                  {followUpFeedback && (
+                    <Alert severity={followUpFeedback.severity}>{followUpFeedback.message}</Alert>
+                  )}
+                </Stack>
+              </Paper>
             </>
           )}
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={busy}>
+        <Button onClick={onClose} disabled={dialogBusy}>
           Cancel
         </Button>
         {!proposal ? (
-          <Button variant="contained" color="secondary" onClick={estimate} disabled={busy}>
+          <Button variant="contained" color="secondary" onClick={estimate} disabled={dialogBusy}>
             {busy ? 'Estimating…' : 'Create estimate'}
           </Button>
         ) : (
-          <Button variant="contained" onClick={save} disabled={busy}>
+          <Button variant="contained" onClick={save} disabled={dialogBusy}>
             {busy ? 'Saving…' : 'Save to diary'}
           </Button>
         )}

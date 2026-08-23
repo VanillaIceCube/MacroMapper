@@ -11,6 +11,7 @@ from foods.portions import portion_options_for_serving
 
 from .models import MealProposal, MealProposalRevision
 from .services import (
+    apply_proposal_follow_up,
     create_proposal,
     create_proposal_revision,
     normalize_items,
@@ -296,6 +297,49 @@ class ProposalItemsField(serializers.JSONField):
         seen_keys = set()
         return normalize_items(
             [_validate_item(item, seen_keys=seen_keys) for item in data]
+        )
+
+
+class MealProposalFollowUpSerializer(serializers.Serializer):
+    follow_up = serializers.CharField(max_length=500, trim_whitespace=True)
+    name = serializers.CharField(max_length=120, trim_whitespace=True)
+    items = ProposalItemsField()
+
+    def validate_follow_up(self, value):
+        if not value:
+            raise serializers.ValidationError("Describe what should change.")
+        return value
+
+    def validate_name(self, value):
+        if not value:
+            raise serializers.ValidationError("Name the proposed meal.")
+        return value
+
+    def validate(self, attrs):
+        proposal = self.context["proposal"]
+        if proposal.status != MealProposal.Status.DRAFT:
+            raise serializers.ValidationError(
+                "Accepted proposals cannot receive follow-up changes."
+            )
+        try:
+            attrs["items"] = secure_review_items(
+                proposal=proposal,
+                owner=self.context["request"].user,
+                items=attrs["items"],
+            )
+        except DjangoValidationError:
+            raise serializers.ValidationError(
+                "Current proposal edits could not be validated."
+            ) from None
+        return attrs
+
+    def apply(self, result):
+        return apply_proposal_follow_up(
+            proposal=self.context["proposal"],
+            owner=self.context["request"].user,
+            name=self.validated_data["name"],
+            items=self.validated_data["items"],
+            result=result,
         )
 
 

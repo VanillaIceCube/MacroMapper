@@ -57,6 +57,13 @@ export const updateMealProposal = (proposalId, payload, token) =>
     body: JSON.stringify(payload),
   });
 
+export const followUpMealProposal = (proposalId, payload, token) =>
+  apiFetch(`/api/meal-proposals/${proposalId}/follow-up/`, {
+    method: 'POST',
+    headers: jsonHeaders(token),
+    body: JSON.stringify(payload),
+  });
+
 export const acceptMealProposal = (proposalId, token) =>
   apiFetch(`/api/meal-proposals/${proposalId}/accept/`, {
     method: 'POST',

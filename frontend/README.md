@@ -45,6 +45,10 @@ multiple typo-tolerant food and quantity matches from the visible catalog by
 complete food clause, then requests sourced GPT items only for clauses that
 remain unresolved. Partial catalog candidates cannot silently discard a
 product-defining term or be combined with an AI replacement for the same food.
+During review, an **Adjust with AI** field can add a forgotten food or apply a
+clear top-level removal or serving correction without discarding current edits.
+Ambiguous quantities and targets receive a disclosed best-effort assumption at
+lower confidence; failed requests keep the draft and input available for retry.
 Users must review the persisted draft before saving: they can rename the meal,
 switch between validated unit/portion options, adjust the amount without
 changing the nutritional basis, remove ingredients, and add catalog foods.

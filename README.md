@@ -22,7 +22,8 @@ remain planned in the [product roadmap](docs/PRODUCT_VISION.md).
   saved food/component details, and daily launch-nutrient totals
 - **GPT meal proposals:** clause-aware, typo-tolerant multi-food catalog reuse
   with quantity extraction and full-clause AI fallback only for unresolved
-  foods, plus editable,
+  foods, plus conversational follow-up additions and corrections within the
+  editable,
   source-aware estimates with explicit provenance, immutable review revisions,
   and confidence that require review before saving
 - **Reusable Food Items:** authenticated catalog APIs for standalone and

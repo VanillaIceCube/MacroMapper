@@ -846,6 +846,158 @@ def create_proposal(*, owner, description, entry_date):
     return proposal
 
 
+def _follow_up_identity(item):
+    return (
+        "".join(_identity_tokens(item.get("provider_name", ""))),
+        "".join(_identity_tokens(item.get("name", ""))),
+    )
+
+
+def _rekey_follow_up_item(item, *, key):
+    item = deepcopy(item)
+    item["key"] = key
+    item["components"] = [
+        _rekey_follow_up_item(component, key=f"{key}.{index}")
+        for index, component in enumerate(item.get("components", []))
+    ]
+    return item
+
+
+@transaction.atomic
+def apply_proposal_follow_up(*, proposal, owner, name, items, result):
+    proposal = (
+        MealProposal.objects.select_for_update()
+        .prefetch_related("revisions")
+        .get(pk=proposal.pk, owner=owner)
+    )
+    if proposal.status != MealProposal.Status.DRAFT:
+        raise ValidationError("Accepted proposals cannot receive follow-up changes.")
+
+    current_items = deepcopy(items)
+    current_by_key = {item["key"]: item for item in current_items}
+    remove_keys = set(result["remove_keys"])
+    serving_updates = {}
+    for update in result["serving_updates"]:
+        key = update["key"]
+        serving_updates[key] = update["servings"]
+
+    remove_keys &= set(current_by_key)
+    serving_updates = {
+        key: servings
+        for key, servings in serving_updates.items()
+        if key in current_by_key and key not in remove_keys
+    }
+
+    retained_items = [item for item in current_items if item["key"] not in remove_keys]
+    for item in retained_items:
+        if item["key"] in serving_updates:
+            item["servings"] = str(
+                _storage_decimal(
+                    serving_updates[item["key"]],
+                    decimal_places=4,
+                    default="1",
+                )
+            )
+
+    existing_identities = {_follow_up_identity(item) for item in retained_items}
+    retained_by_identity = {_follow_up_identity(item): item for item in retained_items}
+    items_by_identity = dict(retained_by_identity)
+    next_revision_number = len(proposal.revisions.all()) + 1
+    raw_additions = []
+    merged_addition = False
+    for index, item in enumerate(result["items_to_add"]):
+        identity = _follow_up_identity(item)
+        if identity in existing_identities:
+            existing_item = items_by_identity[identity]
+            existing_item["servings"] = str(
+                _storage_decimal(
+                    _decimal(existing_item["servings"], default="1")
+                    + _decimal(item.get("servings"), default="1"),
+                    decimal_places=4,
+                    default="1",
+                )
+            )
+            merged_addition = True
+            continue
+        existing_identities.add(identity)
+        added_item = _rekey_follow_up_item(
+            item,
+            key=f"follow-up-{next_revision_number}-{index}",
+        )
+        raw_additions.append(added_item)
+        items_by_identity[identity] = added_item
+
+    if len(retained_items) + len(raw_additions) > 20:
+        raise ValidationError("A proposal may contain at most 20 foods.")
+    if not retained_items and not raw_additions:
+        raise ValidationError("Keep at least one food in the proposal.")
+
+    added_items = []
+    if raw_additions:
+        added_items = _shared_estimate_items(
+            {
+                "items": raw_additions,
+                "provider_name": result["provider_name"],
+                "provider_model": result["provider_model"],
+                "provider_response_id": result["provider_response_id"],
+            }
+        )
+
+    if (
+        not remove_keys
+        and not serving_updates
+        and not added_items
+        and not merged_addition
+    ):
+        return {
+            "applied": False,
+            "message": "AI could not produce an applicable meal change from that request.",
+            "proposal": proposal,
+        }
+
+    proposal.name = name
+    proposal.items = normalize_items([*retained_items, *added_items])
+    proposal.generator = MealProposal.Generator.OPENAI
+    provider_name = result["provider_name"]
+    if proposal.provider_name and provider_name not in proposal.provider_name:
+        proposal.provider_name = f"{proposal.provider_name} + {provider_name}"[:80]
+    elif not proposal.provider_name:
+        proposal.provider_name = provider_name
+    proposal.provider_model = result["provider_model"]
+    proposal.provider_response_id = result["provider_response_id"]
+    follow_up_confidence = _storage_decimal(
+        result["confidence_score"],
+        decimal_places=3,
+    )
+    proposal.confidence_score = (
+        min(proposal.confidence_score, follow_up_confidence)
+        if proposal.confidence_score is not None
+        else follow_up_confidence
+    )
+    proposal.save(
+        update_fields=[
+            "name",
+            "items",
+            "generator",
+            "provider_name",
+            "provider_model",
+            "provider_response_id",
+            "confidence_score",
+            "updated_at",
+        ]
+    )
+    create_proposal_revision(
+        proposal=proposal,
+        kind=MealProposalRevision.Kind.AI_FOLLOW_UP,
+        created_by=owner,
+    )
+    return {
+        "applied": True,
+        "message": result["message"],
+        "proposal": proposal,
+    }
+
+
 def _visible_catalog_version(*, owner, item):
     food_item_id = item.get("food_item_id")
     version_id = item.get("food_version_id")

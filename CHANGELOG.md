@@ -3,6 +3,12 @@ All notable changes to this project are documented in this file.
 
 ## 2026-08-23
 
+### Added
+
+- Added conversational AI follow-ups to meal-estimate review so users can add
+  forgotten foods or request clear removals and serving corrections while
+  preserving the current editable draft, provenance, and revision history.
+
 ### Fixed
 
 - Resolved meal descriptions by complete food clause so partial fuzzy catalog

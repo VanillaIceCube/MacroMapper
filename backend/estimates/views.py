@@ -8,8 +8,8 @@ from rest_framework.response import Response
 from meals.serializers import MealEntrySerializer
 
 from .models import MealProposal
-from .provider import EstimationProviderError
-from .serializers import MealProposalSerializer
+from .provider import EstimationProviderError, get_estimation_provider
+from .serializers import MealProposalFollowUpSerializer, MealProposalSerializer
 from .services import accept_proposal
 
 PROVIDER_UNAVAILABLE_DETAIL = (
@@ -54,4 +54,41 @@ class MealProposalViewSet(viewsets.ModelViewSet):
         return Response(
             MealEntrySerializer(meal, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=["post"], url_path="follow-up")
+    def follow_up(self, request, pk=None):
+        proposal = self.get_object()
+        serializer = MealProposalFollowUpSerializer(
+            data=request.data,
+            context={"request": request, "proposal": proposal},
+        )
+        serializer.is_valid(raise_exception=True)
+        try:
+            result = get_estimation_provider().follow_up(
+                original_description=proposal.description,
+                meal_name=serializer.validated_data["name"],
+                items=serializer.validated_data["items"],
+                follow_up=serializer.validated_data["follow_up"],
+            )
+            outcome = serializer.apply(result)
+        except EstimationProviderError:
+            return Response(
+                {"detail": PROVIDER_UNAVAILABLE_DETAIL},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except DjangoValidationError as error:
+            raise ValidationError(error.messages) from error
+
+        updated_proposal = outcome["proposal"]
+        updated_proposal.refresh_from_db()
+        return Response(
+            {
+                "applied": outcome["applied"],
+                "message": outcome["message"],
+                "proposal": MealProposalSerializer(
+                    updated_proposal,
+                    context={"request": request},
+                ).data,
+            }
         )

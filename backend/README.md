@@ -145,6 +145,16 @@ user's proposals.
     versions; its description, date, owner, and review state are never copied
     into the shared catalog.
 - `PATCH /api/meal-proposals/{id}/` with an edited `name` and/or `items`
+- `POST /api/meal-proposals/{id}/follow-up/` with `follow_up`, the current
+  `name`, and current `items`
+  - Sends the original description and current reviewed draft to the estimation
+    provider, then applies only constrained top-level additions, explicit
+    removals, or absolute serving corrections.
+  - Preserves existing foods and local review edits, rejects duplicate
+    additions, and requires the provider to make a disclosed best-effort
+    assumption when a target or portion is ambiguous.
+  - Materializes newly estimated foods with their sources and provenance and
+    records a separate immutable `ai_follow_up` proposal revision.
 - `DELETE /api/meal-proposals/{id}/` for unaccepted drafts
 - `POST /api/meal-proposals/{id}/accept/`
   - Reuses unchanged shared definitions. Nutrient or component edits create a
@@ -172,6 +182,8 @@ are fingerprinted so equivalent results reuse one shared Food Item. OpenAI
 requests use structured outputs, enable web
 search for source discovery, and set `store=false`. They return nutrition data
 only and explicitly exclude dietary, medical, clinical, and treatment advice.
+Follow-up requests use the same non-stored provider flow and retain the current
+draft when the provider is unavailable or cannot produce an applicable change.
 
 ## 🔔 Notification API
 All `/api/` endpoints require a JWT access token. Notification querysets are

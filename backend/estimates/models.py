@@ -63,6 +63,7 @@ class MealProposalRevision(models.Model):
     class Kind(models.TextChoices):
         GENERATED = "generated", "Generated"
         USER_REVIEWED = "user_reviewed", "User reviewed"
+        AI_FOLLOW_UP = "ai_follow_up", "AI follow-up"
         ACCEPTED = "accepted", "Accepted"
 
     proposal = models.ForeignKey(
