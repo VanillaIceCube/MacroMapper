@@ -26,8 +26,10 @@ All notable changes to this project are documented in this file.
 ### Changed
 
 - Redesigned the meal diary as a Quick Logbook with date and nutrition
-  summaries at the top, parallel estimate/manual entry paths, and a compact
-  desktop ledger and mobile log below without shortcut or method columns.
+  summaries at the top, macro calorie-split and calories-by-meal charts, compact
+  color-coded daily nutrient cards, parallel estimate/manual entry paths, and a
+  compact desktop ledger and mobile log below without shortcut or method
+  columns.
 - Added structured AI food-intent extraction for descriptions the deterministic
   catalog path cannot fully resolve. Each provider-aware intent now searches the
   visible catalog before nutrition estimation, and AI follow-up additions use

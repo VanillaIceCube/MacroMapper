@@ -80,33 +80,42 @@ const launchNutrients = [
     key: 'fiber',
     label: 'Fiber',
     unit: 'g',
-    color: 'var(--atlas-ink-muted)',
+    color: 'var(--fiber-color)',
     background: 'var(--atlas-paper)',
   },
   {
     key: 'sugar',
     label: 'Sugar',
     unit: 'g',
-    color: 'var(--atlas-ink-muted)',
+    color: 'var(--sugar-color)',
     background: 'var(--atlas-paper)',
   },
   {
     key: 'sodium',
     label: 'Sodium',
     unit: 'mg',
-    color: 'var(--atlas-ink-muted)',
+    color: 'var(--sodium-color)',
     background: 'var(--atlas-paper)',
   },
   {
     key: 'cholesterol',
     label: 'Cholesterol',
     unit: 'mg',
-    color: 'var(--atlas-ink-muted)',
+    color: 'var(--cholesterol-color)',
     background: 'var(--atlas-paper)',
   },
 ];
 
-const primaryNutrientKeys = new Set(['calories', 'protein', 'carbohydrates', 'fat']);
+const macroCalorieFields = [
+  { key: 'protein', label: 'protein', caloriesPerGram: 4, color: 'var(--protein-color)' },
+  {
+    key: 'carbohydrates',
+    label: 'carbs',
+    caloriesPerGram: 4,
+    color: 'var(--carbohydrate-color)',
+  },
+  { key: 'fat', label: 'fat', caloriesPerGram: 9, color: 'var(--fat-color)' },
+];
 
 const emptyPersonalFood = () => ({
   name: '',
@@ -130,6 +139,11 @@ const formatAmount = (amount) => {
   return Number.isFinite(numeric)
     ? numeric.toLocaleString(undefined, { maximumFractionDigits: 2 })
     : '—';
+};
+
+const formatWholeAmount = (amount) => {
+  const numeric = Number(amount);
+  return Number.isFinite(numeric) ? Math.round(numeric).toLocaleString() : '—';
 };
 
 const diaryDateParts = (date) => {
@@ -591,6 +605,123 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
     [data.totals],
   );
 
+  const dailyMacroSummary = useMemo(() => {
+    const macros = macroCalorieFields.map((field) => {
+      const amount = Number(totalsByKey[field.key]?.amount);
+      const grams = Number.isFinite(amount) ? amount : 0;
+
+      return {
+        ...field,
+        grams,
+        calories: grams * field.caloriesPerGram,
+      };
+    });
+    const totalCalories = macros.reduce((total, macro) => total + macro.calories, 0);
+    let chartPosition = 0;
+    const chartSegments = macros.map((macro) => {
+      const percentage = totalCalories ? (macro.calories / totalCalories) * 100 : 0;
+      const start = chartPosition;
+      chartPosition += percentage;
+
+      return {
+        ...macro,
+        percentage,
+        gradientStop: `${macro.color} ${start}% ${chartPosition}%`,
+      };
+    });
+
+    return {
+      macros: chartSegments,
+      totalCalories,
+      background: totalCalories
+        ? `conic-gradient(${chartSegments.map((macro) => macro.gradientStop).join(', ')})`
+        : 'var(--atlas-border)',
+    };
+  }, [totalsByKey]);
+
+  const mealCalorieSummary = useMemo(() => {
+    const contributions = data.meals
+      .flatMap((meal) => {
+        const calories = mealNutrientAmount(meal, 'calories');
+        return calories === null
+          ? []
+          : [
+              {
+                key: meal.id,
+                name: meal.name,
+                calories: Math.max(calories, 0),
+                ...Object.fromEntries(
+                  macroCalorieFields.map(({ key }) => [key, mealNutrientAmount(meal, key)]),
+                ),
+              },
+            ];
+      })
+      .sort((first, second) => second.calories - first.calories);
+    const displayedContributions =
+      contributions.length > 5
+        ? [
+            ...contributions.slice(0, 4),
+            {
+              key: 'other-meals',
+              name: `Other meals (${contributions.length - 4})`,
+              calories: contributions
+                .slice(4)
+                .reduce((total, contribution) => total + contribution.calories, 0),
+              ...Object.fromEntries(
+                macroCalorieFields.map(({ key }) => [
+                  key,
+                  contributions.slice(4).some((contribution) => contribution[key] !== null)
+                    ? contributions
+                        .slice(4)
+                        .reduce(
+                          (total, contribution) => total + (contribution[key] || 0),
+                          0,
+                        )
+                    : null,
+                ]),
+              ),
+            },
+          ]
+        : contributions;
+    const totalCalories = displayedContributions.reduce(
+      (total, contribution) => total + contribution.calories,
+      0,
+    );
+    const highestCalories = Math.max(
+      ...displayedContributions.map((contribution) => contribution.calories),
+      0,
+    );
+    return {
+      totalCalories,
+      meals: displayedContributions.map((contribution) => {
+        const macroSegments = macroCalorieFields
+          .filter(({ key }) => contribution[key] !== null)
+          .map((field) => ({
+            ...field,
+            calories: Math.max(Number(contribution[field.key]) || 0, 0) * field.caloriesPerGram,
+          }));
+        const macroCalories = macroSegments.reduce(
+          (total, segment) => total + segment.calories,
+          0,
+        );
+
+        return {
+          ...contribution,
+          percentage: totalCalories ? (contribution.calories / totalCalories) * 100 : 0,
+          relativeBarWidth: highestCalories
+            ? (contribution.calories / highestCalories) * 100
+            : 0,
+          macroSegments: macroCalories
+            ? macroSegments.map((segment) => ({
+                ...segment,
+                percentage: (segment.calories / macroCalories) * 100,
+              }))
+            : [],
+        };
+      }),
+    };
+  }, [data.meals]);
+
   const removeMeal = async () => {
     const response = await deleteMeal(pendingDelete.id, token);
     if (response.ok) {
@@ -605,12 +736,6 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
 
   const dateParts = diaryDateParts(date);
   const isToday = date === localDate();
-  const primaryNutrients = launchNutrients.filter((nutrient) =>
-    primaryNutrientKeys.has(nutrient.key),
-  );
-  const secondaryNutrients = launchNutrients.filter(
-    (nutrient) => !primaryNutrientKeys.has(nutrient.key),
-  );
 
   return (
     <Box className="atlas-contours" sx={{ minHeight: 'calc(100vh - 65px)' }}>
@@ -774,88 +899,303 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
               </Typography>
             </Stack>
             <Box
+              aria-label="Daily nutrition totals"
               sx={{
                 display: 'grid',
-                gridTemplateColumns: {
-                  xs: 'repeat(2, minmax(0, 1fr))',
-                  md: '1.15fr repeat(3, 1fr)',
-                },
-                border: '1px solid var(--atlas-border)',
-                borderRadius: 2,
-                overflow: 'hidden',
+                gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(4, 1fr)' },
+                gap: 1,
               }}
             >
-              {primaryNutrients.map((nutrient, index) => (
-                <Box
+              {launchNutrients.map((nutrient) => (
+                <Paper
                   key={nutrient.key}
+                  elevation={0}
                   sx={{
-                    p: { xs: 1.5, sm: 2 },
-                    bgcolor: nutrient.background,
-                    color: 'var(--atlas-ink)',
+                    minWidth: 0,
+                    p: { xs: 1.25, sm: 1.5 },
+                    bgcolor: 'var(--atlas-paper)',
+                    border: '1px solid var(--atlas-border)',
                     borderTop: `3px solid ${nutrient.color}`,
-                    borderLeft: {
-                      xs: index % 2 ? '1px solid var(--atlas-border)' : 'none',
-                      md: index ? '1px solid var(--atlas-border)' : 'none',
-                    },
+                    borderRadius: 1.5,
                   }}
                 >
                   <Typography
-                    variant="caption"
-                    sx={{ color: nutrient.color, fontWeight: 800, letterSpacing: '0.04em' }}
+                    variant="overline"
+                    sx={{
+                      display: 'block',
+                      color: nutrient.color,
+                      fontWeight: 800,
+                      lineHeight: 1.1,
+                    }}
                   >
                     {nutrient.label}
                   </Typography>
                   {loading ? (
-                    <Skeleton width="72%" height={42} />
+                    <Skeleton width="72%" height={34} />
                   ) : (
-                    <Typography
-                      variant="h4"
-                      className="numeric-data"
-                      sx={{ mt: 0.25, fontWeight: 650, fontSize: { xs: '1.65rem', sm: '2rem' } }}
-                    >
-                      {totalsByKey[nutrient.key]
-                        ? formatAmount(totalsByKey[nutrient.key].amount)
-                        : '—'}{' '}
-                      <Typography component="span" variant="caption">
+                    <Stack direction="row" alignItems="baseline" spacing={0.5} sx={{ mt: 0.5 }}>
+                      <Typography
+                        variant="h5"
+                        noWrap
+                        className="numeric-data"
+                        sx={{ minWidth: 0, fontWeight: 750, fontSize: { xs: '1.25rem', sm: '1.5rem' } }}
+                      >
+                        {totalsByKey[nutrient.key]
+                          ? formatAmount(totalsByKey[nutrient.key].amount)
+                          : '—'}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        noWrap
+                        sx={{ color: 'var(--atlas-ink-muted)' }}
+                      >
                         {nutrient.unit}
                       </Typography>
-                    </Typography>
+                    </Stack>
                   )}
-                </Box>
+                </Paper>
               ))}
             </Box>
+
             <Box
               sx={{
                 display: 'grid',
-                gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' },
+                gridTemplateColumns: {
+                  xs: '1fr',
+                  sm: 'minmax(210px, 0.8fr) minmax(0, 1.2fr)',
+                },
                 gap: 1,
-                mt: 1.5,
-                pt: 1.5,
-                borderTop: '1px solid var(--atlas-border)',
+                mt: 1,
               }}
             >
-              {secondaryNutrients.map((nutrient) => (
-                <Stack
-                  key={nutrient.key}
-                  direction="row"
-                  justifyContent="space-between"
-                  spacing={1}
+              <Paper
+                component="figure"
+                aria-label="Macro calorie split"
+                elevation={0}
+                sx={{
+                  m: 0,
+                  p: { xs: 1.25, sm: 1.5 },
+                  bgcolor: 'var(--atlas-paper)',
+                  border: '1px solid var(--atlas-border)',
+                  borderRadius: 1.5,
+                }}
+              >
+                <Typography
+                  component="figcaption"
+                  variant="subtitle2"
+                  sx={{ fontWeight: 800, mb: 0.75 }}
                 >
+                  Macro calorie split
+                </Typography>
+                {loading ? (
+                  <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center">
+                    <Skeleton variant="circular" width={112} height={112} />
+                    <Stack spacing={0.5} sx={{ width: 120 }}>
+                      {[0, 1, 2].map((row) => (
+                        <Skeleton key={row} />
+                      ))}
+                    </Stack>
+                  </Stack>
+                ) : (
+                  <Stack
+                    direction="row"
+                    spacing={1.5}
+                    alignItems="center"
+                    justifyContent="center"
+                    sx={{ width: '100%', maxWidth: 380, mx: 'auto' }}
+                  >
+                    <Box
+                      role="img"
+                      aria-label={`Macro calorie split: ${dailyMacroSummary.macros
+                        .map(
+                          (macro) =>
+                            `${macro.label} ${Math.round(macro.percentage)} percent`,
+                        )
+                        .join(', ')}`}
+                      sx={{
+                        position: 'relative',
+                        width: 'clamp(104px, 38%, 144px)',
+                        aspectRatio: '1 / 1',
+                        flex: '0 0 auto',
+                        borderRadius: '50%',
+                        background: dailyMacroSummary.background,
+                        display: 'grid',
+                        placeItems: 'center',
+                        '&::after': {
+                          content: '""',
+                          position: 'absolute',
+                          width: '58%',
+                          aspectRatio: '1 / 1',
+                          borderRadius: '50%',
+                          bgcolor: 'var(--atlas-paper)',
+                        },
+                      }}
+                    >
+                      <Box sx={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
+                        <Typography
+                          variant="subtitle1"
+                          className="numeric-data"
+                          sx={{ fontWeight: 800, lineHeight: 1.1 }}
+                        >
+                          {totalsByKey.calories
+                            ? formatAmount(totalsByKey.calories.amount)
+                            : '—'}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'var(--atlas-ink-muted)' }}>
+                          kcal
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Stack spacing={0.5} sx={{ minWidth: 0, flex: '0 1 auto' }}>
+                      {dailyMacroSummary.macros.map((macro) => (
+                        <Stack key={macro.key} direction="row" alignItems="center" spacing={0.75}>
+                          <Box
+                            aria-hidden="true"
+                            sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: macro.color }}
+                          />
+                          <Typography variant="caption" sx={{ flex: '0 0 48px' }}>
+                            {macro.label === 'carbs'
+                              ? 'Carbs'
+                              : `${macro.label.charAt(0).toUpperCase()}${macro.label.slice(1)}`}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            className="numeric-data"
+                            sx={{ fontWeight: 800, whiteSpace: 'nowrap' }}
+                          >
+                            {formatAmount(macro.grams)} g ({Math.round(macro.percentage)}%)
+                          </Typography>
+                        </Stack>
+                      ))}
+                    </Stack>
+                  </Stack>
+                )}
+              </Paper>
+
+              <Paper
+                component="figure"
+                aria-label="Calories by meal"
+                elevation={0}
+                sx={{
+                  m: 0,
+                  p: { xs: 1.25, sm: 1.5 },
+                  bgcolor: 'var(--atlas-paper)',
+                  border: '1px solid var(--atlas-border)',
+                  borderRadius: 1.5,
+                }}
+              >
+                <Typography
+                  component="figcaption"
+                  variant="subtitle2"
+                  sx={{ fontWeight: 800, mb: 1 }}
+                >
+                  Calories by meal
+                </Typography>
+
+                {loading ? (
+                  <Stack spacing={0.75}>
+                    {[0, 1, 2].map((row) => (
+                      <Skeleton key={row} variant="rounded" height={20} />
+                    ))}
+                  </Stack>
+                ) : mealCalorieSummary.meals.length ? (
+                  <Stack spacing={0.8} aria-label="Meal calorie chart">
+                    {mealCalorieSummary.meals.map((meal) => {
+                      const stackLabel = meal.macroSegments.length
+                        ? `${meal.name} macro calorie stack: ${meal.macroSegments
+                            .map(
+                              (segment) =>
+                                `${segment.label} ${formatWholeAmount(
+                                  segment.calories,
+                                )} kilocalories`,
+                            )
+                            .join(', ')}`
+                        : `${meal.name} macro calorie stack unavailable`;
+
+                      return (
+                        <Box
+                          key={meal.key}
+                          aria-label={`${meal.name} ${formatWholeAmount(
+                            meal.calories,
+                          )} kilocalories (${Math.round(meal.percentage)} percent)`}
+                        >
+                          <Stack
+                            direction="row"
+                            spacing={0.75}
+                            alignItems="center"
+                            sx={{ minWidth: 0 }}
+                          >
+                            <Typography
+                              variant="caption"
+                              noWrap
+                              title={meal.name}
+                              sx={{ width: { xs: 86, sm: 112 }, flex: '0 0 auto' }}
+                            >
+                              {meal.name}
+                            </Typography>
+                            <Box
+                              role="img"
+                              aria-label={stackLabel}
+                              sx={{
+                                height: 14,
+                                minWidth: 0,
+                                flex: 1,
+                                borderRadius: 7,
+                                bgcolor: 'var(--atlas-border)',
+                                overflow: 'hidden',
+                              }}
+                            >
+                              <Box
+                                sx={{
+                                  display: 'flex',
+                                  width: `${Math.max(
+                                    meal.relativeBarWidth,
+                                    meal.calories > 0 ? 2 : 0,
+                                  )}%`,
+                                  height: '100%',
+                                  bgcolor: meal.macroSegments.length
+                                    ? 'transparent'
+                                    : 'var(--calorie-color)',
+                                  borderRadius: 7,
+                                  overflow: 'hidden',
+                                }}
+                              >
+                                {meal.macroSegments.map((segment) => (
+                                  <Box
+                                    key={segment.key}
+                                    sx={{
+                                      width: `${segment.percentage}%`,
+                                      bgcolor: segment.color,
+                                    }}
+                                  />
+                                ))}
+                              </Box>
+                            </Box>
+                            <Typography
+                              variant="caption"
+                              className="numeric-data"
+                              sx={{
+                                width: { xs: 92, sm: 106 },
+                                flex: '0 0 auto',
+                                color: 'var(--atlas-ink-muted)',
+                                fontSize: { xs: '0.68rem', sm: '0.75rem' },
+                                textAlign: 'right',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {formatWholeAmount(meal.calories)} kcal ({Math.round(meal.percentage)}%)
+                            </Typography>
+                          </Stack>
+                        </Box>
+                      );
+                    })}
+                  </Stack>
+                ) : (
                   <Typography variant="body2" sx={{ color: 'var(--atlas-ink-muted)' }}>
-                    {nutrient.label}
+                    Add a meal to see its calorie contribution.
                   </Typography>
-                  {loading ? (
-                    <Skeleton width={48} />
-                  ) : (
-                    <Typography variant="body2" className="numeric-data" sx={{ fontWeight: 800 }}>
-                      {totalsByKey[nutrient.key]
-                        ? formatAmount(totalsByKey[nutrient.key].amount)
-                        : '—'}{' '}
-                      {nutrient.unit}
-                    </Typography>
-                  )}
-                </Stack>
-              ))}
+                )}
+              </Paper>
             </Box>
           </Paper>
 
