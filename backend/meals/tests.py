@@ -197,8 +197,8 @@ class MealEntryApiTests(APITestCase):
             provider_name="",
             owner=self.owner,
             definition=definition(
-                calories="270",
-                protein="4",
+                calories="0",
+                protein="0",
                 components=[
                     {"food_item": self.apple, "servings": Decimal("2"), "order": 0},
                     {"food_item": self.toast, "servings": Decimal("1"), "order": 1},
@@ -216,6 +216,12 @@ class MealEntryApiTests(APITestCase):
             for item in response.data["items"][0]["component_snapshot"]
         }
         self.assertEqual(component_names, {"Apple", "Toast"})
+        nutrients = {
+            item["key"]: item["amount"]
+            for item in response.data["items"][0]["nutrients"]
+        }
+        self.assertEqual(nutrients["calories"], "270.0000")
+        self.assertEqual(nutrients["protein"], "4.0000")
 
     def test_composite_reuses_descendant_across_independent_branches(self):
         branch_definition = {

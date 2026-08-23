@@ -12,11 +12,14 @@ import {
 } from '../services/mealApiClient';
 
 vi.mock('../services/mealApiClient', () => ({
+  acceptMealProposal: vi.fn(),
+  createMealProposal: vi.fn(),
   createMeal: vi.fn(),
   createPersonalFood: vi.fn(),
   deleteMeal: vi.fn(),
   fetchDailyDiary: vi.fn(),
   searchFoods: vi.fn(),
+  updateMealProposal: vi.fn(),
   updateMeal: vi.fn(),
 }));
 
@@ -95,7 +98,7 @@ describe('DiaryPage', () => {
     renderWithProviders(<DiaryPage showSnackbar={showSnackbar} />);
 
     await screen.findByText('Nothing logged yet');
-    await user.click(screen.getByRole('button', { name: 'Add meal' }));
+    await user.click(screen.getByRole('button', { name: 'Add manually' }));
     const addDialog = await screen.findByRole('dialog', { name: 'Add meal' });
     await user.type(within(addDialog).getByRole('textbox', { name: /Meal name/ }), 'Lunch');
     await user.click(await screen.findByRole('button', { name: 'Add' }));
@@ -120,7 +123,7 @@ describe('DiaryPage', () => {
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
-    await user.click(screen.getByRole('button', { name: 'Add meal' }));
+    await user.click(screen.getByRole('button', { name: 'Add manually' }));
     const dialog = await screen.findByRole('dialog', { name: 'Add meal' });
     await user.click(within(dialog).getByText('Create a personal food'));
     await user.type(within(dialog).getByRole('textbox', { name: 'Food name' }), 'Apple');

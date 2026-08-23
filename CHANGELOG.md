@@ -3,15 +3,58 @@ All notable changes to this project are documented in this file.
 
 ## 2026-08-22
 
+### Added
+
+- Made estimated calories, protein, carbohydrates, and fat editable through a
+  per-item pencil control, with live parent, meal-total, and chart recalculation.
+
 ### Fixed
 
+- Rolled composite meal nutrition up from component values even when a parent
+  food version contains stale or zero direct nutrient columns.
+- Rounded GPT-estimated quantities, confidence scores, servings, and nutrients
+  to their storage precision when saving an estimate to the diary.
+- Rejected non-finite proposal numbers and replaced raw backend exception text
+  with stable user-safe API errors.
+- Generated nested catalog proposal keys from their full tree positions so
+  reused composites remain uniquely editable.
 - Removed the invalid root-level Docker Dependabot scan and documented that
   Docker dependency checks run from the backend and frontend directories.
+
+### Changed
+
+- Expanded meal-estimate review with a meal-level calorie summary, macro chart,
+  and per-component protein, carbohydrate, and fat values that recalculate as
+  servings and ingredients change.
+- Added grams and calorie-share percentages to the meal summary chart legends
+  so macro and component contributions can be compared at a glance.
+- Centered the macro donut and legend as a bounded group so wide layouts keep
+  the chart labels visually connected.
+- Kept macro legend labels close to their values and collapsed estimated meal
+  components by default for faster top-level scanning.
+- Enlarged the macro donut responsively so it fills its summary card more
+  evenly without stretching the legend.
+- Simplified the meal-estimate review guidance to emphasize checking and
+  adjusting nutrition values before saving.
+- Separated calories from fat in the semantic nutrition palette by assigning
+  calories to Midnight ink and carbohydrates to the higher-contrast dark
+  Mineral token across cards, legends, and charts.
+- Thickened component-calorie bars and stacked each row by its protein,
+  carbohydrate, and fat calorie contribution while preserving total calorie
+  length.
+- Reserved consistent pencil/delete action space across estimated-food rows and
+  tightened the spacing between those controls so nutrient cards stay aligned.
 
 ## 2026-08-16
 
 ### Added
 
+- Added owner-scoped, catalog-first GPT meal proposals with structured OpenAI
+  web research, persisted sources/confidence/provider metadata, editable
+  component review, and acceptance into durable private diary snapshots.
+- Added a responsive estimate-review interface with explicit official,
+  catalog-estimate, and AI-estimate labels; source links; quantity and ingredient
+  editing; catalog additions; and non-medical product language.
 - Added a centralized Material UI Field Atlas theme, semantic nutrition and
   activity color tokens, responsive contour treatments, accessible focus
   states, reduced-motion safeguards, and updated visual regression assertions.
@@ -29,6 +72,9 @@ All notable changes to this project are documented in this file.
 - Made native AI `REQUEST_CHANGES` verdicts fail their corresponding required
   reviewer checks, including repeated blocking verdicts, while approvals and
   non-blocking comments continue to pass.
+- Kept meal-estimate source URLs and numeric values server-validated while
+  removing unsupported `uri` and decimal-regex constructs from the OpenAI
+  Structured Outputs schema.
 - Preserved complete nutrient totals and component detail when independent
   composite-food branches reuse the same descendant definition.
 - Rejected malformed meal-list dates and allowed metadata-only meal PATCH

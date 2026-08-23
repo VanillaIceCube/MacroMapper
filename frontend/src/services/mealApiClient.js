@@ -42,3 +42,23 @@ export const createPersonalFood = (payload, token) =>
     headers: jsonHeaders(token),
     body: JSON.stringify(payload),
   });
+
+export const createMealProposal = (payload, token) =>
+  apiFetch('/api/meal-proposals/', {
+    method: 'POST',
+    headers: jsonHeaders(token),
+    body: JSON.stringify(payload),
+  });
+
+export const updateMealProposal = (proposalId, payload, token) =>
+  apiFetch(`/api/meal-proposals/${proposalId}/`, {
+    method: 'PATCH',
+    headers: jsonHeaders(token),
+    body: JSON.stringify(payload),
+  });
+
+export const acceptMealProposal = (proposalId, token) =>
+  apiFetch(`/api/meal-proposals/${proposalId}/accept/`, {
+    method: 'POST',
+    headers: authHeader(token),
+  });

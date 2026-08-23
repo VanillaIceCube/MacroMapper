@@ -14,6 +14,7 @@ Add these Actions secrets:
 DEPLOY_SSH_KEY
 DJANGO_SECRET_KEY
 DJANGO_EMAIL_HOST_KEY
+MACROMAPPER_OPENAI_API_KEY
 CLOUDFLARE_ORIGIN_CERT_PEM
 CLOUDFLARE_ORIGIN_KEY_PEM
 ```
@@ -23,6 +24,8 @@ CLOUDFLARE_ORIGIN_KEY_PEM
 - Generate `DJANGO_SECRET_KEY` with:
   `python -c "import secrets; print(secrets.token_urlsafe(64))"`.
 - `DJANGO_EMAIL_HOST_KEY` is the Resend API key.
+- `MACROMAPPER_OPENAI_API_KEY` is a project-scoped key used only by the backend for
+  unmatched meal descriptions. Never expose it through a Vite variable.
 - The Cloudflare values are the complete Origin CA certificate and private-key
   PEM blocks, including their BEGIN/END lines.
 
@@ -51,12 +54,17 @@ DJANGO_EMAIL_HOST_USER=resend
 DJANGO_EMAIL_TIMEOUT=10
 DJANGO_DEFAULT_FROM_EMAIL=MacroMapper <no-reply@updates.judeandrewalaba.com>
 
+OPENAI_MEAL_ESTIMATION_MODEL=gpt-5.5
+OPENAI_MEAL_ESTIMATION_TIMEOUT=45
+
 VITE_API_BASE_URL=
 ```
 
 Keep `VITE_API_BASE_URL` blank for same-origin requests. The email host,
 port, TLS, and username values are only used if you switch to Django’s SMTP
 backend; retaining them makes that change straightforward.
+Store `MACROMAPPER_OPENAI_API_KEY` as an Actions secret. The model and timeout are Actions
+variables so they can be changed without rebuilding application code.
 
 ## DigitalOcean
 1. Create an Ubuntu 24.04 Droplet with an SSH key, monitoring, backups, and a

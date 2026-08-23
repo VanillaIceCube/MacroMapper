@@ -13,9 +13,11 @@
   structure, Forest `#2E6B4F` for confirmed states and primary actions,
   Persimmon `#E46B3C` for editable estimates, and Mineral blue `#A9CAD4` for
   neutral data surfaces.
-- Use Forest for protein, the accessible dark Mineral token for carbohydrates,
-  Persimmon for fat, and the deeper activity token for activity. Pair every
-  state color with text, an icon, or another non-color cue.
+- Use Midnight ink for calories, Forest for protein, the accessible dark
+  Mineral token for carbohydrates, Persimmon for fat, and the deeper activity
+  token for activity. Apply these semantic tokens consistently to cards,
+  legends, and charts. Pair every state color with text, an icon, or another
+  non-color cue.
 - Use `Newsreader` for editorial headings and `Inter` for navigation, controls,
   labels, and body copy. Apply tabular numerals to nutrition data with the
   `numeric-data` class.
@@ -51,8 +53,13 @@
 ## Nutrition surfaces
 
 - Present daily totals as bordered data cards with tabular numerals. Use the
-  semantic protein, carbohydrate, and fat tokens; keep calories and secondary
-  nutrients on neutral paper surfaces.
+  semantic calorie, protein, carbohydrate, and fat tokens; keep secondary
+  nutrients on neutral paper surfaces. Calories use Midnight ink as a neutral
+  total and must not reuse a macro color.
+- In component-calorie comparisons, use thicker horizontal bars whose total
+  length represents component calories and whose stacked Forest, dark Mineral,
+  and Persimmon segments represent calories from protein, carbohydrates, and
+  fat. Fall back to Midnight ink when macro data is incomplete.
 - Use Forest to identify saved meals and confirmed catalog actions, Mineral for
   neutral date and search surfaces, and Persimmon for user-entered food
   estimates.

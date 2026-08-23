@@ -25,6 +25,7 @@ admin.site.index_title = "Data management"
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include("foods.urls")),
+    path("api/", include("estimates.urls")),
     path("api/", include("meals.urls")),
     path("api/", include("notifications.urls")),
     path("auth/", include("authentication.urls")),

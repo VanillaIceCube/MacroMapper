@@ -15,15 +15,16 @@ def _effective_nutrients(version, visited=None):
     path = visited | {version.pk}
 
     direct = {field: getattr(version, field) for field in NUTRIENT_FIELDS}
-    if any(value is not None for value in direct.values()):
-        return direct
-
     components = list(
         version.components.select_related("child_version__food_item").all()
     )
     if not components:
         return direct
 
+    # A composite food is a container for its component values. Prefer the
+    # recursive component rollup even when a parent version contains stale,
+    # partial, or zero direct nutrient columns; otherwise a zero parent value
+    # masks the nutrition that should be shown and saved for the meal.
     totals = {field: Decimal("0") for field in NUTRIENT_FIELDS}
     complete = {field: True for field in NUTRIENT_FIELDS}
     for component in components:
