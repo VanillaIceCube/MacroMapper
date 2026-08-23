@@ -1,19 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
-  <defs>
-    <clipPath id="mark-clip">
-      <circle cx="512" cy="512" r="440"/>
-    </clipPath>
-  </defs>
-  <circle cx="512" cy="512" r="440" fill="#F6F1E7" stroke="#2E6B4F" stroke-width="48"/>
-  <g clip-path="url(#mark-clip)" fill="none" stroke="#A9CAD4" stroke-width="12" opacity="0.72">
-    <path d="M80 322C220 212 364 228 458 308C554 390 684 400 944 230"/>
-    <path d="M50 414C218 298 352 318 466 402C594 496 730 470 986 310"/>
-    <path d="M22 724C224 564 350 582 474 672C600 762 744 736 1002 566"/>
-    <path d="M54 816C230 674 364 690 478 770C596 852 742 842 980 674"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" fill="none">
+  <title>MacroMapper compass and fork mark</title>
+  <path
+    d="M238 382A318 318 0 0 1 474 196M550 196A318 318 0 0 1 786 382M786 642A318 318 0 0 1 550 828M474 828A318 318 0 0 1 238 642"
+    stroke="#07879B"
+    stroke-width="44"
+    stroke-linecap="square"
+  />
+
+  <path d="M512 92L558 276H466L512 92Z" fill="#F2BD00" />
+  <path d="M932 512L748 558V466L932 512Z" fill="#F1543F" />
+  <path d="M92 512L276 466V558L92 512Z" fill="#08AEB5" />
+  <path d="M484 890H540V946H484V890Z" fill="#73BE28" />
+
+  <g fill="#06285F">
+    <rect x="424" y="246" width="32" height="264" rx="16" />
+    <rect x="472" y="246" width="32" height="264" rx="16" />
+    <rect x="520" y="246" width="32" height="264" rx="16" />
+    <rect x="568" y="246" width="32" height="264" rx="16" />
+    <path d="M424 430H600V480C600 540 572 575 548 596V890H476V596C452 575 424 540 424 480V430Z" />
   </g>
-  <circle cx="512" cy="512" r="280" fill="#FFFDF8" stroke="#17324D" stroke-width="24"/>
-  <path d="M512 176L568 338L512 314L456 338L512 176Z" fill="#E46B3C"/>
-  <path d="M512 848L468 690L512 710L556 690L512 848Z" fill="#A9CAD4"/>
-  <path d="M324 654V370H398L512 560L626 370H700V654H632V478L548 618H476L392 478V654H324Z" fill="#17324D"/>
-  <circle cx="512" cy="512" r="26" fill="#2E6B4F"/>
 </svg>
