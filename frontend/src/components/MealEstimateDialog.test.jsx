@@ -211,7 +211,7 @@ describe('MealEstimateDialog', () => {
     await user.type(within(reviewDialog).getByRole('textbox', { name: 'Search catalog' }), 'Apple');
     await user.click(within(reviewDialog).getByRole('button', { name: 'search proposal foods' }));
     await user.click(await within(reviewDialog).findByRole('button', { name: 'Add' }));
-    expect(within(reviewDialog).getByRole('heading', { name: 'Apple' })).toBeInTheDocument();
+    expect(within(reviewDialog).getByText('Apple', { selector: 'p' })).toBeInTheDocument();
 
     await user.click(within(reviewDialog).getByRole('button', { name: 'Save to diary' }));
 
@@ -290,6 +290,11 @@ describe('MealEstimateDialog', () => {
     expect(within(reviewDialog).getByLabelText('Burger patty 300 kcal (100%)')).toBeVisible();
     await user.click(
       within(reviewDialog).getByRole('button', {
+        name: 'More actions for Burger patty',
+      }),
+    );
+    await user.click(
+      screen.getByRole('menuitem', {
         name: 'Finish editing nutrition for Burger patty',
       }),
     );
