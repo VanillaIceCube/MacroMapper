@@ -172,7 +172,7 @@ export default function AppHeader({ title, setDrawerOpen }) {
           <Stack direction="row" alignItems="center" spacing={1.25} sx={{ flexGrow: 1 }}>
             <Box
               component="img"
-              src="/macromapper-mark.svg"
+              src="/macromapper-mark.png"
               alt=""
               aria-hidden="true"
               sx={{ width: 34, height: 34 }}

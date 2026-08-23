@@ -23,9 +23,8 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
-- Replaced the original contour-map app mark with a polished compass-and-fork
-  logo and matching sans-serif wordmarks across navigation, authentication,
-  and installable app surfaces.
+- Replaced the original contour-map app mark with the selected compass-and-fork
+  artwork across navigation, authentication, and installable app surfaces.
 - Expanded meal-estimate review with a meal-level calorie summary, macro chart,
   and per-component protein, carbohydrate, and fat values that recalculate as
   servings and ingredients change.

@@ -4,9 +4,9 @@
   "description": "A personal nutrition and activity tracker with transparent GPT-assisted meal logging.",
   "icons": [
     {
-      "src": "macromapper-mark.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "macromapper-mark.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ],
