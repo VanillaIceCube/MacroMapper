@@ -20,6 +20,8 @@ configuration lives in `src/theme.js`, with matching semantic CSS tokens in
 - Midnight ink provides text and structural contrast.
 - Forest marks primary actions and confirmed states, Persimmon marks editable
   estimates, and Mineral blue supports neutral nutrition and activity data.
+- Nutrition data uses Midnight ink for calories, Forest for protein, dark
+  Mineral for carbohydrates, and Persimmon for fat.
 - Newsreader supplies editorial headings; Inter is used for controls, labels,
   navigation, and body copy.
 - Color is always paired with labels, icons, borders, or other non-color cues.

@@ -13,6 +13,7 @@ describe('MacroMapper theme styles', () => {
     expect(appCss).toContain('--atlas-forest: #2e6b4f');
     expect(appCss).toContain('--atlas-persimmon: #e46b3c');
     expect(appCss).toContain('--atlas-mineral: #a9cad4');
+    expect(appCss).toContain('--calorie-color: var(--atlas-ink)');
     expect(appCss).toContain('--protein-color: var(--atlas-forest)');
     expect(appCss).toContain('--carbohydrate-color: var(--atlas-mineral-dark)');
     expect(appCss).toContain('--fat-color: var(--atlas-persimmon)');
@@ -72,6 +73,7 @@ describe('MacroMapper theme styles', () => {
   test('uses semantic nutrition colors and numeric typography in the meal diary', () => {
     const diarySource = readSource('pages/DiaryPage.jsx');
 
+    expect(diarySource).toContain('var(--calorie-color)');
     expect(diarySource).toContain('var(--protein-color)');
     expect(diarySource).toContain('var(--carbohydrate-color)');
     expect(diarySource).toContain('var(--fat-color)');

@@ -30,6 +30,12 @@ All notable changes to this project are documented in this file.
   evenly without stretching the legend.
 - Simplified the meal-estimate review guidance to emphasize checking and
   adjusting nutrition values before saving.
+- Separated calories from fat in the semantic nutrition palette by assigning
+  calories to Midnight ink and carbohydrates to the higher-contrast dark
+  Mineral token across cards, legends, and charts.
+- Thickened component-calorie bars and stacked each row by its protein,
+  carbohydrate, and fat calorie contribution while preserving total calorie
+  length.
 
 ## 2026-08-16
 

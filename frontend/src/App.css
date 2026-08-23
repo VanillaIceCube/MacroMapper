@@ -14,6 +14,7 @@
   --atlas-mineral-soft: #e5f0f3;
   --atlas-border: rgba(23, 50, 77, 0.18);
   --atlas-border-strong: rgba(23, 50, 77, 0.38);
+  --calorie-color: var(--atlas-ink);
   --protein-color: var(--atlas-forest);
   --carbohydrate-color: var(--atlas-mineral-dark);
   --fat-color: var(--atlas-persimmon);

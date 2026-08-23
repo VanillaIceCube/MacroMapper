@@ -42,7 +42,7 @@ const launchNutrients = [
     key: 'calories',
     label: 'Calories',
     unit: 'kcal',
-    color: 'var(--atlas-ink)',
+    color: 'var(--calorie-color)',
     background: 'var(--atlas-paper)',
   },
   {

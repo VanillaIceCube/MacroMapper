@@ -59,29 +59,40 @@ const NUTRIENT_FIELDS = [
     label: 'Calories',
     unit: 'kcal',
     note: 'Total energy',
-    color: 'var(--atlas-persimmon)',
+    color: 'var(--calorie-color)',
   },
   {
     key: 'protein',
     label: 'Protein',
     unit: 'g',
     note: '4 kcal per gram',
-    color: 'var(--atlas-forest)',
+    color: 'var(--protein-color)',
   },
   {
     key: 'carbohydrates',
     label: 'Carbs',
     unit: 'g',
     note: '4 kcal per gram',
-    color: 'var(--atlas-mineral)',
+    color: 'var(--carbohydrate-color)',
   },
   {
     key: 'fat',
     label: 'Fat',
     unit: 'g',
     note: '9 kcal per gram',
-    color: 'var(--atlas-persimmon)',
+    color: 'var(--fat-color)',
   },
+];
+
+const MACRO_CALORIE_FIELDS = [
+  { key: 'protein', label: 'protein', caloriesPerGram: 4, color: 'var(--protein-color)' },
+  {
+    key: 'carbohydrates',
+    label: 'carbs',
+    caloriesPerGram: 4,
+    color: 'var(--carbohydrate-color)',
+  },
+  { key: 'fat', label: 'fat', caloriesPerGram: 9, color: 'var(--fat-color)' },
 ];
 
 const servingsValue = (item) => {
@@ -130,23 +141,58 @@ function calorieContributions(items) {
 
   return chartItems.flatMap((item) => {
     const calories = itemNutrientTotal(item, 'calories');
-    return calories == null
-      ? []
-      : [{ key: item.key, name: item.name, calories: calories * parentServings }];
+    if (calories == null) return [];
+    return [
+      {
+        key: item.key,
+        name: item.name,
+        calories: calories * parentServings,
+        ...Object.fromEntries(
+          MACRO_CALORIE_FIELDS.map(({ key }) => {
+            const value = itemNutrientTotal(item, key);
+            return [key, value == null ? null : value * parentServings];
+          }),
+        ),
+      },
+    ];
   });
 }
 
 function summarizedContributions(items) {
   const sorted = calorieContributions(items).sort((a, b) => b.calories - a.calories);
   if (sorted.length <= 5) return sorted;
+  const remaining = sorted.slice(4);
   return [
     ...sorted.slice(0, 4),
     {
       key: 'other-components',
       name: `Other (${sorted.length - 4})`,
-      calories: sorted.slice(4).reduce((total, item) => total + item.calories, 0),
+      calories: remaining.reduce((total, item) => total + item.calories, 0),
+      ...Object.fromEntries(
+        MACRO_CALORIE_FIELDS.map(({ key }) => [
+          key,
+          remaining.some((item) => item[key] == null)
+            ? null
+            : remaining.reduce((total, item) => total + item[key], 0),
+        ]),
+      ),
     },
   ];
+}
+
+function macroCalorieSegments(item) {
+  if (MACRO_CALORIE_FIELDS.some(({ key }) => item[key] == null)) return [];
+  const segments = MACRO_CALORIE_FIELDS.map((field) => ({
+    ...field,
+    calories: Math.max(Number(item[field.key]) || 0, 0) * field.caloriesPerGram,
+  }));
+  const total = segments.reduce((sum, segment) => sum + segment.calories, 0);
+  return total
+    ? segments.map((segment) => ({
+        ...segment,
+        percentage: (segment.calories / total) * 100,
+      }))
+    : [];
 }
 
 function NutritionCards({ values, ariaLabel, compact = false, itemName, onNutrientChange }) {
@@ -264,9 +310,9 @@ function MacroCalorieChart({ values }) {
   };
   const background = total
     ? `conic-gradient(
-        var(--atlas-forest) 0 ${proteinEnd}%,
-        var(--atlas-mineral) ${proteinEnd}% ${carbohydrateEnd}%,
-        var(--atlas-persimmon) ${carbohydrateEnd}% 100%
+        var(--protein-color) 0 ${proteinEnd}%,
+        var(--carbohydrate-color) ${proteinEnd}% ${carbohydrateEnd}%,
+        var(--fat-color) ${carbohydrateEnd}% 100%
       )`
     : 'var(--atlas-border)';
 
@@ -314,9 +360,9 @@ function MacroCalorieChart({ values }) {
         </Box>
         <Stack spacing={0.5} sx={{ minWidth: 0, flex: '0 1 auto' }}>
           {[
-            ['Protein', values.protein, percentages.protein, 'var(--atlas-forest)'],
-            ['Carbs', values.carbohydrates, percentages.carbohydrates, 'var(--atlas-mineral)'],
-            ['Fat', values.fat, percentages.fat, 'var(--atlas-persimmon)'],
+            ['Protein', values.protein, percentages.protein, 'var(--protein-color)'],
+            ['Carbs', values.carbohydrates, percentages.carbohydrates, 'var(--carbohydrate-color)'],
+            ['Fat', values.fat, percentages.fat, 'var(--fat-color)'],
           ].map(([label, grams, percentage, color]) => (
             <Stack key={label} direction="row" alignItems="center" spacing={0.75}>
               <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color }} />
@@ -348,6 +394,12 @@ function ComponentCalorieChart({ items }) {
           {contributions.map((item) => {
             const percentage = total ? (item.calories / total) * 100 : 0;
             const roundedPercentage = Math.round(percentage);
+            const segments = macroCalorieSegments(item);
+            const stackLabel = segments.length
+              ? `${item.name} macro calorie stack: ${segments
+                  .map((segment) => `${segment.label} ${formatAmount(segment.calories)} kcal`)
+                  .join(', ')}`
+              : `${item.name} macro calorie stack unavailable`;
             return (
               <Box
                 key={item.key}
@@ -358,10 +410,12 @@ function ComponentCalorieChart({ items }) {
                     {item.name}
                   </Typography>
                   <Box
+                    role="img"
+                    aria-label={stackLabel}
                     sx={{
-                      height: 8,
+                      height: 14,
                       flex: 1,
-                      borderRadius: 4,
+                      borderRadius: 7,
                       bgcolor: 'var(--atlas-border)',
                       overflow: 'hidden',
                     }}
@@ -370,10 +424,22 @@ function ComponentCalorieChart({ items }) {
                       sx={{
                         height: '100%',
                         width: `${Math.max(percentage, item.calories > 0 ? 2 : 0)}%`,
-                        bgcolor: 'var(--atlas-persimmon)',
-                        borderRadius: 4,
+                        display: 'flex',
+                        bgcolor: segments.length ? 'transparent' : 'var(--calorie-color)',
+                        borderRadius: 7,
+                        overflow: 'hidden',
                       }}
-                    />
+                    >
+                      {segments.map((segment) => (
+                        <Box
+                          key={segment.key}
+                          sx={{
+                            width: `${segment.percentage}%`,
+                            bgcolor: segment.color,
+                          }}
+                        />
+                      ))}
+                    </Box>
                   </Box>
                   <Typography
                     variant="caption"

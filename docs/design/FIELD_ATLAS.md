@@ -23,7 +23,7 @@ not decoration applied to every card.
 | Role | Token | Value | Typical use |
 | --- | --- | --- | --- |
 | Canvas | Bone | `#F6F1E7` | Page background and large surfaces |
-| Primary text | Midnight ink | `#17324D` | Headings, body text, borders |
+| Primary text | Midnight ink | `#17324D` | Headings, body text, borders, calorie totals |
 | Confirmed | Forest | `#2E6B4F` | Primary actions, saved/official states, protein |
 | Editable estimate | Persimmon | `#E46B3C` | Estimated values, edit emphasis, fat |
 | Neutral data | Mineral blue | `#A9CAD4` | Carbohydrates, activity, supporting charts |
@@ -61,8 +61,13 @@ communicated by color alone: pair it with a label and an icon.
 
 ## 📊 Data and state language
 
-- Protein uses forest, carbohydrates use mineral blue, and fat uses persimmon
-  across diary, food detail, goals, and trends.
+- Calories use Midnight ink, protein uses Forest, carbohydrates use the dark
+  Mineral token `#47798A`, and fat uses Persimmon across diary, estimate review,
+  food detail, goals, and trends. Calorie charts use Midnight ink rather than a
+  macro color; pale Mineral remains available for neutral data surfaces.
+- Component calorie bars use total length for each component's calorie share
+  and stacked macro colors for its protein-, carbohydrate-, and fat-derived
+  calories. Use Midnight ink when a complete macro split is unavailable.
 - Activity uses a deeper mineral-blue tint and always labels calorie values as
   estimates.
 - Official, Community estimate, and Personal records receive icon + text badges.

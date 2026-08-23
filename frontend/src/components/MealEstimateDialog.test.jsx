@@ -337,6 +337,11 @@ describe('MealEstimateDialog', () => {
       within(componentChart).getByLabelText('Plain kefir yogurt 104 kcal (21%)'),
     ).toBeVisible();
     expect(
+      within(componentChart).getByRole('img', {
+        name: 'Plain kefir yogurt macro calorie stack: protein 36.8 kcal, carbs 46.4 kcal, fat 22.5 kcal',
+      }),
+    ).toBeVisible();
+    expect(
       within(componentChart).queryByLabelText('Burger patty 400 kcal (79%)'),
     ).not.toBeInTheDocument();
   });
