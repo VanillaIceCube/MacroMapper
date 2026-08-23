@@ -688,9 +688,15 @@ class OpenAIProviderTests(TestCase):
 
     def test_prompt_requires_atomic_meal_components(self):
         self.assertIn("atomic ingredient-level components", SYSTEM_PROMPT)
-        self.assertIn("Each component must represent exactly one distinct", SYSTEM_PROMPT)
-        self.assertIn("ingredient or one conventional cohesive prepared food", SYSTEM_PROMPT)
-        self.assertIn("sour cream, tomato, and salsa as three components", SYSTEM_PROMPT)
+        self.assertIn(
+            "Each component must represent exactly one distinct", SYSTEM_PROMPT
+        )
+        self.assertIn(
+            "ingredient or one conventional cohesive prepared food", SYSTEM_PROMPT
+        )
+        self.assertIn(
+            "sour cream, tomato, and salsa as three components", SYSTEM_PROMPT
+        )
         self.assertIn("return cabbage, tomato, onion, and", SYSTEM_PROMPT)
         self.assertIn("cilantro as four components", SYSTEM_PROMPT)
         self.assertIn("cohesive sauces", SYSTEM_PROMPT)
