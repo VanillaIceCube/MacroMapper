@@ -1297,43 +1297,44 @@ export default function MealEstimateDialog({ date, open, token, onClose, onSaved
                   )}
                 </Collapse>
               </Paper>
-              <Paper elevation={0} sx={{ p: 1.5, border: '1px solid var(--atlas-border)' }}>
-                <Stack spacing={1.25}>
-                  <Stack direction="row" spacing={1} alignItems="center">
+              <Paper elevation={0} sx={{ p: 1.25, border: '1px solid var(--atlas-border)' }}>
+                <Stack spacing={0.75}>
+                  <Stack direction="row" spacing={0.75} alignItems="center">
                     <AutoAwesomeIcon
                       fontSize="small"
                       sx={{ color: 'var(--atlas-persimmon-dark)' }}
                     />
-                    <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
                       Adjust with AI
                     </Typography>
                   </Stack>
-                  <Typography variant="body2" sx={{ color: 'var(--atlas-ink-muted)' }}>
-                    Tell AI what else you ate or what changed. Approximate amounts are okay—it will
-                    make its best estimate, and your current edits stay in the draft.
-                  </Typography>
-                  <TextField
-                    label="Tell AI what changed"
-                    value={followUp}
-                    onChange={(event) => {
-                      setFollowUp(event.target.value);
-                      setFollowUpFeedback(null);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-                        event.preventDefault();
-                        applyFollowUp();
-                      }
-                    }}
-                    placeholder="I also had a medium chocolate milkshake"
-                    helperText="Press Ctrl+Enter or Command+Enter to apply"
-                    multiline
-                    minRows={2}
-                    inputProps={{ maxLength: 500 }}
-                    disabled={followUpBusy}
-                    fullWidth
-                  />
-                  <Stack direction="row" justifyContent="flex-end">
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={0.75}
+                    alignItems={{ sm: 'flex-end' }}
+                  >
+                    <TextField
+                      label="Ask AI to make changes"
+                      value={followUp}
+                      onChange={(event) => {
+                        setFollowUp(event.target.value);
+                        setFollowUpFeedback(null);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                          event.preventDefault();
+                          applyFollowUp();
+                        }
+                      }}
+                      placeholder="I also had a medium chocolate milkshake"
+                      multiline
+                      minRows={1}
+                      maxRows={3}
+                      size="small"
+                      inputProps={{ maxLength: 500 }}
+                      disabled={followUpBusy}
+                      fullWidth
+                    />
                     <Button
                       variant="outlined"
                       color="secondary"
@@ -1342,12 +1343,15 @@ export default function MealEstimateDialog({ date, open, token, onClose, onSaved
                       }
                       onClick={applyFollowUp}
                       disabled={followUpBusy || !followUp.trim()}
+                      sx={{ whiteSpace: 'nowrap', width: { xs: '100%', sm: 'auto' } }}
                     >
-                      {followUpBusy ? 'Applying change…' : 'Apply change'}
+                      {followUpBusy ? 'Applying…' : 'Apply'}
                     </Button>
                   </Stack>
                   {followUpFeedback && (
-                    <Alert severity={followUpFeedback.severity}>{followUpFeedback.message}</Alert>
+                    <Alert severity={followUpFeedback.severity} sx={{ py: 0 }}>
+                      {followUpFeedback.message}
+                    </Alert>
                   )}
                 </Stack>
               </Paper>
