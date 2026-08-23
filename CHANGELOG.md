@@ -15,6 +15,8 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Required AI-generated composite foods to split identifiable ingredients into
+  separate components instead of grouping multiple toppings into one row.
 - Snapped AI-estimated component weights and liquid volumes to readable gram
   and fluid-ounce quantities instead of exposing conversion precision noise.
 - Defaulted beverages to natural containers such as cans, glasses, bottles,

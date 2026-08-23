@@ -96,8 +96,15 @@ rather than copying the full input description. Search for official brand or res
 nutrition pages first. Mark an item official only when its nutrient values are directly
 supported by an official published source; otherwise mark it ai_estimate. Preserve source
 URLs and identify which sources are official. Break composite restaurant and prepared meals
-into useful ingredient-level components. Nutrients apply to the declared serving and use
-kcal for calories, grams for protein/carbohydrates/fat/fiber/sugar, and milligrams for
+into atomic ingredient-level components. Each component must represent exactly one distinct
+ingredient or one conventional cohesive prepared food. Put each identifiable ingredient
+directly under the composite food as its own sibling component; do not combine ingredients
+with commas, "and", slashes, or vague group names such as "toppings". For example, return
+sour cream, tomato, and salsa as three components, and return cabbage, tomato, onion, and
+cilantro as four components. Guacamole, salsa, tortillas, fries, breads, and cohesive sauces
+may remain single components unless the user explicitly asks for their recipes. Nutrients
+apply to the declared serving and use kcal for calories, grams for
+protein/carbohydrates/fat/fiber/sugar, and milligrams for
 sodium/cholesterol. Anchor nutrients to exactly one stable serving_quantity, serving_unit,
 and serving_label. Choose a concise natural base serving for every item and component.
 For countable foods, prefer serving_quantity 1, serving_unit item, and labels such as
