@@ -253,7 +253,11 @@ function NutritionCards({ values, ariaLabel, compact = false, itemName, onNutrie
         >
           <Typography
             variant={compact ? 'caption' : 'overline'}
-            sx={{ color: 'var(--atlas-ink-muted)', lineHeight: 1.1, fontWeight: 700 }}
+            sx={{
+              color: 'var(--atlas-ink-muted)',
+              lineHeight: 1.1,
+              fontWeight: 700,
+            }}
           >
             {label}
           </Typography>
@@ -414,6 +418,7 @@ function MacroCalorieChart({ values }) {
 function ComponentCalorieChart({ items }) {
   const contributions = summarizedContributions(items);
   const total = contributions.reduce((sum, item) => sum + item.calories, 0);
+  const highestCalories = Math.max(...contributions.map((item) => item.calories), 0);
 
   return (
     <Paper elevation={0} sx={{ p: 1, border: '1px solid var(--atlas-border)' }}>
@@ -424,6 +429,7 @@ function ComponentCalorieChart({ items }) {
         <Stack spacing={0.6} aria-label="Component calorie chart">
           {contributions.map((item) => {
             const percentage = total ? (item.calories / total) * 100 : 0;
+            const relativeBarWidth = highestCalories ? (item.calories / highestCalories) * 100 : 0;
             const roundedPercentage = Math.round(percentage);
             const segments = macroCalorieSegments(item);
             const stackLabel = segments.length
@@ -454,7 +460,7 @@ function ComponentCalorieChart({ items }) {
                     <Box
                       sx={{
                         height: '100%',
-                        width: `${Math.max(percentage, item.calories > 0 ? 2 : 0)}%`,
+                        width: `${Math.max(relativeBarWidth, item.calories > 0 ? 2 : 0)}%`,
                         display: 'flex',
                         bgcolor: segments.length ? 'transparent' : 'var(--calorie-color)',
                         borderRadius: 7,
@@ -599,25 +605,109 @@ function ProposalFood({
   const activePortion = selectedPortion(item);
   const hasDetails =
     item.confidence_score != null || item.provider_name || Boolean(item.sources?.length);
+  const accentColor =
+    item.source_kind === 'ai_estimate'
+      ? 'var(--atlas-persimmon)'
+      : item.source_kind === 'official_verified'
+        ? 'var(--atlas-forest)'
+        : 'var(--atlas-mineral)';
+  const headerBackground =
+    item.source_kind === 'ai_estimate'
+      ? 'var(--atlas-persimmon-soft)'
+      : item.source_kind === 'official_verified'
+        ? 'var(--atlas-forest-soft)'
+        : 'var(--atlas-mineral-soft)';
   return (
     <Paper
       elevation={0}
       sx={{
-        p: isComponent ? 0.75 : 1,
         ml: depth > 1 ? { xs: 1, sm: 2 } : 0,
+        my: isComponent ? 0.25 : 0.35,
         bgcolor: isComponent ? 'var(--atlas-bone)' : 'var(--atlas-paper)',
         border: isComponent
           ? '1px solid var(--atlas-border-strong)'
           : '1px solid var(--atlas-border)',
-        borderLeft: `4px solid ${
-          item.source_kind === 'ai_estimate'
-            ? 'var(--atlas-persimmon)'
-            : item.source_kind === 'official_verified'
-              ? 'var(--atlas-forest)'
-              : 'var(--atlas-mineral)'
-        }`,
+        borderLeft: `4px solid ${accentColor}`,
+        overflow: 'hidden',
       }}
     >
+      <Box
+        sx={{
+          px: 1,
+          py: 0.55,
+          bgcolor: headerBackground,
+          borderBottom: '1px solid var(--atlas-border)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 0.75,
+        }}
+      >
+        <Typography
+          variant={depth ? 'subtitle1' : 'h6'}
+          sx={{
+            minWidth: 0,
+            color: 'var(--atlas-ink)',
+            fontWeight: 850,
+            fontSize: depth ? '0.98rem' : { xs: '1.02rem', sm: '1.1rem' },
+            lineHeight: 1.25,
+          }}
+        >
+          {item.name}
+        </Typography>
+        <Stack direction="row" spacing={0} alignItems="center" sx={{ flexShrink: 0 }}>
+          {!!item.components?.length && (
+            <Button
+              size="small"
+              color="inherit"
+              endIcon={componentsOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+              aria-label={`${componentsOpen ? 'Collapse' : 'Expand'} components for ${item.name}`}
+              aria-expanded={componentsOpen}
+              onClick={() => setComponentsOpen((current) => !current)}
+              sx={{
+                mr: 0.25,
+                color: 'var(--atlas-ink-muted)',
+                fontWeight: 700,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {componentsOpen ? 'Hide' : 'Show'} components ({item.components.length})
+            </Button>
+          )}
+          {hasDetails && (
+            <IconButton
+              size="small"
+              aria-label={`${detailsOpen ? 'Hide' : 'Show'} estimate details for ${item.name}`}
+              aria-expanded={detailsOpen}
+              onClick={() => setDetailsOpen((current) => !current)}
+              sx={{ p: 0.45 }}
+            >
+              <InfoOutlinedIcon fontSize="small" />
+            </IconButton>
+          )}
+          {canEditNutrition && (
+            <IconButton
+              size="small"
+              aria-label={`${nutritionEditing ? 'Finish editing' : 'Edit'} nutrition for ${item.name}`}
+              aria-pressed={nutritionEditing}
+              onClick={() => setNutritionEditing((current) => !current)}
+              color={nutritionEditing ? 'primary' : 'default'}
+              sx={{ p: 0.45 }}
+            >
+              <EditOutlinedIcon fontSize="small" />
+            </IconButton>
+          )}
+          <IconButton
+            size="small"
+            aria-label={`remove ${item.name}`}
+            onClick={() => onRemove(item.key)}
+            sx={{ p: 0.45 }}
+          >
+            <DeleteOutlineIcon fontSize="small" />
+          </IconButton>
+        </Stack>
+      </Box>
+      <Box sx={{ p: isComponent ? 0.75 : 1 }}>
       <Box
         sx={{
           display: 'grid',
@@ -626,19 +716,14 @@ function ProposalFood({
             md: 'minmax(360px, 1fr) auto',
           },
           gridTemplateAreas: {
-            xs: '"name" "nutrition" "controls"',
-            md: '"name name" "nutrition controls"',
+            xs: '"nutrition" "controls"',
+            md: '"nutrition controls"',
           },
           columnGap: 0.75,
-          rowGap: 0.5,
+          rowGap: 0.75,
           alignItems: 'center',
         }}
       >
-        <Box sx={{ minWidth: 0, gridArea: 'name' }}>
-          <Typography variant={depth ? 'subtitle2' : 'subtitle1'} sx={{ fontWeight: 800 }}>
-            {item.name}
-          </Typography>
-        </Box>
         <Box sx={{ minWidth: 0, gridArea: 'nutrition' }}>
           <ItemNutritionCards
             item={item}
@@ -656,31 +741,15 @@ function ProposalFood({
             display: 'grid',
             width: '100%',
             gridTemplateColumns: {
-              xs: '72px minmax(0, 1fr)',
-              sm: '32px 72px minmax(220px, 320px) auto',
+              xs: '96px minmax(0, 1fr)',
+              sm: '96px 220px',
             },
-            gridTemplateAreas: {
-              xs: '"quantity portion" "details actions"',
-              sm: '"details quantity portion actions"',
-            },
+            gridTemplateAreas: '"quantity portion"',
             alignItems: 'center',
             justifyContent: { sm: 'end' },
             columnGap: 0.75,
-            rowGap: 0.5,
           }}
         >
-          <Box sx={{ gridArea: 'details', minWidth: 32 }}>
-            {hasDetails && (
-              <IconButton
-                size="small"
-                aria-label={`${detailsOpen ? 'Hide' : 'Show'} estimate details for ${item.name}`}
-                aria-expanded={detailsOpen}
-                onClick={() => setDetailsOpen((current) => !current)}
-              >
-                <InfoOutlinedIcon fontSize="small" />
-              </IconButton>
-            )}
-          </Box>
           <TextField
             label={isComponent ? 'Amount' : 'Quantity'}
             type="number"
@@ -705,40 +774,6 @@ function ProposalFood({
               </MenuItem>
             ))}
           </TextField>
-          <Stack
-            direction="row"
-            spacing={0}
-            alignItems="center"
-            sx={{ gridArea: 'actions', justifySelf: 'end' }}
-          >
-            <IconButton
-              size="small"
-              aria-label={
-                canEditNutrition
-                  ? `${nutritionEditing ? 'Finish editing' : 'Edit'} nutrition for ${item.name}`
-                  : undefined
-              }
-              aria-hidden={!canEditNutrition}
-              aria-pressed={nutritionEditing}
-              tabIndex={canEditNutrition ? undefined : -1}
-              disabled={!canEditNutrition}
-              onClick={
-                canEditNutrition ? () => setNutritionEditing((current) => !current) : undefined
-              }
-              color={nutritionEditing ? 'primary' : 'default'}
-              sx={{ p: 0.5, visibility: canEditNutrition ? 'visible' : 'hidden' }}
-            >
-              <EditOutlinedIcon sx={{ transform: 'translateX(3px)' }} />
-            </IconButton>
-            <IconButton
-              size="small"
-              aria-label={`remove ${item.name}`}
-              onClick={() => onRemove(item.key)}
-              sx={{ p: 0.5 }}
-            >
-              <DeleteOutlineIcon sx={{ transform: 'translateX(-3px)' }} />
-            </IconButton>
-          </Stack>
         </Box>
       </Box>
       {hasDetails && (
@@ -773,40 +808,23 @@ function ProposalFood({
         </Collapse>
       )}
       {!!item.components?.length && (
-        <Box sx={{ mt: 1 }}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-              Components ({item.components.length})
-            </Typography>
-            <Button
-              size="small"
-              color="inherit"
-              endIcon={componentsOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-              aria-label={`${componentsOpen ? 'Collapse' : 'Expand'} components for ${item.name}`}
-              aria-expanded={componentsOpen}
-              onClick={() => setComponentsOpen((current) => !current)}
-              sx={{ color: 'var(--atlas-ink-muted)' }}
-            >
-              {componentsOpen ? 'Hide' : 'Show'}
-            </Button>
+        <Collapse in={componentsOpen} unmountOnExit>
+          <Stack spacing={0.75} sx={{ mt: 0.85 }}>
+            {item.components.map((component) => (
+              <ProposalFood
+                key={component.key}
+                item={component}
+                depth={depth + 1}
+                onServings={onServings}
+                onPortionChange={onPortionChange}
+                onNutrientChange={onNutrientChange}
+                onRemove={onRemove}
+              />
+            ))}
           </Stack>
-          <Collapse in={componentsOpen} unmountOnExit>
-            <Stack spacing={0.75} sx={{ mt: 0.5 }}>
-              {item.components.map((component) => (
-                <ProposalFood
-                  key={component.key}
-                  item={component}
-                  depth={depth + 1}
-                  onServings={onServings}
-                  onPortionChange={onPortionChange}
-                  onNutrientChange={onNutrientChange}
-                  onRemove={onRemove}
-                />
-              ))}
-            </Stack>
-          </Collapse>
-        </Box>
+        </Collapse>
       )}
+      </Box>
     </Paper>
   );
 }
