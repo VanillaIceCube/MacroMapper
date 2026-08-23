@@ -38,6 +38,8 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Switched the default GPT meal-estimation model from GPT-5.5 to GPT-5.6
+  Luna for substantially lower per-request cost.
 - Defaulted nested meal components to grams for solids and fluid ounces for
   liquids while preserving natural portions for top-level foods.
 - Expanded meal-estimate review with a meal-level calorie summary, macro chart,
