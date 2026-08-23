@@ -24,6 +24,7 @@ import {
   List,
   ListItem,
   ListItemText,
+  MenuItem,
   Paper,
   Stack,
   TextField,
@@ -105,6 +106,36 @@ const servingDescription = (item) => {
   const quantity = formatAmount(item.serving_quantity);
   const unit = item.serving_unit || 'serving';
   return `${quantity} ${unit}`;
+};
+
+const portionOptions = (item) =>
+  item.portion_options?.length
+    ? item.portion_options
+    : [
+        {
+          key: 'base',
+          label: servingDescription(item),
+          unit_label: 'serving',
+          serving_multiplier: '1',
+        },
+      ];
+
+const selectedPortion = (item) => {
+  const options = portionOptions(item);
+  return options.find((option) => option.key === item.selected_portion_key) || options[0];
+};
+
+const roundedNumberString = (value, fractionDigits = 8) =>
+  String(Number(value.toFixed(fractionDigits)));
+
+const servingAmountValue = (item) => {
+  if (item.servings === '') return '';
+  const servings = Number(item.servings);
+  const multiplier = Number(selectedPortion(item).serving_multiplier);
+  if (!Number.isFinite(servings) || !Number.isFinite(multiplier) || multiplier <= 0) {
+    return item.servings;
+  }
+  return roundedNumberString(servings / multiplier, 6);
 };
 
 function perServingNutrient(item, key) {
@@ -550,13 +581,22 @@ function removeFromTree(items, key) {
     }));
 }
 
-function ProposalFood({ item, depth = 0, onServings, onNutrientChange, onRemove }) {
+function ProposalFood({
+  item,
+  depth = 0,
+  onServings,
+  onPortionChange,
+  onNutrientChange,
+  onRemove,
+}) {
   const [componentsOpen, setComponentsOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [nutritionEditing, setNutritionEditing] = useState(false);
   const source = sourceLabels[item.source_kind] || sourceLabels.ai_estimate;
   const isComponent = depth > 0;
   const canEditNutrition = !item.components?.length;
+  const options = portionOptions(item);
+  const activePortion = selectedPortion(item);
   const hasDetails =
     item.confidence_score != null || item.provider_name || Boolean(item.sources?.length);
   return (
@@ -582,12 +622,12 @@ function ProposalFood({ item, depth = 0, onServings, onNutrientChange, onRemove 
         sx={{
           display: 'grid',
           gridTemplateColumns: {
-            xs: 'minmax(0, 1fr) auto',
-            md: 'minmax(170px, 1.35fr) minmax(360px, 3fr) auto',
+            xs: 'minmax(0, 1fr)',
+            md: 'minmax(360px, 1fr) auto',
           },
           gridTemplateAreas: {
-            xs: '"name controls" "nutrition nutrition"',
-            md: '"name nutrition controls"',
+            xs: '"name" "nutrition" "controls"',
+            md: '"name name" "nutrition controls"',
           },
           columnGap: 0.75,
           rowGap: 0.5,
@@ -597,9 +637,6 @@ function ProposalFood({ item, depth = 0, onServings, onNutrientChange, onRemove 
         <Box sx={{ minWidth: 0, gridArea: 'name' }}>
           <Typography variant={depth ? 'subtitle2' : 'subtitle1'} sx={{ fontWeight: 800 }}>
             {item.name}
-          </Typography>
-          <Typography variant="caption" sx={{ color: 'var(--atlas-ink-muted)' }}>
-            {formatAmount(item.servings)} × {servingDescription(item)}
           </Typography>
         </Box>
         <Box sx={{ minWidth: 0, gridArea: 'nutrition' }}>
@@ -613,33 +650,67 @@ function ProposalFood({ item, depth = 0, onServings, onNutrientChange, onRemove 
             }
           />
         </Box>
-        <Stack
-          direction="row"
-          alignItems="center"
-          spacing={0.25}
-          justifyContent="flex-end"
-          sx={{ gridArea: 'controls' }}
+        <Box
+          sx={{
+            gridArea: 'controls',
+            display: 'grid',
+            width: '100%',
+            gridTemplateColumns: {
+              xs: '72px minmax(0, 1fr)',
+              sm: '32px 72px minmax(220px, 320px) auto',
+            },
+            gridTemplateAreas: {
+              xs: '"quantity portion" "details actions"',
+              sm: '"details quantity portion actions"',
+            },
+            alignItems: 'center',
+            justifyContent: { sm: 'end' },
+            columnGap: 0.75,
+            rowGap: 0.5,
+          }}
         >
-          {hasDetails && (
-            <IconButton
-              size="small"
-              aria-label={`${detailsOpen ? 'Hide' : 'Show'} estimate details for ${item.name}`}
-              aria-expanded={detailsOpen}
-              onClick={() => setDetailsOpen((current) => !current)}
-            >
-              <InfoOutlinedIcon fontSize="small" />
-            </IconButton>
-          )}
+          <Box sx={{ gridArea: 'details', minWidth: 32 }}>
+            {hasDetails && (
+              <IconButton
+                size="small"
+                aria-label={`${detailsOpen ? 'Hide' : 'Show'} estimate details for ${item.name}`}
+                aria-expanded={detailsOpen}
+                onClick={() => setDetailsOpen((current) => !current)}
+              >
+                <InfoOutlinedIcon fontSize="small" />
+              </IconButton>
+            )}
+          </Box>
           <TextField
-            label={isComponent ? 'Amount' : 'Servings'}
+            label={isComponent ? 'Amount' : 'Quantity'}
             type="number"
             size="small"
-            value={item.servings}
-            onChange={(event) => onServings(item.key, event.target.value)}
+            value={servingAmountValue(item)}
+            onChange={(event) => onServings(item.key, event.target.value, item)}
             inputProps={{ min: 0.0001, step: 0.25 }}
-            sx={{ width: { xs: 88, sm: 104 } }}
+            sx={{ gridArea: 'quantity', minWidth: 0, width: '100%' }}
           />
-          <Stack direction="row" spacing={0} alignItems="center">
+          <TextField
+            select
+            label="Unit / portion"
+            size="small"
+            value={activePortion.key}
+            onChange={(event) => onPortionChange(item.key, event.target.value)}
+            disabled={options.length < 2}
+            sx={{ gridArea: 'portion', minWidth: 0, width: '100%' }}
+          >
+            {options.map((option) => (
+              <MenuItem key={option.key} value={option.key}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          <Stack
+            direction="row"
+            spacing={0}
+            alignItems="center"
+            sx={{ gridArea: 'actions', justifySelf: 'end' }}
+          >
             <IconButton
               size="small"
               aria-label={
@@ -668,7 +739,7 @@ function ProposalFood({ item, depth = 0, onServings, onNutrientChange, onRemove 
               <DeleteOutlineIcon sx={{ transform: 'translateX(-3px)' }} />
             </IconButton>
           </Stack>
-        </Stack>
+        </Box>
       </Box>
       {hasDetails && (
         <Collapse in={detailsOpen} unmountOnExit>
@@ -727,6 +798,7 @@ function ProposalFood({ item, depth = 0, onServings, onNutrientChange, onRemove 
                   item={component}
                   depth={depth + 1}
                   onServings={onServings}
+                  onPortionChange={onPortionChange}
                   onNutrientChange={onNutrientChange}
                   onRemove={onRemove}
                 />
@@ -747,7 +819,7 @@ function catalogProposalItem(food) {
       : version.provenance === 'ai_estimate'
         ? 'ai_estimate'
         : 'catalog_estimate';
-  return {
+  const item = {
     key: `catalog-added-${food.id}-${Date.now()}`,
     food_item_id: food.id,
     food_version_id: version.id,
@@ -758,6 +830,8 @@ function catalogProposalItem(food) {
     serving_quantity: version.serving_quantity,
     serving_unit: version.serving_unit,
     serving_label: version.serving_label,
+    portion_options: version.portion_options || [],
+    selected_portion_key: 'base',
     provenance: version.provenance,
     source_kind: sourceKind,
     confidence_score: version.confidence_score,
@@ -768,6 +842,9 @@ function catalogProposalItem(food) {
     })),
     components: [],
   };
+  item.portion_options = portionOptions(item);
+  item.selected_portion_key = item.portion_options[0].key;
+  return item;
 }
 
 export default function MealEstimateDialog({ date, open, token, onClose, onSaved }) {
@@ -847,10 +924,26 @@ export default function MealEstimateDialog({ date, open, token, onClose, onSaved
     setBusy(false);
   };
 
-  const changeServings = (key, servings) => {
+  const changeServings = (key, amount, item) => {
+    const multiplier = Number(selectedPortion(item).serving_multiplier);
+    const numericAmount = Number(amount);
+    const servings =
+      amount === '' || !Number.isFinite(numericAmount) || !Number.isFinite(multiplier)
+        ? amount
+        : roundedNumberString(numericAmount * (multiplier > 0 ? multiplier : 1));
     setProposal((current) => ({
       ...current,
       items: updateTree(current.items, key, (item) => ({ ...item, servings })),
+    }));
+  };
+
+  const changePortion = (key, selectedPortionKey) => {
+    setProposal((current) => ({
+      ...current,
+      items: updateTree(current.items, key, (item) => ({
+        ...item,
+        selected_portion_key: selectedPortionKey,
+      })),
     }));
   };
 
@@ -952,6 +1045,7 @@ export default function MealEstimateDialog({ date, open, token, onClose, onSaved
                     key={item.key}
                     item={item}
                     onServings={changeServings}
+                    onPortionChange={changePortion}
                     onNutrientChange={changeNutrient}
                     onRemove={removeItem}
                   />

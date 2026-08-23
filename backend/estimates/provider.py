@@ -10,6 +10,7 @@ from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from foods.models import FoodItemVersion
+from foods.portions import portion_options_for_serving
 
 
 class EstimationProviderError(Exception):
@@ -57,9 +58,18 @@ class EstimatedFood(BaseModel):
     servings: float = Field(default=1, gt=0)
     serving_quantity: float = Field(default=1, gt=0)
     serving_unit: Literal[
-        "g", "ml", "oz", "fl_oz", "cup", "tbsp", "tsp", "item", "serving"
+        "g",
+        "ml",
+        "oz",
+        "fl_oz",
+        "cup",
+        "tbsp",
+        "tsp",
+        "item",
+        "serving",
     ] = "serving"
     serving_label: str = Field(default="one serving", max_length=120)
+    serving_weight_grams: float = Field(gt=0)
     provenance: Literal["official", "ai_estimate"] = "ai_estimate"
     confidence_score: float = Field(ge=0, le=1)
     nutrients: EstimatedNutrients
@@ -85,8 +95,17 @@ supported by an official published source; otherwise mark it ai_estimate. Preser
 URLs and identify which sources are official. Break composite restaurant and prepared meals
 into useful ingredient-level components. Nutrients apply to the declared serving and use
 kcal for calories, grams for protein/carbohydrates/fat/fiber/sugar, and milligrams for
-sodium/cholesterol. Use null for unavailable nutrients, never zero. Do not provide dietary,
-medical, clinical, or treatment advice."""
+sodium/cholesterol. Anchor nutrients to exactly one stable serving_quantity, serving_unit,
+and serving_label. Choose a concise natural base serving for every item and component.
+For countable foods, prefer serving_quantity 1, serving_unit item, and labels such as
+"1 burger", "1 medium carrot", or "1 bun". For plated or bowled foods, prefer
+serving_quantity 1, serving_unit serving, and labels such as "1 plate" or "1 bowl".
+Use servings to represent how many base servings the user ate. Do not put ingredient lists,
+alternate sizes, explanations, or parenthetical gram estimates in serving_label. Always
+provide serving_weight_grams as the estimated edible gram weight of exactly one declared
+base serving. The application uses it to add a deterministic Grams option for every item.
+Use null for unavailable nutrients, never zero. Do not provide dietary, medical, clinical,
+or treatment advice."""
 
 
 def _json_value(value):
@@ -101,6 +120,14 @@ def _json_value(value):
 
 def _serialize_food(food: EstimatedFood, *, key: str) -> dict:
     data = food.model_dump(mode="python")
+    serving_weight_grams = data.pop("serving_weight_grams")
+    data["portion_options"] = portion_options_for_serving(
+        quantity=data["serving_quantity"],
+        unit=data["serving_unit"],
+        label=data["serving_label"],
+        weight_grams=serving_weight_grams,
+    )
+    data["selected_portion_key"] = "base"
     data["key"] = key
     data["food_item_id"] = None
     data["food_version_id"] = None

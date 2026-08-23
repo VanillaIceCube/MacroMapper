@@ -43,7 +43,8 @@ Signed-out users who request a protected route are redirected to `/login`.
 The diary offers manual entry and an **Estimate meal** path. Estimation searches
 the visible catalog first, then requests a sourced GPT proposal when needed.
 Users must review the persisted draft before saving: they can rename the meal,
-change item/component quantities, remove ingredients, and add catalog foods.
+switch between validated unit/portion options, adjust the amount without
+changing the nutritional basis, remove ingredients, and add catalog foods.
 Official/verified, catalog-estimate, and AI-estimate labels always accompany
 their sources and confidence rather than relying on color alone.
 

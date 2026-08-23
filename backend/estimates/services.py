@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from foods.models import FoodItem, FoodItemVersion
 from foods.nutrients import NUTRIENT_FIELDS
+from foods.portions import portion_options_for_serving
 from foods.services import create_food_item
 from meals.models import MealEntry
 from meals.services import _effective_nutrients, replace_meal_items
@@ -75,6 +76,14 @@ def _sources(version):
     ]
 
 
+def _portion_options(item):
+    return item.get("portion_options") or portion_options_for_serving(
+        quantity=item.get("serving_quantity", "1"),
+        unit=item.get("serving_unit", FoodItemVersion.ServingUnit.SERVING),
+        label=item.get("serving_label", ""),
+    )
+
+
 def _catalog_food(version, *, servings="1", key=None):
     food = version.food_item
     item_key = key or f"catalog-{food.pk}"
@@ -90,6 +99,12 @@ def _catalog_food(version, *, servings="1", key=None):
         "serving_quantity": str(version.serving_quantity),
         "serving_unit": version.serving_unit,
         "serving_label": version.serving_label,
+        "portion_options": portion_options_for_serving(
+            quantity=version.serving_quantity,
+            unit=version.serving_unit,
+            label=version.serving_label,
+        ),
+        "selected_portion_key": "base",
         "provenance": version.provenance,
         "source_kind": _source_kind(version.provenance),
         "confidence_score": (
@@ -151,6 +166,10 @@ def find_catalog_matches(*, description, user):
 def _recalculate_item(item):
     item = dict(item)
     item["servings"] = str(_decimal(item.get("servings"), default="1"))
+    item["portion_options"] = _portion_options(item)
+    option_keys = {option["key"] for option in item["portion_options"]}
+    if item.get("selected_portion_key") not in option_keys:
+        item["selected_portion_key"] = item["portion_options"][0]["key"]
     components = [
         _recalculate_item(component) for component in item.get("components", [])
     ]
@@ -266,10 +285,23 @@ def secure_review_items(*, proposal, owner, items):
                 servings=item["servings"],
                 key=item["key"],
             ) | {"components": []}
+            selected_portion_key = item["selected_portion_key"]
+            if selected_portion_key not in {
+                option["key"] for option in result["portion_options"]
+            }:
+                raise ValidationError("Choose an available portion option.")
+            result["selected_portion_key"] = selected_portion_key
             result["nutrients"] = item["nutrients"]
             return result
 
         result = dict(original)
+        result["portion_options"] = _portion_options(original)
+        selected_portion_key = item["selected_portion_key"]
+        if selected_portion_key not in {
+            option["key"] for option in result["portion_options"]
+        }:
+            raise ValidationError("Choose an available portion option.")
+        result["selected_portion_key"] = selected_portion_key
         result["servings"] = item["servings"]
         result["nutrients"] = item["nutrients"]
         requested_components = item.get("components", [])

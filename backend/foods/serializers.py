@@ -11,6 +11,7 @@ from .models import (
     SourceReference,
 )
 from .nutrients import NUTRIENT_METADATA
+from .portions import portion_options_for_serving
 from .services import create_food_item, create_food_version
 
 
@@ -51,6 +52,7 @@ class FoodItemVersionSerializer(serializers.ModelSerializer):
     nutrients = serializers.SerializerMethodField()
     sources = SourceReferenceSerializer(many=True, read_only=True)
     components = FoodComponentSerializer(many=True, read_only=True)
+    portion_options = serializers.SerializerMethodField()
 
     class Meta:
         model = FoodItemVersion
@@ -60,6 +62,7 @@ class FoodItemVersionSerializer(serializers.ModelSerializer):
             "serving_quantity",
             "serving_unit",
             "serving_label",
+            "portion_options",
             "provenance",
             "confidence_score",
             "nutrients",
@@ -79,6 +82,13 @@ class FoodItemVersionSerializer(serializers.ModelSerializer):
             for key, metadata in NUTRIENT_METADATA.items()
             if (value := getattr(instance, key)) is not None
         ]
+
+    def get_portion_options(self, instance):
+        return portion_options_for_serving(
+            quantity=instance.serving_quantity,
+            unit=instance.serving_unit,
+            label=instance.serving_label,
+        )
 
 
 class NutrientValuesInputSerializer(serializers.Serializer):

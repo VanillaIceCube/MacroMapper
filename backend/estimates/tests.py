@@ -437,6 +437,39 @@ class MealProposalApiTests(TestCase):
         self.assertEqual(proposal.status, MealProposal.Status.DRAFT)
         self.assertFalse(MealEntry.objects.exists())
 
+    def test_proposal_edits_cannot_inject_untrusted_portion_options(self):
+        provider = Mock()
+        provider.estimate.return_value = ai_estimate()
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
+            created = self.client.post(
+                "/api/meal-proposals/",
+                {
+                    "description": "A burger with portion choices",
+                    "entry_date": "2026-08-16",
+                },
+                format="json",
+            )
+
+        item = deepcopy(created.data["items"][0])
+        item["portion_options"].append(
+            {
+                "key": "triple",
+                "label": "Untrusted triple portion",
+                "unit_label": "triple",
+                "serving_multiplier": "3",
+            }
+        )
+        item["selected_portion_key"] = "triple"
+
+        response = self.client.patch(
+            f"/api/meal-proposals/{created.data['id']}/",
+            {"items": [item]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("could not be validated", str(response.data))
+
     def test_provider_failure_returns_safe_service_unavailable(self):
         provider = Mock()
         provider.estimate.side_effect = EstimationProviderError("Provider unavailable.")
@@ -487,6 +520,10 @@ class OpenAIProviderTests(TestCase):
             items=[
                 EstimatedFood(
                     name="Toast",
+                    serving_quantity=40,
+                    serving_unit="g",
+                    serving_label="40 g slice",
+                    serving_weight_grams=40,
                     confidence_score=Decimal("0.7"),
                     nutrients=EstimatedNutrients(calories=Decimal("80")),
                     sources=[
@@ -516,7 +553,18 @@ class OpenAIProviderTests(TestCase):
         self.assertEqual(
             result["items"][0]["sources"][0]["url"], "https://example.com/label"
         )
+        self.assertEqual(
+            result["items"][0]["portion_options"][0]["unit_label"], "serving"
+        )
+        self.assertEqual(result["items"][0]["portion_options"][1]["key"], "g")
+        self.assertEqual(result["items"][0]["selected_portion_key"], "base")
 
     def test_prompt_forbids_medical_advice(self):
         self.assertIn("Do not provide dietary", SYSTEM_PROMPT)
         self.assertIn("medical", SYSTEM_PROMPT)
+
+    def test_prompt_anchors_grams_to_a_concise_stable_serving(self):
+        self.assertIn("stable serving_quantity", SYSTEM_PROMPT)
+        self.assertIn('"1 burger"', SYSTEM_PROMPT)
+        self.assertIn("serving_weight_grams", SYSTEM_PROMPT)
+        self.assertIn("deterministic Grams option", SYSTEM_PROMPT)

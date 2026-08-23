@@ -186,6 +186,7 @@ describe('MealEstimateDialog', () => {
     ).toHaveAttribute('href', 'https://example.com/nutrition');
 
     const quantity = within(reviewDialog).getByRole('spinbutton', { name: 'Amount' });
+    expect(within(reviewDialog).getByText('2 × one patty')).toBeVisible();
     await user.clear(quantity);
     await user.type(quantity, '1');
     expect(
@@ -298,6 +299,100 @@ describe('MealEstimateDialog', () => {
                 nutrients: expect.objectContaining({ calories: '150' }),
               }),
             ],
+          }),
+        ],
+      }),
+      'access-token',
+    );
+  });
+
+  test('switches portion units without changing nutrition and converts edits to base servings', async () => {
+    const user = userEvent.setup();
+    const gramComponent = {
+      ...component,
+      serving_quantity: '150',
+      serving_unit: 'g',
+      serving_label: '150 g patty',
+      portion_options: [
+        {
+          key: 'base',
+          label: '150 g patty',
+          unit_label: 'serving',
+          serving_multiplier: '1',
+        },
+        {
+          key: 'g',
+          label: 'Grams',
+          unit_label: 'g',
+          serving_multiplier: String(1 / 150),
+        },
+        {
+          key: 'large',
+          label: 'Large plate',
+          unit_label: 'large plate',
+          serving_multiplier: '1.5',
+        },
+      ],
+      selected_portion_key: 'base',
+    };
+    createMealProposal.mockResolvedValue(
+      response({
+        ...proposal,
+        items: [
+          {
+            ...proposal.items[0],
+            components: [gramComponent],
+          },
+        ],
+      }),
+    );
+    renderWithProviders(
+      <MealEstimateDialog
+        date="2026-08-16"
+        open
+        token="access-token"
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+    );
+
+    await user.type(
+      screen.getByRole('textbox', { name: 'Describe what you ate' }),
+      'Double burger',
+    );
+    await user.click(screen.getByRole('button', { name: 'Create estimate' }));
+    const reviewDialog = await screen.findByRole('dialog', { name: 'Review meal estimate' });
+    await user.click(
+      within(reviewDialog).getByRole('button', { name: 'Expand components for Double burger' }),
+    );
+
+    const amount = within(reviewDialog).getByRole('spinbutton', { name: 'Amount' });
+    const unitSelector = within(reviewDialog)
+      .getAllByRole('combobox', { name: 'Unit / portion' })
+      .find((element) => element.getAttribute('aria-disabled') !== 'true');
+    expect(amount).toHaveValue(2);
+    expect(within(reviewDialog).getByText('2 × 150 g patty')).toBeVisible();
+    await user.click(unitSelector);
+    await user.click(await screen.findByRole('option', { name: 'Grams' }));
+
+    expect(amount).toHaveValue(300);
+    expect(within(reviewDialog).getByText('300 g · 2 × 150 g patty')).toBeVisible();
+    expect(
+      within(reviewDialog).getByRole('region', { name: 'Meal macro breakdown' }),
+    ).toHaveTextContent(/400\s*kcal/);
+    await user.clear(amount);
+    await user.type(amount, '450');
+
+    expect(
+      within(reviewDialog).getByRole('region', { name: 'Meal macro breakdown' }),
+    ).toHaveTextContent(/600\s*kcal/);
+    await user.click(within(reviewDialog).getByRole('button', { name: 'Save to diary' }));
+    expect(updateMealProposal).toHaveBeenCalledWith(
+      25,
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            components: [expect.objectContaining({ servings: '3', selected_portion_key: 'g' })],
           }),
         ],
       }),
