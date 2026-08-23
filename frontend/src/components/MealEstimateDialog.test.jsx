@@ -138,7 +138,9 @@ describe('MealEstimateDialog', () => {
         name: 'Macro calorie split: protein 100%, carbs 0%, fat 0%',
       }),
     ).toBeVisible();
-    expect(within(reviewDialog).getByLabelText('Burger patty 400 kcal')).toBeVisible();
+    expect(within(reviewDialog).getByText('24 g (100%)')).toBeVisible();
+    expect(within(reviewDialog).getAllByText('0 g (0%)')).toHaveLength(2);
+    expect(within(reviewDialog).getByLabelText('Burger patty 400 kcal (100%)')).toBeVisible();
     expect(macroBreakdown).toHaveTextContent(/24\s*g/);
 
     await user.click(
@@ -191,7 +193,7 @@ describe('MealEstimateDialog', () => {
     expect(
       within(reviewDialog).getByRole('region', { name: 'Meal macro breakdown' }),
     ).toHaveTextContent(/200\s*kcal/);
-    expect(within(reviewDialog).getByLabelText('Burger patty 200 kcal')).toBeVisible();
+    expect(within(reviewDialog).getByLabelText('Burger patty 200 kcal (100%)')).toBeVisible();
     await user.click(within(reviewDialog).getByRole('button', { name: 'remove Burger patty' }));
     expect(within(reviewDialog).queryByText('Burger patty')).not.toBeInTheDocument();
 
@@ -266,10 +268,12 @@ describe('MealEstimateDialog', () => {
 
     const reviewDialog = await screen.findByRole('dialog', { name: 'Review meal estimate' });
     const componentChart = within(reviewDialog).getByLabelText('Component calorie chart');
-    expect(within(componentChart).getByLabelText('Double burger 400 kcal')).toBeVisible();
-    expect(within(componentChart).getByLabelText('Plain kefir yogurt 104 kcal')).toBeVisible();
+    expect(within(componentChart).getByLabelText('Double burger 400 kcal (79%)')).toBeVisible();
     expect(
-      within(componentChart).queryByLabelText('Burger patty 400 kcal'),
+      within(componentChart).getByLabelText('Plain kefir yogurt 104 kcal (21%)'),
+    ).toBeVisible();
+    expect(
+      within(componentChart).queryByLabelText('Burger patty 400 kcal (79%)'),
     ).not.toBeInTheDocument();
   });
 });

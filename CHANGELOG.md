@@ -13,6 +13,8 @@ All notable changes to this project are documented in this file.
 - Expanded meal-estimate review with a meal-level calorie summary, macro chart,
   and per-component protein, carbohydrate, and fat values that recalculate as
   servings and ingredients change.
+- Added grams and calorie-share percentages to the meal summary chart legends
+  so macro and component contributions can be compared at a glance.
 
 ## 2026-08-16
 

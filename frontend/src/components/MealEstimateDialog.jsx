@@ -269,17 +269,17 @@ function MacroCalorieChart({ values }) {
         </Box>
         <Stack spacing={0.5} sx={{ minWidth: 0, flex: 1 }}>
           {[
-            ['Protein', percentages.protein, 'var(--atlas-forest)'],
-            ['Carbs', percentages.carbohydrates, 'var(--atlas-mineral)'],
-            ['Fat', percentages.fat, 'var(--atlas-persimmon)'],
-          ].map(([label, percentage, color]) => (
+            ['Protein', values.protein, percentages.protein, 'var(--atlas-forest)'],
+            ['Carbs', values.carbohydrates, percentages.carbohydrates, 'var(--atlas-mineral)'],
+            ['Fat', values.fat, percentages.fat, 'var(--atlas-persimmon)'],
+          ].map(([label, grams, percentage, color]) => (
             <Stack key={label} direction="row" alignItems="center" spacing={0.75}>
               <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color }} />
               <Typography variant="caption" sx={{ flex: 1 }}>
                 {label}
               </Typography>
-              <Typography variant="caption" sx={{ fontWeight: 800 }}>
-                {percentage}%
+              <Typography variant="caption" sx={{ fontWeight: 800, whiteSpace: 'nowrap' }}>
+                {formatAmount(grams)} g ({percentage}%)
               </Typography>
             </Stack>
           ))}
@@ -302,8 +302,12 @@ function ComponentCalorieChart({ items }) {
         <Stack spacing={0.6} aria-label="Component calorie chart">
           {contributions.map((item) => {
             const percentage = total ? (item.calories / total) * 100 : 0;
+            const roundedPercentage = Math.round(percentage);
             return (
-              <Box key={item.key} aria-label={`${item.name} ${formatAmount(item.calories)} kcal`}>
+              <Box
+                key={item.key}
+                aria-label={`${item.name} ${formatAmount(item.calories)} kcal (${roundedPercentage}%)`}
+              >
                 <Stack direction="row" spacing={0.75} alignItems="center">
                   <Typography variant="caption" noWrap title={item.name} sx={{ width: 112 }}>
                     {item.name}
@@ -326,8 +330,11 @@ function ComponentCalorieChart({ items }) {
                       }}
                     />
                   </Box>
-                  <Typography variant="caption" sx={{ width: 58, textAlign: 'right' }}>
-                    {formatAmount(item.calories)} kcal
+                  <Typography
+                    variant="caption"
+                    sx={{ width: 92, textAlign: 'right', whiteSpace: 'nowrap' }}
+                  >
+                    {formatAmount(item.calories)} kcal ({roundedPercentage}%)
                   </Typography>
                 </Stack>
               </Box>
