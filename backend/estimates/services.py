@@ -984,6 +984,10 @@ def _published_provider_item(item, *, depth=0):
     key = item.get("key")
     if not isinstance(key, str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,160}", key):
         raise _catalog_publication_error()
+    safe_sources = [_published_source(source) for source in sources]
+    source_urls = [source["url"] for source in safe_sources]
+    if len(source_urls) != len(set(source_urls)):
+        raise _catalog_publication_error()
 
     return {
         "key": key,
@@ -1020,7 +1024,7 @@ def _published_provider_item(item, *, depth=0):
         "provenance": provenance,
         "confidence_score": confidence,
         "nutrients": safe_nutrients,
-        "sources": [_published_source(source) for source in sources],
+        "sources": safe_sources,
         "components": [
             _published_provider_item(component, depth=depth + 1)
             for component in components
@@ -1137,11 +1141,18 @@ def _materialize_shared_item(*, item, estimate):
                 created_by=None,
                 shared_fingerprint=fingerprint,
             )
-    except IntegrityError:
-        food = FoodItem.objects.select_related("current_version").get(
-            scope=FoodItem.Scope.SHARED,
-            shared_fingerprint=fingerprint,
+    except IntegrityError as error:
+        food = (
+            FoodItem.objects.filter(
+                scope=FoodItem.Scope.SHARED,
+                shared_fingerprint=fingerprint,
+                current_version__isnull=False,
+            )
+            .select_related("current_version")
+            .first()
         )
+        if food is None:
+            raise _catalog_publication_error() from error
     return food, food.current_version
 
 
