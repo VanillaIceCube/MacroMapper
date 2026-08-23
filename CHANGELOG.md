@@ -42,6 +42,8 @@ All notable changes to this project are documented in this file.
   Luna for substantially lower per-request cost.
 - Defaulted nested meal components to grams for solids and fluid ounces for
   liquids while preserving natural portions for top-level foods.
+- Replaced the original contour-map app mark with the selected compass-and-fork
+  artwork across navigation, authentication, and installable app surfaces.
 - Expanded meal-estimate review with a meal-level calorie summary, macro chart,
   and per-component protein, carbohydrate, and fat values that recalculate as
   servings and ingredients change.
