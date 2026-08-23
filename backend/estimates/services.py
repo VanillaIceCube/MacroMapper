@@ -890,7 +890,7 @@ def _published_source(source):
     url = source.get("url")
     if (
         not isinstance(url, str)
-        or len(url) > 2048
+        or len(url) > 500
         or any(character.isspace() or ord(character) < 32 for character in url)
     ):
         raise _catalog_publication_error()

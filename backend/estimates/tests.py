@@ -759,6 +759,25 @@ class MealProposalApiTests(TestCase):
         self.assertFalse(FoodItem.objects.exists())
         self.assertFalse(MealProposal.objects.exists())
 
+    def test_overlong_provider_source_url_is_rejected_before_publication(self):
+        provider = Mock()
+        provider.estimate.return_value = simple_ai_estimate(name="Apple", calories="95")
+        url_prefix = "https://example.com/"
+        provider.estimate.return_value["items"][0]["sources"][0]["url"] = url_prefix + (
+            "a" * (501 - len(url_prefix))
+        )
+
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
+            response = self.client.post(
+                "/api/meal-proposals/",
+                {"description": "A single apple", "entry_date": "2026-08-16"},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertFalse(FoodItem.objects.exists())
+        self.assertFalse(MealProposal.objects.exists())
+
     def test_catalog_proposal_keys_include_the_full_component_path(self):
         leaf = shared_food(name="Shared garnish")
         reused = shared_food(
