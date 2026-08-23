@@ -5,6 +5,7 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import SearchIcon from '@mui/icons-material/Search';
 import {
   Alert,
@@ -24,6 +25,7 @@ import {
   List,
   ListItem,
   ListItemText,
+  Menu,
   MenuItem,
   Paper,
   Stack,
@@ -241,12 +243,10 @@ function summarizedContributions(items) {
 }
 
 function macroCalorieSegments(item) {
-  const segments = MACRO_CALORIE_FIELDS.filter((field) => item[field.key] != null).map(
-    (field) => ({
-      ...field,
-      calories: Math.max(Number(item[field.key]) || 0, 0) * field.caloriesPerGram,
-    }),
-  );
+  const segments = MACRO_CALORIE_FIELDS.filter((field) => item[field.key] != null).map((field) => ({
+    ...field,
+    calories: Math.max(Number(item[field.key]) || 0, 0) * field.caloriesPerGram,
+  }));
   const total = segments.reduce((sum, segment) => sum + segment.calories, 0);
   return total
     ? segments.map((segment) => ({
@@ -269,6 +269,7 @@ function NutritionCards({
       aria-label={ariaLabel}
       sx={{
         display: 'grid',
+        width: '100%',
         gridTemplateColumns: {
           xs: 'repeat(2, minmax(0, 1fr))',
           sm: 'repeat(4, minmax(0, 1fr))',
@@ -278,77 +279,81 @@ function NutritionCards({
     >
       {NUTRIENT_FIELDS.map(({ key, label, unit, note, color }) => {
         const isEditable =
-          onNutrientChange &&
-          (!editableNutrientKeys || editableNutrientKeys.includes(key));
+          onNutrientChange && (!editableNutrientKeys || editableNutrientKeys.includes(key));
         return (
           <Paper
             key={key}
             elevation={0}
             sx={{
               minWidth: 0,
+              minHeight: compact ? 58 : undefined,
+              height: '100%',
               p: compact ? 0.75 : 1,
               border: '1px solid var(--atlas-border)',
               borderTop: `${compact ? 2 : 3}px solid ${color}`,
               bgcolor: 'var(--atlas-paper)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
             }}
           >
-          <Typography
-            variant={compact ? 'caption' : 'overline'}
-            sx={{
-              color: 'var(--atlas-ink-muted)',
-              lineHeight: 1.1,
-              fontWeight: 700,
-            }}
-          >
-            {label}
-          </Typography>
-          {isEditable ? (
-            <TextField
-              type="number"
-              variant="standard"
-              size="small"
-              fullWidth
-              value={values[key] ?? ''}
-              onChange={(event) => onNutrientChange(key, event.target.value)}
-              inputProps={{
-                min: 0,
-                step: 'any',
-                'aria-label': `${label} for ${itemName}`,
-              }}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <Typography variant="caption">{unit}</Typography>
-                  </InputAdornment>
-                ),
-              }}
-              sx={{
-                '& .MuiInputBase-input': {
-                  py: 0.25,
-                  fontSize: '1rem',
-                  fontWeight: 700,
-                  lineHeight: 1.15,
-                },
-              }}
-            />
-          ) : (
-            <Stack direction="row" spacing={0.4} alignItems="baseline">
-              <Typography variant={compact ? 'subtitle1' : 'h6'} sx={{ lineHeight: 1.15 }}>
-                {formatAmount(values[key])}
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'var(--atlas-ink-muted)' }}>
-                {unit}
-              </Typography>
-            </Stack>
-          )}
-          {!compact && (
             <Typography
-              variant="caption"
-              sx={{ color: 'var(--atlas-ink-muted)', display: 'block', mt: 0.15 }}
+              variant={compact ? 'caption' : 'overline'}
+              sx={{
+                color: 'var(--atlas-ink-muted)',
+                lineHeight: 1.1,
+                fontWeight: 700,
+              }}
             >
-              {note}
+              {label}
             </Typography>
-          )}
+            {isEditable ? (
+              <TextField
+                type="number"
+                variant="standard"
+                size="small"
+                fullWidth
+                value={values[key] ?? ''}
+                onChange={(event) => onNutrientChange(key, event.target.value)}
+                inputProps={{
+                  min: 0,
+                  step: 'any',
+                  'aria-label': `${label} for ${itemName}`,
+                }}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Typography variant="caption">{unit}</Typography>
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  '& .MuiInputBase-input': {
+                    py: 0.25,
+                    fontSize: '1rem',
+                    fontWeight: 700,
+                    lineHeight: 1.15,
+                  },
+                }}
+              />
+            ) : (
+              <Stack direction="row" spacing={0.4} alignItems="baseline" sx={{ minWidth: 0 }}>
+                <Typography variant={compact ? 'subtitle1' : 'h6'} noWrap sx={{ lineHeight: 1.15 }}>
+                  {formatAmount(values[key])}
+                </Typography>
+                <Typography variant="caption" noWrap sx={{ color: 'var(--atlas-ink-muted)' }}>
+                  {unit}
+                </Typography>
+              </Stack>
+            )}
+            {!compact && (
+              <Typography
+                variant="caption"
+                sx={{ color: 'var(--atlas-ink-muted)', display: 'block', mt: 0.15 }}
+              >
+                {note}
+              </Typography>
+            )}
           </Paper>
         );
       })}
@@ -641,6 +646,7 @@ function ProposalFood({
   const [componentsOpen, setComponentsOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [nutritionEditing, setNutritionEditing] = useState(false);
+  const [actionsAnchorEl, setActionsAnchorEl] = useState(null);
   const source = sourceLabels[item.source_kind] || sourceLabels.ai_estimate;
   const isComponent = depth > 0;
   const options = displayedPortionOptions(item);
@@ -653,12 +659,6 @@ function ProposalFood({
       : item.source_kind === 'official_verified'
         ? 'var(--atlas-forest)'
         : 'var(--atlas-mineral)';
-  const headerBackground =
-    item.source_kind === 'ai_estimate'
-      ? 'var(--atlas-persimmon-soft)'
-      : item.source_kind === 'official_verified'
-        ? 'var(--atlas-forest-soft)'
-        : 'var(--atlas-mineral-soft)';
   return (
     <Paper
       elevation={0}
@@ -673,197 +673,213 @@ function ProposalFood({
         overflow: 'hidden',
       }}
     >
-      <Box
-        sx={{
-          px: 1,
-          py: 0.55,
-          bgcolor: headerBackground,
-          borderBottom: '1px solid var(--atlas-border)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 0.75,
-        }}
-      >
-        <Typography
-          variant={depth ? 'subtitle1' : 'h6'}
-          sx={{
-            minWidth: 0,
-            color: 'var(--atlas-ink)',
-            fontWeight: 850,
-            fontSize: depth ? '0.98rem' : { xs: '1.02rem', sm: '1.1rem' },
-            lineHeight: 1.25,
-          }}
-        >
-          {item.name}
-        </Typography>
-        <Stack direction="row" spacing={0} alignItems="center" sx={{ flexShrink: 0 }}>
-          {!!item.components?.length && (
-            <Button
-              size="small"
-              color="inherit"
-              endIcon={componentsOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-              aria-label={`${componentsOpen ? 'Collapse' : 'Expand'} components for ${item.name}`}
-              aria-expanded={componentsOpen}
-              onClick={() => setComponentsOpen((current) => !current)}
-              sx={{
-                mr: 0.25,
-                color: 'var(--atlas-ink-muted)',
-                fontWeight: 700,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {componentsOpen ? 'Hide' : 'Show'} components ({item.components.length})
-            </Button>
-          )}
-          {hasDetails && (
-            <IconButton
-              size="small"
-              aria-label={`${detailsOpen ? 'Hide' : 'Show'} estimate details for ${item.name}`}
-              aria-expanded={detailsOpen}
-              onClick={() => setDetailsOpen((current) => !current)}
-              sx={{ p: 0.45 }}
-            >
-              <InfoOutlinedIcon fontSize="small" />
-            </IconButton>
-          )}
-          <IconButton
-            size="small"
-            aria-label={`${nutritionEditing ? 'Finish editing' : 'Edit'} nutrition for ${item.name}`}
-            aria-pressed={nutritionEditing}
-            onClick={() => setNutritionEditing((current) => !current)}
-            color={nutritionEditing ? 'primary' : 'default'}
-            sx={{ p: 0.45 }}
-          >
-            <EditOutlinedIcon fontSize="small" />
-          </IconButton>
-          <IconButton
-            size="small"
-            aria-label={`remove ${item.name}`}
-            onClick={() => onRemove(item.key)}
-            sx={{ p: 0.45 }}
-          >
-            <DeleteOutlineIcon fontSize="small" />
-          </IconButton>
-        </Stack>
-      </Box>
-      <Box sx={{ p: isComponent ? 0.75 : 1 }}>
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: {
-            xs: 'minmax(0, 1fr)',
-            md: 'minmax(360px, 1fr) auto',
-          },
-          gridTemplateAreas: {
-            xs: '"nutrition" "controls"',
-            md: '"nutrition controls"',
-          },
-          columnGap: 0.75,
-          rowGap: 0.75,
-          alignItems: 'center',
-        }}
-      >
-        <Box sx={{ minWidth: 0, gridArea: 'nutrition' }}>
-          <ItemNutritionCards
-            item={item}
-            compact
-            onNutrientChange={
-              nutritionEditing
-                ? (nutrient, value) => onNutrientChange(item.key, nutrient, value)
-                : undefined
-            }
-          />
-        </Box>
+      <Box sx={{ p: 0.6 }}>
         <Box
           sx={{
-            gridArea: 'controls',
             display: 'grid',
-            width: '100%',
             gridTemplateColumns: {
-              xs: '96px minmax(0, 1fr)',
-              sm: '96px 220px',
+              xs: 'minmax(0, 1fr) auto',
+              sm: 'minmax(110px, 0.65fr) minmax(280px, 1.7fr) 80px',
+              md: '150px minmax(270px, 1fr) auto 80px',
             },
-            gridTemplateAreas: '"quantity portion"',
-            alignItems: 'center',
-            justifyContent: { sm: 'end' },
+            gridTemplateAreas: {
+              xs: '"identity actions" "nutrition nutrition" "controls controls"',
+              sm: '"identity nutrition actions" "controls controls controls"',
+              md: '"identity nutrition controls actions"',
+            },
             columnGap: 0.75,
+            rowGap: 0.5,
+            alignItems: 'center',
           }}
         >
-          <TextField
-            label={isComponent ? 'Amount' : 'Quantity'}
-            type="number"
-            size="small"
-            value={servingAmountValue(item)}
-            onChange={(event) => onServings(item.key, event.target.value, item)}
-            inputProps={{ min: 0, step: 1 }}
-            sx={{ gridArea: 'quantity', minWidth: 0, width: '100%' }}
-          />
-          <TextField
-            select
-            label="Unit / portion"
-            size="small"
-            value={activePortion.key}
-            onChange={(event) => onPortionChange(item.key, event.target.value)}
-            disabled={options.length < 2}
-            sx={{ gridArea: 'portion', minWidth: 0, width: '100%' }}
+          <Box sx={{ gridArea: 'identity', minWidth: 0, pl: 0.25 }}>
+            <Typography
+              variant="body2"
+              title={item.name}
+              sx={{
+                color: 'var(--atlas-ink)',
+                fontSize: '0.84rem',
+                fontWeight: 800,
+                lineHeight: 1.15,
+                overflowWrap: 'anywhere',
+              }}
+            >
+              {item.name}
+            </Typography>
+          </Box>
+          <Box sx={{ minWidth: 0, gridArea: 'nutrition' }}>
+            <ItemNutritionCards
+              item={item}
+              compact
+              onNutrientChange={
+                nutritionEditing
+                  ? (nutrient, value) => onNutrientChange(item.key, nutrient, value)
+                  : undefined
+              }
+            />
+          </Box>
+          <Box
+            sx={{
+              gridArea: 'controls',
+              display: 'grid',
+              width: '100%',
+              gridTemplateColumns: {
+                xs: '72px minmax(0, 1fr)',
+                sm: '72px 112px',
+              },
+              gridTemplateAreas: '"quantity portion"',
+              alignItems: 'center',
+              justifyContent: { sm: 'end' },
+              columnGap: 0.75,
+            }}
           >
-            {options.map((option) => (
-              <MenuItem key={option.key} value={option.key}>
-                {portionOptionLabel(option)}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Box>
-      </Box>
-      {hasDetails && (
-        <Collapse in={detailsOpen} unmountOnExit>
-          <Paper elevation={0} sx={{ mt: 0.5, p: 0.75, border: '1px solid var(--atlas-border)' }}>
-            <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 0.25 }}>
-              <Chip size="small" label={source.label} color={source.color} variant="outlined" />
-              {item.confidence_score != null && (
-                <Chip
-                  size="small"
-                  label={`${Math.round(Number(item.confidence_score) * 100)}% confidence`}
-                  variant="outlined"
-                />
-              )}
-              {item.provider_name && (
-                <Chip size="small" label={item.provider_name} variant="outlined" />
-              )}
-            </Stack>
-            {!!item.sources?.length && (
-              <Stack component="ul" spacing={0.25} sx={{ my: 0.5, pl: 2.25 }}>
-                {item.sources.map((entry) => (
-                  <Typography component="li" variant="caption" key={entry.url}>
-                    <Link href={entry.url} target="_blank" rel="noopener noreferrer">
-                      {entry.title}
-                    </Link>
-                    {entry.is_official ? ' · official source' : ''}
-                  </Typography>
-                ))}
-              </Stack>
+            <TextField
+              label="Count"
+              type="number"
+              size="small"
+              value={servingAmountValue(item)}
+              onChange={(event) => onServings(item.key, event.target.value, item)}
+              inputProps={{ min: 0, step: 1 }}
+              sx={{ gridArea: 'quantity', minWidth: 0, width: '100%' }}
+            />
+            <TextField
+              select
+              label="Unit"
+              size="small"
+              value={activePortion.key}
+              onChange={(event) => onPortionChange(item.key, event.target.value)}
+              disabled={options.length < 2}
+              sx={{ gridArea: 'portion', minWidth: 0, width: '100%' }}
+            >
+              {options.map((option) => (
+                <MenuItem key={option.key} value={option.key}>
+                  {portionOptionLabel(option)}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Box>
+          <Stack
+            direction="row"
+            spacing={0}
+            alignItems="center"
+            justifyContent="flex-end"
+            sx={{ gridArea: 'actions', flexShrink: 0 }}
+          >
+            {!!item.components?.length && (
+              <Button
+                size="small"
+                color="inherit"
+                endIcon={componentsOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                aria-label={`${componentsOpen ? 'Collapse' : 'Expand'} components for ${item.name}`}
+                aria-expanded={componentsOpen}
+                onClick={() => setComponentsOpen((current) => !current)}
+                title={`${componentsOpen ? 'Hide' : 'Show'} components`}
+                sx={{ minWidth: 0, px: 0.5, color: 'var(--atlas-ink-muted)', fontWeight: 800 }}
+              >
+                {item.components.length}
+              </Button>
             )}
-          </Paper>
-        </Collapse>
-      )}
-      {!!item.components?.length && (
-        <Collapse in={componentsOpen} unmountOnExit>
-          <Stack spacing={0.75} sx={{ mt: 0.85 }}>
-            {item.components.map((component) => (
-              <ProposalFood
-                key={component.key}
-                item={component}
-                depth={depth + 1}
-                onServings={onServings}
-                onPortionChange={onPortionChange}
-                onNutrientChange={onNutrientChange}
-                onRemove={onRemove}
-              />
-            ))}
+            <IconButton
+              size="small"
+              aria-label={`More actions for ${item.name}`}
+              aria-haspopup="menu"
+              aria-expanded={Boolean(actionsAnchorEl)}
+              onClick={(event) => setActionsAnchorEl(event.currentTarget)}
+              sx={{ p: 0.45 }}
+            >
+              <MoreVertIcon fontSize="small" />
+            </IconButton>
+            <Menu
+              anchorEl={actionsAnchorEl}
+              open={Boolean(actionsAnchorEl)}
+              onClose={() => setActionsAnchorEl(null)}
+              MenuListProps={{ 'aria-label': `Actions for ${item.name}` }}
+            >
+              {hasDetails && (
+                <MenuItem
+                  aria-label={`${detailsOpen ? 'Hide' : 'Show'} estimate details for ${item.name}`}
+                  onClick={() => {
+                    setDetailsOpen((current) => !current);
+                    setActionsAnchorEl(null);
+                  }}
+                >
+                  <InfoOutlinedIcon fontSize="small" sx={{ mr: 1.25 }} />
+                  {detailsOpen ? 'Hide details' : 'Estimate details'}
+                </MenuItem>
+              )}
+              <MenuItem
+                aria-label={`${nutritionEditing ? 'Finish editing' : 'Edit'} nutrition for ${item.name}`}
+                selected={nutritionEditing}
+                onClick={() => {
+                  setNutritionEditing((current) => !current);
+                  setActionsAnchorEl(null);
+                }}
+              >
+                <EditOutlinedIcon fontSize="small" sx={{ mr: 1.25 }} />
+                {nutritionEditing ? 'Finish editing' : 'Edit nutrition'}
+              </MenuItem>
+              <MenuItem
+                aria-label={`remove ${item.name}`}
+                onClick={() => {
+                  setActionsAnchorEl(null);
+                  onRemove(item.key);
+                }}
+                sx={{ color: 'error.main' }}
+              >
+                <DeleteOutlineIcon fontSize="small" sx={{ mr: 1.25 }} />
+                Remove
+              </MenuItem>
+            </Menu>
           </Stack>
-        </Collapse>
-      )}
+        </Box>
+        {hasDetails && (
+          <Collapse in={detailsOpen} unmountOnExit>
+            <Paper elevation={0} sx={{ mt: 0.5, p: 0.75, border: '1px solid var(--atlas-border)' }}>
+              <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 0.25 }}>
+                <Chip size="small" label={source.label} color={source.color} variant="outlined" />
+                {item.confidence_score != null && (
+                  <Chip
+                    size="small"
+                    label={`${Math.round(Number(item.confidence_score) * 100)}% confidence`}
+                    variant="outlined"
+                  />
+                )}
+                {item.provider_name && (
+                  <Chip size="small" label={item.provider_name} variant="outlined" />
+                )}
+              </Stack>
+              {!!item.sources?.length && (
+                <Stack component="ul" spacing={0.25} sx={{ my: 0.5, pl: 2.25 }}>
+                  {item.sources.map((entry) => (
+                    <Typography component="li" variant="caption" key={entry.url}>
+                      <Link href={entry.url} target="_blank" rel="noopener noreferrer">
+                        {entry.title}
+                      </Link>
+                      {entry.is_official ? ' · official source' : ''}
+                    </Typography>
+                  ))}
+                </Stack>
+              )}
+            </Paper>
+          </Collapse>
+        )}
+        {!!item.components?.length && (
+          <Collapse in={componentsOpen} unmountOnExit>
+            <Stack spacing={0.75} sx={{ mt: 0.85 }}>
+              {item.components.map((component) => (
+                <ProposalFood
+                  key={component.key}
+                  item={component}
+                  depth={depth + 1}
+                  onServings={onServings}
+                  onPortionChange={onPortionChange}
+                  onNutrientChange={onNutrientChange}
+                  onRemove={onRemove}
+                />
+              ))}
+            </Stack>
+          </Collapse>
+        )}
       </Box>
     </Paper>
   );
