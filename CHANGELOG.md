@@ -16,6 +16,8 @@ All notable changes to this project are documented in this file.
   to their storage precision when saving an estimate to the diary.
 - Rejected non-finite proposal numbers and replaced raw backend exception text
   with stable user-safe API errors.
+- Generated nested catalog proposal keys from their full tree positions so
+  reused composites remain uniquely editable.
 - Removed the invalid root-level Docker Dependabot scan and documented that
   Docker dependency checks run from the backend and frontend directories.
 

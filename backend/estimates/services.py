@@ -77,9 +77,10 @@ def _sources(version):
 
 def _catalog_food(version, *, servings="1", key=None):
     food = version.food_item
+    item_key = key or f"catalog-{food.pk}"
     nutrients = _effective_nutrients(version)
     return {
-        "key": key or f"catalog-{food.pk}",
+        "key": item_key,
         "food_item_id": food.pk,
         "food_version_id": version.pk,
         "name": food.name,
@@ -105,7 +106,7 @@ def _catalog_food(version, *, servings="1", key=None):
             _catalog_food(
                 component.child_version,
                 servings=component.servings,
-                key=f"catalog-{food.pk}.{index}",
+                key=f"{item_key}.{index}",
             )
             for index, component in enumerate(version.components.all())
         ],

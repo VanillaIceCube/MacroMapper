@@ -165,6 +165,52 @@ class MealProposalApiTests(TestCase):
             "https://example.com/double-double",
         )
 
+    def test_catalog_proposal_keys_include_the_full_component_path(self):
+        leaf = shared_food(name="Shared garnish")
+        reused = shared_food(
+            name="Reused filling",
+            components=[{"food_item": leaf, "servings": Decimal("1"), "order": 0}],
+        )
+        left = shared_food(
+            name="Left layer",
+            components=[{"food_item": reused, "servings": Decimal("1"), "order": 0}],
+        )
+        right = shared_food(
+            name="Right layer",
+            components=[{"food_item": reused, "servings": Decimal("1"), "order": 0}],
+        )
+        shared_food(
+            name="Layered plate",
+            components=[
+                {"food_item": left, "servings": Decimal("1"), "order": 0},
+                {"food_item": right, "servings": Decimal("1"), "order": 1},
+            ],
+        )
+
+        created = self.client.post(
+            "/api/meal-proposals/",
+            {"description": "Layered plate", "entry_date": "2026-08-16"},
+            format="json",
+        )
+
+        self.assertEqual(created.status_code, 201)
+
+        def collect_keys(items):
+            return [
+                key
+                for item in items
+                for key in [item["key"], *collect_keys(item.get("components", []))]
+            ]
+
+        keys = collect_keys(created.data["items"])
+        self.assertEqual(len(keys), len(set(keys)))
+        updated = self.client.patch(
+            f"/api/meal-proposals/{created.data['id']}/",
+            {"items": created.data["items"]},
+            format="json",
+        )
+        self.assertEqual(updated.status_code, 200)
+
     def test_ai_proposal_can_be_edited_and_accepted_as_private_snapshot(self):
         provider = Mock()
         provider.estimate.return_value = ai_estimate()
