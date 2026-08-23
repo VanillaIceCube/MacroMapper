@@ -230,6 +230,48 @@ class MealProposalApiTests(TestCase):
         )
         self.assertEqual(edit_after_accept.status_code, 400)
 
+    def test_ai_proposal_rounds_provider_values_to_storage_precision(self):
+        estimate = ai_estimate()
+        item = estimate["items"][0]
+        component = item["components"][0]
+        item["servings"] = "1.23456"
+        item["serving_quantity"] = "1.23456"
+        item["confidence_score"] = "0.87654"
+        component["servings"] = "1.23456"
+        component["serving_quantity"] = "0.33333"
+        component["confidence_score"] = "0.65432"
+        component["nutrients"]["calories"] = "200.123456"
+        provider = Mock()
+        provider.estimate.return_value = estimate
+
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
+            created = self.client.post(
+                "/api/meal-proposals/",
+                {
+                    "description": "A precisely estimated restaurant burger",
+                    "entry_date": "2026-08-16",
+                },
+                format="json",
+            )
+
+        self.assertEqual(created.status_code, 201)
+        accepted = self.client.post(f"/api/meal-proposals/{created.data['id']}/accept/")
+
+        self.assertEqual(accepted.status_code, 201)
+        saved_item = MealEntry.objects.get(pk=accepted.data["id"]).items.get()
+        self.assertEqual(saved_item.servings, Decimal("1.2346"))
+        self.assertEqual(saved_item.food_version.serving_quantity, Decimal("1.235"))
+        self.assertEqual(saved_item.food_version.confidence_score, Decimal("0.877"))
+        saved_component = saved_item.food_version.components.get()
+        self.assertEqual(saved_component.servings, Decimal("1.2346"))
+        self.assertEqual(
+            saved_component.child_version.serving_quantity, Decimal("0.333")
+        )
+        self.assertEqual(
+            saved_component.child_version.confidence_score, Decimal("0.654")
+        )
+        self.assertEqual(saved_component.child_version.calories, Decimal("200.1235"))
+
     def test_proposals_are_owner_scoped(self):
         MealProposal.objects.create(
             owner=self.other_user,

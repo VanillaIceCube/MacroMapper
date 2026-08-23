@@ -7,6 +7,8 @@ All notable changes to this project are documented in this file.
 
 - Rolled composite meal nutrition up from component values even when a parent
   food version contains stale or zero direct nutrient columns.
+- Rounded GPT-estimated quantities, confidence scores, servings, and nutrients
+  to their storage precision when saving an estimate to the diary.
 
 ### Changed
 

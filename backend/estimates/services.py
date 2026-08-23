@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -45,6 +45,11 @@ def _decimal(value, *, default="0"):
         return Decimal(str(value))
     except (InvalidOperation, TypeError, ValueError):
         return Decimal(default)
+
+
+def _storage_decimal(value, *, decimal_places, default="0"):
+    quantum = Decimal("1").scaleb(-decimal_places)
+    return _decimal(value, default=default).quantize(quantum, rounding=ROUND_HALF_UP)
 
 
 def _source_kind(provenance):
@@ -286,16 +291,23 @@ def secure_review_items(*, proposal, owner, items):
 
 def _definition(item, components):
     nutrients = {
-        field: value
+        field: _storage_decimal(value, decimal_places=4)
         for field in NUTRIENT_FIELDS
         if (value := item.get("nutrients", {}).get(field)) is not None
     }
+    confidence = item.get("confidence_score")
     return {
-        "serving_quantity": item.get("serving_quantity") or "1",
+        "serving_quantity": _storage_decimal(
+            item.get("serving_quantity"), decimal_places=3, default="1"
+        ),
         "serving_unit": item.get("serving_unit") or "serving",
         "serving_label": item.get("serving_label") or "one serving",
         "provenance": item.get("provenance") or FoodItemVersion.Provenance.AI_ESTIMATE,
-        "confidence_score": item.get("confidence_score"),
+        "confidence_score": (
+            _storage_decimal(confidence, decimal_places=3)
+            if confidence is not None
+            else None
+        ),
         "nutrients": nutrients,
         "sources": [
             {
@@ -318,7 +330,11 @@ def _materialize_item(*, owner, item):
             {
                 "food_item": child_food,
                 "food_version": child_version,
-                "servings": component_item.get("servings") or "1",
+                "servings": _storage_decimal(
+                    component_item.get("servings"),
+                    decimal_places=4,
+                    default="1",
+                ),
                 "order": order,
             }
         )
@@ -372,7 +388,9 @@ def accept_proposal(*, proposal):
             {
                 "food_item": food,
                 "food_version": version.pk,
-                "servings": _decimal(item.get("servings"), default="1"),
+                "servings": _storage_decimal(
+                    item.get("servings"), decimal_places=4, default="1"
+                ),
                 "order": order,
             }
         )
