@@ -903,6 +903,7 @@ class MealProposalApiTests(TestCase):
 
         self.assertEqual(accepted.status_code, 201)
         proposal = MealProposal.objects.get(pk=proposal_id)
+        self.assertEqual(accepted.data["confidence_score"], "0.800")
         self.assertEqual(proposal.provider_name, "OpenAI")
         self.assertEqual(proposal.provider_model, "gpt-test")
         self.assertEqual(proposal.provider_response_id, "resp_test")

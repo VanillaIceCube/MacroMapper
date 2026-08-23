@@ -111,6 +111,14 @@ const macroCalorieFields = [
   { key: 'fat', label: 'fat', caloriesPerGram: 9, color: 'var(--fat-color)' },
 ];
 
+const provenanceLabels = {
+  official: 'Official',
+  community_estimate: 'Community',
+  ai_estimate: 'AI estimate',
+  user_modified_estimate: 'User adjusted',
+  user_entered: 'User entered',
+};
+
 const emptyPersonalFood = () => ({
   name: '',
   ...Object.fromEntries(launchNutrients.map((nutrient) => [nutrient.key, ''])),
@@ -129,6 +137,7 @@ const shiftDate = (date, days) => {
 };
 
 const formatAmount = (amount) => {
+  if (amount === null || amount === undefined || amount === '') return '—';
   const numeric = Number(amount);
   return Number.isFinite(numeric)
     ? numeric.toLocaleString(undefined, { maximumFractionDigits: 2 })
@@ -139,6 +148,8 @@ const formatWholeAmount = (amount) => {
   const numeric = Number(amount);
   return Number.isFinite(numeric) ? Math.round(numeric).toLocaleString() : '—';
 };
+
+const mealContextText = (notes) => notes.replace(/^Estimated from:\s*/i, '').trim() || notes;
 
 const diaryDateParts = (date) => {
   const value = new Date(`${date}T12:00:00`);
@@ -171,6 +182,11 @@ const mealNutrientText = (meal, nutrientKey) => {
   return amount === null ? '—' : formatAmount(amount);
 };
 
+const mealItemNutrientAmount = (item, nutrientKey) => {
+  const amount = Number(item.nutrients.find((value) => value.key === nutrientKey)?.amount);
+  return Number.isFinite(amount) ? amount : null;
+};
+
 const mealMacroSegments = (meal) => {
   const segments = macroCalorieFields.flatMap((field) => {
     const grams = mealNutrientAmount(meal, field.key);
@@ -185,14 +201,6 @@ const mealMacroSegments = (meal) => {
         percentage: (segment.calories / totalCalories) * 100,
       }))
     : [];
-};
-
-const mealItemSummary = (meal) => {
-  const visibleItems = meal.items.slice(0, 3).map(
-    (item) => `${formatAmount(item.servings)}× ${item.food_name}`,
-  );
-  const remaining = meal.items.length - visibleItems.length;
-  return `${visibleItems.join(' · ')}${remaining > 0 ? ` · +${remaining} more` : ''}`;
 };
 
 async function responseError(response, fallback) {
@@ -683,10 +691,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   contributions.slice(4).some((contribution) => contribution[key] !== null)
                     ? contributions
                         .slice(4)
-                        .reduce(
-                          (total, contribution) => total + (contribution[key] || 0),
-                          0,
-                        )
+                        .reduce((total, contribution) => total + (contribution[key] || 0), 0)
                     : null,
                 ]),
               ),
@@ -710,17 +715,12 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
             ...field,
             calories: Math.max(Number(contribution[field.key]) || 0, 0) * field.caloriesPerGram,
           }));
-        const macroCalories = macroSegments.reduce(
-          (total, segment) => total + segment.calories,
-          0,
-        );
+        const macroCalories = macroSegments.reduce((total, segment) => total + segment.calories, 0);
 
         return {
           ...contribution,
           percentage: totalCalories ? (contribution.calories / totalCalories) * 100 : 0,
-          relativeBarWidth: highestCalories
-            ? (contribution.calories / highestCalories) * 100
-            : 0,
+          relativeBarWidth: highestCalories ? (contribution.calories / highestCalories) * 100 : 0,
           macroSegments: macroCalories
             ? macroSegments.map((segment) => ({
                 ...segment,
@@ -948,17 +948,17 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                         variant="h5"
                         noWrap
                         className="numeric-data"
-                        sx={{ minWidth: 0, fontWeight: 750, fontSize: { xs: '1.25rem', sm: '1.5rem' } }}
+                        sx={{
+                          minWidth: 0,
+                          fontWeight: 750,
+                          fontSize: { xs: '1.25rem', sm: '1.5rem' },
+                        }}
                       >
                         {totalsByKey[nutrient.key]
                           ? formatAmount(totalsByKey[nutrient.key].amount)
                           : '—'}
                       </Typography>
-                      <Typography
-                        variant="caption"
-                        noWrap
-                        sx={{ color: 'var(--atlas-ink-muted)' }}
-                      >
+                      <Typography variant="caption" noWrap sx={{ color: 'var(--atlas-ink-muted)' }}>
                         {nutrient.unit}
                       </Typography>
                     </Stack>
@@ -1017,10 +1017,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                     <Box
                       role="img"
                       aria-label={`Macro calorie split: ${dailyMacroSummary.macros
-                        .map(
-                          (macro) =>
-                            `${macro.label} ${Math.round(macro.percentage)} percent`,
-                        )
+                        .map((macro) => `${macro.label} ${Math.round(macro.percentage)} percent`)
                         .join(', ')}`}
                       sx={{
                         position: 'relative',
@@ -1047,9 +1044,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                           className="numeric-data"
                           sx={{ fontWeight: 800, lineHeight: 1.1 }}
                         >
-                          {totalsByKey.calories
-                            ? formatAmount(totalsByKey.calories.amount)
-                            : '—'}
+                          {totalsByKey.calories ? formatAmount(totalsByKey.calories.amount) : '—'}
                         </Typography>
                         <Typography variant="caption" sx={{ color: 'var(--atlas-ink-muted)' }}>
                           kcal
@@ -1193,7 +1188,8 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                 whiteSpace: 'nowrap',
                               }}
                             >
-                              {formatWholeAmount(meal.calories)} kcal ({Math.round(meal.percentage)}%)
+                              {formatWholeAmount(meal.calories)} kcal ({Math.round(meal.percentage)}
+                              %)
                             </Typography>
                           </Stack>
                         </Box>
@@ -1227,7 +1223,10 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                       <Chip
                         size="small"
                         label={`${data.meals.length} ${data.meals.length === 1 ? 'entry' : 'entries'}`}
-                        sx={{ bgcolor: 'var(--atlas-forest-soft)', color: 'var(--atlas-forest-dark)' }}
+                        sx={{
+                          bgcolor: 'var(--atlas-forest-soft)',
+                          color: 'var(--atlas-forest-dark)',
+                        }}
                       />
                       <Chip
                         size="small"
@@ -1241,7 +1240,8 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   )}
                 </Stack>
                 <Typography variant="body2" sx={{ mt: 0.25, color: 'var(--atlas-ink-muted)' }}>
-                  Foods, serving context, calorie contribution, and macro balance for each meal.
+                  Food calories, serving context, confidence, provenance, and macro balance for each
+                  meal.
                 </Typography>
               </Box>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
@@ -1300,218 +1300,479 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                       calories !== null && Number.isFinite(dailyCalories) && dailyCalories > 0
                         ? Math.round((calories / dailyCalories) * 100)
                         : null;
+                    const mealConfidence = Number(meal.confidence_score);
+                    const hasMealConfidence =
+                      meal.confidence_score !== null && Number.isFinite(mealConfidence);
                     const macroSegments = mealMacroSegments(meal);
+                    const highestFoodCalories = Math.max(
+                      ...meal.items.map((item) => mealItemNutrientAmount(item, 'calories') ?? 0),
+                    );
 
                     return (
-                    <Paper
-                      component="article"
-                      key={meal.id}
-                      elevation={0}
-                      sx={{
-                        p: 2,
-                        bgcolor: 'var(--atlas-paper)',
-                        border: '1px solid var(--atlas-border)',
-                        borderRadius: 2,
-                      }}
-                    >
-                      <Stack
-                        direction={{ xs: 'column', sm: 'row' }}
-                        justifyContent="space-between"
-                        alignItems={{ sm: 'flex-start' }}
-                        spacing={1.5}
-                      >
-                        <Box sx={{ minWidth: 0, flex: 1 }}>
-                          <Typography
-                            variant="overline"
-                            sx={{ color: 'var(--atlas-mineral-dark)', fontWeight: 800, lineHeight: 1 }}
-                          >
-                            Meal {String(index + 1).padStart(2, '0')}
-                          </Typography>
-                          <Typography
-                            component="h3"
-                            variant="h6"
-                            sx={{ mt: 0.25, fontWeight: 750, lineHeight: 1.25 }}
-                          >
-                            {meal.name}
-                          </Typography>
-                          <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
-                            <Chip
-                              size="small"
-                              label={`${meal.items.length} ${meal.items.length === 1 ? 'food' : 'foods'}`}
-                              sx={{ bgcolor: 'var(--atlas-mineral-soft)', color: 'var(--atlas-ink)' }}
-                            />
-                            {dailyShare !== null && (
-                              <Chip
-                                size="small"
-                                label={`${dailyShare}% of daily calories`}
-                                sx={{
-                                  bgcolor: 'var(--atlas-persimmon-soft)',
-                                  color: 'var(--atlas-persimmon-dark)',
-                                }}
-                              />
-                            )}
-                          </Stack>
-                        </Box>
-                        <Stack
-                          direction="row"
-                          alignItems="center"
-                          justifyContent={{ xs: 'space-between', sm: 'flex-end' }}
-                          spacing={0.5}
-                          sx={{ width: { xs: '100%', sm: 'auto' } }}
-                        >
-                          <Box sx={{ textAlign: { sm: 'right' }, mr: { sm: 0.5 } }}>
-                            <Typography
-                              variant="overline"
-                              sx={{ display: 'block', color: 'var(--atlas-ink-muted)', lineHeight: 1 }}
-                            >
-                              Calories
-                            </Typography>
-                            <Typography
-                              variant="h5"
-                              className="numeric-data"
-                              sx={{ color: 'var(--calorie-color)', fontWeight: 800, whiteSpace: 'nowrap' }}
-                            >
-                              {mealNutrientText(meal, 'calories')}{' '}
-                              <Typography component="span" variant="caption">
-                                kcal
-                              </Typography>
-                            </Typography>
-                          </Box>
-                          <IconButton
-                            aria-label={`edit ${meal.name}`}
-                            onClick={() => setEditor({ open: true, meal })}
-                            sx={{ width: 44, height: 44, color: 'var(--atlas-forest-dark)' }}
-                          >
-                            <EditOutlinedIcon />
-                          </IconButton>
-                          <IconButton
-                            aria-label={`delete ${meal.name}`}
-                            onClick={() => setPendingDelete(meal)}
-                            sx={{ width: 44, height: 44, color: 'var(--atlas-persimmon-dark)' }}
-                          >
-                            <DeleteOutlineIcon />
-                          </IconButton>
-                        </Stack>
-                      </Stack>
-
-                      <Box
+                      <Paper
+                        component="article"
+                        key={meal.id}
+                        elevation={0}
                         sx={{
-                          display: 'grid',
-                          gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1.15fr) minmax(360px, 0.85fr)' },
-                          gap: { xs: 1.5, md: 2.5 },
-                          mt: 2,
-                          pt: 2,
-                          borderTop: '1px solid var(--atlas-border)',
+                          p: 2,
+                          bgcolor: 'var(--atlas-paper)',
+                          border: '1px solid var(--atlas-border)',
+                          borderRadius: 2,
                         }}
                       >
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography
-                            variant="overline"
-                            sx={{ color: 'var(--atlas-ink-muted)', fontWeight: 800, lineHeight: 1 }}
-                          >
-                            Foods &amp; servings
-                          </Typography>
-                          <Typography sx={{ mt: 0.5, fontWeight: 700, lineHeight: 1.45 }}>
-                            {mealItemSummary(meal)}
-                          </Typography>
-                          {meal.notes && (
-                            <Box
-                              sx={{
-                                mt: 1.25,
-                                px: 1.25,
-                                py: 1,
-                                bgcolor: 'var(--atlas-bone)',
-                                borderLeft: '3px solid var(--atlas-mineral)',
-                                borderRadius: 1,
-                              }}
-                            >
-                              <Typography
-                                variant="caption"
-                                sx={{ display: 'block', color: 'var(--atlas-ink-muted)', fontWeight: 800 }}
-                              >
-                                Context
-                              </Typography>
-                              <Typography variant="body2" sx={{ mt: 0.15, color: 'var(--atlas-ink-muted)' }}>
-                                {meal.notes}
-                              </Typography>
-                            </Box>
-                          )}
-                        </Box>
-
-                        <Box sx={{ minWidth: 0 }}>
-                          <Stack direction="row" justifyContent="space-between" alignItems="baseline">
+                        <Stack
+                          direction={{ xs: 'column', sm: 'row' }}
+                          justifyContent="space-between"
+                          alignItems={{ sm: 'flex-start' }}
+                          spacing={1.5}
+                        >
+                          <Box sx={{ minWidth: 0, flex: 1 }}>
                             <Typography
                               variant="overline"
-                              sx={{ color: 'var(--atlas-ink-muted)', fontWeight: 800, lineHeight: 1 }}
+                              sx={{
+                                color: 'var(--atlas-mineral-dark)',
+                                fontWeight: 800,
+                                lineHeight: 1,
+                              }}
                             >
-                              Macro balance
+                              Meal {String(index + 1).padStart(2, '0')}
                             </Typography>
-                            <Typography variant="caption" sx={{ color: 'var(--atlas-ink-muted)' }}>
-                              calorie share
+                            <Typography
+                              component="h3"
+                              variant="h6"
+                              sx={{ mt: 0.25, fontWeight: 750, lineHeight: 1.25 }}
+                            >
+                              {meal.name}
                             </Typography>
-                          </Stack>
-                          <Box
-                            role="img"
-                            aria-label={
-                              macroSegments.length
-                                ? `${meal.name} macro balance: ${macroSegments
-                                    .map(
-                                      (segment) =>
-                                        `${segment.label} ${Math.round(segment.percentage)} percent`,
-                                    )
-                                    .join(', ')}`
-                                : `${meal.name} macro balance unavailable`
-                            }
-                            sx={{
-                              display: 'flex',
-                              height: 12,
-                              mt: 0.75,
-                              bgcolor: 'var(--atlas-border)',
-                              borderRadius: 999,
-                              overflow: 'hidden',
-                            }}
-                          >
-                            {macroSegments.map((segment) => (
-                              <Box
-                                key={segment.key}
-                                sx={{ width: `${segment.percentage}%`, bgcolor: segment.color }}
+                            <Stack
+                              direction="row"
+                              spacing={0.75}
+                              useFlexGap
+                              flexWrap="wrap"
+                              sx={{ mt: 1 }}
+                            >
+                              <Chip
+                                size="small"
+                                label={`${meal.items.length} ${meal.items.length === 1 ? 'food' : 'foods'}`}
+                                sx={{
+                                  bgcolor: 'var(--atlas-mineral-soft)',
+                                  color: 'var(--atlas-ink)',
+                                }}
                               />
-                            ))}
+                              {dailyShare !== null && (
+                                <Chip
+                                  size="small"
+                                  label={`${dailyShare}% of daily calories`}
+                                  sx={{
+                                    bgcolor: 'var(--atlas-persimmon-soft)',
+                                    color: 'var(--atlas-persimmon-dark)',
+                                  }}
+                                />
+                              )}
+                              {hasMealConfidence && (
+                                <Chip
+                                  size="small"
+                                  label={`${Math.round(mealConfidence * 100)}% confidence`}
+                                  sx={{
+                                    bgcolor: 'var(--atlas-forest-soft)',
+                                    color: 'var(--atlas-forest-dark)',
+                                  }}
+                                />
+                              )}
+                            </Stack>
                           </Box>
-                          <Box
-                            sx={{
-                              display: 'grid',
-                              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                              gap: 0.75,
-                              mt: 1,
-                            }}
+                          <Stack
+                            direction="row"
+                            alignItems="center"
+                            justifyContent={{ xs: 'space-between', sm: 'flex-end' }}
+                            spacing={0.5}
+                            sx={{ width: { xs: '100%', sm: 'auto' } }}
                           >
-                            {[
-                              ['protein', 'Protein', 'var(--protein-color)', 'var(--atlas-forest-soft)'],
-                              [
-                                'carbohydrates',
-                                'Carbs',
-                                'var(--carbohydrate-color)',
-                                'var(--atlas-mineral-soft)',
-                              ],
-                              ['fat', 'Fat', 'var(--fat-color)', 'var(--atlas-persimmon-soft)'],
-                            ].map(([key, label, color, background]) => (
-                              <Box
-                                key={key}
-                                sx={{ px: 1, py: 0.75, bgcolor: background, borderRadius: 1.25 }}
+                            <Box sx={{ textAlign: { sm: 'right' }, mr: { sm: 0.5 } }}>
+                              <Typography
+                                variant="overline"
+                                sx={{
+                                  display: 'block',
+                                  color: 'var(--atlas-ink-muted)',
+                                  lineHeight: 1,
+                                }}
                               >
-                                <Typography variant="caption" sx={{ color, fontWeight: 800 }}>
-                                  {label}
+                                Calories
+                              </Typography>
+                              <Typography
+                                variant="h5"
+                                className="numeric-data"
+                                sx={{
+                                  color: 'var(--calorie-color)',
+                                  fontWeight: 800,
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {mealNutrientText(meal, 'calories')}{' '}
+                                <Typography component="span" variant="caption">
+                                  kcal
                                 </Typography>
-                                <Typography className="numeric-data" sx={{ fontWeight: 800 }}>
-                                  {mealNutrientText(meal, key)} g
+                              </Typography>
+                            </Box>
+                            <IconButton
+                              aria-label={`edit ${meal.name}`}
+                              onClick={() => setEditor({ open: true, meal })}
+                              sx={{ width: 44, height: 44, color: 'var(--atlas-forest-dark)' }}
+                            >
+                              <EditOutlinedIcon />
+                            </IconButton>
+                            <IconButton
+                              aria-label={`delete ${meal.name}`}
+                              onClick={() => setPendingDelete(meal)}
+                              sx={{ width: 44, height: 44, color: 'var(--atlas-persimmon-dark)' }}
+                            >
+                              <DeleteOutlineIcon />
+                            </IconButton>
+                          </Stack>
+                        </Stack>
+
+                        <Box
+                          sx={{
+                            display: 'grid',
+                            gridTemplateColumns: {
+                              xs: '1fr',
+                              md: 'minmax(0, 1.15fr) minmax(360px, 0.85fr)',
+                            },
+                            gap: { xs: 1.5, md: 2.5 },
+                            mt: 2,
+                            pt: 2,
+                            borderTop: '1px solid var(--atlas-border)',
+                          }}
+                        >
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography
+                              variant="overline"
+                              sx={{
+                                color: 'var(--atlas-ink-muted)',
+                                fontWeight: 800,
+                                lineHeight: 1,
+                              }}
+                            >
+                              Foods &amp; servings
+                            </Typography>
+                            <Box
+                              role="table"
+                              aria-label={`${meal.name} food breakdown`}
+                              sx={{
+                                mt: 0.75,
+                                border: '1px solid var(--atlas-border)',
+                                borderRadius: 0.75,
+                                overflow: 'hidden',
+                              }}
+                            >
+                              <Box
+                                role="row"
+                                sx={{
+                                  display: { xs: 'none', sm: 'grid' },
+                                  gridTemplateColumns: 'minmax(0, 1fr) 104px 92px 122px',
+                                  gap: 1,
+                                  px: 1.25,
+                                  py: 0.65,
+                                  bgcolor: 'var(--atlas-bone)',
+                                  borderBottom: '1px solid var(--atlas-border)',
+                                }}
+                              >
+                                {['Food', 'Calories', 'Confidence', 'Provenance'].map((label) => (
+                                  <Typography
+                                    key={label}
+                                    role="columnheader"
+                                    variant="caption"
+                                    sx={{ color: 'var(--atlas-ink-muted)', fontWeight: 800 }}
+                                  >
+                                    {label}
+                                  </Typography>
+                                ))}
+                              </Box>
+                              {meal.items.map((item, itemIndex) => {
+                                const itemCalories = mealItemNutrientAmount(item, 'calories');
+                                const confidence = Number(item.confidence_score);
+                                const hasConfidence =
+                                  item.confidence_score !== null && Number.isFinite(confidence);
+                                const itemContext = [item.provider_name, item.serving_label]
+                                  .filter(Boolean)
+                                  .join(' · ');
+
+                                return (
+                                  <Box
+                                    key={item.id}
+                                    role="row"
+                                    sx={{
+                                      display: 'grid',
+                                      gridTemplateColumns: {
+                                        xs: 'repeat(3, minmax(0, 1fr))',
+                                        sm: 'minmax(0, 1fr) 104px 92px 122px',
+                                      },
+                                      gap: { xs: 0.75, sm: 1 },
+                                      px: 1.25,
+                                      py: 1,
+                                      borderBottom:
+                                        itemIndex < meal.items.length - 1
+                                          ? '1px solid var(--atlas-border)'
+                                          : 'none',
+                                    }}
+                                  >
+                                    <Box
+                                      role="cell"
+                                      sx={{
+                                        minWidth: 0,
+                                        gridColumn: { xs: '1 / -1', sm: 'auto' },
+                                      }}
+                                    >
+                                      <Typography
+                                        variant="body2"
+                                        sx={{ fontWeight: 800, lineHeight: 1.25 }}
+                                      >
+                                        {formatAmount(item.servings)} × {item.food_name}
+                                      </Typography>
+                                      {itemContext && (
+                                        <Typography
+                                          variant="caption"
+                                          sx={{
+                                            display: 'block',
+                                            mt: 0.2,
+                                            color: 'var(--atlas-ink-muted)',
+                                          }}
+                                        >
+                                          {itemContext}
+                                        </Typography>
+                                      )}
+                                    </Box>
+                                    <Box role="cell" sx={{ minWidth: 0 }}>
+                                      <Typography
+                                        variant="caption"
+                                        sx={{
+                                          display: { sm: 'none' },
+                                          color: 'var(--atlas-ink-muted)',
+                                        }}
+                                      >
+                                        Calories
+                                      </Typography>
+                                      <Typography
+                                        variant="body2"
+                                        className="numeric-data"
+                                        sx={{ fontWeight: 800, color: 'var(--calorie-color)' }}
+                                      >
+                                        {formatWholeAmount(itemCalories)} kcal
+                                      </Typography>
+                                      <Box
+                                        sx={{
+                                          mt: 0.35,
+                                          width: '100%',
+                                          height: 4,
+                                          bgcolor: 'var(--atlas-border)',
+                                          borderRadius: 999,
+                                          overflow: 'hidden',
+                                        }}
+                                      >
+                                        <Box
+                                          sx={{
+                                            width: `${
+                                              itemCalories !== null && highestFoodCalories > 0
+                                                ? (itemCalories / highestFoodCalories) * 100
+                                                : 0
+                                            }%`,
+                                            height: '100%',
+                                            bgcolor: 'var(--calorie-color)',
+                                            borderRadius: 999,
+                                          }}
+                                        />
+                                      </Box>
+                                    </Box>
+                                    <Box role="cell" sx={{ minWidth: 0 }}>
+                                      <Typography
+                                        variant="caption"
+                                        sx={{
+                                          display: { sm: 'none' },
+                                          color: 'var(--atlas-ink-muted)',
+                                        }}
+                                      >
+                                        Confidence
+                                      </Typography>
+                                      <Typography
+                                        variant="body2"
+                                        className="numeric-data"
+                                        sx={{ fontWeight: 750 }}
+                                      >
+                                        {hasConfidence
+                                          ? `${Math.round(confidence * 100)}%`
+                                          : 'Not scored'}
+                                      </Typography>
+                                    </Box>
+                                    <Box role="cell" sx={{ minWidth: 0 }}>
+                                      <Typography
+                                        variant="caption"
+                                        sx={{
+                                          display: { sm: 'none' },
+                                          color: 'var(--atlas-ink-muted)',
+                                        }}
+                                      >
+                                        Provenance
+                                      </Typography>
+                                      <Typography variant="body2" sx={{ fontWeight: 750 }}>
+                                        {provenanceLabels[item.provenance] || 'Unknown'}
+                                      </Typography>
+                                    </Box>
+                                  </Box>
+                                );
+                              })}
+                            </Box>
+                            {meal.notes && (
+                              <Box
+                                sx={{
+                                  mt: 1.25,
+                                  px: 1.25,
+                                  py: 1,
+                                  bgcolor: 'var(--atlas-bone)',
+                                  borderLeft: '3px solid var(--atlas-mineral)',
+                                  borderRadius: 1,
+                                }}
+                              >
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    display: 'block',
+                                    color: 'var(--atlas-ink-muted)',
+                                    fontWeight: 800,
+                                  }}
+                                >
+                                  Context
+                                </Typography>
+                                <Typography
+                                  variant="body2"
+                                  sx={{ mt: 0.15, color: 'var(--atlas-ink-muted)' }}
+                                >
+                                  {mealContextText(meal.notes)}
                                 </Typography>
                               </Box>
-                            ))}
+                            )}
+                          </Box>
+
+                          <Box sx={{ minWidth: 0 }}>
+                            <Stack
+                              direction="row"
+                              justifyContent="space-between"
+                              alignItems="baseline"
+                            >
+                              <Typography
+                                variant="overline"
+                                sx={{
+                                  color: 'var(--atlas-ink-muted)',
+                                  fontWeight: 800,
+                                  lineHeight: 1,
+                                }}
+                              >
+                                Macro balance
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                sx={{ color: 'var(--atlas-ink-muted)' }}
+                              >
+                                calorie share
+                              </Typography>
+                            </Stack>
+                            <Box
+                              role="img"
+                              aria-label={
+                                macroSegments.length
+                                  ? `${meal.name} macro balance: ${macroSegments
+                                      .map(
+                                        (segment) =>
+                                          `${segment.label} ${Math.round(segment.percentage)} percent`,
+                                      )
+                                      .join(', ')}`
+                                  : `${meal.name} macro balance unavailable`
+                              }
+                              sx={{
+                                display: 'flex',
+                                height: 12,
+                                mt: 0.75,
+                                bgcolor: 'var(--atlas-border)',
+                                borderRadius: 999,
+                                overflow: 'hidden',
+                              }}
+                            >
+                              {macroSegments.map((segment) => (
+                                <Box
+                                  key={segment.key}
+                                  sx={{ width: `${segment.percentage}%`, bgcolor: segment.color }}
+                                />
+                              ))}
+                            </Box>
+                            <Box
+                              sx={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                                gap: 0.75,
+                                mt: 1,
+                              }}
+                            >
+                              {[
+                                ['protein', 'Protein', 'var(--protein-color)'],
+                                ['carbohydrates', 'Carbs', 'var(--carbohydrate-color)'],
+                                ['fat', 'Fat', 'var(--fat-color)'],
+                              ].map(([key, label, color]) => (
+                                <Box
+                                  key={key}
+                                  sx={{
+                                    px: 1,
+                                    py: 0.75,
+                                    bgcolor: 'var(--atlas-paper)',
+                                    border: '1px solid var(--atlas-border-strong)',
+                                    borderTop: `2px solid ${color}`,
+                                    borderRadius: 1.25,
+                                  }}
+                                >
+                                  <Typography variant="caption" sx={{ color, fontWeight: 800 }}>
+                                    {label}
+                                  </Typography>
+                                  <Typography className="numeric-data" sx={{ fontWeight: 800 }}>
+                                    {mealNutrientText(meal, key)} g
+                                  </Typography>
+                                </Box>
+                              ))}
+                            </Box>
+                            <Box
+                              sx={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                                gap: 0.75,
+                                mt: 0.75,
+                              }}
+                            >
+                              {[
+                                ['fiber', 'Fiber', 'g', 'var(--fiber-color)'],
+                                ['sugar', 'Sugar', 'g', 'var(--sugar-color)'],
+                                ['sodium', 'Sodium', 'mg', 'var(--sodium-color)'],
+                                ['cholesterol', 'Cholesterol', 'mg', 'var(--cholesterol-color)'],
+                              ].map(([key, label, unit, color]) => (
+                                <Box
+                                  key={key}
+                                  sx={{
+                                    px: 1,
+                                    py: 0.75,
+                                    bgcolor: 'var(--atlas-paper)',
+                                    border: '1px solid var(--atlas-border-strong)',
+                                    borderTop: `2px solid ${color}`,
+                                    borderRadius: 1.25,
+                                  }}
+                                >
+                                  <Typography variant="caption" sx={{ color, fontWeight: 800 }}>
+                                    {label}
+                                  </Typography>
+                                  <Typography className="numeric-data" sx={{ fontWeight: 800 }}>
+                                    {mealNutrientText(meal, key)} {unit}
+                                  </Typography>
+                                </Box>
+                              ))}
+                            </Box>
                           </Box>
                         </Box>
-                      </Box>
-                    </Paper>
+                      </Paper>
                     );
                   })}
                 </Stack>

@@ -11,6 +11,8 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Rolled up known daily nutrient values even when another saved food lacks that
+  nutrient, and stopped rendering unknown daily values as zero.
 - Resolved meal descriptions by complete food clause so partial fuzzy catalog
   matches cannot discard defining terms or be combined with unrelated AI
   fallback foods; unresolved clauses now retain shared provider context.
@@ -28,8 +30,10 @@ All notable changes to this project are documented in this file.
 - Redesigned the meal diary as a Quick Logbook with date and nutrition
   summaries at the top, macro calorie-split and calories-by-meal charts, compact
   color-coded daily nutrient cards, parallel estimate/manual entry paths, and
-  responsive meal ledger cards with food counts, daily calorie share, serving
-  context, and macro balance without shortcut or method columns.
+  responsive meal ledger cards with food counts, daily calorie share, a per-food
+  calorie, confidence, and provenance breakdown, saved estimate confidence,
+  serving context, macro balance, and uniformly unshaded, outlined per-meal
+  nutrient totals without shortcut or method columns.
 - Added structured AI food-intent extraction for descriptions the deterministic
   catalog path cannot fully resolve. Each provider-aware intent now searches the
   visible catalog before nutrition estimation, and AI follow-up additions use

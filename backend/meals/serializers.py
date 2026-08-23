@@ -13,6 +13,13 @@ from .services import replace_meal_items
 class MealItemSerializer(serializers.ModelSerializer):
     food_item_id = serializers.IntegerField(source="food_version.food_item_id")
     food_version_id = serializers.IntegerField(read_only=True)
+    provenance = serializers.CharField(source="food_version.provenance", read_only=True)
+    confidence_score = serializers.DecimalField(
+        source="food_version.confidence_score",
+        max_digits=4,
+        decimal_places=3,
+        read_only=True,
+    )
     nutrients = serializers.SerializerMethodField()
 
     class Meta:
@@ -28,6 +35,8 @@ class MealItemSerializer(serializers.ModelSerializer):
             "serving_quantity",
             "serving_unit",
             "serving_label",
+            "provenance",
+            "confidence_score",
             "component_snapshot",
             "nutrients",
         )
@@ -57,6 +66,14 @@ class MealItemInputSerializer(serializers.Serializer):
 
 
 class MealEntrySerializer(serializers.ModelSerializer):
+    confidence_score = serializers.DecimalField(
+        source="accepted_proposal.confidence_score",
+        max_digits=4,
+        decimal_places=3,
+        read_only=True,
+        allow_null=True,
+        default=None,
+    )
     items = MealItemSerializer(many=True, read_only=True)
     item_inputs = MealItemInputSerializer(many=True, write_only=True, source="items")
 
@@ -67,6 +84,7 @@ class MealEntrySerializer(serializers.ModelSerializer):
             "entry_date",
             "name",
             "notes",
+            "confidence_score",
             "items",
             "item_inputs",
             "created_at",

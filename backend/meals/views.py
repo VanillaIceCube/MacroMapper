@@ -1,3 +1,4 @@
+from django.db.models import Prefetch
 from django.utils.dateparse import parse_date
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -5,7 +6,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import MealEntry
+from .models import MealEntry, MealItem
 from .serializers import MealEntrySerializer
 from .services import daily_totals
 
@@ -18,8 +19,13 @@ class MealEntryViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = (
             MealEntry.objects.filter(owner=self.request.user)
-            .prefetch_related("items")
-            .select_related("owner")
+            .prefetch_related(
+                Prefetch(
+                    "items",
+                    queryset=MealItem.objects.select_related("food_version"),
+                )
+            )
+            .select_related("owner", "accepted_proposal")
         )
         requested_date = self.request.query_params.get("date")
         if requested_date is not None:

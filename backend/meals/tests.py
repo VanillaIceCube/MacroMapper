@@ -108,10 +108,16 @@ class MealEntryApiTests(APITestCase):
         response = self.create_meal()
 
         self.assertEqual(response.data["name"], "Breakfast")
+        self.assertIsNone(response.data["confidence_score"])
         self.assertEqual(len(response.data["items"]), 2)
         apple = response.data["items"][0]
         self.assertEqual(apple["food_name"], "Apple")
         self.assertEqual(apple["food_version_id"], self.apple.current_version_id)
+        self.assertEqual(apple["provenance"], "user_entered")
+        self.assertIsNone(apple["confidence_score"])
+        toast = response.data["items"][1]
+        self.assertEqual(toast["provenance"], "official")
+        self.assertEqual(toast["confidence_score"], "0.990")
         nutrients = {item["key"]: item["amount"] for item in apple["nutrients"]}
         self.assertEqual(nutrients["calories"], "190.0000")
         self.assertEqual(nutrients["protein"], "1.0000")
@@ -300,6 +306,9 @@ class MealEntryApiTests(APITestCase):
             name="Snack",
             item_inputs=[{"food_item": self.apple.id, "servings": "0.5", "order": 0}],
         )
+        known_sugar = MealItem.objects.order_by("id").first()
+        known_sugar.sugar = Decimal("15")
+        known_sugar.save(update_fields=["sugar"])
 
         response = self.client.get("/api/meals/daily/?date=2026-08-16")
 
@@ -308,6 +317,7 @@ class MealEntryApiTests(APITestCase):
         totals = {item["key"]: item["amount"] for item in response.data["totals"]}
         self.assertEqual(totals["calories"], Decimal("317.5000"))
         self.assertEqual(totals["protein"], Decimal("4.2500"))
+        self.assertEqual(totals["sugar"], Decimal("15.0000"))
         self.assertIsNone(totals["fiber"])
 
     def test_edit_replaces_components_and_updates_daily_totals(self):
