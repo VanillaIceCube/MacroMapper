@@ -69,7 +69,7 @@ export default function AppNavigationDrawer({ open, setOpen }) {
           <Stack direction="row" alignItems="center" spacing={1.25}>
             <Box
               component="img"
-              src="/macromapper-mark.svg"
+              src="/macromapper-mark.png"
               alt=""
               sx={{ width: 34, height: 34 }}
             />
