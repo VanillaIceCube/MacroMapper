@@ -15,6 +15,8 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Required AI-generated composite foods to split identifiable ingredients into
+  separate components instead of grouping multiple toppings into one row.
 - Snapped AI-estimated component weights and liquid volumes to readable gram
   and fluid-ounce quantities instead of exposing conversion precision noise.
 - Defaulted beverages to natural containers such as cans, glasses, bottles,
@@ -38,6 +40,9 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Reworked meal-estimate foods into aligned database-style rows with wrapping
+  titles, compact count/unit controls, responsive mobile spacing, and secondary
+  actions in overflow menus.
 - Switched the default GPT meal-estimation model from GPT-5.5 to GPT-5.6
   Luna for substantially lower per-request cost.
 - Defaulted nested meal components to grams for solids and fluid ounces for

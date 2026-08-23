@@ -177,6 +177,11 @@ describe('MealEstimateDialog', () => {
     expect(within(reviewDialog).queryByText('AI estimate')).not.toBeInTheDocument();
     await user.click(
       within(reviewDialog).getByRole('button', {
+        name: 'More actions for Double burger',
+      }),
+    );
+    await user.click(
+      screen.getByRole('menuitem', {
         name: 'Show estimate details for Double burger',
       }),
     );
@@ -185,7 +190,7 @@ describe('MealEstimateDialog', () => {
       within(reviewDialog).getByRole('link', { name: 'Official restaurant nutrition' }),
     ).toHaveAttribute('href', 'https://example.com/nutrition');
 
-    const quantity = within(reviewDialog).getByRole('spinbutton', { name: 'Amount' });
+    const quantity = within(reviewDialog).getAllByRole('spinbutton', { name: 'Count' })[1];
     expect(quantity).toHaveValue(2);
     await user.clear(quantity);
     await user.type(quantity, '1');
@@ -193,7 +198,10 @@ describe('MealEstimateDialog', () => {
       within(reviewDialog).getByRole('region', { name: 'Meal macro breakdown' }),
     ).toHaveTextContent(/200\s*kcal/);
     expect(within(reviewDialog).getByLabelText('Burger patty 200 kcal (100%)')).toBeVisible();
-    await user.click(within(reviewDialog).getByRole('button', { name: 'remove Burger patty' }));
+    await user.click(
+      within(reviewDialog).getByRole('button', { name: 'More actions for Burger patty' }),
+    );
+    await user.click(screen.getByRole('menuitem', { name: 'remove Burger patty' }));
     expect(within(reviewDialog).queryByText('Burger patty')).not.toBeInTheDocument();
 
     expect(
@@ -203,7 +211,7 @@ describe('MealEstimateDialog', () => {
     await user.type(within(reviewDialog).getByRole('textbox', { name: 'Search catalog' }), 'Apple');
     await user.click(within(reviewDialog).getByRole('button', { name: 'search proposal foods' }));
     await user.click(await within(reviewDialog).findByRole('button', { name: 'Add' }));
-    expect(within(reviewDialog).getByRole('heading', { name: 'Apple' })).toBeInTheDocument();
+    expect(within(reviewDialog).getByText('Apple', { selector: 'p' })).toBeInTheDocument();
 
     await user.click(within(reviewDialog).getByRole('button', { name: 'Save to diary' }));
 
@@ -263,6 +271,11 @@ describe('MealEstimateDialog', () => {
     );
     await user.click(
       within(reviewDialog).getByRole('button', {
+        name: 'More actions for Burger patty',
+      }),
+    );
+    await user.click(
+      screen.getByRole('menuitem', {
         name: 'Edit nutrition for Burger patty',
       }),
     );
@@ -277,6 +290,11 @@ describe('MealEstimateDialog', () => {
     expect(within(reviewDialog).getByLabelText('Burger patty 300 kcal (100%)')).toBeVisible();
     await user.click(
       within(reviewDialog).getByRole('button', {
+        name: 'More actions for Burger patty',
+      }),
+    );
+    await user.click(
+      screen.getByRole('menuitem', {
         name: 'Finish editing nutrition for Burger patty',
       }),
     );
@@ -326,6 +344,11 @@ describe('MealEstimateDialog', () => {
     const reviewDialog = await screen.findByRole('dialog', { name: 'Review meal estimate' });
     await user.click(
       within(reviewDialog).getByRole('button', {
+        name: 'More actions for Double burger',
+      }),
+    );
+    await user.click(
+      screen.getByRole('menuitem', {
         name: 'Edit nutrition for Double burger',
       }),
     );
@@ -424,10 +447,12 @@ describe('MealEstimateDialog', () => {
       within(reviewDialog).getByRole('button', { name: 'Expand components for Double burger' }),
     );
 
-    const amount = within(reviewDialog).getByRole('spinbutton', { name: 'Amount' });
+    const amount = within(reviewDialog)
+      .getAllByRole('spinbutton', { name: 'Count' })
+      .find((element) => element.value === '300');
     const unitSelector = within(reviewDialog)
-      .getAllByRole('combobox', { name: 'Unit / portion' })
-      .find((element) => element.getAttribute('aria-disabled') !== 'true');
+      .getAllByRole('combobox', { name: 'Unit' })
+      .find((element) => element.textContent.includes('g'));
     expect(amount).toHaveValue(300);
     expect(unitSelector).toHaveTextContent('g');
     await user.click(unitSelector);
