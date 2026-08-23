@@ -120,10 +120,35 @@ const portionOptions = (item) =>
         },
       ];
 
+const STANDARD_PORTION_LABELS = {
+  g: 'g',
+  ml: 'ml',
+  oz: 'oz',
+  fl_oz: 'fl oz',
+  cup: 'cup',
+  tbsp: 'tbsp',
+  tsp: 'tsp',
+};
+
+const nativeMeasurementPortion = (item) =>
+  STANDARD_PORTION_LABELS[item.serving_unit]
+    ? portionOptions(item).find((option) => option.key === item.serving_unit)
+    : null;
+
+const displayedPortionOptions = (item) => {
+  const options = portionOptions(item);
+  return nativeMeasurementPortion(item)
+    ? options.filter((option) => option.key !== 'base')
+    : options;
+};
+
 const selectedPortion = (item) => {
   const options = portionOptions(item);
-  return options.find((option) => option.key === item.selected_portion_key) || options[0];
+  const selected = options.find((option) => option.key === item.selected_portion_key);
+  return (selected?.key === 'base' && nativeMeasurementPortion(item)) || selected || options[0];
 };
+
+const portionOptionLabel = (option) => STANDARD_PORTION_LABELS[option.key] || option.label;
 
 const roundedNumberString = (value, fractionDigits = 8) =>
   String(Number(value.toFixed(fractionDigits)));
@@ -141,12 +166,14 @@ const servingAmountValue = (item) => {
 function perServingNutrient(item, key) {
   const components = item.components || [];
   if (components.length) {
-    const values = components.map((component) => perServingNutrient(component, key));
-    if (values.some((value) => value == null)) return null;
-    return values.reduce(
-      (total, value, index) => total + value * servingsValue(components[index]),
-      0,
-    );
+    const knownValues = components
+      .map((component) => ({
+        value: perServingNutrient(component, key),
+        servings: servingsValue(component),
+      }))
+      .filter(({ value }) => value != null);
+    if (!knownValues.length) return null;
+    return knownValues.reduce((total, entry) => total + entry.value * entry.servings, 0);
   }
   const value = item.nutrients?.[key];
   if (value == null || value === '') return null;
@@ -160,9 +187,11 @@ function itemNutrientTotal(item, key) {
 }
 
 function mealNutrientTotal(items, key) {
-  const values = items.map((item) => itemNutrientTotal(item, key));
-  if (values.some((value) => value == null)) return null;
-  return values.reduce((total, value) => total + value, 0);
+  const knownValues = items
+    .map((item) => itemNutrientTotal(item, key))
+    .filter((value) => value != null);
+  if (!knownValues.length) return null;
+  return knownValues.reduce((total, value) => total + value, 0);
 }
 
 function calorieContributions(items) {
@@ -202,9 +231,9 @@ function summarizedContributions(items) {
       ...Object.fromEntries(
         MACRO_CALORIE_FIELDS.map(({ key }) => [
           key,
-          remaining.some((item) => item[key] == null)
-            ? null
-            : remaining.reduce((total, item) => total + item[key], 0),
+          remaining.some((item) => item[key] != null)
+            ? remaining.reduce((total, item) => total + (item[key] || 0), 0)
+            : null,
         ]),
       ),
     },
@@ -212,11 +241,12 @@ function summarizedContributions(items) {
 }
 
 function macroCalorieSegments(item) {
-  if (MACRO_CALORIE_FIELDS.some(({ key }) => item[key] == null)) return [];
-  const segments = MACRO_CALORIE_FIELDS.map((field) => ({
-    ...field,
-    calories: Math.max(Number(item[field.key]) || 0, 0) * field.caloriesPerGram,
-  }));
+  const segments = MACRO_CALORIE_FIELDS.filter((field) => item[field.key] != null).map(
+    (field) => ({
+      ...field,
+      calories: Math.max(Number(item[field.key]) || 0, 0) * field.caloriesPerGram,
+    }),
+  );
   const total = segments.reduce((sum, segment) => sum + segment.calories, 0);
   return total
     ? segments.map((segment) => ({
@@ -601,7 +631,7 @@ function ProposalFood({
   const source = sourceLabels[item.source_kind] || sourceLabels.ai_estimate;
   const isComponent = depth > 0;
   const canEditNutrition = !item.components?.length;
-  const options = portionOptions(item);
+  const options = displayedPortionOptions(item);
   const activePortion = selectedPortion(item);
   const hasDetails =
     item.confidence_score != null || item.provider_name || Boolean(item.sources?.length);
@@ -770,7 +800,7 @@ function ProposalFood({
           >
             {options.map((option) => (
               <MenuItem key={option.key} value={option.key}>
-                {option.label}
+                {portionOptionLabel(option)}
               </MenuItem>
             ))}
           </TextField>
@@ -861,7 +891,11 @@ function catalogProposalItem(food) {
     components: [],
   };
   item.portion_options = portionOptions(item);
-  item.selected_portion_key = item.portion_options[0].key;
+  item.selected_portion_key = item.portion_options.some(
+    (option) => option.key === item.serving_unit,
+  )
+    ? item.serving_unit
+    : item.portion_options[0].key;
   return item;
 }
 
@@ -943,7 +977,8 @@ export default function MealEstimateDialog({ date, open, token, onClose, onSaved
   };
 
   const changeServings = (key, amount, item) => {
-    const multiplier = Number(selectedPortion(item).serving_multiplier);
+    const activePortion = selectedPortion(item);
+    const multiplier = Number(activePortion.serving_multiplier);
     const numericAmount = Number(amount);
     const servings =
       amount === '' || !Number.isFinite(numericAmount) || !Number.isFinite(multiplier)
@@ -951,7 +986,11 @@ export default function MealEstimateDialog({ date, open, token, onClose, onSaved
         : roundedNumberString(numericAmount * (multiplier > 0 ? multiplier : 1));
     setProposal((current) => ({
       ...current,
-      items: updateTree(current.items, key, (item) => ({ ...item, servings })),
+      items: updateTree(current.items, key, (item) => ({
+        ...item,
+        servings,
+        selected_portion_key: activePortion.key,
+      })),
     }));
   };
 

@@ -26,13 +26,13 @@ UNIT_LABELS = {
 }
 
 UNIT_OPTION_LABELS = {
-    "g": "Grams",
-    "ml": "Milliliters",
-    "oz": "Ounces",
-    "fl_oz": "Fluid ounces",
-    "cup": "Cups",
-    "tbsp": "Tablespoons",
-    "tsp": "Teaspoons",
+    "g": "g",
+    "ml": "ml",
+    "oz": "oz",
+    "fl_oz": "fl oz",
+    "cup": "cup",
+    "tbsp": "tbsp",
+    "tsp": "tsp",
 }
 
 
@@ -67,14 +67,17 @@ def portion_options_for_serving(*, quantity, unit, label="", weight_grams=None):
 
     if unit not in MASS_UNITS_IN_GRAMS and weight_grams is not None:
         serving_weight = _decimal(weight_grams)
-        options.append(
-            {
-                "key": "g",
-                "label": "Grams",
-                "unit_label": "g",
-                "serving_multiplier": _decimal_string(Decimal("1") / serving_weight),
-            }
-        )
+        for option_unit in ("g", "oz"):
+            options.append(
+                {
+                    "key": option_unit,
+                    "label": UNIT_OPTION_LABELS[option_unit],
+                    "unit_label": UNIT_LABELS[option_unit],
+                    "serving_multiplier": _decimal_string(
+                        MASS_UNITS_IN_GRAMS[option_unit] / serving_weight
+                    ),
+                }
+            )
 
     conversions = None
     if unit in MASS_UNITS_IN_GRAMS:

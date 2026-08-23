@@ -186,7 +186,7 @@ describe('MealEstimateDialog', () => {
     ).toHaveAttribute('href', 'https://example.com/nutrition');
 
     const quantity = within(reviewDialog).getByRole('spinbutton', { name: 'Amount' });
-    expect(within(reviewDialog).getByText('2 × one patty')).toBeVisible();
+    expect(quantity).toHaveValue(2);
     await user.clear(quantity);
     await user.type(quantity, '1');
     expect(
@@ -370,13 +370,14 @@ describe('MealEstimateDialog', () => {
     const unitSelector = within(reviewDialog)
       .getAllByRole('combobox', { name: 'Unit / portion' })
       .find((element) => element.getAttribute('aria-disabled') !== 'true');
-    expect(amount).toHaveValue(2);
-    expect(within(reviewDialog).getByText('2 × 150 g patty')).toBeVisible();
+    expect(amount).toHaveValue(300);
+    expect(unitSelector).toHaveTextContent('g');
     await user.click(unitSelector);
-    await user.click(await screen.findByRole('option', { name: 'Grams' }));
+    expect(screen.queryByRole('option', { name: '150 g patty' })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('option', { name: 'g' }));
 
     expect(amount).toHaveValue(300);
-    expect(within(reviewDialog).getByText('300 g · 2 × 150 g patty')).toBeVisible();
+    expect(unitSelector).toHaveTextContent('g');
     expect(
       within(reviewDialog).getByRole('region', { name: 'Meal macro breakdown' }),
     ).toHaveTextContent(/400\s*kcal/);
@@ -398,6 +399,54 @@ describe('MealEstimateDialog', () => {
       }),
       'access-token',
     );
+  });
+
+  test('includes known carbs in rollups and charts when another component is unknown', async () => {
+    const user = userEvent.setup();
+    const proteinComponent = {
+      ...component,
+      nutrients: { calories: '200', protein: '25', carbohydrates: null, fat: null },
+      servings: '1',
+    };
+    const carbComponent = {
+      ...component,
+      key: 'ai-0.1',
+      name: 'Burger bun',
+      nutrients: { calories: '120', protein: null, carbohydrates: '30', fat: null },
+      servings: '1',
+    };
+    createMealProposal.mockResolvedValue(
+      response({
+        ...proposal,
+        items: [
+          {
+            ...proposal.items[0],
+            nutrients: { calories: '320', protein: '25', carbohydrates: '30', fat: null },
+            components: [proteinComponent, carbComponent],
+          },
+        ],
+      }),
+    );
+    renderWithProviders(
+      <MealEstimateDialog
+        date="2026-08-16"
+        open
+        token="access-token"
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+    );
+
+    await user.type(screen.getByRole('textbox', { name: 'Describe what you ate' }), 'Burger');
+    await user.click(screen.getByRole('button', { name: 'Create estimate' }));
+    const reviewDialog = await screen.findByRole('dialog', { name: 'Review meal estimate' });
+
+    expect(
+      within(reviewDialog).getByRole('img', {
+        name: 'Macro calorie split: protein 45%, carbs 55%, fat 0%',
+      }),
+    ).toBeVisible();
+    expect(within(reviewDialog).getByText('30 g (55%)')).toBeVisible();
   });
 
   test('charts the largest meal-level components instead of nested ingredients', async () => {

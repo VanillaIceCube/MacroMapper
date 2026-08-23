@@ -89,7 +89,9 @@ EstimatedFood.model_rebuild()
 
 
 SYSTEM_PROMPT = """You create factual, editable nutrition estimates from meal descriptions.
-Return only the requested structured meal data. Search for official brand or restaurant
+Return only the requested structured meal data. Set the meal-level name to a concise,
+user-facing title that summarizes the foods, such as "Pub Burger, Poutine & Milkshake",
+rather than copying the full input description. Search for official brand or restaurant
 nutrition pages first. Mark an item official only when its nutrient values are directly
 supported by an official published source; otherwise mark it ai_estimate. Preserve source
 URLs and identify which sources are official. Break composite restaurant and prepared meals
@@ -101,9 +103,14 @@ For countable foods, prefer serving_quantity 1, serving_unit item, and labels su
 "1 burger", "1 medium carrot", or "1 bun". For plated or bowled foods, prefer
 serving_quantity 1, serving_unit serving, and labels such as "1 plate" or "1 bowl".
 Use servings to represent how many base servings the user ate. Do not put ingredient lists,
-alternate sizes, explanations, or parenthetical gram estimates in serving_label. Always
-provide serving_weight_grams as the estimated edible gram weight of exactly one declared
-base serving. The application uses it to add a deterministic Grams option for every item.
+alternate sizes, explanations, parenthetical gram estimates, or the food name in
+serving_label. The food name is already displayed as the item title. For example, a food
+named "Chocolate milkshake" with a 16-fluid-ounce serving must use serving_label "16 fl oz",
+not "16 fl oz chocolate milkshake". Always provide serving_weight_grams as the estimated
+edible gram weight of exactly one declared base serving. The application uses it to add a
+deterministic Grams option for every item. Keep the numeric amount in serving_quantity and
+the measurement in serving_unit so the UI can display Quantity 16 and Unit "fl oz" rather
+than treating "16 fl oz" as one indivisible portion.
 Use null for unavailable nutrients, never zero. Do not provide dietary, medical, clinical,
 or treatment advice."""
 
@@ -127,7 +134,10 @@ def _serialize_food(food: EstimatedFood, *, key: str) -> dict:
         label=data["serving_label"],
         weight_grams=serving_weight_grams,
     )
-    data["selected_portion_key"] = "base"
+    option_keys = {option["key"] for option in data["portion_options"]}
+    data["selected_portion_key"] = (
+        data["serving_unit"] if data["serving_unit"] in option_keys else "base"
+    )
     data["key"] = key
     data["food_item_id"] = None
     data["food_version_id"] = None

@@ -352,6 +352,35 @@ class MealProposalApiTests(TestCase):
         self.assertEqual(saved_component.child_version.calories, Decimal("175"))
         self.assertEqual(saved_component.child_version.protein, Decimal("10"))
 
+    def test_ai_proposal_rolls_up_known_nutrients_when_a_component_is_unknown(self):
+        estimate = ai_estimate()
+        first_component = estimate["items"][0]["components"][0]
+        first_component["nutrients"]["carbohydrates"] = None
+        second_component = deepcopy(first_component)
+        second_component["key"] = "ai-0.1"
+        second_component["name"] = "Burger bun"
+        second_component["servings"] = "1"
+        second_component["nutrients"]["protein"] = None
+        second_component["nutrients"]["carbohydrates"] = "30"
+        estimate["items"][0]["components"].append(second_component)
+        provider = Mock()
+        provider.estimate.return_value = estimate
+
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
+            created = self.client.post(
+                "/api/meal-proposals/",
+                {
+                    "description": "A burger with a bun",
+                    "entry_date": "2026-08-16",
+                },
+                format="json",
+            )
+
+        self.assertEqual(created.status_code, 201)
+        nutrients = created.data["items"][0]["nutrients"]
+        self.assertEqual(nutrients["protein"], "24")
+        self.assertEqual(nutrients["carbohydrates"], "30")
+
     def test_catalog_nutrient_adjustment_creates_a_personal_copy(self):
         catalog_food = shared_food(name="Protein bar")
         created = self.client.post(
@@ -557,13 +586,14 @@ class OpenAIProviderTests(TestCase):
             result["items"][0]["portion_options"][0]["unit_label"], "serving"
         )
         self.assertEqual(result["items"][0]["portion_options"][1]["key"], "g")
-        self.assertEqual(result["items"][0]["selected_portion_key"], "base")
+        self.assertEqual(result["items"][0]["selected_portion_key"], "g")
 
     def test_prompt_forbids_medical_advice(self):
         self.assertIn("Do not provide dietary", SYSTEM_PROMPT)
         self.assertIn("medical", SYSTEM_PROMPT)
 
     def test_prompt_anchors_grams_to_a_concise_stable_serving(self):
+        self.assertIn("meal-level name", SYSTEM_PROMPT)
         self.assertIn("stable serving_quantity", SYSTEM_PROMPT)
         self.assertIn('"1 burger"', SYSTEM_PROMPT)
         self.assertIn("serving_weight_grams", SYSTEM_PROMPT)

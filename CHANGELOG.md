@@ -7,11 +7,16 @@ All notable changes to this project are documented in this file.
 
 - Made estimated calories, protein, carbohydrates, and fat editable through a
   per-item pencil control, with live parent, meal-total, and chart recalculation.
-- Added validated portion-option dropdowns that pair a concise natural serving
-  with a deterministic Grams conversion for every GPT-estimated item.
+- Added consistently abbreviated portion-option dropdowns that pair a concise
+  natural serving with appropriate weight or volume conversions for every
+  GPT-estimated item.
 
 ### Fixed
 
+- Preserved known macro totals when another component lacks that nutrient so
+  carbohydrates and fats no longer disappear from meal breakdown charts.
+- Removed redundant measured-serving labels such as `16 fl oz` from unit
+  dropdowns when the equivalent standardized `fl oz` option is available.
 - Reflowed meal-estimate food controls into a consistent responsive layout so
   quantity and unit/portion stay grouped while edit actions remain uncluttered.
 - Rolled composite meal nutrition up from component values even when a parent

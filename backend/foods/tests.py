@@ -93,6 +93,9 @@ class FoodModelTests(TestCase):
 
         self.assertEqual(by_key["base"]["label"], "1 medium carrot")
         self.assertEqual(Decimal(by_key["g"]["serving_multiplier"]), Decimal("1") / 61)
+        self.assertEqual(
+            Decimal(by_key["oz"]["serving_multiplier"]), Decimal("28.349523125") / 61
+        )
 
     def test_personal_food_requires_an_owner_at_database_level(self):
         with self.assertRaises(IntegrityError), transaction.atomic():

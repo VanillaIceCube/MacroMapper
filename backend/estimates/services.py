@@ -88,6 +88,12 @@ def _catalog_food(version, *, servings="1", key=None):
     food = version.food_item
     item_key = key or f"catalog-{food.pk}"
     nutrients = _effective_nutrients(version)
+    portion_options = portion_options_for_serving(
+        quantity=version.serving_quantity,
+        unit=version.serving_unit,
+        label=version.serving_label,
+    )
+    option_keys = {option["key"] for option in portion_options}
     return {
         "key": item_key,
         "food_item_id": food.pk,
@@ -99,12 +105,10 @@ def _catalog_food(version, *, servings="1", key=None):
         "serving_quantity": str(version.serving_quantity),
         "serving_unit": version.serving_unit,
         "serving_label": version.serving_label,
-        "portion_options": portion_options_for_serving(
-            quantity=version.serving_quantity,
-            unit=version.serving_unit,
-            label=version.serving_label,
+        "portion_options": portion_options,
+        "selected_portion_key": (
+            version.serving_unit if version.serving_unit in option_keys else "base"
         ),
-        "selected_portion_key": "base",
         "provenance": version.provenance,
         "source_kind": _source_kind(version.provenance),
         "confidence_score": (
@@ -177,10 +181,12 @@ def _recalculate_item(item):
     if components:
         nutrients = {}
         for field in NUTRIENT_FIELDS:
-            amounts = [
-                component.get("nutrients", {}).get(field) for component in components
+            known_components = [
+                component
+                for component in components
+                if component.get("nutrients", {}).get(field) is not None
             ]
-            if any(amount is None for amount in amounts):
+            if not known_components:
                 nutrients[field] = None
             else:
                 nutrients[field] = str(
@@ -188,7 +194,7 @@ def _recalculate_item(item):
                         (
                             _decimal(component["nutrients"][field])
                             * _decimal(component["servings"], default="1")
-                            for component in components
+                            for component in known_components
                         ),
                         Decimal("0"),
                     )
