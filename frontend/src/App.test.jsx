@@ -8,6 +8,10 @@ describe('App', () => {
     window.history.replaceState({}, '', '/');
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   test('redirects signed-out users to login', async () => {
     render(<App />);
 
@@ -40,6 +44,9 @@ describe('App', () => {
 
   test('redirects an unknown route to the protected home page', async () => {
     sessionStorage.setItem('accessToken', 'token');
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation((key) =>
+      key === 'accessToken' ? 'token' : null,
+    );
     window.history.replaceState({}, '', '/not-a-macromapper-route');
     render(<App />);
 

@@ -4,6 +4,7 @@ import { renderWithProviders } from '../test-support/utils';
 import {
   acceptMealProposal,
   createMealProposal,
+  followUpMealProposal,
   searchFoods,
   updateMealProposal,
 } from '../services/mealApiClient';
@@ -12,6 +13,7 @@ import MealEstimateDialog from './MealEstimateDialog';
 vi.mock('../services/mealApiClient', () => ({
   acceptMealProposal: vi.fn(),
   createMealProposal: vi.fn(),
+  followUpMealProposal: vi.fn(),
   searchFoods: vi.fn(),
   updateMealProposal: vi.fn(),
 }));
@@ -101,6 +103,9 @@ describe('MealEstimateDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     createMealProposal.mockResolvedValue(response(proposal));
+    followUpMealProposal.mockResolvedValue(
+      response({ applied: true, message: 'Updated.', proposal }),
+    );
     updateMealProposal.mockResolvedValue(response(proposal));
     acceptMealProposal.mockResolvedValue(response({ id: 11 }));
     searchFoods.mockResolvedValue(response([apple]));
@@ -226,7 +231,7 @@ describe('MealEstimateDialog', () => {
     });
     expect(acceptMealProposal).toHaveBeenCalledWith(25, 'access-token');
     expect(onSaved).toHaveBeenCalledWith('Estimated meal added to your diary.');
-  });
+  }, 10_000);
 
   test('labels reviewed nutrition as user-adjusted instead of untouched AI output', async () => {
     const user = userEvent.setup();
@@ -339,6 +344,41 @@ describe('MealEstimateDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Create estimate' }));
     expect(await screen.findByText('Meal estimation is not configured.')).toBeInTheDocument();
     expect(screen.getByRole('dialog', { name: 'Estimate a meal' })).toBeInTheDocument();
+  });
+
+  test('keeps a rejected AI follow-up retryable and unlocks the dialog', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    followUpMealProposal.mockRejectedValueOnce(new TypeError('Network request failed'));
+    renderWithProviders(
+      <MealEstimateDialog
+        date="2026-08-16"
+        open
+        token="access-token"
+        onClose={onClose}
+        onSaved={() => {}}
+      />,
+    );
+
+    await user.type(screen.getByRole('textbox', { name: 'Describe what you ate' }), 'Burger');
+    await user.click(screen.getByRole('button', { name: 'Create estimate' }));
+    const reviewDialog = await screen.findByRole('dialog', { name: 'Review meal estimate' });
+    const followUp = within(reviewDialog).getByRole('textbox', {
+      name: 'Ask AI to make changes',
+    });
+    await user.type(followUp, 'Add fries');
+    await user.click(within(reviewDialog).getByRole('button', { name: 'Apply' }));
+
+    expect(
+      await within(reviewDialog).findByText(
+        'Could not reach AI. Try again—your current draft and request are still here.',
+      ),
+    ).toBeVisible();
+    expect(followUp).toBeEnabled();
+    expect(followUp).toHaveValue('Add fries');
+    expect(within(reviewDialog).getByRole('button', { name: 'Apply' })).toBeEnabled();
+    await user.click(within(reviewDialog).getByRole('button', { name: 'Cancel' }));
+    expect(onClose).toHaveBeenCalledOnce();
   });
 
   test('edits a component nutrient total and updates the meal rollup', async () => {

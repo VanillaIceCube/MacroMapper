@@ -1115,34 +1115,42 @@ export default function MealEstimateDialog({ date, open, token, onClose, onSaved
     setFollowUpBusy(true);
     setError('');
     setFollowUpFeedback(null);
-    const response = await followUpMealProposal(
-      proposal.id,
-      {
-        follow_up: request,
-        name: proposal.name.trim(),
-        items: proposal.items,
-      },
-      token,
-    );
-    if (response.ok) {
-      const result = await response.json();
-      if (result.applied) {
-        setProposal(result.proposal);
-        setFollowUp('');
-        setFollowUpFeedback({ severity: 'success', message: result.message });
+    try {
+      const response = await followUpMealProposal(
+        proposal.id,
+        {
+          follow_up: request,
+          name: proposal.name.trim(),
+          items: proposal.items,
+        },
+        token,
+      );
+      if (response.ok) {
+        const result = await response.json();
+        if (result.applied) {
+          setProposal(result.proposal);
+          setFollowUp('');
+          setFollowUpFeedback({ severity: 'success', message: result.message });
+        } else {
+          setFollowUpFeedback({ severity: 'warning', message: result.message });
+        }
       } else {
-        setFollowUpFeedback({ severity: 'warning', message: result.message });
+        setFollowUpFeedback({
+          severity: 'error',
+          message: await responseError(
+            response,
+            'Could not apply that change. Your current draft is still here.',
+          ),
+        });
       }
-    } else {
+    } catch (_error) {
       setFollowUpFeedback({
         severity: 'error',
-        message: await responseError(
-          response,
-          'Could not apply that change. Your current draft is still here.',
-        ),
+        message: 'Could not reach AI. Try again—your current draft and request are still here.',
       });
+    } finally {
+      setFollowUpBusy(false);
     }
-    setFollowUpBusy(false);
   };
 
   const dialogBusy = busy || followUpBusy;

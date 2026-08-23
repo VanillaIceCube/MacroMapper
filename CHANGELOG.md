@@ -20,6 +20,8 @@ All notable changes to this project are documented in this file.
 - Added a server-side publication boundary for provider-derived shared foods so
   only allowlisted, normalized, source-validated catalog fields can be made
   globally visible; unsafe or instruction-like metadata is rejected atomically.
+- Kept meal review usable after an AI follow-up request fails by preserving the
+  draft and request, showing a retryable error, and always unlocking the dialog.
 
 ### Changed
 
