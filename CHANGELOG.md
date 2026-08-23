@@ -14,6 +14,8 @@ All notable changes to this project are documented in this file.
   food version contains stale or zero direct nutrient columns.
 - Rounded GPT-estimated quantities, confidence scores, servings, and nutrients
   to their storage precision when saving an estimate to the diary.
+- Rejected non-finite proposal numbers and replaced raw backend exception text
+  with stable user-safe API errors.
 - Removed the invalid root-level Docker Dependabot scan and documented that
   Docker dependency checks run from the backend and frontend directories.
 

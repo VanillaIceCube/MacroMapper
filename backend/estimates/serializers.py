@@ -38,6 +38,8 @@ def _decimal(value, *, field, allow_null=False, positive=False):
         parsed = Decimal(str(value))
     except (InvalidOperation, TypeError, ValueError) as error:
         raise serializers.ValidationError({field: "Supply a valid number."}) from error
+    if not parsed.is_finite():
+        raise serializers.ValidationError({field: "Supply a finite number."})
     if parsed < 0 or (positive and parsed <= 0):
         raise serializers.ValidationError(
             {
@@ -267,8 +269,10 @@ class MealProposalSerializer(serializers.ModelSerializer):
                         owner=self.context["request"].user,
                         items=attrs["items"],
                     )
-                except DjangoValidationError as error:
-                    raise serializers.ValidationError(str(error)) from error
+                except DjangoValidationError:
+                    raise serializers.ValidationError(
+                        "Proposal edits could not be validated."
+                    ) from None
         return attrs
 
     def create(self, validated_data):

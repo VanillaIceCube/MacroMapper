@@ -12,6 +12,11 @@ from .provider import EstimationProviderError
 from .serializers import MealProposalSerializer
 from .services import accept_proposal
 
+PROVIDER_UNAVAILABLE_DETAIL = (
+    "The meal estimation service is temporarily unavailable. "
+    "Try again or log the meal manually."
+)
+
 
 class MealProposalViewSet(viewsets.ModelViewSet):
     serializer_class = MealProposalSerializer
@@ -26,9 +31,9 @@ class MealProposalViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         try:
             return super().create(request, *args, **kwargs)
-        except EstimationProviderError as error:
+        except EstimationProviderError:
             return Response(
-                {"detail": str(error)},
+                {"detail": PROVIDER_UNAVAILABLE_DETAIL},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 

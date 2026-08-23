@@ -1,3 +1,4 @@
+from copy import deepcopy
 from datetime import date
 from decimal import Decimal
 from types import SimpleNamespace
@@ -349,6 +350,47 @@ class MealProposalApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data, [])
 
+    def test_proposal_edits_reject_non_finite_numbers(self):
+        provider = Mock()
+        provider.estimate.return_value = ai_estimate()
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
+            created = self.client.post(
+                "/api/meal-proposals/",
+                {
+                    "description": "A burger with invalid numeric edits",
+                    "entry_date": "2026-08-16",
+                },
+                format="json",
+            )
+
+        invalid_edits = (
+            ("servings", "NaN"),
+            ("nutrient", "Infinity"),
+            ("confidence", "-Infinity"),
+        )
+        for field, value in invalid_edits:
+            with self.subTest(field=field, value=value):
+                item = deepcopy(created.data["items"][0])
+                if field == "servings":
+                    item["servings"] = value
+                elif field == "nutrient":
+                    item["nutrients"]["calories"] = value
+                else:
+                    item["confidence_score"] = value
+
+                response = self.client.patch(
+                    f"/api/meal-proposals/{created.data['id']}/",
+                    {"items": [item]},
+                    format="json",
+                )
+
+                self.assertEqual(response.status_code, 400)
+                self.assertIn("finite number", str(response.data))
+
+        proposal = MealProposal.objects.get(pk=created.data["id"])
+        self.assertEqual(proposal.status, MealProposal.Status.DRAFT)
+        self.assertFalse(MealEntry.objects.exists())
+
     def test_provider_failure_returns_safe_service_unavailable(self):
         provider = Mock()
         provider.estimate.side_effect = EstimationProviderError("Provider unavailable.")
@@ -359,7 +401,11 @@ class MealProposalApiTests(TestCase):
                 format="json",
             )
         self.assertEqual(response.status_code, 503)
-        self.assertEqual(response.data["detail"], "Provider unavailable.")
+        self.assertEqual(
+            response.data["detail"],
+            "The meal estimation service is temporarily unavailable. "
+            "Try again or log the meal manually.",
+        )
         self.assertFalse(MealProposal.objects.exists())
 
 
