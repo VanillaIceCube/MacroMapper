@@ -244,7 +244,7 @@ def _visible_catalog_version(*, owner, item):
 
 
 def secure_review_items(*, proposal, owner, items):
-    """Keep provenance/nutrients immutable while accepting review-only edits."""
+    """Keep provenance immutable while accepting quantity and nutrient edits."""
 
     existing = _items_by_key(proposal.items)
 
@@ -260,14 +260,17 @@ def secure_review_items(*, proposal, owner, items):
                 raise ValidationError(
                     "New proposal foods must come from your visible catalog."
                 )
-            return _catalog_food(
+            result = _catalog_food(
                 version,
                 servings=item["servings"],
                 key=item["key"],
             ) | {"components": []}
+            result["nutrients"] = item["nutrients"]
+            return result
 
         result = dict(original)
         result["servings"] = item["servings"]
+        result["nutrients"] = item["nutrients"]
         requested_components = item.get("components", [])
         original_component_keys = {
             component["key"] for component in original.get("components", [])
@@ -322,6 +325,23 @@ def _definition(item, components):
     }
 
 
+def _matches_catalog_nutrients(item, version):
+    catalog_nutrients = _effective_nutrients(version)
+    requested_nutrients = item.get("nutrients", {})
+    for field in NUTRIENT_FIELDS:
+        catalog_value = catalog_nutrients.get(field)
+        requested_value = requested_nutrients.get(field)
+        if catalog_value is None or requested_value is None:
+            if catalog_value is not None or requested_value is not None:
+                return False
+            continue
+        if _storage_decimal(catalog_value, decimal_places=4) != _storage_decimal(
+            requested_value, decimal_places=4
+        ):
+            return False
+    return True
+
+
 def _materialize_item(*, owner, item):
     components = []
     for order, component_item in enumerate(item.get("components", [])):
@@ -340,7 +360,11 @@ def _materialize_item(*, owner, item):
         )
 
     catalog_version = _visible_catalog_version(owner=owner, item=item)
-    if catalog_version is not None and not components:
+    if (
+        catalog_version is not None
+        and not components
+        and _matches_catalog_nutrients(item, catalog_version)
+    ):
         return catalog_version.food_item, catalog_version
 
     origin_type = item.get("origin_type") or FoodItem.OriginType.GENERIC
@@ -354,13 +378,17 @@ def _materialize_item(*, owner, item):
         and not provider_name.strip()
     ):
         origin_type = FoodItem.OriginType.GENERIC
+    definition = _definition(item, components)
+    if catalog_version is not None:
+        definition["provenance"] = FoodItemVersion.Provenance.USER_ENTERED
+        definition["confidence_score"] = None
     food = create_food_item(
         name=item["name"],
         scope=FoodItem.Scope.PERSONAL,
         origin_type=origin_type,
         provider_name=provider_name,
         owner=owner,
-        definition=_definition(item, components),
+        definition=definition,
         created_by=owner,
     )
     return food, food.current_version

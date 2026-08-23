@@ -168,6 +168,11 @@ describe('MealEstimateDialog', () => {
     expect(
       await within(reviewDialog).findByLabelText('Burger patty macro values'),
     ).toHaveTextContent(/Protein\s*24\s*g/);
+    expect(
+      within(reviewDialog).queryByRole('spinbutton', {
+        name: 'Protein for Burger patty',
+      }),
+    ).not.toBeInTheDocument();
 
     expect(within(reviewDialog).queryByText('AI estimate')).not.toBeInTheDocument();
     await user.click(
@@ -232,6 +237,72 @@ describe('MealEstimateDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Create estimate' }));
     expect(await screen.findByText('Meal estimation is not configured.')).toBeInTheDocument();
     expect(screen.getByRole('dialog', { name: 'Estimate a meal' })).toBeInTheDocument();
+  });
+
+  test('edits a component nutrient total and updates the meal rollup', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <MealEstimateDialog
+        date="2026-08-16"
+        open
+        token="access-token"
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+    );
+
+    await user.type(
+      screen.getByRole('textbox', { name: 'Describe what you ate' }),
+      'Double burger',
+    );
+    await user.click(screen.getByRole('button', { name: 'Create estimate' }));
+    const reviewDialog = await screen.findByRole('dialog', { name: 'Review meal estimate' });
+    await user.click(
+      within(reviewDialog).getByRole('button', { name: 'Expand components for Double burger' }),
+    );
+    await user.click(
+      within(reviewDialog).getByRole('button', {
+        name: 'Edit nutrition for Burger patty',
+      }),
+    );
+
+    const calories = within(reviewDialog).getByRole('spinbutton', {
+      name: 'Calories for Burger patty',
+    });
+    expect(calories).toHaveValue(400);
+    await user.clear(calories);
+    await user.type(calories, '300');
+
+    expect(within(reviewDialog).getByLabelText('Burger patty 300 kcal (100%)')).toBeVisible();
+    await user.click(
+      within(reviewDialog).getByRole('button', {
+        name: 'Finish editing nutrition for Burger patty',
+      }),
+    );
+    expect(
+      within(reviewDialog).queryByRole('spinbutton', {
+        name: 'Calories for Burger patty',
+      }),
+    ).not.toBeInTheDocument();
+    expect(within(reviewDialog).getByLabelText('Burger patty macro values')).toHaveTextContent(
+      /Calories\s*300\s*kcal/,
+    );
+    await user.click(within(reviewDialog).getByRole('button', { name: 'Save to diary' }));
+    expect(updateMealProposal).toHaveBeenCalledWith(
+      25,
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            components: [
+              expect.objectContaining({
+                nutrients: expect.objectContaining({ calories: '150' }),
+              }),
+            ],
+          }),
+        ],
+      }),
+      'access-token',
+    );
   });
 
   test('charts the largest meal-level components instead of nested ingredients', async () => {

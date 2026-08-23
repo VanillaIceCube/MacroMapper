@@ -1,6 +1,7 @@
 import AddIcon from '@mui/icons-material/Add';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -18,6 +19,7 @@ import {
   DialogTitle,
   Divider,
   IconButton,
+  InputAdornment,
   Link,
   List,
   ListItem,
@@ -147,7 +149,7 @@ function summarizedContributions(items) {
   ];
 }
 
-function NutritionCards({ values, ariaLabel, compact = false }) {
+function NutritionCards({ values, ariaLabel, compact = false, itemName, onNutrientChange }) {
   return (
     <Box
       aria-label={ariaLabel}
@@ -178,14 +180,45 @@ function NutritionCards({ values, ariaLabel, compact = false }) {
           >
             {label}
           </Typography>
-          <Stack direction="row" spacing={0.4} alignItems="baseline">
-            <Typography variant={compact ? 'subtitle1' : 'h6'} sx={{ lineHeight: 1.15 }}>
-              {formatAmount(values[key])}
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'var(--atlas-ink-muted)' }}>
-              {unit}
-            </Typography>
-          </Stack>
+          {onNutrientChange ? (
+            <TextField
+              type="number"
+              variant="standard"
+              size="small"
+              fullWidth
+              value={values[key] ?? ''}
+              onChange={(event) => onNutrientChange(key, event.target.value)}
+              inputProps={{
+                min: 0,
+                step: 'any',
+                'aria-label': `${label} for ${itemName}`,
+              }}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <Typography variant="caption">{unit}</Typography>
+                  </InputAdornment>
+                ),
+              }}
+              sx={{
+                '& .MuiInputBase-input': {
+                  py: 0.25,
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                  lineHeight: 1.15,
+                },
+              }}
+            />
+          ) : (
+            <Stack direction="row" spacing={0.4} alignItems="baseline">
+              <Typography variant={compact ? 'subtitle1' : 'h6'} sx={{ lineHeight: 1.15 }}>
+                {formatAmount(values[key])}
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'var(--atlas-ink-muted)' }}>
+                {unit}
+              </Typography>
+            </Stack>
+          )}
           {!compact && (
             <Typography
               variant="caption"
@@ -200,12 +233,18 @@ function NutritionCards({ values, ariaLabel, compact = false }) {
   );
 }
 
-function ItemNutritionCards({ item, compact = false }) {
+function ItemNutritionCards({ item, compact = false, onNutrientChange }) {
   const values = Object.fromEntries(
     NUTRIENT_FIELDS.map(({ key }) => [key, itemNutrientTotal(item, key)]),
   );
   return (
-    <NutritionCards values={values} ariaLabel={`${item.name} macro values`} compact={compact} />
+    <NutritionCards
+      values={values}
+      ariaLabel={`${item.name} macro values`}
+      compact={compact}
+      itemName={item.name}
+      onNutrientChange={item.components?.length ? undefined : onNutrientChange}
+    />
   );
 }
 
@@ -445,11 +484,13 @@ function removeFromTree(items, key) {
     }));
 }
 
-function ProposalFood({ item, depth = 0, onServings, onRemove }) {
+function ProposalFood({ item, depth = 0, onServings, onNutrientChange, onRemove }) {
   const [componentsOpen, setComponentsOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [nutritionEditing, setNutritionEditing] = useState(false);
   const source = sourceLabels[item.source_kind] || sourceLabels.ai_estimate;
   const isComponent = depth > 0;
+  const canEditNutrition = !item.components?.length;
   const hasDetails =
     item.confidence_score != null || item.provider_name || Boolean(item.sources?.length);
   return (
@@ -496,7 +537,15 @@ function ProposalFood({ item, depth = 0, onServings, onRemove }) {
           </Typography>
         </Box>
         <Box sx={{ minWidth: 0, gridArea: 'nutrition' }}>
-          <ItemNutritionCards item={item} compact />
+          <ItemNutritionCards
+            item={item}
+            compact
+            onNutrientChange={
+              nutritionEditing
+                ? (nutrient, value) => onNutrientChange(item.key, nutrient, value)
+                : undefined
+            }
+          />
         </Box>
         <Stack
           direction="row"
@@ -524,6 +573,17 @@ function ProposalFood({ item, depth = 0, onServings, onRemove }) {
             inputProps={{ min: 0.0001, step: 0.25 }}
             sx={{ width: { xs: 88, sm: 104 } }}
           />
+          {canEditNutrition && (
+            <IconButton
+              size="small"
+              aria-label={`${nutritionEditing ? 'Finish editing' : 'Edit'} nutrition for ${item.name}`}
+              aria-pressed={nutritionEditing}
+              onClick={() => setNutritionEditing((current) => !current)}
+              color={nutritionEditing ? 'primary' : 'default'}
+            >
+              <EditOutlinedIcon />
+            </IconButton>
+          )}
           <IconButton
             size="small"
             aria-label={`remove ${item.name}`}
@@ -590,6 +650,7 @@ function ProposalFood({ item, depth = 0, onServings, onRemove }) {
                   item={component}
                   depth={depth + 1}
                   onServings={onServings}
+                  onNutrientChange={onNutrientChange}
                   onRemove={onRemove}
                 />
               ))}
@@ -716,6 +777,24 @@ export default function MealEstimateDialog({ date, open, token, onClose, onSaved
     }));
   };
 
+  const changeNutrient = (key, nutrient, totalValue) => {
+    setProposal((current) => ({
+      ...current,
+      items: updateTree(current.items, key, (item) => {
+        const numeric = Number(totalValue);
+        const servings = servingsValue(item);
+        const perServingValue =
+          totalValue === '' || !Number.isFinite(numeric) || !servings
+            ? totalValue
+            : String(numeric / servings);
+        return {
+          ...item,
+          nutrients: { ...item.nutrients, [nutrient]: perServingValue },
+        };
+      }),
+    }));
+  };
+
   const removeItem = (key) => {
     setProposal((current) => ({
       ...current,
@@ -797,6 +876,7 @@ export default function MealEstimateDialog({ date, open, token, onClose, onSaved
                     key={item.key}
                     item={item}
                     onServings={changeServings}
+                    onNutrientChange={changeNutrient}
                     onRemove={removeItem}
                   />
                 ))}

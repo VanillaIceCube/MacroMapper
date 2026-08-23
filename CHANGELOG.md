@@ -3,6 +3,11 @@ All notable changes to this project are documented in this file.
 
 ## 2026-08-22
 
+### Added
+
+- Made estimated calories, protein, carbohydrates, and fat editable through a
+  per-item pencil control, with live parent, meal-total, and chart recalculation.
+
 ### Fixed
 
 - Rolled composite meal nutrition up from component values even when a parent

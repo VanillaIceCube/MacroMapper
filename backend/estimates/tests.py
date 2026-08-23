@@ -272,6 +272,70 @@ class MealProposalApiTests(TestCase):
         )
         self.assertEqual(saved_component.child_version.calories, Decimal("200.1235"))
 
+    def test_ai_proposal_accepts_reviewed_component_nutrients(self):
+        provider = Mock()
+        provider.estimate.return_value = ai_estimate()
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
+            created = self.client.post(
+                "/api/meal-proposals/",
+                {
+                    "description": "A restaurant burger with adjusted nutrition",
+                    "entry_date": "2026-08-16",
+                },
+                format="json",
+            )
+
+        item = created.data["items"][0]
+        item["components"][0]["nutrients"]["calories"] = "175"
+        item["components"][0]["nutrients"]["protein"] = "10"
+        updated = self.client.patch(
+            f"/api/meal-proposals/{created.data['id']}/",
+            {"items": [item]},
+            format="json",
+        )
+
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.data["items"][0]["nutrients"]["calories"], "350")
+        self.assertEqual(updated.data["items"][0]["nutrients"]["protein"], "20")
+        accepted = self.client.post(f"/api/meal-proposals/{created.data['id']}/accept/")
+        self.assertEqual(accepted.status_code, 201)
+        saved_item = MealEntry.objects.get(pk=accepted.data["id"]).items.get()
+        self.assertEqual(saved_item.calories, Decimal("350"))
+        saved_component = saved_item.food_version.components.get()
+        self.assertEqual(saved_component.child_version.calories, Decimal("175"))
+        self.assertEqual(saved_component.child_version.protein, Decimal("10"))
+
+    def test_catalog_nutrient_adjustment_creates_a_personal_copy(self):
+        catalog_food = shared_food(name="Protein bar")
+        created = self.client.post(
+            "/api/meal-proposals/",
+            {"description": "Protein bar", "entry_date": "2026-08-16"},
+            format="json",
+        )
+        item = created.data["items"][0]
+        item["nutrients"]["calories"] = "125"
+
+        updated = self.client.patch(
+            f"/api/meal-proposals/{created.data['id']}/",
+            {"items": [item]},
+            format="json",
+        )
+        self.assertEqual(updated.status_code, 200)
+        accepted = self.client.post(f"/api/meal-proposals/{created.data['id']}/accept/")
+
+        self.assertEqual(accepted.status_code, 201)
+        saved_version = (
+            MealEntry.objects.get(pk=accepted.data["id"]).items.get().food_version
+        )
+        self.assertNotEqual(saved_version.food_item_id, catalog_food.pk)
+        self.assertEqual(saved_version.food_item.scope, FoodItem.Scope.PERSONAL)
+        self.assertEqual(
+            saved_version.provenance, FoodItemVersion.Provenance.USER_ENTERED
+        )
+        self.assertEqual(saved_version.calories, Decimal("125"))
+        catalog_food.refresh_from_db()
+        self.assertEqual(catalog_food.current_version.calories, Decimal("100"))
+
     def test_proposals_are_owner_scoped(self):
         MealProposal.objects.create(
             owner=self.other_user,
