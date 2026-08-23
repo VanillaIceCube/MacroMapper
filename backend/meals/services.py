@@ -26,16 +26,16 @@ def _effective_nutrients(version, visited=None):
     # partial, or zero direct nutrient columns; otherwise a zero parent value
     # masks the nutrition that should be shown and saved for the meal.
     totals = {field: Decimal("0") for field in NUTRIENT_FIELDS}
-    complete = {field: True for field in NUTRIENT_FIELDS}
+    has_known_value = {field: False for field in NUTRIENT_FIELDS}
     for component in components:
         child_nutrients = _effective_nutrients(component.child_version, path)
         for field, amount in child_nutrients.items():
-            if amount is None:
-                complete[field] = False
-            else:
+            if amount is not None:
+                has_known_value[field] = True
                 totals[field] += amount * component.servings
     return {
-        field: totals[field] if complete[field] else None for field in NUTRIENT_FIELDS
+        field: totals[field] if has_known_value[field] else None
+        for field in NUTRIENT_FIELDS
     }
 
 

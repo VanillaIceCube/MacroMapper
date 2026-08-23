@@ -24,8 +24,10 @@ class MealProposalViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
-        return MealProposal.objects.filter(owner=self.request.user).select_related(
-            "accepted_meal"
+        return (
+            MealProposal.objects.filter(owner=self.request.user)
+            .select_related("accepted_meal")
+            .prefetch_related("revisions")
         )
 
     def create(self, request, *args, **kwargs):

@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import re
+import unicodedata
+from copy import deepcopy
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from difflib import SequenceMatcher
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -15,7 +20,7 @@ from foods.services import create_food_item
 from meals.models import MealEntry
 from meals.services import _effective_nutrients, replace_meal_items
 
-from .models import MealProposal
+from .models import MealProposal, MealProposalRevision
 from .provider import get_estimation_provider
 
 STOP_WORDS = {
@@ -32,13 +37,142 @@ STOP_WORDS = {
     "with",
 }
 
+QUERY_IGNORED_WORDS = STOP_WORDS | {
+    "ate",
+    "eat",
+    "eating",
+    "got",
+    "had",
+    "meal",
+    "oar",
+    "or",
+    "order",
+    "ordered",
+    "please",
+    "plus",
+}
 
-def _terms(value):
-    return {
-        term
-        for term in re.findall(r"[a-z0-9]+", value.lower())
-        if len(term) > 1 and term not in STOP_WORDS
+QUANTITY_WORDS = {
+    "single": Decimal("1"),
+    "one": Decimal("1"),
+    "two": Decimal("2"),
+    "three": Decimal("3"),
+    "four": Decimal("4"),
+    "five": Decimal("5"),
+    "six": Decimal("6"),
+    "seven": Decimal("7"),
+    "eight": Decimal("8"),
+    "nine": Decimal("9"),
+    "ten": Decimal("10"),
+    "eleven": Decimal("11"),
+    "twelve": Decimal("12"),
+}
+
+QUERY_TOKEN_PATTERN = re.compile(
+    r"\d+(?:\.\d+)?x?|[^\W\d_]+(?:['’][^\W\d_]+)*",
+    re.UNICODE,
+)
+
+
+def _normalize_search_token(value):
+    normalized = unicodedata.normalize("NFKD", value).casefold()
+    return "".join(character for character in normalized if character.isalnum())
+
+
+def _quantity(value):
+    normalized = _normalize_search_token(value)
+    if normalized in QUANTITY_WORDS:
+        return QUANTITY_WORDS[normalized]
+    numeric_match = re.fullmatch(r"(\d+(?:\.\d+)?)(?:x)?", value.casefold())
+    if numeric_match is None:
+        return None
+    quantity = Decimal(numeric_match.group(1))
+    return quantity if quantity > 0 else None
+
+
+def _query_tokens(value):
+    return [
+        {
+            "index": index,
+            "raw": match.group(0),
+            "normalized": _normalize_search_token(match.group(0)),
+            "quantity": _quantity(match.group(0)),
+        }
+        for index, match in enumerate(QUERY_TOKEN_PATTERN.finditer(value))
+    ]
+
+
+def _identity_tokens(value):
+    return [
+        token["normalized"]
+        for token in _query_tokens(value)
+        if token["normalized"] not in QUERY_IGNORED_WORDS and token["quantity"] is None
+    ]
+
+
+def _best_phrase_span(*, phrase_tokens, query_tokens):
+    if not phrase_tokens or not query_tokens:
+        return None
+    target = "".join(phrase_tokens)
+    best = None
+    maximum_window = min(len(query_tokens), len(phrase_tokens) + 1)
+    for window_size in range(1, maximum_window + 1):
+        for start in range(len(query_tokens) - window_size + 1):
+            window = query_tokens[start : start + window_size]
+            candidate = "".join(token["normalized"] for token in window)
+            score = SequenceMatcher(None, target, candidate).ratio()
+            if best is None or score > best["score"]:
+                best = {
+                    "score": score,
+                    "indexes": {token["index"] for token in window},
+                    "start": window[0]["index"],
+                    "end": window[-1]["index"],
+                }
+    return best
+
+
+def _catalog_food_rank(food, *, user):
+    provenance_rank = {
+        FoodItemVersion.Provenance.OFFICIAL: 5,
+        FoodItemVersion.Provenance.USER_ENTERED: 4,
+        FoodItemVersion.Provenance.USER_MODIFIED_ESTIMATE: 3,
+        FoodItemVersion.Provenance.COMMUNITY_ESTIMATE: 2,
+        FoodItemVersion.Provenance.AI_ESTIMATE: 1,
     }
+    version = food.current_version
+    return (
+        int(food.owner_id == user.pk),
+        provenance_rank.get(version.provenance, 0),
+        len(version.sources.all()),
+        version.confidence_score or Decimal("-1"),
+        food.pk,
+    )
+
+
+def _quantity_for_match(*, match, all_tokens, used_quantity_indexes):
+    for index in range(match["start"] - 1, max(match["start"] - 4, -1), -1):
+        token = all_tokens[index]
+        if token["index"] in used_quantity_indexes:
+            continue
+        if token["quantity"] is not None:
+            used_quantity_indexes.add(token["index"])
+            return token["quantity"]
+        if (
+            token["index"] in match["provider_indexes"]
+            or token["normalized"] in QUERY_IGNORED_WORDS
+        ):
+            continue
+        break
+    next_index = match["end"] + 1
+    if next_index < len(all_tokens):
+        token = all_tokens[next_index]
+        if (
+            token["quantity"] is not None
+            and token["index"] not in used_quantity_indexes
+        ):
+            used_quantity_indexes.add(token["index"])
+            return token["quantity"]
+    return Decimal("1")
 
 
 def _decimal(value, *, default="0"):
@@ -53,11 +187,17 @@ def _storage_decimal(value, *, decimal_places, default="0"):
     return _decimal(value, default=default).quantize(quantum, rounding=ROUND_HALF_UP)
 
 
+def _decimal_string(value):
+    return format(Decimal(value).normalize(), "f")
+
+
 def _source_kind(provenance):
     if provenance == FoodItemVersion.Provenance.OFFICIAL:
         return "official_verified"
     if provenance == FoodItemVersion.Provenance.AI_ESTIMATE:
         return "ai_estimate"
+    if provenance == FoodItemVersion.Provenance.USER_MODIFIED_ESTIMATE:
+        return "user_modified_estimate"
     return "catalog_estimate"
 
 
@@ -81,6 +221,8 @@ def _portion_options(item):
         quantity=item.get("serving_quantity", "1"),
         unit=item.get("serving_unit", FoodItemVersion.ServingUnit.SERVING),
         label=item.get("serving_label", ""),
+        weight_grams=item.get("serving_weight_grams"),
+        volume_milliliters=item.get("serving_volume_ml"),
     )
 
 
@@ -92,6 +234,8 @@ def _catalog_food(version, *, servings="1", key=None, depth=0):
         quantity=version.serving_quantity,
         unit=version.serving_unit,
         label=version.serving_label,
+        weight_grams=version.serving_weight_grams,
+        volume_milliliters=version.serving_volume_ml,
     )
     option_keys = {option["key"] for option in portion_options}
     if depth and "fl_oz" in option_keys:
@@ -113,6 +257,16 @@ def _catalog_food(version, *, servings="1", key=None, depth=0):
         "serving_quantity": str(version.serving_quantity),
         "serving_unit": version.serving_unit,
         "serving_label": version.serving_label,
+        "serving_weight_grams": (
+            str(version.serving_weight_grams)
+            if version.serving_weight_grams is not None
+            else None
+        ),
+        "serving_volume_ml": (
+            str(version.serving_volume_ml)
+            if version.serving_volume_ml is not None
+            else None
+        ),
         "portion_options": portion_options,
         "selected_portion_key": selected_portion_key,
         "provenance": version.provenance,
@@ -122,8 +276,11 @@ def _catalog_food(version, *, servings="1", key=None, depth=0):
             if version.confidence_score is not None
             else None
         ),
+        "is_user_modified": (
+            version.provenance == FoodItemVersion.Provenance.USER_MODIFIED_ESTIMATE
+        ),
         "nutrients": {
-            field: str(amount) if amount is not None else None
+            field: _decimal_string(amount) if amount is not None else None
             for field, amount in nutrients.items()
         },
         "sources": _sources(version),
@@ -139,10 +296,15 @@ def _catalog_food(version, *, servings="1", key=None, depth=0):
     }
 
 
-def find_catalog_matches(*, description, user):
-    query_terms = _terms(description)
-    if not query_terms:
-        return []
+def resolve_catalog_matches(*, description, user):
+    all_tokens = _query_tokens(description)
+    query_tokens = [
+        token
+        for token in all_tokens
+        if token["quantity"] is None and token["normalized"] not in QUERY_IGNORED_WORDS
+    ]
+    if not query_tokens:
+        return {"matches": [], "unmatched_description": description}
     foods = list(
         FoodItem.objects.active()
         .visible_to(user)
@@ -155,23 +317,108 @@ def find_catalog_matches(*, description, user):
             "current_version__components__child_version__components",
         )
     )
-    candidates = []
-    normalized_description = " ".join(sorted(query_terms))
+
+    best_identity_foods = {}
     for food in foods:
-        identity_terms = _terms(f"{food.provider_name} {food.name}")
-        overlap = len(query_terms & identity_terms)
-        if not overlap:
+        identity = (
+            "".join(_identity_tokens(food.provider_name)),
+            "".join(_identity_tokens(food.name)),
+        )
+        existing = best_identity_foods.get(identity)
+        if existing is None or _catalog_food_rank(food, user=user) > _catalog_food_rank(
+            existing, user=user
+        ):
+            best_identity_foods[identity] = food
+
+    candidates = []
+    for food in best_identity_foods.values():
+        name_tokens = _identity_tokens(food.name)
+        name_match = _best_phrase_span(
+            phrase_tokens=name_tokens,
+            query_tokens=query_tokens,
+        )
+        minimum_score = 0.86 if len("".join(name_tokens)) <= 6 else 0.78
+        if name_match is None or name_match["score"] < minimum_score:
             continue
-        coverage = overlap / max(len(identity_terms), 1)
-        phrase = " ".join(sorted(identity_terms))
-        exactish = phrase == normalized_description or identity_terms <= query_terms
-        if exactish or coverage >= 0.6 or overlap >= 2:
-            candidates.append((exactish, overlap, coverage, food))
+        provider_match = _best_phrase_span(
+            phrase_tokens=_identity_tokens(food.provider_name),
+            query_tokens=query_tokens,
+        )
+        provider_indexes = (
+            provider_match["indexes"]
+            if provider_match is not None and provider_match["score"] >= 0.78
+            else set()
+        )
+        candidates.append(
+            {
+                "food": food,
+                "score": name_match["score"],
+                "name_indexes": name_match["indexes"],
+                "provider_indexes": provider_indexes,
+                "provider_score": provider_match["score"] if provider_match else 0,
+                "start": name_match["start"],
+                "end": name_match["end"],
+                "name_token_count": len(name_tokens),
+                "name_character_count": len("".join(name_tokens)),
+                "selection_score": name_match["score"]
+                + min(len(name_tokens), 4) * 0.04,
+                "food_rank": _catalog_food_rank(food, user=user),
+            }
+        )
+
     candidates.sort(
-        key=lambda value: (value[0], value[1], value[2], -value[3].pk),
+        key=lambda candidate: (
+            candidate["selection_score"],
+            candidate["name_token_count"],
+            candidate["name_character_count"],
+            candidate["score"],
+            candidate["provider_score"],
+            candidate["food_rank"],
+        ),
         reverse=True,
     )
-    return [candidate[3] for candidate in candidates[:5]]
+    selected = []
+    claimed_name_indexes = set()
+    for candidate in candidates:
+        if candidate["name_indexes"] & claimed_name_indexes:
+            continue
+        selected.append(candidate)
+        claimed_name_indexes.update(candidate["name_indexes"])
+        if len(selected) == 20:
+            break
+
+    used_quantity_indexes = set()
+    for match in selected:
+        match["servings"] = _quantity_for_match(
+            match=match,
+            all_tokens=all_tokens,
+            used_quantity_indexes=used_quantity_indexes,
+        )
+    selected.sort(key=lambda match: match["start"])
+
+    covered_indexes = claimed_name_indexes | used_quantity_indexes
+    for match in selected:
+        covered_indexes.update(match["provider_indexes"])
+    unmatched_tokens = [
+        token["raw"]
+        for token in all_tokens
+        if token["index"] not in covered_indexes
+        and token["normalized"] not in QUERY_IGNORED_WORDS
+    ]
+    return {
+        "matches": selected,
+        "unmatched_description": " ".join(unmatched_tokens),
+    }
+
+
+def find_catalog_matches(*, description, user):
+    return [
+        match["food"]
+        for match in resolve_catalog_matches(
+            description=description,
+            user=user,
+        )["matches"]
+    ]
 
 
 def _recalculate_item(item):
@@ -196,7 +443,7 @@ def _recalculate_item(item):
             if not known_components:
                 nutrients[field] = None
             else:
-                nutrients[field] = str(
+                nutrients[field] = _decimal_string(
                     sum(
                         (
                             _decimal(component["nutrients"][field])
@@ -223,40 +470,231 @@ def _items_by_key(items):
 
 
 @transaction.atomic
+def create_proposal_revision(*, proposal, kind, created_by):
+    locked_proposal = MealProposal.objects.select_for_update().get(pk=proposal.pk)
+    parent = locked_proposal.revisions.order_by("-revision_number", "-id").first()
+    revision = MealProposalRevision(
+        proposal=locked_proposal,
+        revision_number=(parent.revision_number + 1 if parent else 1),
+        kind=kind,
+        name=locked_proposal.name,
+        items=deepcopy(locked_proposal.items),
+        parent_revision=parent,
+        created_by=created_by,
+    )
+    revision.full_clean()
+    revision.save()
+    return revision
+
+
+def _fingerprint_decimal(value, *, decimal_places, default="0"):
+    return str(_storage_decimal(value, decimal_places=decimal_places, default=default))
+
+
+def _shared_fingerprint(*, item, components):
+    payload = {
+        "name": " ".join(item["name"].casefold().split()),
+        "provider_name": " ".join(item.get("provider_name", "").casefold().split()),
+        "origin_type": item.get("origin_type") or FoodItem.OriginType.GENERIC,
+        "serving_quantity": _fingerprint_decimal(
+            item.get("serving_quantity"), decimal_places=3, default="1"
+        ),
+        "serving_unit": item.get("serving_unit") or "serving",
+        "serving_label": " ".join(item.get("serving_label", "").casefold().split()),
+        "serving_weight_grams": (
+            _fingerprint_decimal(item.get("serving_weight_grams"), decimal_places=3)
+            if item.get("serving_weight_grams") is not None
+            else None
+        ),
+        "serving_volume_ml": (
+            _fingerprint_decimal(item.get("serving_volume_ml"), decimal_places=3)
+            if item.get("serving_volume_ml") is not None
+            else None
+        ),
+        "nutrients": {
+            field: (
+                _fingerprint_decimal(value, decimal_places=4)
+                if value is not None
+                else None
+            )
+            for field in NUTRIENT_FIELDS
+            for value in [item.get("nutrients", {}).get(field)]
+        },
+        "components": [
+            {
+                "fingerprint": component["food_item"].shared_fingerprint,
+                "version": component["food_version"].pk,
+                "servings": str(component["servings"]),
+                "order": component["order"],
+            }
+            for component in components
+        ],
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _shared_definition(*, item, components, estimate):
+    definition = _definition(item, components)
+    definition.update(
+        {
+            "estimation_provider": estimate["provider_name"],
+            "estimation_model": estimate["provider_model"],
+            "estimation_response_id": estimate["provider_response_id"],
+        }
+    )
+    return definition
+
+
+def _materialize_shared_item(*, item, estimate):
+    components = []
+    for order, component_item in enumerate(item.get("components", [])):
+        child_food, child_version = _materialize_shared_item(
+            item=component_item,
+            estimate=estimate,
+        )
+        components.append(
+            {
+                "food_item": child_food,
+                "food_version": child_version,
+                "servings": _storage_decimal(
+                    component_item.get("servings"),
+                    decimal_places=4,
+                    default="1",
+                ),
+                "order": order,
+            }
+        )
+
+    fingerprint = _shared_fingerprint(item=item, components=components)
+    existing = (
+        FoodItem.objects.active()
+        .filter(
+            scope=FoodItem.Scope.SHARED,
+            shared_fingerprint=fingerprint,
+            current_version__isnull=False,
+        )
+        .select_related("current_version")
+        .first()
+    )
+    if existing:
+        return existing, existing.current_version
+
+    try:
+        with transaction.atomic():
+            food = create_food_item(
+                name=item["name"],
+                scope=FoodItem.Scope.SHARED,
+                origin_type=item.get("origin_type") or FoodItem.OriginType.GENERIC,
+                provider_name=item.get("provider_name", ""),
+                owner=None,
+                definition=_shared_definition(
+                    item=item,
+                    components=components,
+                    estimate=estimate,
+                ),
+                created_by=None,
+                shared_fingerprint=fingerprint,
+            )
+    except IntegrityError:
+        food = FoodItem.objects.select_related("current_version").get(
+            scope=FoodItem.Scope.SHARED,
+            shared_fingerprint=fingerprint,
+        )
+    return food, food.current_version
+
+
+def _shared_estimate_items(estimate):
+    normalized = normalize_items(estimate["items"])
+    result = []
+    for item in normalized:
+        food, version = _materialize_shared_item(item=item, estimate=estimate)
+        result.append(
+            _catalog_food(
+                version,
+                servings=item.get("servings", "1"),
+                key=item["key"],
+            )
+        )
+    return result
+
+
+@transaction.atomic
 def create_proposal(*, owner, description, entry_date):
     description = description.strip()
-    matches = find_catalog_matches(description=description, user=owner)
-    if matches:
-        items = [_catalog_food(food.current_version) for food in matches]
+    resolution = resolve_catalog_matches(description=description, user=owner)
+    matches = resolution["matches"]
+    catalog_items = [
+        _catalog_food(
+            match["food"].current_version,
+            servings=match["servings"],
+        )
+        for match in matches
+    ]
+    if matches and not resolution["unmatched_description"]:
         confidence_values = [
-            food.current_version.confidence_score
-            for food in matches
-            if food.current_version.confidence_score is not None
+            match["food"].current_version.confidence_score
+            for match in matches
+            if match["food"].current_version.confidence_score is not None
         ]
-        return MealProposal.objects.create(
+        proposal = MealProposal.objects.create(
             owner=owner,
             description=description,
             entry_date=entry_date,
-            name=matches[0].name if len(matches) == 1 else description[:120],
+            name=(matches[0]["food"].name if len(matches) == 1 else description[:120]),
             generator=MealProposal.Generator.CATALOG,
             provider_name="MacroMapper catalog",
             confidence_score=(min(confidence_values) if confidence_values else None),
-            items=items,
+            items=catalog_items,
         )
+        create_proposal_revision(
+            proposal=proposal,
+            kind=MealProposalRevision.Kind.GENERATED,
+            created_by=None,
+        )
+        return proposal
 
-    estimate = get_estimation_provider().estimate(description)
-    return MealProposal.objects.create(
+    estimate = get_estimation_provider().estimate(
+        resolution["unmatched_description"] or description
+    )
+    estimated_items = _shared_estimate_items(estimate)
+    catalog_names = {"".join(_identity_tokens(item["name"])) for item in catalog_items}
+    estimated_items = [
+        item
+        for item in estimated_items
+        if "".join(_identity_tokens(item["name"])) not in catalog_names
+    ]
+    items = [*catalog_items, *estimated_items]
+    confidence_values = [
+        *[
+            match["food"].current_version.confidence_score
+            for match in matches
+            if match["food"].current_version.confidence_score is not None
+        ],
+        estimate["confidence_score"],
+    ]
+    proposal = MealProposal.objects.create(
         owner=owner,
         description=description,
         entry_date=entry_date,
-        name=estimate["name"],
+        name=description[:120] if catalog_items else estimate["name"],
         generator=MealProposal.Generator.OPENAI,
-        provider_name=estimate["provider_name"],
+        provider_name=(
+            f"MacroMapper catalog + {estimate['provider_name']}"
+            if catalog_items
+            else estimate["provider_name"]
+        ),
         provider_model=estimate["provider_model"],
         provider_response_id=estimate["provider_response_id"],
-        confidence_score=estimate["confidence_score"],
-        items=normalize_items(estimate["items"]),
+        confidence_score=min(confidence_values),
+        items=items,
     )
+    create_proposal_revision(
+        proposal=proposal,
+        kind=MealProposalRevision.Kind.GENERATED,
+        created_by=None,
+    )
+    return proposal
 
 
 def _visible_catalog_version(*, owner, item):
@@ -297,7 +735,7 @@ def secure_review_items(*, proposal, owner, items):
                 version,
                 servings=item["servings"],
                 key=item["key"],
-            ) | {"components": []}
+            )
             selected_portion_key = item["selected_portion_key"]
             if selected_portion_key not in {
                 option["key"] for option in result["portion_options"]
@@ -335,7 +773,8 @@ def secure_review_items(*, proposal, owner, items):
             result["nutrients"] = {field: None for field in NUTRIENT_FIELDS}
         return result
 
-    return normalize_items([secure(item) for item in items])
+    reviewed = normalize_items([secure(item) for item in items])
+    return _apply_review_attribution(items=reviewed, owner=owner)
 
 
 def _definition(item, components):
@@ -351,6 +790,16 @@ def _definition(item, components):
         ),
         "serving_unit": item.get("serving_unit") or "serving",
         "serving_label": item.get("serving_label") or "one serving",
+        "serving_weight_grams": (
+            _storage_decimal(item.get("serving_weight_grams"), decimal_places=3)
+            if item.get("serving_weight_grams") is not None
+            else None
+        ),
+        "serving_volume_ml": (
+            _storage_decimal(item.get("serving_volume_ml"), decimal_places=3)
+            if item.get("serving_volume_ml") is not None
+            else None
+        ),
         "provenance": item.get("provenance") or FoodItemVersion.Provenance.AI_ESTIMATE,
         "confidence_score": (
             _storage_decimal(confidence, decimal_places=3)
@@ -388,6 +837,104 @@ def _matches_catalog_nutrients(item, version):
     return True
 
 
+def _matches_catalog_value(value, stored, *, decimal_places):
+    if value is None or stored is None:
+        return value is None and stored is None
+    return _storage_decimal(value, decimal_places=decimal_places) == _storage_decimal(
+        stored, decimal_places=decimal_places
+    )
+
+
+def _matches_catalog_tree(item, version):
+    if not _matches_catalog_nutrients(item, version):
+        return False
+    if not _matches_catalog_value(
+        item.get("serving_quantity"),
+        version.serving_quantity,
+        decimal_places=3,
+    ):
+        return False
+    if item.get("serving_unit") != version.serving_unit:
+        return False
+    if item.get("serving_label", "") != version.serving_label:
+        return False
+    if not _matches_catalog_value(
+        item.get("serving_weight_grams"),
+        version.serving_weight_grams,
+        decimal_places=3,
+    ):
+        return False
+    if not _matches_catalog_value(
+        item.get("serving_volume_ml"),
+        version.serving_volume_ml,
+        decimal_places=3,
+    ):
+        return False
+
+    requested_components = item.get("components", [])
+    catalog_components = list(
+        version.components.select_related("child_version__food_item").all()
+    )
+    if len(requested_components) != len(catalog_components):
+        return False
+    for requested, catalog in zip(
+        requested_components, catalog_components, strict=True
+    ):
+        if requested.get("food_item_id") != catalog.child_version.food_item_id:
+            return False
+        if requested.get("food_version_id") != catalog.child_version_id:
+            return False
+        if not _matches_catalog_value(
+            requested.get("servings"), catalog.servings, decimal_places=4
+        ):
+            return False
+        if not _matches_catalog_tree(requested, catalog.child_version):
+            return False
+    return True
+
+
+def _apply_review_attribution(*, items, owner):
+    def annotate(item):
+        item = dict(item)
+        item["components"] = [
+            annotate(component) for component in item.get("components", [])
+        ]
+        version = _visible_catalog_version(owner=owner, item=item)
+        modified = version is not None and not _matches_catalog_tree(item, version)
+        item["is_user_modified"] = modified
+        if modified:
+            item["provenance"] = FoodItemVersion.Provenance.USER_MODIFIED_ESTIMATE
+            item["source_kind"] = "user_modified_estimate"
+            item["confidence_score"] = None
+        elif version is not None:
+            item["provenance"] = version.provenance
+            item["source_kind"] = _source_kind(version.provenance)
+            item["confidence_score"] = (
+                str(version.confidence_score)
+                if version.confidence_score is not None
+                else None
+            )
+        return item
+
+    return [annotate(item) for item in items]
+
+
+def _matches_materialized_components(version, components):
+    catalog_components = list(
+        version.components.select_related("child_version__food_item").all()
+    )
+    if len(components) != len(catalog_components):
+        return False
+    for materialized, catalog in zip(components, catalog_components, strict=True):
+        if materialized["food_version"].pk != catalog.child_version_id:
+            return False
+        if not _matches_catalog_value(
+            materialized["servings"], catalog.servings, decimal_places=4
+        ):
+            return False
+    return True
+
+
 def _materialize_item(*, owner, item):
     components = []
     for order, component_item in enumerate(item.get("components", [])):
@@ -408,8 +955,8 @@ def _materialize_item(*, owner, item):
     catalog_version = _visible_catalog_version(owner=owner, item=item)
     if (
         catalog_version is not None
-        and not components
         and _matches_catalog_nutrients(item, catalog_version)
+        and _matches_materialized_components(catalog_version, components)
     ):
         return catalog_version.food_item, catalog_version
 
@@ -426,8 +973,12 @@ def _materialize_item(*, owner, item):
         origin_type = FoodItem.OriginType.GENERIC
     definition = _definition(item, components)
     if catalog_version is not None:
-        definition["provenance"] = FoodItemVersion.Provenance.USER_ENTERED
+        definition["provenance"] = FoodItemVersion.Provenance.USER_MODIFIED_ESTIMATE
         definition["confidence_score"] = None
+        definition["derived_from"] = catalog_version
+        definition["estimation_provider"] = catalog_version.estimation_provider
+        definition["estimation_model"] = catalog_version.estimation_model
+        definition["estimation_response_id"] = catalog_version.estimation_response_id
     food = create_food_item(
         name=item["name"],
         scope=FoodItem.Scope.PERSONAL,
@@ -445,7 +996,9 @@ def accept_proposal(*, proposal):
     proposal = MealProposal.objects.select_for_update().get(pk=proposal.pk)
     if proposal.status != MealProposal.Status.DRAFT:
         raise ValidationError("This proposal has already been accepted.")
-    items = normalize_items(proposal.items)
+    items = _apply_review_attribution(
+        items=normalize_items(proposal.items), owner=proposal.owner
+    )
     if not items:
         raise ValidationError("Add at least one food before saving this meal.")
 
@@ -475,5 +1028,10 @@ def accept_proposal(*, proposal):
     proposal.accepted_at = timezone.now()
     proposal.save(
         update_fields=["items", "status", "accepted_meal", "accepted_at", "updated_at"]
+    )
+    create_proposal_revision(
+        proposal=proposal,
+        kind=MealProposalRevision.Kind.ACCEPTED,
+        created_by=proposal.owner,
     )
     return meal

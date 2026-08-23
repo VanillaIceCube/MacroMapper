@@ -123,7 +123,17 @@ class FoodItemAdmin(admin.ModelAdmin):
     list_per_page = 50
     save_on_top = True
     fieldsets = (
-        ("Food identity", {"fields": ("name", "provider_name", "origin_type")}),
+        (
+            "Food identity",
+            {
+                "fields": (
+                    "name",
+                    "provider_name",
+                    "origin_type",
+                    "shared_fingerprint",
+                )
+            },
+        ),
         (
             "Ownership and visibility",
             {"fields": ("scope", "owner", "archived_at")},
@@ -140,6 +150,7 @@ class FoodItemAdmin(admin.ModelAdmin):
     readonly_fields = (
         "current_version",
         "current_version_link",
+        "shared_fingerprint",
         "created_at",
         "updated_at",
     )
@@ -230,8 +241,14 @@ class FoodItemVersionAdmin(ImmutableAdminMixin, admin.ModelAdmin):
         "serving_quantity",
         "serving_unit",
         "serving_label",
+        "serving_weight_grams",
+        "serving_volume_ml",
         "provenance",
         "confidence_score",
+        "derived_from",
+        "estimation_provider",
+        "estimation_model",
+        "estimation_response_id",
         "calories",
         "protein",
         "carbohydrates",
@@ -247,7 +264,15 @@ class FoodItemVersionAdmin(ImmutableAdminMixin, admin.ModelAdmin):
         ("Food version", {"fields": ("food_item_link", "version_number")}),
         (
             "Serving",
-            {"fields": ("serving_quantity", "serving_unit", "serving_label")},
+            {
+                "fields": (
+                    "serving_quantity",
+                    "serving_unit",
+                    "serving_label",
+                    "serving_weight_grams",
+                    "serving_volume_ml",
+                )
+            },
         ),
         (
             "Nutrition per serving",
@@ -260,7 +285,19 @@ class FoodItemVersionAdmin(ImmutableAdminMixin, admin.ModelAdmin):
                 )
             },
         ),
-        ("Data quality", {"fields": ("provenance", "confidence_score")}),
+        (
+            "Data quality",
+            {
+                "fields": (
+                    "provenance",
+                    "confidence_score",
+                    "derived_from",
+                    "estimation_provider",
+                    "estimation_model",
+                    "estimation_response_id",
+                )
+            },
+        ),
         (
             "Record history",
             {

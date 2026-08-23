@@ -228,6 +228,99 @@ describe('MealEstimateDialog', () => {
     expect(onSaved).toHaveBeenCalledWith('Estimated meal added to your diary.');
   });
 
+  test('labels reviewed nutrition as user-adjusted instead of untouched AI output', async () => {
+    const user = userEvent.setup();
+    createMealProposal.mockResolvedValue(
+      response({
+        ...proposal,
+        items: [
+          {
+            ...proposal.items[0],
+            source_kind: 'user_modified_estimate',
+            provenance: 'user_modified_estimate',
+            is_user_modified: true,
+          },
+        ],
+      }),
+    );
+    renderWithProviders(
+      <MealEstimateDialog
+        date="2026-08-16"
+        open
+        token="access-token"
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+    );
+
+    await user.type(screen.getByRole('textbox', { name: 'Describe what you ate' }), 'Burger');
+    await user.click(screen.getByRole('button', { name: 'Create estimate' }));
+    const reviewDialog = await screen.findByRole('dialog', { name: 'Review meal estimate' });
+    await user.click(
+      within(reviewDialog).getByRole('button', { name: 'More actions for Double burger' }),
+    );
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Show estimate details for Double burger' }),
+    );
+
+    expect(within(reviewDialog).getByText('AI estimate — adjusted by you')).toBeVisible();
+  });
+
+  test('multiplies per-serving nutrients by a fractional count exactly once', async () => {
+    const user = userEvent.setup();
+    createMealProposal.mockResolvedValue(
+      response({
+        ...proposal,
+        name: "McDonald's Hash Browns",
+        items: [
+          {
+            ...component,
+            key: 'ai-0',
+            name: 'Hash Browns',
+            servings: '5.5',
+            serving_label: '1 hash brown',
+            serving_weight_grams: '53',
+            nutrients: {
+              calories: '140',
+              protein: '1',
+              carbohydrates: '18',
+              fat: '8',
+              fiber: '2',
+              sugar: '0',
+              sodium: '310',
+              cholesterol: '0',
+            },
+            components: [],
+          },
+        ],
+      }),
+    );
+    renderWithProviders(
+      <MealEstimateDialog
+        date="2026-08-16"
+        open
+        token="access-token"
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+    );
+
+    await user.type(
+      screen.getByRole('textbox', { name: 'Describe what you ate' }),
+      "5.5 McDonald's hash browns",
+    );
+    await user.click(screen.getByRole('button', { name: 'Create estimate' }));
+
+    const reviewDialog = await screen.findByRole('dialog', { name: 'Review meal estimate' });
+    expect(within(reviewDialog).getByLabelText('Hash Browns macro values')).toHaveTextContent(
+      /Calories\s*770\s*kcal/,
+    );
+    expect(
+      within(reviewDialog).getByRole('region', { name: 'Meal macro breakdown' }),
+    ).toHaveTextContent(/770\s*kcal/);
+    expect(within(reviewDialog).queryByText(/4,?235\s*kcal/)).not.toBeInTheDocument();
+  });
+
   test('shows a provider error without closing the dialog', async () => {
     const user = userEvent.setup();
     createMealProposal.mockResolvedValue(

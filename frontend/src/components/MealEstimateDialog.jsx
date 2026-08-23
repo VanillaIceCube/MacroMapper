@@ -44,6 +44,7 @@ const sourceLabels = {
   official_verified: { label: 'Official / verified', color: 'success' },
   catalog_estimate: { label: 'Catalog estimate', color: 'info' },
   ai_estimate: { label: 'AI estimate', color: 'warning' },
+  user_modified_estimate: { label: 'AI estimate — adjusted by you', color: 'warning' },
 };
 
 const nutrientMap = (nutrients = []) =>
@@ -654,7 +655,7 @@ function ProposalFood({
   const hasDetails =
     item.confidence_score != null || item.provider_name || Boolean(item.sources?.length);
   const accentColor =
-    item.source_kind === 'ai_estimate'
+    item.source_kind === 'ai_estimate' || item.source_kind === 'user_modified_estimate'
       ? 'var(--atlas-persimmon)'
       : item.source_kind === 'official_verified'
         ? 'var(--atlas-forest)'
@@ -901,7 +902,9 @@ function catalogProposalItem(food) {
       ? 'official_verified'
       : version.provenance === 'ai_estimate'
         ? 'ai_estimate'
-        : 'catalog_estimate';
+        : version.provenance === 'user_modified_estimate'
+          ? 'user_modified_estimate'
+          : 'catalog_estimate';
   const item = {
     key: `catalog-added-${food.id}-${Date.now()}`,
     food_item_id: food.id,

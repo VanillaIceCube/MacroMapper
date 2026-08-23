@@ -20,12 +20,15 @@ remain planned in the [product roadmap](docs/PRODUCT_VISION.md).
   reset, protected routes, and recipient-scoped notifications
 - **Private meal diary:** dated meal entry creation, editing, deletion, durable
   saved food/component details, and daily launch-nutrient totals
-- **GPT meal proposals:** catalog-first, editable, source-aware estimates with
-  explicit provenance and confidence that require review before saving
+- **GPT meal proposals:** typo-tolerant multi-food catalog reuse with quantity
+  extraction and AI fallback only for unresolved foods, plus editable,
+  source-aware estimates with explicit provenance, immutable review revisions,
+  and confidence that require review before saving
 - **Reusable Food Items:** authenticated catalog APIs for standalone and
   composite foods with portions, nutrients, provenance, sources, and confidence
-- **Catalog separation:** official, community-estimate, and private personal
-  records remain distinguishable
+- **Catalog separation:** initial AI definitions become deduplicated shared
+  catalog records, while user-adjusted and fully personal records remain
+  attributable and private
 - **Goals and trends (planned):** nutrition targets, activity-adjusted budgets,
   and factual daily, weekly, and monthly reporting
 - **Same-origin routing:** React at `/`, authentication at `/auth/`, application

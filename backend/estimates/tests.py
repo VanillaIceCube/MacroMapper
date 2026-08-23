@@ -14,7 +14,7 @@ from foods.nutrients import NUTRIENT_FIELDS
 from foods.services import create_food_item
 from meals.models import MealEntry
 
-from .models import MealProposal
+from .models import MealProposal, MealProposalRevision
 from .provider import (
     SYSTEM_PROMPT,
     EstimatedFood,
@@ -26,7 +26,15 @@ from .provider import (
 )
 
 
-def shared_food(*, name, provider_name="", origin_type="generic", components=None):
+def shared_food(
+    *,
+    name,
+    provider_name="",
+    origin_type="generic",
+    components=None,
+    provenance=FoodItemVersion.Provenance.OFFICIAL,
+    confidence="0.990",
+):
     return create_food_item(
         name=name,
         scope=FoodItem.Scope.SHARED,
@@ -37,8 +45,8 @@ def shared_food(*, name, provider_name="", origin_type="generic", components=Non
             "serving_quantity": Decimal("1"),
             "serving_unit": FoodItemVersion.ServingUnit.ITEM,
             "serving_label": "one item",
-            "provenance": FoodItemVersion.Provenance.OFFICIAL,
-            "confidence_score": Decimal("0.990"),
+            "provenance": provenance,
+            "confidence_score": Decimal(confidence),
             "nutrients": {
                 "calories": Decimal("100"),
                 "protein": Decimal("10"),
@@ -123,6 +131,29 @@ def ai_estimate():
     }
 
 
+def simple_ai_estimate(*, name="Apple", calories="95"):
+    estimate = ai_estimate()
+    estimate["name"] = name
+    item = estimate["items"][0]
+    item.update(
+        {
+            "name": name,
+            "provider_name": "",
+            "origin_type": "generic",
+            "servings": "1",
+            "serving_label": f"one {name.lower()}",
+            "serving_weight_grams": "182",
+            "serving_volume_ml": None,
+            "nutrients": {
+                field: calories if field == "calories" else None
+                for field in NUTRIENT_FIELDS
+            },
+            "components": [],
+        }
+    )
+    return estimate
+
+
 class MealProposalApiTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(
@@ -164,6 +195,136 @@ class MealProposalApiTests(TestCase):
             response.data["items"][0]["sources"][0]["url"],
             "https://example.com/double-double",
         )
+
+    def test_catalog_resolver_combines_typoed_composite_and_joined_food_with_quantity(
+        self,
+    ):
+        for name in ("Bacon", "Egg", "Cheese", "Biscuit"):
+            shared_food(name=name, provider_name="McDonald's")
+        biscuit = shared_food(
+            name="Bacon, Egg & Cheese Biscuit",
+            provider_name="McDonald's",
+            origin_type=FoodItem.OriginType.RESTAURANT,
+        )
+        preferred_hash_browns = shared_food(
+            name="Hash Browns",
+            provider_name="McDonald's",
+            origin_type=FoodItem.OriginType.RESTAURANT,
+            provenance=FoodItemVersion.Provenance.AI_ESTIMATE,
+            confidence="0.970",
+        )
+        shared_food(
+            name="Hash Browns",
+            provider_name="McDonald's",
+            origin_type=FoodItem.OriginType.RESTAURANT,
+            provenance=FoodItemVersion.Provenance.AI_ESTIMATE,
+            confidence="0.930",
+        )
+
+        with patch("estimates.services.get_estimation_provider") as provider:
+            response = self.client.post(
+                "/api/meal-proposals/",
+                {
+                    "description": (
+                        "McDonalds Bacon Egg & Cheese Busicut and 2 hashbrowns"
+                    ),
+                    "entry_date": "2026-08-16",
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 201)
+        provider.assert_not_called()
+        self.assertEqual(response.data["generator"], MealProposal.Generator.CATALOG)
+        self.assertEqual(len(response.data["items"]), 2)
+        self.assertEqual(
+            [item["food_item_id"] for item in response.data["items"]],
+            [biscuit.pk, preferred_hash_browns.pk],
+        )
+        self.assertEqual(
+            [Decimal(item["servings"]) for item in response.data["items"]],
+            [Decimal("1"), Decimal("2")],
+        )
+        self.assertNotIn(
+            "Bacon",
+            [item["name"] for item in response.data["items"]],
+        )
+
+    def test_catalog_resolver_applies_quantity_before_the_provider_name(self):
+        biscuit = shared_food(
+            name="Bacon, Egg & Cheese Biscuit",
+            provider_name="McDonald's",
+            origin_type=FoodItem.OriginType.RESTAURANT,
+        )
+
+        with patch("estimates.services.get_estimation_provider") as provider:
+            response = self.client.post(
+                "/api/meal-proposals/",
+                {
+                    "description": "3 McDonalds Bacon Egg Cheese Busicuits",
+                    "entry_date": "2026-08-16",
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 201)
+        provider.assert_not_called()
+        self.assertEqual(response.data["items"][0]["food_item_id"], biscuit.pk)
+        self.assertEqual(Decimal(response.data["items"][0]["servings"]), Decimal("3"))
+
+    def test_catalog_resolver_handles_heavily_typoed_provider_and_food(self):
+        hash_browns = shared_food(
+            name="Hash Browns",
+            provider_name="McDonald's",
+            origin_type=FoodItem.OriginType.RESTAURANT,
+        )
+
+        with patch("estimates.services.get_estimation_provider") as provider:
+            response = self.client.post(
+                "/api/meal-proposals/",
+                {
+                    "description": "mcdonlds oar hsh brown",
+                    "entry_date": "2026-08-16",
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 201)
+        provider.assert_not_called()
+        self.assertEqual(len(response.data["items"]), 1)
+        self.assertEqual(response.data["items"][0]["food_item_id"], hash_browns.pk)
+        self.assertEqual(Decimal(response.data["items"][0]["servings"]), Decimal("1"))
+
+    def test_catalog_resolver_uses_ai_only_for_unmatched_foods(self):
+        biscuit = shared_food(
+            name="Bacon, Egg & Cheese Biscuit",
+            provider_name="McDonald's",
+            origin_type=FoodItem.OriginType.RESTAURANT,
+        )
+        provider = Mock()
+        provider.estimate.return_value = simple_ai_estimate(
+            name="Black coffee", calories="5"
+        )
+
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
+            response = self.client.post(
+                "/api/meal-proposals/",
+                {
+                    "description": "McDonalds Bacon Egg Cheese Biscuit and coffee",
+                    "entry_date": "2026-08-16",
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 201)
+        provider.estimate.assert_called_once_with("coffee")
+        self.assertEqual(response.data["generator"], MealProposal.Generator.OPENAI)
+        self.assertEqual(
+            [item["name"] for item in response.data["items"]],
+            [biscuit.name, "Black coffee"],
+        )
+        self.assertEqual(response.data["items"][0]["food_item_id"], biscuit.pk)
+        self.assertEqual(response.data["items"][1]["source_kind"], "ai_estimate")
 
     def test_catalog_proposal_keys_include_the_full_component_path(self):
         leaf = shared_food(name="Shared garnish")
@@ -227,6 +388,14 @@ class MealProposalApiTests(TestCase):
         self.assertEqual(created.status_code, 201)
         proposal_id = created.data["id"]
         item = created.data["items"][0]
+        shared_parent = FoodItem.objects.get(pk=item["food_item_id"])
+        shared_child = FoodItem.objects.get(pk=item["components"][0]["food_item_id"])
+        self.assertEqual(shared_parent.scope, FoodItem.Scope.SHARED)
+        self.assertEqual(shared_child.scope, FoodItem.Scope.SHARED)
+        self.assertEqual(
+            shared_parent.current_version.components.get().child_version_id,
+            shared_child.current_version_id,
+        )
         self.assertEqual(created.data["items"][0]["nutrients"]["calories"], "400")
         item["components"][0]["servings"] = "1"
         item["source_kind"] = "official_verified"
@@ -239,8 +408,12 @@ class MealProposalApiTests(TestCase):
         )
         self.assertEqual(updated.status_code, 200)
         self.assertEqual(updated.data["items"][0]["nutrients"]["calories"], "200")
-        self.assertEqual(updated.data["items"][0]["source_kind"], "ai_estimate")
-        self.assertEqual(updated.data["items"][0]["provenance"], "ai_estimate")
+        self.assertEqual(
+            updated.data["items"][0]["source_kind"], "user_modified_estimate"
+        )
+        self.assertEqual(
+            updated.data["items"][0]["provenance"], "user_modified_estimate"
+        )
 
         accepted = self.client.post(f"/api/meal-proposals/{proposal_id}/accept/")
 
@@ -261,8 +434,10 @@ class MealProposalApiTests(TestCase):
             saved_item.food_version.food_item.scope, FoodItem.Scope.PERSONAL
         )
         self.assertEqual(
-            saved_item.food_version.provenance, FoodItemVersion.Provenance.AI_ESTIMATE
+            saved_item.food_version.provenance,
+            FoodItemVersion.Provenance.USER_MODIFIED_ESTIMATE,
         )
+        self.assertEqual(saved_item.food_version.derived_from.food_item.scope, "shared")
         self.assertEqual(
             saved_item.food_version.sources.get().url,
             "https://example.com/nutrition",
@@ -406,11 +581,253 @@ class MealProposalApiTests(TestCase):
         self.assertNotEqual(saved_version.food_item_id, catalog_food.pk)
         self.assertEqual(saved_version.food_item.scope, FoodItem.Scope.PERSONAL)
         self.assertEqual(
-            saved_version.provenance, FoodItemVersion.Provenance.USER_ENTERED
+            saved_version.provenance,
+            FoodItemVersion.Provenance.USER_MODIFIED_ESTIMATE,
         )
         self.assertEqual(saved_version.calories, Decimal("125"))
         catalog_food.refresh_from_db()
         self.assertEqual(catalog_food.current_version.calories, Decimal("100"))
+
+    def test_initial_ai_estimate_becomes_shared_and_is_reused_by_another_user(self):
+        provider = Mock()
+        provider.estimate.return_value = simple_ai_estimate()
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
+            created = self.client.post(
+                "/api/meal-proposals/",
+                {"description": "A single apple", "entry_date": "2026-08-16"},
+                format="json",
+            )
+
+        self.assertEqual(created.status_code, 201)
+        shared_apple = FoodItem.objects.get(name="Apple", scope=FoodItem.Scope.SHARED)
+        self.assertIsNone(shared_apple.owner)
+        self.assertIsNotNone(shared_apple.shared_fingerprint)
+        self.assertEqual(
+            shared_apple.current_version.provenance,
+            FoodItemVersion.Provenance.AI_ESTIMATE,
+        )
+        self.assertEqual(shared_apple.current_version.estimation_provider, "OpenAI")
+        self.assertEqual(shared_apple.current_version.estimation_model, "gpt-test")
+        self.assertEqual(
+            shared_apple.current_version.serving_weight_grams, Decimal("182")
+        )
+        self.assertIn(
+            "g",
+            {option["key"] for option in created.data["items"][0]["portion_options"]},
+        )
+        self.assertEqual(created.data["items"][0]["food_item_id"], shared_apple.pk)
+        self.assertEqual(
+            created.data["items"][0]["food_version_id"],
+            shared_apple.current_version_id,
+        )
+
+        self.client.force_authenticate(self.other_user)
+        with patch("estimates.services.get_estimation_provider") as other_provider:
+            reused = self.client.post(
+                "/api/meal-proposals/",
+                {"description": "single apple", "entry_date": "2026-08-17"},
+                format="json",
+            )
+
+        self.assertEqual(reused.status_code, 201)
+        other_provider.assert_not_called()
+        self.assertEqual(reused.data["generator"], MealProposal.Generator.CATALOG)
+        self.assertEqual(reused.data["items"][0]["food_item_id"], shared_apple.pk)
+        self.assertEqual(FoodItem.objects.filter(name="Apple").count(), 1)
+
+        adjusted_item = reused.data["items"][0]
+        adjusted_item["nutrients"]["calories"] = "120"
+        reviewed = self.client.patch(
+            f"/api/meal-proposals/{reused.data['id']}/",
+            {"items": [adjusted_item]},
+            format="json",
+        )
+        accepted = self.client.post(f"/api/meal-proposals/{reused.data['id']}/accept/")
+
+        self.assertEqual(reviewed.status_code, 200)
+        self.assertEqual(accepted.status_code, 201)
+        other_version = (
+            MealEntry.objects.get(pk=accepted.data["id"]).items.get().food_version
+        )
+        self.assertEqual(other_version.food_item.scope, FoodItem.Scope.PERSONAL)
+        self.assertEqual(other_version.food_item.owner, self.other_user)
+        self.assertEqual(other_version.derived_from_id, shared_apple.current_version_id)
+        self.assertEqual(shared_apple.current_version.calories, Decimal("95"))
+
+    def test_unmodified_ai_estimate_acceptance_reuses_shared_version(self):
+        provider = Mock()
+        provider.estimate.return_value = simple_ai_estimate()
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
+            created = self.client.post(
+                "/api/meal-proposals/",
+                {"description": "A single apple", "entry_date": "2026-08-16"},
+                format="json",
+            )
+
+        accepted = self.client.post(f"/api/meal-proposals/{created.data['id']}/accept/")
+
+        self.assertEqual(accepted.status_code, 201)
+        saved_version = (
+            MealEntry.objects.get(pk=accepted.data["id"]).items.get().food_version
+        )
+        self.assertEqual(saved_version.food_item.scope, FoodItem.Scope.SHARED)
+        self.assertEqual(
+            saved_version.provenance, FoodItemVersion.Provenance.AI_ESTIMATE
+        )
+        self.assertEqual(
+            FoodItem.objects.filter(scope=FoodItem.Scope.PERSONAL).count(), 0
+        )
+
+    def test_multiple_servings_are_multiplied_exactly_once_when_accepted(self):
+        estimate = simple_ai_estimate(name="Hash Browns", calories="140")
+        item = estimate["items"][0]
+        item.update(
+            {
+                "servings": "5.5",
+                "serving_label": "1 hash brown",
+                "serving_weight_grams": "53",
+                "nutrients": {
+                    "calories": "140",
+                    "protein": "1",
+                    "carbohydrates": "18",
+                    "fat": "8",
+                    "fiber": "2",
+                    "sugar": "0",
+                    "sodium": "310",
+                    "cholesterol": "0",
+                },
+            }
+        )
+        provider = Mock()
+        provider.estimate.return_value = estimate
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
+            created = self.client.post(
+                "/api/meal-proposals/",
+                {
+                    "description": "5.5 McDonald's hash browns",
+                    "entry_date": "2026-08-16",
+                },
+                format="json",
+            )
+
+        accepted = self.client.post(f"/api/meal-proposals/{created.data['id']}/accept/")
+
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(created.data["items"][0]["nutrients"]["calories"], "140")
+        self.assertEqual(accepted.status_code, 201)
+        saved_item = MealEntry.objects.get(pk=accepted.data["id"]).items.get()
+        self.assertEqual(saved_item.servings, Decimal("5.5"))
+        self.assertEqual(saved_item.calories, Decimal("770"))
+        self.assertEqual(saved_item.carbohydrates, Decimal("99"))
+        self.assertEqual(saved_item.fat, Decimal("44"))
+
+    def test_equivalent_ai_outputs_are_deduplicated(self):
+        provider = Mock()
+        provider.estimate.return_value = simple_ai_estimate()
+        with (
+            patch(
+                "estimates.services.resolve_catalog_matches",
+                return_value={
+                    "matches": [],
+                    "unmatched_description": "apple",
+                },
+            ),
+            patch("estimates.services.get_estimation_provider", return_value=provider),
+        ):
+            first = self.client.post(
+                "/api/meal-proposals/",
+                {"description": "First apple", "entry_date": "2026-08-16"},
+                format="json",
+            )
+            second = self.client.post(
+                "/api/meal-proposals/",
+                {"description": "Second apple", "entry_date": "2026-08-17"},
+                format="json",
+            )
+
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 201)
+        self.assertEqual(
+            first.data["items"][0]["food_item_id"],
+            second.data["items"][0]["food_item_id"],
+        )
+        self.assertEqual(FoodItem.objects.filter(name="Apple").count(), 1)
+
+    def test_proposal_revisions_preserve_generated_reviewed_and_accepted_values(self):
+        provider = Mock()
+        provider.estimate.return_value = simple_ai_estimate()
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
+            created = self.client.post(
+                "/api/meal-proposals/",
+                {"description": "A single apple", "entry_date": "2026-08-16"},
+                format="json",
+            )
+
+        item = created.data["items"][0]
+        item["nutrients"]["calories"] = "250"
+        reviewed = self.client.patch(
+            f"/api/meal-proposals/{created.data['id']}/",
+            {"items": [item]},
+            format="json",
+        )
+        accepted = self.client.post(f"/api/meal-proposals/{created.data['id']}/accept/")
+
+        self.assertEqual(reviewed.status_code, 200)
+        self.assertEqual(accepted.status_code, 201)
+        revisions = list(
+            MealProposalRevision.objects.filter(proposal_id=created.data["id"])
+        )
+        self.assertEqual(
+            [revision.kind for revision in revisions],
+            [
+                MealProposalRevision.Kind.GENERATED,
+                MealProposalRevision.Kind.USER_REVIEWED,
+                MealProposalRevision.Kind.ACCEPTED,
+            ],
+        )
+        self.assertEqual(revisions[0].items[0]["nutrients"]["calories"], "95")
+        self.assertEqual(revisions[1].items[0]["nutrients"]["calories"], "250")
+        self.assertEqual(revisions[1].parent_revision, revisions[0])
+        self.assertEqual(revisions[2].parent_revision, revisions[1])
+        saved_version = (
+            MealEntry.objects.get(pk=accepted.data["id"]).items.get().food_version
+        )
+        self.assertEqual(
+            saved_version.provenance,
+            FoodItemVersion.Provenance.USER_MODIFIED_ESTIMATE,
+        )
+        self.assertEqual(
+            saved_version.derived_from_id, revisions[0].items[0]["food_version_id"]
+        )
+
+    def test_edited_draft_can_be_deleted_without_removing_shared_base(self):
+        provider = Mock()
+        provider.estimate.return_value = simple_ai_estimate()
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
+            created = self.client.post(
+                "/api/meal-proposals/",
+                {"description": "A single apple", "entry_date": "2026-08-16"},
+                format="json",
+            )
+
+        item = created.data["items"][0]
+        item["nutrients"]["calories"] = "100"
+        reviewed = self.client.patch(
+            f"/api/meal-proposals/{created.data['id']}/",
+            {"items": [item]},
+            format="json",
+        )
+        deleted = self.client.delete(f"/api/meal-proposals/{created.data['id']}/")
+
+        self.assertEqual(reviewed.status_code, 200)
+        self.assertEqual(deleted.status_code, 204)
+        self.assertFalse(MealProposal.objects.filter(pk=created.data["id"]).exists())
+        self.assertFalse(
+            MealProposalRevision.objects.filter(proposal_id=created.data["id"]).exists()
+        )
+        self.assertTrue(
+            FoodItem.objects.filter(name="Apple", scope=FoodItem.Scope.SHARED).exists()
+        )
 
     def test_proposals_are_owner_scoped(self):
         MealProposal.objects.create(
@@ -588,6 +1005,135 @@ class OpenAIProviderTests(TestCase):
         self.assertEqual(result["items"][0]["portion_options"][1]["key"], "g")
         self.assertEqual(result["items"][0]["selected_portion_key"], "g")
 
+    def test_provider_normalizes_declared_total_nutrients_to_one_base_serving(self):
+        parsed = EstimatedMeal(
+            name="McDonald's Hash Browns",
+            confidence_score=Decimal("0.93"),
+            items=[
+                EstimatedFood(
+                    name="Hash Browns",
+                    provider_name="McDonald's",
+                    origin_type="restaurant",
+                    servings=Decimal("5.5"),
+                    serving_quantity=1,
+                    serving_unit="item",
+                    serving_label="1 hash brown",
+                    serving_weight_grams=53,
+                    nutrient_basis="total_consumed",
+                    confidence_score=Decimal("0.93"),
+                    nutrients=EstimatedNutrients(
+                        calories=770,
+                        protein=Decimal("5.5"),
+                        carbohydrates=99,
+                        fat=44,
+                        fiber=11,
+                        sugar=0,
+                        sodium=1705,
+                        cholesterol=0,
+                    ),
+                )
+            ],
+        )
+        client = Mock()
+        client.responses.parse.return_value = SimpleNamespace(
+            id="resp_hash_browns", output_parsed=parsed
+        )
+
+        item = OpenAIMealEstimationProvider(client=client).estimate(
+            "5.5 McDonald's hash browns"
+        )["items"][0]
+
+        self.assertEqual(item["servings"], 5.5)
+        self.assertEqual(Decimal(str(item["nutrients"]["calories"])), Decimal("140"))
+        self.assertEqual(
+            Decimal(str(item["nutrients"]["carbohydrates"])), Decimal("18")
+        )
+        self.assertEqual(Decimal(str(item["nutrients"]["fat"])), Decimal("8"))
+        self.assertEqual(Decimal(str(item["nutrients"]["sodium"])), Decimal("310"))
+        self.assertNotIn("nutrient_basis", item)
+
+    def test_provider_detects_implausible_totals_even_when_basis_is_mislabeled(self):
+        parsed = EstimatedMeal(
+            name="McDonald's Hash Browns",
+            confidence_score=Decimal("0.93"),
+            items=[
+                EstimatedFood(
+                    name="Hash Browns",
+                    servings=Decimal("5.5"),
+                    serving_quantity=1,
+                    serving_unit="item",
+                    serving_label="1 hash brown",
+                    serving_weight_grams=53,
+                    nutrient_basis="per_base_serving",
+                    confidence_score=Decimal("0.93"),
+                    nutrients=EstimatedNutrients(
+                        calories=770,
+                        protein=Decimal("5.5"),
+                        carbohydrates=99,
+                        fat=44,
+                        fiber=11,
+                        sugar=0,
+                        sodium=1705,
+                        cholesterol=0,
+                    ),
+                )
+            ],
+        )
+        client = Mock()
+        client.responses.parse.return_value = SimpleNamespace(
+            id="resp_mislabeled_hash_browns", output_parsed=parsed
+        )
+
+        item = OpenAIMealEstimationProvider(client=client).estimate(
+            "5.5 McDonald's hash browns"
+        )["items"][0]
+
+        self.assertEqual(Decimal(str(item["nutrients"]["calories"])), Decimal("140"))
+        self.assertEqual(
+            Decimal(str(item["nutrients"]["carbohydrates"])), Decimal("18")
+        )
+
+    def test_provider_keeps_valid_per_serving_nutrients_for_multiple_servings(self):
+        parsed = EstimatedMeal(
+            name="McDonald's Hash Browns",
+            confidence_score=Decimal("0.93"),
+            items=[
+                EstimatedFood(
+                    name="Hash Browns",
+                    servings=Decimal("5.5"),
+                    serving_quantity=1,
+                    serving_unit="item",
+                    serving_label="1 hash brown",
+                    serving_weight_grams=53,
+                    nutrient_basis="per_base_serving",
+                    confidence_score=Decimal("0.93"),
+                    nutrients=EstimatedNutrients(
+                        calories=140,
+                        protein=1,
+                        carbohydrates=18,
+                        fat=8,
+                        fiber=2,
+                        sugar=0,
+                        sodium=310,
+                        cholesterol=0,
+                    ),
+                )
+            ],
+        )
+        client = Mock()
+        client.responses.parse.return_value = SimpleNamespace(
+            id="resp_per_serving_hash_browns", output_parsed=parsed
+        )
+
+        item = OpenAIMealEstimationProvider(client=client).estimate(
+            "5.5 McDonald's hash browns"
+        )["items"][0]
+
+        self.assertEqual(Decimal(str(item["nutrients"]["calories"])), Decimal("140"))
+        self.assertEqual(
+            Decimal(str(item["nutrients"]["carbohydrates"])), Decimal("18")
+        )
+
     def test_provider_defaults_beverages_to_natural_containers(self):
         parsed = EstimatedMeal(
             name="Modelo",
@@ -685,6 +1231,9 @@ class OpenAIProviderTests(TestCase):
         self.assertIn("serving_weight_grams", SYSTEM_PROMPT)
         self.assertIn('serving_label "1 can"', SYSTEM_PROMPT)
         self.assertIn("serving_volume_ml", SYSTEM_PROMPT)
+        self.assertIn("5.5 hash browns", SYSTEM_PROMPT)
+        self.assertIn("nutrient_basis", SYSTEM_PROMPT)
+        self.assertIn("Never multiply nutrients by servings", SYSTEM_PROMPT)
 
     def test_prompt_requires_atomic_meal_components(self):
         self.assertIn("atomic ingredient-level components", SYSTEM_PROMPT)
@@ -700,3 +1249,8 @@ class OpenAIProviderTests(TestCase):
         self.assertIn("return cabbage, tomato, onion, and", SYSTEM_PROMPT)
         self.assertIn("cilantro as four components", SYSTEM_PROMPT)
         self.assertIn("cohesive sauces", SYSTEM_PROMPT)
+
+    def test_prompt_keeps_shared_food_fields_free_of_personal_context(self):
+        self.assertIn("may be published in a shared food catalog", SYSTEM_PROMPT)
+        self.assertIn("Never include a person's name", SYSTEM_PROMPT)
+        self.assertIn("other personal/request-specific context", SYSTEM_PROMPT)
