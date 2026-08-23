@@ -1,6 +1,14 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 2026-08-23
+
+### Fixed
+
+- Resolved meal descriptions by complete food clause so partial fuzzy catalog
+  matches cannot discard defining terms or be combined with unrelated AI
+  fallback foods; unresolved clauses now retain shared provider context.
+
 ## 2026-08-22
 
 ### Added

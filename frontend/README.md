@@ -41,8 +41,10 @@ components.
 Signed-out users who request a protected route are redirected to `/login`.
 
 The diary offers manual entry and an **Estimate meal** path. Estimation resolves
-multiple typo-tolerant food and quantity matches from the visible catalog, then
-requests sourced GPT items only for food terms that remain unresolved.
+multiple typo-tolerant food and quantity matches from the visible catalog by
+complete food clause, then requests sourced GPT items only for clauses that
+remain unresolved. Partial catalog candidates cannot silently discard a
+product-defining term or be combined with an AI replacement for the same food.
 Users must review the persisted draft before saving: they can rename the meal,
 switch between validated unit/portion options, adjust the amount without
 changing the nutritional basis, remove ingredients, and add catalog foods.

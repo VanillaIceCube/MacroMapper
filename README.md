@@ -20,8 +20,9 @@ remain planned in the [product roadmap](docs/PRODUCT_VISION.md).
   reset, protected routes, and recipient-scoped notifications
 - **Private meal diary:** dated meal entry creation, editing, deletion, durable
   saved food/component details, and daily launch-nutrient totals
-- **GPT meal proposals:** typo-tolerant multi-food catalog reuse with quantity
-  extraction and AI fallback only for unresolved foods, plus editable,
+- **GPT meal proposals:** clause-aware, typo-tolerant multi-food catalog reuse
+  with quantity extraction and full-clause AI fallback only for unresolved
+  foods, plus editable,
   source-aware estimates with explicit provenance, immutable review revisions,
   and confidence that require review before saving
 - **Reusable Food Items:** authenticated catalog APIs for standalone and

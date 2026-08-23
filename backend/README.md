@@ -132,12 +132,14 @@ user's proposals.
 - `GET /api/meal-proposals/`
 - `GET /api/meal-proposals/{id}/`
 - `POST /api/meal-proposals/` with `description` and `entry_date`
-  - Resolves multiple visible catalog identities with typo-tolerant ordered
-    matching, nearby numeric or written quantities, complete-composite
-    preference, and duplicate-identity ranking.
+  - Resolves multiple visible catalog identities by food clause with
+    typo-tolerant ordered matching, nearby numeric or written quantities,
+    complete-composite preference, and duplicate-identity ranking.
   - Returns fully resolved pinned definitions without calling the model. For a
-    partial match, sends only unresolved food terms to OpenAI with web search
-    enabled and merges the resulting structured items into the proposal.
+    partial match, rejects catalog candidates that leave an unexplained
+    product-defining term, then sends the complete unresolved food clause and
+    shared provider context to OpenAI with web search enabled. A clause is
+    represented by either its catalog result or its AI fallback, never both.
   - Materializes the normalized AI result and its components as deduplicated,
     immediately active, read-only shared Food Items. The private proposal references those exact
     versions; its description, date, owner, and review state are never copied

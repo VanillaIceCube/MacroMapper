@@ -317,7 +317,7 @@ class MealProposalApiTests(TestCase):
             )
 
         self.assertEqual(response.status_code, 201)
-        provider.estimate.assert_called_once_with("coffee")
+        provider.estimate.assert_called_once_with("coffee McDonald's")
         self.assertEqual(response.data["generator"], MealProposal.Generator.OPENAI)
         self.assertEqual(
             [item["name"] for item in response.data["items"]],
@@ -325,6 +325,70 @@ class MealProposalApiTests(TestCase):
         )
         self.assertEqual(response.data["items"][0]["food_item_id"], biscuit.pk)
         self.assertEqual(response.data["items"][1]["source_kind"], "ai_estimate")
+
+    def test_partial_catalog_match_sends_complete_food_clause_to_ai(self):
+        shared_food(
+            name="Bacon, Egg & Cheese Biscuit",
+            provider_name="McDonald's",
+            origin_type=FoodItem.OriginType.RESTAURANT,
+        )
+        hash_browns = shared_food(
+            name="Hash Browns",
+            provider_name="McDonald's",
+            origin_type=FoodItem.OriginType.RESTAURANT,
+        )
+        estimate = simple_ai_estimate(
+            name="Bacon, Egg & Cheese McGriddles",
+            calories="430",
+        )
+        estimate["items"][0].update(
+            {
+                "provider_name": "McDonald's",
+                "origin_type": FoodItem.OriginType.RESTAURANT,
+                "serving_label": "1 sandwich",
+            }
+        )
+        provider = Mock()
+        provider.estimate.return_value = estimate
+
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
+            response = self.client.post(
+                "/api/meal-proposals/",
+                {
+                    "description": (
+                        "Bacon Egg and Cheese McGriddle + 3 hashbrowns mcdonalds"
+                    ),
+                    "entry_date": "2026-08-16",
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 201)
+        provider.estimate.assert_called_once_with(
+            "Bacon Egg and Cheese McGriddle McDonald's"
+        )
+        items_by_name = {item["name"]: item for item in response.data["items"]}
+        self.assertEqual(
+            set(items_by_name),
+            {"Bacon, Egg & Cheese McGriddles", "Hash Browns"},
+        )
+        self.assertEqual(
+            items_by_name["Hash Browns"]["food_item_id"],
+            hash_browns.pk,
+        )
+        self.assertEqual(
+            Decimal(items_by_name["Hash Browns"]["servings"]),
+            Decimal("3"),
+        )
+        self.assertEqual(
+            items_by_name["Bacon, Egg & Cheese McGriddles"]["nutrients"]["calories"],
+            "430",
+        )
+        self.assertNotIn(
+            "Bacon, Egg & Cheese Biscuit",
+            items_by_name,
+        )
+        self.assertNotIn("Sausage McGriddles", items_by_name)
 
     def test_catalog_proposal_keys_include_the_full_component_path(self):
         leaf = shared_food(name="Shared garnish")

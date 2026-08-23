@@ -73,6 +73,21 @@ QUERY_TOKEN_PATTERN = re.compile(
     re.UNICODE,
 )
 
+QUANTITY_BOUNDARY_PATTERN = "|".join(
+    [r"\d+(?:\.\d+)?x?", *sorted(QUANTITY_WORDS, key=len, reverse=True)]
+)
+
+FOOD_CLAUSE_SEPARATOR_PATTERN = re.compile(
+    rf"\s*(?:\+|;|\r?\n|,\s*(?:and|plus)\b|"
+    rf"\b(?:and|plus)\b(?=\s+(?:{QUANTITY_BOUNDARY_PATTERN})\b))\s*",
+    re.IGNORECASE,
+)
+
+FOOD_ITEM_BOUNDARY_PATTERN = re.compile(
+    r"(?:\+|;|,|\b(?:and|plus)\b)",
+    re.IGNORECASE,
+)
+
 
 def _normalize_search_token(value):
     normalized = unicodedata.normalize("NFKD", value).casefold()
@@ -97,6 +112,8 @@ def _query_tokens(value):
             "raw": match.group(0),
             "normalized": _normalize_search_token(match.group(0)),
             "quantity": _quantity(match.group(0)),
+            "char_start": match.start(),
+            "char_end": match.end(),
         }
         for index, match in enumerate(QUERY_TOKEN_PATTERN.finditer(value))
     ]
@@ -147,6 +164,92 @@ def _catalog_food_rank(food, *, user):
         version.confidence_score or Decimal("-1"),
         food.pk,
     )
+
+
+def _description_clauses(description):
+    clauses = [
+        clause.strip()
+        for clause in FOOD_CLAUSE_SEPARATOR_PATTERN.split(description)
+        if clause.strip()
+    ]
+    return clauses or [description.strip()]
+
+
+def _shared_provider_context(*, description, foods, user):
+    query_tokens = [
+        token
+        for token in _query_tokens(description)
+        if token["quantity"] is None and token["normalized"] not in QUERY_IGNORED_WORDS
+    ]
+    providers = {}
+    for food in foods:
+        provider_tokens = _identity_tokens(food.provider_name)
+        if not provider_tokens:
+            continue
+        match = _best_phrase_span(
+            phrase_tokens=provider_tokens,
+            query_tokens=query_tokens,
+        )
+        if match is None or match["score"] < 0.78:
+            continue
+        identity = "".join(provider_tokens)
+        candidate = (
+            match["score"],
+            len(provider_tokens),
+            len(identity),
+            _catalog_food_rank(food, user=user),
+            food.provider_name,
+        )
+        if identity not in providers or candidate > providers[identity]:
+            providers[identity] = candidate
+    if len(providers) != 1:
+        return ""
+    return next(iter(providers.values()))[-1]
+
+
+def _append_provider_context(description, provider_name):
+    if not description or not provider_name:
+        return description
+    provider_match = _best_phrase_span(
+        phrase_tokens=_identity_tokens(provider_name),
+        query_tokens=[
+            token
+            for token in _query_tokens(description)
+            if token["quantity"] is None
+            and token["normalized"] not in QUERY_IGNORED_WORDS
+        ],
+    )
+    if provider_match is not None and provider_match["score"] >= 0.78:
+        return description
+    return f"{description} {provider_name}"
+
+
+def _has_partial_catalog_conflict(*, description, matches, unmatched_tokens):
+    if not matches or not unmatched_tokens:
+        return False
+    tokens_by_index = {token["index"]: token for token in _query_tokens(description)}
+    for match in matches:
+        start_token = tokens_by_index[match["start"]]
+        end_token = tokens_by_index[match["end"]]
+        before = [
+            token for token in unmatched_tokens if token["index"] < start_token["index"]
+        ]
+        after = [
+            token for token in unmatched_tokens if token["index"] > end_token["index"]
+        ]
+        neighboring_tokens = []
+        if before:
+            neighboring_tokens.append(max(before, key=lambda token: token["index"]))
+        if after:
+            neighboring_tokens.append(min(after, key=lambda token: token["index"]))
+        for token in neighboring_tokens:
+            if token["index"] < start_token["index"]:
+                gap = description[token["char_end"] : start_token["char_start"]]
+            else:
+                gap = description[end_token["char_end"] : token["char_start"]]
+            if not FOOD_ITEM_BOUNDARY_PATTERN.search(gap):
+                return True
+    return False
 
 
 def _quantity_for_match(*, match, all_tokens, used_quantity_indexes):
@@ -296,16 +399,8 @@ def _catalog_food(version, *, servings="1", key=None, depth=0):
     }
 
 
-def resolve_catalog_matches(*, description, user):
-    all_tokens = _query_tokens(description)
-    query_tokens = [
-        token
-        for token in all_tokens
-        if token["quantity"] is None and token["normalized"] not in QUERY_IGNORED_WORDS
-    ]
-    if not query_tokens:
-        return {"matches": [], "unmatched_description": description}
-    foods = list(
+def _visible_catalog_foods(user):
+    return list(
         FoodItem.objects.active()
         .visible_to(user)
         .filter(current_version__isnull=False)
@@ -317,6 +412,21 @@ def resolve_catalog_matches(*, description, user):
             "current_version__components__child_version__components",
         )
     )
+
+
+def _resolve_catalog_clause(*, description, user, foods):
+    all_tokens = _query_tokens(description)
+    query_tokens = [
+        token
+        for token in all_tokens
+        if token["quantity"] is None and token["normalized"] not in QUERY_IGNORED_WORDS
+    ]
+    if not query_tokens:
+        return {
+            "matches": [],
+            "unmatched_description": description,
+            "unmatched_tokens": all_tokens,
+        }
 
     best_identity_foods = {}
     for food in foods:
@@ -400,14 +510,53 @@ def resolve_catalog_matches(*, description, user):
     for match in selected:
         covered_indexes.update(match["provider_indexes"])
     unmatched_tokens = [
-        token["raw"]
+        token
         for token in all_tokens
         if token["index"] not in covered_indexes
         and token["normalized"] not in QUERY_IGNORED_WORDS
     ]
+    if _has_partial_catalog_conflict(
+        description=description,
+        matches=selected,
+        unmatched_tokens=unmatched_tokens,
+    ):
+        return {
+            "matches": [],
+            "unmatched_description": description.strip(),
+            "unmatched_tokens": all_tokens,
+        }
     return {
         "matches": selected,
-        "unmatched_description": " ".join(unmatched_tokens),
+        "unmatched_description": " ".join(token["raw"] for token in unmatched_tokens),
+        "unmatched_tokens": unmatched_tokens,
+    }
+
+
+def resolve_catalog_matches(*, description, user):
+    foods = _visible_catalog_foods(user)
+    provider_context = _shared_provider_context(
+        description=description,
+        foods=foods,
+        user=user,
+    )
+    matches = []
+    unmatched_descriptions = []
+    for clause in _description_clauses(description):
+        resolution = _resolve_catalog_clause(
+            description=clause,
+            user=user,
+            foods=foods,
+        )
+        matches.extend(resolution["matches"])
+        unmatched_description = resolution["unmatched_description"]
+        if unmatched_description:
+            unmatched_descriptions.append(
+                _append_provider_context(unmatched_description, provider_context)
+            )
+    return {
+        "matches": matches,
+        "unmatched_description": " + ".join(unmatched_descriptions),
+        "unmatched_descriptions": unmatched_descriptions,
     }
 
 
