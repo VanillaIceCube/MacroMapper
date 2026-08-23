@@ -27,12 +27,6 @@ import {
   Paper,
   Skeleton,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
 } from '@mui/material';
@@ -175,6 +169,22 @@ const mealNutrientAmount = (meal, nutrientKey) => {
 const mealNutrientText = (meal, nutrientKey) => {
   const amount = mealNutrientAmount(meal, nutrientKey);
   return amount === null ? '—' : formatAmount(amount);
+};
+
+const mealMacroSegments = (meal) => {
+  const segments = macroCalorieFields.flatMap((field) => {
+    const grams = mealNutrientAmount(meal, field.key);
+    if (grams === null) return [];
+    return [{ ...field, calories: Math.max(grams, 0) * field.caloriesPerGram }];
+  });
+  const totalCalories = segments.reduce((total, segment) => total + segment.calories, 0);
+
+  return totalCalories
+    ? segments.map((segment) => ({
+        ...segment,
+        percentage: (segment.calories / totalCalories) * 100,
+      }))
+    : [];
 };
 
 const mealItemSummary = (meal) => {
@@ -762,7 +772,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                 Meal diary
               </Typography>
               <Typography sx={{ mt: 0.75, color: 'var(--atlas-ink-muted)' }}>
-                Review the day, then add a meal in the way that fits.
+                Log meals and see how your nutrition adds up.
               </Typography>
             </Box>
             <Stack
@@ -1213,15 +1223,25 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                     Meal log
                   </Typography>
                   {!loading && (
-                    <Chip
-                      size="small"
-                      label={`${data.meals.length} ${data.meals.length === 1 ? 'entry' : 'entries'}`}
-                      sx={{ bgcolor: 'var(--atlas-forest-soft)', color: 'var(--atlas-forest-dark)' }}
-                    />
+                    <Stack direction="row" spacing={0.75}>
+                      <Chip
+                        size="small"
+                        label={`${data.meals.length} ${data.meals.length === 1 ? 'entry' : 'entries'}`}
+                        sx={{ bgcolor: 'var(--atlas-forest-soft)', color: 'var(--atlas-forest-dark)' }}
+                      />
+                      <Chip
+                        size="small"
+                        label={`${data.meals.reduce(
+                          (total, meal) => total + meal.items.length,
+                          0,
+                        )} saved foods`}
+                        sx={{ bgcolor: 'var(--atlas-mineral-soft)', color: 'var(--atlas-ink)' }}
+                      />
+                    </Stack>
                   )}
                 </Stack>
                 <Typography variant="body2" sx={{ mt: 0.25, color: 'var(--atlas-ink-muted)' }}>
-                  Nutrition and saved meals for the selected day.
+                  Foods, serving context, calorie contribution, and macro balance for each meal.
                 </Typography>
               </Box>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
@@ -1272,116 +1292,17 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
               </Paper>
             ) : (
               <>
-                <TableContainer
-                  component={Paper}
-                  elevation={0}
-                  sx={{
-                    display: { xs: 'none', md: 'block' },
-                    bgcolor: 'var(--atlas-paper)',
-                    border: '1px solid var(--atlas-border)',
-                    borderRadius: 2.5,
-                  }}
-                >
-                  <Table aria-label="meal log">
-                    <TableHead>
-                      <TableRow sx={{ bgcolor: 'var(--atlas-mineral-soft)' }}>
-                        <TableCell sx={{ fontWeight: 800 }}>Meal</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 800 }}>
-                          Calories
-                        </TableCell>
-                        <TableCell align="right" sx={{ color: 'var(--protein-color)', fontWeight: 800 }}>
-                          Protein
-                        </TableCell>
-                        <TableCell
-                          align="right"
-                          sx={{ color: 'var(--carbohydrate-color)', fontWeight: 800 }}
-                        >
-                          Carbs
-                        </TableCell>
-                        <TableCell align="right" sx={{ color: 'var(--fat-color)', fontWeight: 800 }}>
-                          Fat
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 800 }}>
-                          Actions
-                        </TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {data.meals.map((meal) => (
-                        <TableRow
-                          key={meal.id}
-                          sx={{
-                            '&:last-child td': { borderBottom: 0 },
-                            '&:hover': { bgcolor: 'rgba(169, 202, 212, 0.12)' },
-                          }}
-                        >
-                          <TableCell sx={{ minWidth: 260, py: 1.5 }}>
-                            <Typography component="h3" sx={{ fontWeight: 800 }}>
-                              {meal.name}
-                            </Typography>
-                            <Typography
-                              variant="caption"
-                              sx={{ display: 'block', mt: 0.25, color: 'var(--atlas-ink-muted)' }}
-                            >
-                              {mealItemSummary(meal)}
-                            </Typography>
-                            {meal.notes && (
-                              <Typography
-                                variant="caption"
-                                sx={{ display: 'block', color: 'var(--atlas-ink-muted)' }}
-                              >
-                                {meal.notes}
-                              </Typography>
-                            )}
-                          </TableCell>
-                          <TableCell align="right" className="numeric-data" sx={{ fontWeight: 800 }}>
-                            {mealNutrientText(meal, 'calories')}
-                          </TableCell>
-                          <TableCell
-                            align="right"
-                            className="numeric-data"
-                            sx={{ color: 'var(--protein-color)', fontWeight: 800 }}
-                          >
-                            {mealNutrientText(meal, 'protein')} g
-                          </TableCell>
-                          <TableCell
-                            align="right"
-                            className="numeric-data"
-                            sx={{ color: 'var(--carbohydrate-color)', fontWeight: 800 }}
-                          >
-                            {mealNutrientText(meal, 'carbohydrates')} g
-                          </TableCell>
-                          <TableCell
-                            align="right"
-                            className="numeric-data"
-                            sx={{ color: 'var(--fat-color)', fontWeight: 800 }}
-                          >
-                            {mealNutrientText(meal, 'fat')} g
-                          </TableCell>
-                          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                            <IconButton
-                              aria-label={`edit ${meal.name}`}
-                              onClick={() => setEditor({ open: true, meal })}
-                              sx={{ width: 44, height: 44, color: 'var(--atlas-forest-dark)' }}
-                            >
-                              <EditOutlinedIcon />
-                            </IconButton>
-                            <IconButton
-                              aria-label={`delete ${meal.name}`}
-                              onClick={() => setPendingDelete(meal)}
-                              sx={{ width: 44, height: 44, color: 'var(--atlas-persimmon-dark)' }}
-                            >
-                              <DeleteOutlineIcon />
-                            </IconButton>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                <Stack spacing={1.25} aria-label="meal log">
+                  {data.meals.map((meal, index) => {
+                    const calories = mealNutrientAmount(meal, 'calories');
+                    const dailyCalories = Number(totalsByKey.calories?.amount);
+                    const dailyShare =
+                      calories !== null && Number.isFinite(dailyCalories) && dailyCalories > 0
+                        ? Math.round((calories / dailyCalories) * 100)
+                        : null;
+                    const macroSegments = mealMacroSegments(meal);
 
-                <Stack spacing={1} sx={{ display: { xs: 'flex', md: 'none' } }}>
-                  {data.meals.map((meal) => (
+                    return (
                     <Paper
                       component="article"
                       key={meal.id}
@@ -1393,105 +1314,206 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                         borderRadius: 2,
                       }}
                     >
-                      <Stack direction="row" justifyContent="space-between" spacing={2}>
-                        <Box sx={{ minWidth: 0 }}>
+                      <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        justifyContent="space-between"
+                        alignItems={{ sm: 'flex-start' }}
+                        spacing={1.5}
+                      >
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                          <Typography
+                            variant="overline"
+                            sx={{ color: 'var(--atlas-mineral-dark)', fontWeight: 800, lineHeight: 1 }}
+                          >
+                            Meal {String(index + 1).padStart(2, '0')}
+                          </Typography>
                           <Typography
                             component="h3"
                             variant="h6"
-                            sx={{
-                              display: '-webkit-box',
-                              WebkitBoxOrient: 'vertical',
-                              WebkitLineClamp: 2,
-                              overflow: 'hidden',
-                            }}
+                            sx={{ mt: 0.25, fontWeight: 750, lineHeight: 1.25 }}
                           >
                             {meal.name}
                           </Typography>
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              display: '-webkit-box',
-                              mt: 0.25,
-                              color: 'var(--atlas-ink-muted)',
-                              WebkitBoxOrient: 'vertical',
-                              WebkitLineClamp: 2,
-                              overflow: 'hidden',
-                            }}
-                          >
-                            {mealItemSummary(meal)}
-                          </Typography>
+                          <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
+                            <Chip
+                              size="small"
+                              label={`${meal.items.length} ${meal.items.length === 1 ? 'food' : 'foods'}`}
+                              sx={{ bgcolor: 'var(--atlas-mineral-soft)', color: 'var(--atlas-ink)' }}
+                            />
+                            {dailyShare !== null && (
+                              <Chip
+                                size="small"
+                                label={`${dailyShare}% of daily calories`}
+                                sx={{
+                                  bgcolor: 'var(--atlas-persimmon-soft)',
+                                  color: 'var(--atlas-persimmon-dark)',
+                                }}
+                              />
+                            )}
+                          </Stack>
                         </Box>
-                        <Typography
-                          className="numeric-data"
-                          sx={{ color: 'var(--calorie-color)', fontWeight: 800, whiteSpace: 'nowrap' }}
+                        <Stack
+                          direction="row"
+                          alignItems="center"
+                          justifyContent={{ xs: 'space-between', sm: 'flex-end' }}
+                          spacing={0.5}
+                          sx={{ width: { xs: '100%', sm: 'auto' } }}
                         >
-                          {mealNutrientText(meal, 'calories')}{' '}
-                          <Typography component="span" variant="caption">
-                            kcal
-                          </Typography>
-                        </Typography>
+                          <Box sx={{ textAlign: { sm: 'right' }, mr: { sm: 0.5 } }}>
+                            <Typography
+                              variant="overline"
+                              sx={{ display: 'block', color: 'var(--atlas-ink-muted)', lineHeight: 1 }}
+                            >
+                              Calories
+                            </Typography>
+                            <Typography
+                              variant="h5"
+                              className="numeric-data"
+                              sx={{ color: 'var(--calorie-color)', fontWeight: 800, whiteSpace: 'nowrap' }}
+                            >
+                              {mealNutrientText(meal, 'calories')}{' '}
+                              <Typography component="span" variant="caption">
+                                kcal
+                              </Typography>
+                            </Typography>
+                          </Box>
+                          <IconButton
+                            aria-label={`edit ${meal.name}`}
+                            onClick={() => setEditor({ open: true, meal })}
+                            sx={{ width: 44, height: 44, color: 'var(--atlas-forest-dark)' }}
+                          >
+                            <EditOutlinedIcon />
+                          </IconButton>
+                          <IconButton
+                            aria-label={`delete ${meal.name}`}
+                            onClick={() => setPendingDelete(meal)}
+                            sx={{ width: 44, height: 44, color: 'var(--atlas-persimmon-dark)' }}
+                          >
+                            <DeleteOutlineIcon />
+                          </IconButton>
+                        </Stack>
                       </Stack>
+
                       <Box
                         sx={{
                           display: 'grid',
-                          gridTemplateColumns: 'repeat(3, 1fr)',
-                          gap: 1,
-                          mt: 1.5,
-                          py: 1.25,
+                          gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1.15fr) minmax(360px, 0.85fr)' },
+                          gap: { xs: 1.5, md: 2.5 },
+                          mt: 2,
+                          pt: 2,
                           borderTop: '1px solid var(--atlas-border)',
-                          borderBottom: '1px solid var(--atlas-border)',
                         }}
                       >
-                        {[
-                          ['protein', 'Protein', 'var(--protein-color)'],
-                          ['carbohydrates', 'Carbs', 'var(--carbohydrate-color)'],
-                          ['fat', 'Fat', 'var(--fat-color)'],
-                        ].map(([key, label, color]) => (
-                          <Box key={key}>
-                            <Typography variant="caption" sx={{ color, fontWeight: 800 }}>
-                              {label}
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography
+                            variant="overline"
+                            sx={{ color: 'var(--atlas-ink-muted)', fontWeight: 800, lineHeight: 1 }}
+                          >
+                            Foods &amp; servings
+                          </Typography>
+                          <Typography sx={{ mt: 0.5, fontWeight: 700, lineHeight: 1.45 }}>
+                            {mealItemSummary(meal)}
+                          </Typography>
+                          {meal.notes && (
+                            <Box
+                              sx={{
+                                mt: 1.25,
+                                px: 1.25,
+                                py: 1,
+                                bgcolor: 'var(--atlas-bone)',
+                                borderLeft: '3px solid var(--atlas-mineral)',
+                                borderRadius: 1,
+                              }}
+                            >
+                              <Typography
+                                variant="caption"
+                                sx={{ display: 'block', color: 'var(--atlas-ink-muted)', fontWeight: 800 }}
+                              >
+                                Context
+                              </Typography>
+                              <Typography variant="body2" sx={{ mt: 0.15, color: 'var(--atlas-ink-muted)' }}>
+                                {meal.notes}
+                              </Typography>
+                            </Box>
+                          )}
+                        </Box>
+
+                        <Box sx={{ minWidth: 0 }}>
+                          <Stack direction="row" justifyContent="space-between" alignItems="baseline">
+                            <Typography
+                              variant="overline"
+                              sx={{ color: 'var(--atlas-ink-muted)', fontWeight: 800, lineHeight: 1 }}
+                            >
+                              Macro balance
                             </Typography>
-                            <Typography className="numeric-data" sx={{ fontWeight: 800 }}>
-                              {mealNutrientText(meal, key)} g
+                            <Typography variant="caption" sx={{ color: 'var(--atlas-ink-muted)' }}>
+                              calorie share
                             </Typography>
+                          </Stack>
+                          <Box
+                            role="img"
+                            aria-label={
+                              macroSegments.length
+                                ? `${meal.name} macro balance: ${macroSegments
+                                    .map(
+                                      (segment) =>
+                                        `${segment.label} ${Math.round(segment.percentage)} percent`,
+                                    )
+                                    .join(', ')}`
+                                : `${meal.name} macro balance unavailable`
+                            }
+                            sx={{
+                              display: 'flex',
+                              height: 12,
+                              mt: 0.75,
+                              bgcolor: 'var(--atlas-border)',
+                              borderRadius: 999,
+                              overflow: 'hidden',
+                            }}
+                          >
+                            {macroSegments.map((segment) => (
+                              <Box
+                                key={segment.key}
+                                sx={{ width: `${segment.percentage}%`, bgcolor: segment.color }}
+                              />
+                            ))}
                           </Box>
-                        ))}
+                          <Box
+                            sx={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                              gap: 0.75,
+                              mt: 1,
+                            }}
+                          >
+                            {[
+                              ['protein', 'Protein', 'var(--protein-color)', 'var(--atlas-forest-soft)'],
+                              [
+                                'carbohydrates',
+                                'Carbs',
+                                'var(--carbohydrate-color)',
+                                'var(--atlas-mineral-soft)',
+                              ],
+                              ['fat', 'Fat', 'var(--fat-color)', 'var(--atlas-persimmon-soft)'],
+                            ].map(([key, label, color, background]) => (
+                              <Box
+                                key={key}
+                                sx={{ px: 1, py: 0.75, bgcolor: background, borderRadius: 1.25 }}
+                              >
+                                <Typography variant="caption" sx={{ color, fontWeight: 800 }}>
+                                  {label}
+                                </Typography>
+                                <Typography className="numeric-data" sx={{ fontWeight: 800 }}>
+                                  {mealNutrientText(meal, key)} g
+                                </Typography>
+                              </Box>
+                            ))}
+                          </Box>
+                        </Box>
                       </Box>
-                      {meal.notes && (
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            display: '-webkit-box',
-                            mt: 1.25,
-                            color: 'var(--atlas-ink-muted)',
-                            WebkitBoxOrient: 'vertical',
-                            WebkitLineClamp: 2,
-                            overflow: 'hidden',
-                          }}
-                        >
-                          {meal.notes}
-                        </Typography>
-                      )}
-                      <Stack direction="row" justifyContent="flex-end" spacing={0.5} sx={{ mt: 1 }}>
-                        <Button
-                          aria-label={`edit ${meal.name}`}
-                          startIcon={<EditOutlinedIcon />}
-                          onClick={() => setEditor({ open: true, meal })}
-                          sx={{ minHeight: 44 }}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          aria-label={`delete ${meal.name}`}
-                          startIcon={<DeleteOutlineIcon />}
-                          onClick={() => setPendingDelete(meal)}
-                          sx={{ minHeight: 44, color: 'var(--atlas-persimmon-dark)' }}
-                        >
-                          Delete
-                        </Button>
-                      </Stack>
                     </Paper>
-                  ))}
+                    );
+                  })}
                 </Stack>
               </>
             )}
