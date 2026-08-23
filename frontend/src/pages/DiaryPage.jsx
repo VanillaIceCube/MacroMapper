@@ -36,7 +36,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   createMeal,
   createPersonalFood,
@@ -137,9 +137,15 @@ const diaryDateParts = (date) => {
   return {
     weekday: value.toLocaleDateString(undefined, { weekday: 'long' }),
     date: value.toLocaleDateString(undefined, { month: 'long', day: 'numeric' }),
-    year: value.getFullYear(),
   };
 };
+
+const compactDiaryDate = (date) =>
+  new Date(`${date}T12:00:00`).toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
 
 const mealNutrientAmount = (meal, nutrientKey) => {
   let found = false;
@@ -561,6 +567,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
   const [editor, setEditor] = useState({ open: false, meal: null });
   const [estimateOpen, setEstimateOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(null);
+  const dateInputRef = useRef(null);
   const token = sessionStorage.getItem('accessToken');
 
   const loadDiary = useCallback(async () => {
@@ -610,8 +617,8 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
       <Container maxWidth="lg" sx={{ py: { xs: 2.5, sm: 4.5 } }}>
         <Stack spacing={{ xs: 2.5, sm: 3 }}>
           <Stack
-            direction={{ xs: 'column', sm: 'row' }}
-            alignItems={{ sm: 'flex-end' }}
+            direction={{ xs: 'column', md: 'row' }}
+            alignItems={{ md: 'flex-end' }}
             justifyContent="space-between"
             spacing={1.5}
           >
@@ -633,85 +640,96 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                 Review the day, then add a meal in the way that fits.
               </Typography>
             </Box>
-          </Stack>
-
-          <Paper
-            elevation={0}
-            sx={{
-              p: { xs: 1.25, sm: 1.5 },
-              bgcolor: 'var(--atlas-mineral-soft)',
-              color: 'var(--atlas-ink)',
-              border: '1px solid rgba(71, 121, 138, 0.24)',
-              borderRadius: 2.5,
-            }}
-          >
             <Stack
+              component="nav"
+              aria-label="diary date navigation"
               direction="row"
               alignItems="center"
-              justifyContent="space-between"
-              spacing={{ xs: 0.5, sm: 1.5 }}
+              spacing={0.75}
+              sx={{ alignSelf: { xs: 'flex-start', md: 'auto' } }}
             >
-              <IconButton
-                aria-label="previous day"
-                onClick={() => setDate((current) => shiftDate(current, -1))}
+              <Paper
+                elevation={0}
+                sx={{
+                  position: 'relative',
+                  p: 0.375,
+                  bgcolor: 'var(--atlas-paper)',
+                  color: 'var(--atlas-ink)',
+                  border: '1px solid var(--atlas-border)',
+                  borderRadius: 999,
+                }}
               >
-                <ChevronLeftIcon />
-              </IconButton>
-              <Stack
-                direction={{ xs: 'column', sm: 'row' }}
-                alignItems="center"
-                justifyContent="center"
-                spacing={{ xs: 0.5, sm: 2 }}
-                sx={{ flex: 1, minWidth: 0 }}
-              >
-                <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
-                  <CalendarMonthOutlinedIcon
-                    sx={{
-                      color: 'var(--atlas-mineral-dark)',
-                      display: { xs: 'none', sm: 'block' },
+                <Stack direction="row" alignItems="center" spacing={0.125}>
+                  <IconButton
+                    aria-label="previous day"
+                    onClick={() => setDate((current) => shiftDate(current, -1))}
+                    sx={{ width: 44, height: 44 }}
+                  >
+                    <ChevronLeftIcon />
+                  </IconButton>
+                  <Button
+                    aria-label={`choose diary date, current date ${date}`}
+                    startIcon={<CalendarMonthOutlinedIcon />}
+                    onClick={() => {
+                      if (dateInputRef.current?.showPicker) {
+                        dateInputRef.current.showPicker();
+                      } else {
+                        dateInputRef.current?.click();
+                      }
                     }}
-                  />
-                  <Box sx={{ minWidth: 0, textAlign: { xs: 'center', sm: 'left' } }}>
-                    <Typography
-                      variant="caption"
-                      sx={{ color: 'var(--atlas-mineral-dark)', fontWeight: 800 }}
-                    >
-                      {isToday ? 'Today' : dateParts.weekday}
-                    </Typography>
-                    <Typography
-                      component="h2"
-                      variant="h6"
-                      sx={{ lineHeight: 1.1, whiteSpace: 'nowrap' }}
-                    >
-                      {dateParts.date}, {dateParts.year}
-                    </Typography>
-                  </Box>
+                    sx={{
+                      minWidth: { xs: 126, sm: 142 },
+                      minHeight: 40,
+                      px: 1.25,
+                      color: 'var(--atlas-ink)',
+                      fontWeight: 800,
+                    }}
+                  >
+                    {isToday ? 'Today' : compactDiaryDate(date)}
+                  </Button>
+                  <IconButton
+                    aria-label="next day"
+                    onClick={() => setDate((current) => shiftDate(current, 1))}
+                    sx={{ width: 44, height: 44 }}
+                  >
+                    <ChevronRightIcon />
+                  </IconButton>
                 </Stack>
-                <TextField
+                <Box
+                  component="input"
+                  ref={dateInputRef}
                   aria-label="diary date"
                   type="date"
                   value={date}
                   onChange={(event) => setDate(event.target.value)}
-                  size="small"
-                  sx={{ width: { xs: 150, sm: 164 } }}
+                  tabIndex={-1}
+                  sx={{
+                    position: 'absolute',
+                    width: 1,
+                    height: 1,
+                    overflow: 'hidden',
+                    opacity: 0,
+                    pointerEvents: 'none',
+                  }}
                 />
-              </Stack>
-              <Button
-                startIcon={<TodayOutlinedIcon />}
-                onClick={() => setDate(localDate())}
-                disabled={isToday}
-                sx={{ display: { xs: 'none', md: 'inline-flex' }, flexShrink: 0 }}
-              >
-                Today
-              </Button>
-              <IconButton
-                aria-label="next day"
-                onClick={() => setDate((current) => shiftDate(current, 1))}
-              >
-                <ChevronRightIcon />
-              </IconButton>
+              </Paper>
+              {!isToday && (
+                <IconButton
+                  aria-label="return to today"
+                  onClick={() => setDate(localDate())}
+                  sx={{
+                    width: 44,
+                    height: 44,
+                    color: 'var(--atlas-mineral-dark)',
+                    border: '1px solid transparent',
+                    '&:hover': { borderColor: 'var(--atlas-border)' },
+                  }}
+                >
+                  <TodayOutlinedIcon />
+                </IconButton>
+              )}
             </Stack>
-          </Paper>
+          </Stack>
 
           {error && (
             <Alert
