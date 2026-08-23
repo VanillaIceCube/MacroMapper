@@ -963,6 +963,14 @@ def _shared_estimate_items(estimate):
     return result
 
 
+def _semantic_food_identity(item):
+    return (
+        "".join(_identity_tokens(item.get("provider_name", ""))),
+        "".join(_identity_tokens(item.get("name", ""))),
+        item.get("origin_type") or FoodItem.OriginType.GENERIC,
+    )
+
+
 @transaction.atomic
 def create_proposal(*, owner, description, entry_date):
     description = description.strip()
@@ -1011,11 +1019,11 @@ def create_proposal(*, owner, description, entry_date):
     provider = provider or get_estimation_provider()
     estimate = provider.estimate(resolution["unmatched_description"] or description)
     estimated_items = _shared_estimate_items(estimate)
-    catalog_names = {"".join(_identity_tokens(item["name"])) for item in catalog_items}
+    catalog_identities = {_semantic_food_identity(item) for item in catalog_items}
     estimated_items = [
         item
         for item in estimated_items
-        if "".join(_identity_tokens(item["name"])) not in catalog_names
+        if _semantic_food_identity(item) not in catalog_identities
     ]
     items = [*catalog_items, *estimated_items]
     confidence_values = [
@@ -1053,10 +1061,7 @@ def create_proposal(*, owner, description, entry_date):
 def _follow_up_identity(item):
     if item.get("food_item_id"):
         return ("food_item", str(item["food_item_id"]))
-    return (
-        "".join(_identity_tokens(item.get("provider_name", ""))),
-        "".join(_identity_tokens(item.get("name", ""))),
-    )
+    return _semantic_food_identity(item)
 
 
 def _rekey_follow_up_item(item, *, key):

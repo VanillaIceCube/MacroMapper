@@ -408,6 +408,66 @@ class MealProposalApiTests(TestCase):
         self.assertEqual(response.data["items"][1]["name"], "World Famous Fries")
         self.assertEqual(response.data["items"][1]["source_kind"], "ai_estimate")
 
+    def test_mixed_catalog_and_ai_items_keep_same_name_from_different_providers(self):
+        kfc_fries = shared_food(
+            name="Fries",
+            provider_name="KFC",
+            origin_type=FoodItem.OriginType.RESTAURANT,
+        )
+        provider = Mock()
+        provider.extract_intents.return_value = {
+            "items": [
+                {
+                    "raw_text": "fries from KFC",
+                    "search_name": "fries",
+                    "provider_name": "KFC",
+                    "quantity": 1,
+                    "defining_terms": ["fries"],
+                    "aliases": [],
+                },
+                {
+                    "raw_text": "fries from McDonald's",
+                    "search_name": "fries",
+                    "provider_name": "McDonald's",
+                    "quantity": 1,
+                    "defining_terms": ["fries"],
+                    "aliases": [],
+                },
+            ]
+        }
+        provider.estimate.return_value = simple_ai_estimate(
+            name="Fries",
+            calories="230",
+        )
+        provider.estimate.return_value["items"][0].update(
+            {
+                "provider_name": "McDonald's",
+                "origin_type": FoodItem.OriginType.RESTAURANT,
+            }
+        )
+
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
+            response = self.client.post(
+                "/api/meal-proposals/",
+                {
+                    "description": "fries from KFC and fries from McDonald's",
+                    "entry_date": "2026-08-16",
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(len(response.data["items"]), 2)
+        self.assertEqual(response.data["items"][0]["food_item_id"], kfc_fries.pk)
+        self.assertEqual(
+            [item["provider_name"] for item in response.data["items"]],
+            ["KFC", "McDonald's"],
+        )
+        self.assertEqual(
+            response.data["items"][1]["nutrients"]["calories"],
+            "230",
+        )
+
     def test_ai_intent_does_not_match_fries_to_fried_chicken(self):
         fried_chicken = shared_food(
             name="KFC Fried Chicken Piece",
