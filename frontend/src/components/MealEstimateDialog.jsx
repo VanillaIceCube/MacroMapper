@@ -639,24 +639,35 @@ function ProposalFood({ item, depth = 0, onServings, onNutrientChange, onRemove 
             inputProps={{ min: 0.0001, step: 0.25 }}
             sx={{ width: { xs: 88, sm: 104 } }}
           />
-          {canEditNutrition && (
+          <Stack direction="row" spacing={0} alignItems="center">
             <IconButton
               size="small"
-              aria-label={`${nutritionEditing ? 'Finish editing' : 'Edit'} nutrition for ${item.name}`}
+              aria-label={
+                canEditNutrition
+                  ? `${nutritionEditing ? 'Finish editing' : 'Edit'} nutrition for ${item.name}`
+                  : undefined
+              }
+              aria-hidden={!canEditNutrition}
               aria-pressed={nutritionEditing}
-              onClick={() => setNutritionEditing((current) => !current)}
+              tabIndex={canEditNutrition ? undefined : -1}
+              disabled={!canEditNutrition}
+              onClick={
+                canEditNutrition ? () => setNutritionEditing((current) => !current) : undefined
+              }
               color={nutritionEditing ? 'primary' : 'default'}
+              sx={{ p: 0.5, visibility: canEditNutrition ? 'visible' : 'hidden' }}
             >
-              <EditOutlinedIcon />
+              <EditOutlinedIcon sx={{ transform: 'translateX(3px)' }} />
             </IconButton>
-          )}
-          <IconButton
-            size="small"
-            aria-label={`remove ${item.name}`}
-            onClick={() => onRemove(item.key)}
-          >
-            <DeleteOutlineIcon />
-          </IconButton>
+            <IconButton
+              size="small"
+              aria-label={`remove ${item.name}`}
+              onClick={() => onRemove(item.key)}
+              sx={{ p: 0.5 }}
+            >
+              <DeleteOutlineIcon sx={{ transform: 'translateX(-3px)' }} />
+            </IconButton>
+          </Stack>
         </Stack>
       </Box>
       {hasDetails && (

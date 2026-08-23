@@ -36,6 +36,8 @@ All notable changes to this project are documented in this file.
 - Thickened component-calorie bars and stacked each row by its protein,
   carbohydrate, and fat calorie contribution while preserving total calorie
   length.
+- Reserved consistent pencil/delete action space across estimated-food rows and
+  tightened the spacing between those controls so nutrient cards stay aligned.
 
 ## 2026-08-16
 
