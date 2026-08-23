@@ -22,6 +22,8 @@ from .provider import (
     EstimatedNutrients,
     EstimatedSource,
     EstimationProviderError,
+    FoodSearchIntent,
+    MealSearchPlan,
     OpenAIMealEstimationProvider,
 )
 
@@ -295,6 +297,162 @@ class MealProposalApiTests(TestCase):
         self.assertEqual(response.data["items"][0]["food_item_id"], hash_browns.pk)
         self.assertEqual(Decimal(response.data["items"][0]["servings"]), Decimal("1"))
 
+    def test_ai_intents_resolve_same_food_from_two_providers(self):
+        kfc_fries = shared_food(
+            name="KFC Crinkle Cut Fries",
+            provider_name="KFC",
+            origin_type=FoodItem.OriginType.RESTAURANT,
+        )
+        mcdonalds_fries = shared_food(
+            name="World Famous Fries",
+            provider_name="McDonald's",
+            origin_type=FoodItem.OriginType.RESTAURANT,
+        )
+        provider = Mock()
+        provider.extract_intents.return_value = {
+            "items": [
+                {
+                    "raw_text": "fries from KFC",
+                    "search_name": "fries",
+                    "provider_name": "KFC",
+                    "quantity": 1,
+                    "defining_terms": ["fries"],
+                    "aliases": ["Crinkle Cut Fries"],
+                },
+                {
+                    "raw_text": "fries from McDonald's",
+                    "search_name": "fries",
+                    "provider_name": "McDonald's",
+                    "quantity": 1,
+                    "defining_terms": ["fries"],
+                    "aliases": ["World Famous Fries"],
+                },
+            ]
+        }
+
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
+            response = self.client.post(
+                "/api/meal-proposals/",
+                {
+                    "description": "I had fries from kfc and fries from mcdonalds",
+                    "entry_date": "2026-08-16",
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 201)
+        provider.extract_intents.assert_called_once_with(
+            "I had fries from kfc and fries from mcdonalds"
+        )
+        provider.estimate.assert_not_called()
+        self.assertEqual(response.data["generator"], MealProposal.Generator.CATALOG)
+        self.assertEqual(
+            [item["food_item_id"] for item in response.data["items"]],
+            [kfc_fries.pk, mcdonalds_fries.pk],
+        )
+
+    def test_ai_intents_estimate_only_the_provider_food_missing_from_catalog(self):
+        kfc_fries = shared_food(
+            name="KFC Crinkle Cut Fries",
+            provider_name="KFC",
+            origin_type=FoodItem.OriginType.RESTAURANT,
+        )
+        provider = Mock()
+        provider.extract_intents.return_value = {
+            "items": [
+                {
+                    "raw_text": "fries from KFC",
+                    "search_name": "fries",
+                    "provider_name": "KFC",
+                    "quantity": 1,
+                    "defining_terms": ["fries"],
+                    "aliases": ["Crinkle Cut Fries"],
+                },
+                {
+                    "raw_text": "fries from McDonald's",
+                    "search_name": "fries",
+                    "provider_name": "McDonald's",
+                    "quantity": 1,
+                    "defining_terms": ["fries"],
+                    "aliases": ["World Famous Fries"],
+                },
+            ]
+        }
+        provider.estimate.return_value = simple_ai_estimate(
+            name="World Famous Fries",
+            calories="230",
+        )
+        provider.estimate.return_value["items"][0].update(
+            {
+                "provider_name": "McDonald's",
+                "origin_type": FoodItem.OriginType.RESTAURANT,
+            }
+        )
+
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
+            response = self.client.post(
+                "/api/meal-proposals/",
+                {
+                    "description": "I had fries from kfc and fries from mcdonalds",
+                    "entry_date": "2026-08-16",
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 201)
+        provider.estimate.assert_called_once_with("fries from McDonald's")
+        self.assertEqual(
+            [item["food_item_id"] for item in response.data["items"][:1]],
+            [kfc_fries.pk],
+        )
+        self.assertEqual(response.data["items"][1]["name"], "World Famous Fries")
+        self.assertEqual(response.data["items"][1]["source_kind"], "ai_estimate")
+
+    def test_ai_intent_does_not_match_fries_to_fried_chicken(self):
+        fried_chicken = shared_food(
+            name="KFC Fried Chicken Piece",
+            provider_name="KFC",
+            origin_type=FoodItem.OriginType.RESTAURANT,
+        )
+        provider = Mock()
+        provider.extract_intents.return_value = {
+            "items": [
+                {
+                    "raw_text": "fries from KFC",
+                    "search_name": "fries",
+                    "provider_name": "KFC",
+                    "quantity": 1,
+                    "defining_terms": ["fries"],
+                    "aliases": [],
+                }
+            ]
+        }
+        provider.estimate.return_value = simple_ai_estimate(
+            name="KFC Secret Recipe Fries",
+            calories="320",
+        )
+        provider.estimate.return_value["items"][0].update(
+            {
+                "provider_name": "KFC",
+                "origin_type": FoodItem.OriginType.RESTAURANT,
+            }
+        )
+
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
+            response = self.client.post(
+                "/api/meal-proposals/",
+                {
+                    "description": "fries from KFC",
+                    "entry_date": "2026-08-16",
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 201)
+        provider.estimate.assert_called_once_with("fries from KFC")
+        self.assertNotEqual(response.data["items"][0]["food_item_id"], fried_chicken.pk)
+        self.assertEqual(response.data["items"][0]["name"], "KFC Secret Recipe Fries")
+
     def test_catalog_resolver_uses_ai_only_for_unmatched_foods(self):
         biscuit = shared_food(
             name="Bacon, Egg & Cheese Biscuit",
@@ -389,6 +547,70 @@ class MealProposalApiTests(TestCase):
             items_by_name,
         )
         self.assertNotIn("Sausage McGriddles", items_by_name)
+
+    def test_follow_up_addition_reuses_a_matching_catalog_food(self):
+        shared_food(name="Burger")
+        kfc_fries = shared_food(
+            name="KFC Crinkle Cut Fries",
+            provider_name="KFC",
+            origin_type=FoodItem.OriginType.RESTAURANT,
+        )
+        proposal_response = self.client.post(
+            "/api/meal-proposals/",
+            {"description": "Burger", "entry_date": "2026-08-16"},
+            format="json",
+        )
+        addition = simple_ai_estimate(
+            name="KFC Secret Recipe Fries",
+            calories="320",
+        )["items"][0]
+        addition.update(
+            {
+                "provider_name": "KFC",
+                "origin_type": FoodItem.OriginType.RESTAURANT,
+                "_catalog_search": {
+                    "search_name": "fries",
+                    "provider_name": "KFC",
+                    "quantity": 1,
+                    "defining_terms": ["fries"],
+                    "aliases": ["Crinkle Cut Fries"],
+                },
+            }
+        )
+        provider = Mock()
+        provider.follow_up.return_value = {
+            "message": "Added one order of KFC fries.",
+            "confidence_score": Decimal("0.8"),
+            "remove_keys": [],
+            "serving_updates": [],
+            "items_to_add": [addition],
+            "provider_name": "OpenAI",
+            "provider_model": "gpt-test",
+            "provider_response_id": "resp_follow_up",
+        }
+        food_count = FoodItem.objects.count()
+
+        with patch("estimates.views.get_estimation_provider", return_value=provider):
+            response = self.client.post(
+                f"/api/meal-proposals/{proposal_response.data['id']}/follow-up/",
+                {
+                    "follow_up": "I also had fries from KFC",
+                    "name": proposal_response.data["name"],
+                    "items": proposal_response.data["items"],
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(FoodItem.objects.count(), food_count)
+        self.assertEqual(
+            response.data["proposal"]["items"][1]["food_item_id"],
+            kfc_fries.pk,
+        )
+        self.assertEqual(
+            response.data["proposal"]["items"][1]["nutrients"]["calories"],
+            "100",
+        )
 
     def test_catalog_proposal_keys_include_the_full_component_path(self):
         leaf = shared_food(name="Shared garnish")
@@ -1022,6 +1244,47 @@ class OpenAIProviderTests(TestCase):
                 provider="Example",
                 url="ftp://example.com/label",
             )
+
+    def test_provider_extracts_catalog_search_intents_without_web_search(self):
+        parsed = MealSearchPlan(
+            items=[
+                FoodSearchIntent(
+                    raw_text="fries from KFC",
+                    search_name="fries",
+                    provider_name="KFC",
+                    quantity=1,
+                    defining_terms=["fries"],
+                    aliases=["Crinkle Cut Fries"],
+                ),
+                FoodSearchIntent(
+                    raw_text="fries from McDonald's",
+                    search_name="fries",
+                    provider_name="McDonald's",
+                    quantity=1,
+                    defining_terms=["fries"],
+                    aliases=["World Famous Fries"],
+                ),
+            ]
+        )
+        client = Mock()
+        client.responses.parse.return_value = SimpleNamespace(
+            id="resp_intents",
+            output_parsed=parsed,
+        )
+
+        result = OpenAIMealEstimationProvider(client=client).extract_intents(
+            "I had fries from KFC and fries from McDonald's"
+        )
+
+        request = client.responses.parse.call_args.kwargs
+        self.assertNotIn("tools", request)
+        self.assertEqual(request["text_format"], MealSearchPlan)
+        self.assertFalse(request["store"])
+        self.assertEqual(
+            [item["provider_name"] for item in result["items"]],
+            ["KFC", "McDonald's"],
+        )
+        self.assertEqual(result["provider_response_id"], "resp_intents")
 
     def test_provider_uses_web_search_structured_output_and_retains_metadata(self):
         parsed = EstimatedMeal(

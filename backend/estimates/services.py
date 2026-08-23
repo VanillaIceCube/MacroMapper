@@ -21,7 +21,7 @@ from meals.models import MealEntry
 from meals.services import _effective_nutrients, replace_meal_items
 
 from .models import MealProposal, MealProposalRevision
-from .provider import get_estimation_provider
+from .provider import EstimationProviderError, get_estimation_provider
 
 STOP_WORDS = {
     "a",
@@ -414,6 +414,201 @@ def _visible_catalog_foods(user):
     )
 
 
+def _token_similarity(left, right):
+    if left == right:
+        return 1.0
+    return SequenceMatcher(None, left, right).ratio()
+
+
+def _tokens_are_covered(required_tokens, candidate_tokens, *, threshold=0.86):
+    return bool(required_tokens) and all(
+        any(
+            _token_similarity(required, candidate) >= threshold
+            for candidate in candidate_tokens
+        )
+        for required in required_tokens
+    )
+
+
+def _intent_search_tokens(intent):
+    provider_tokens = set(_identity_tokens(intent.get("provider_name", "")))
+    return [
+        token
+        for token in _identity_tokens(intent.get("search_name", ""))
+        if token not in provider_tokens
+    ]
+
+
+def _intent_defining_tokens(intent):
+    explicit = [
+        token
+        for term in intent.get("defining_terms", [])
+        for token in _identity_tokens(term)
+    ]
+    return explicit or _intent_search_tokens(intent)
+
+
+def _intent_queries(intent):
+    values = [intent.get("search_name", ""), *intent.get("aliases", [])]
+    provider_tokens = set(_identity_tokens(intent.get("provider_name", "")))
+    queries = []
+    seen = set()
+    for value in values:
+        tokens = [
+            token for token in _identity_tokens(value) if token not in provider_tokens
+        ]
+        identity = "".join(tokens)
+        if tokens and identity not in seen:
+            seen.add(identity)
+            queries.append(tokens)
+    return queries
+
+
+def _resolve_catalog_intent(*, intent, user, foods):
+    provider_tokens = _identity_tokens(intent.get("provider_name", ""))
+    provider_identity = "".join(provider_tokens)
+    defining_tokens = _intent_defining_tokens(intent)
+    queries = _intent_queries(intent)
+    if not defining_tokens or not queries:
+        return None
+
+    candidates = []
+    for food in foods:
+        food_provider_tokens = _identity_tokens(food.provider_name)
+        food_provider_identity = "".join(food_provider_tokens)
+        if provider_identity:
+            provider_score = _token_similarity(
+                provider_identity,
+                food_provider_identity,
+            )
+            if provider_score < 0.78:
+                continue
+        else:
+            provider_score = 0
+            if food.origin_type in {
+                FoodItem.OriginType.BRANDED,
+                FoodItem.OriginType.RESTAURANT,
+            }:
+                continue
+
+        food_name_tokens = _identity_tokens(food.name)
+        food_definition_tokens = [
+            *food_name_tokens,
+            *_identity_tokens(food.current_version.serving_label),
+        ]
+        if not _tokens_are_covered(defining_tokens, food_definition_tokens):
+            continue
+        if not provider_identity and not any(
+            _tokens_are_covered(food_name_tokens, query_tokens)
+            for query_tokens in queries
+        ):
+            continue
+
+        query_scores = []
+        for query_tokens in queries:
+            coverage_score = sum(
+                max(
+                    (
+                        _token_similarity(query_token, food_token)
+                        for food_token in food_name_tokens
+                    ),
+                    default=0,
+                )
+                for query_token in query_tokens
+            ) / len(query_tokens)
+            sequence_score = _token_similarity(
+                "".join(query_tokens),
+                "".join(food_name_tokens),
+            )
+            query_scores.append(max(coverage_score, sequence_score))
+        name_score = max(query_scores)
+        if name_score < 0.78:
+            continue
+
+        shortest_query = min(len(query) for query in queries)
+        extra_name_tokens = max(len(food_name_tokens) - shortest_query, 0)
+        candidates.append(
+            {
+                "food": food,
+                "score": name_score,
+                "provider_score": provider_score,
+                "extra_name_tokens": extra_name_tokens,
+                "food_rank": _catalog_food_rank(food, user=user),
+            }
+        )
+
+    if not candidates:
+        return None
+    candidates.sort(
+        key=lambda candidate: (
+            candidate["provider_score"],
+            candidate["score"],
+            -candidate["extra_name_tokens"],
+            candidate["food_rank"],
+        ),
+        reverse=True,
+    )
+    selected = candidates[0]
+    selected["servings"] = _decimal(intent.get("quantity"), default="1")
+    return selected
+
+
+def _validated_search_intents(result):
+    if not isinstance(result, dict) or not isinstance(result.get("items"), list):
+        return []
+    intents = []
+    for item in result["items"][:20]:
+        if not isinstance(item, dict):
+            return []
+        raw_text = str(item.get("raw_text", "")).strip()
+        search_name = str(item.get("search_name", "")).strip()
+        quantity = _decimal(item.get("quantity"), default="0")
+        if not raw_text or not search_name or quantity <= 0:
+            return []
+        intents.append(
+            {
+                "raw_text": raw_text[:300],
+                "search_name": search_name[:200],
+                "provider_name": str(item.get("provider_name", "")).strip()[:160],
+                "quantity": quantity,
+                "defining_terms": [
+                    str(term).strip()[:80]
+                    for term in item.get("defining_terms", [])[:12]
+                    if str(term).strip()
+                ],
+                "aliases": [
+                    str(alias).strip()[:200]
+                    for alias in item.get("aliases", [])[:10]
+                    if str(alias).strip()
+                ],
+            }
+        )
+    return intents
+
+
+def resolve_catalog_intents(*, intents, user):
+    foods = _visible_catalog_foods(user)
+    matches = []
+    matches_by_food_id = {}
+    unmatched_descriptions = []
+    for intent in intents:
+        match = _resolve_catalog_intent(intent=intent, user=user, foods=foods)
+        if match is None:
+            unmatched_descriptions.append(intent["raw_text"])
+            continue
+        food_id = match["food"].pk
+        if food_id in matches_by_food_id:
+            matches_by_food_id[food_id]["servings"] += match["servings"]
+            continue
+        matches.append(match)
+        matches_by_food_id[food_id] = match
+    return {
+        "matches": matches,
+        "unmatched_description": " + ".join(unmatched_descriptions),
+        "unmatched_descriptions": unmatched_descriptions,
+    }
+
+
 def _resolve_catalog_clause(*, description, user, foods):
     all_tokens = _query_tokens(description)
     query_tokens = [
@@ -772,6 +967,16 @@ def _shared_estimate_items(estimate):
 def create_proposal(*, owner, description, entry_date):
     description = description.strip()
     resolution = resolve_catalog_matches(description=description, user=owner)
+    provider = None
+    if resolution["unmatched_description"]:
+        provider = get_estimation_provider()
+        try:
+            search_plan = provider.extract_intents(description)
+        except (AttributeError, EstimationProviderError):
+            search_plan = None
+        intents = _validated_search_intents(search_plan)
+        if intents:
+            resolution = resolve_catalog_intents(intents=intents, user=owner)
     matches = resolution["matches"]
     catalog_items = [
         _catalog_food(
@@ -803,9 +1008,8 @@ def create_proposal(*, owner, description, entry_date):
         )
         return proposal
 
-    estimate = get_estimation_provider().estimate(
-        resolution["unmatched_description"] or description
-    )
+    provider = provider or get_estimation_provider()
+    estimate = provider.estimate(resolution["unmatched_description"] or description)
     estimated_items = _shared_estimate_items(estimate)
     catalog_names = {"".join(_identity_tokens(item["name"])) for item in catalog_items}
     estimated_items = [
@@ -847,6 +1051,8 @@ def create_proposal(*, owner, description, entry_date):
 
 
 def _follow_up_identity(item):
+    if item.get("food_item_id"):
+        return ("food_item", str(item["food_item_id"]))
     return (
         "".join(_identity_tokens(item.get("provider_name", ""))),
         "".join(_identity_tokens(item.get("name", ""))),
@@ -861,6 +1067,32 @@ def _rekey_follow_up_item(item, *, key):
         for index, component in enumerate(item.get("components", []))
     ]
     return item
+
+
+def _follow_up_search_intent(item):
+    search = item.get("_catalog_search")
+    if not isinstance(search, dict):
+        search = {}
+    provider_name = str(
+        search.get("provider_name") or item.get("provider_name", "")
+    ).strip()
+    search_name = str(search.get("search_name") or item.get("name", "")).strip()
+    raw_text = " ".join(value for value in (search_name, provider_name) if value)
+    intents = _validated_search_intents(
+        {
+            "items": [
+                {
+                    "raw_text": raw_text,
+                    "search_name": search_name,
+                    "provider_name": provider_name,
+                    "quantity": item.get("servings", search.get("quantity", 1)),
+                    "defining_terms": search.get("defining_terms", []),
+                    "aliases": search.get("aliases", []),
+                }
+            ]
+        }
+    )
+    return intents[0] if intents else None
 
 
 @transaction.atomic
@@ -903,16 +1135,34 @@ def apply_proposal_follow_up(*, proposal, owner, name, items, result):
     retained_by_identity = {_follow_up_identity(item): item for item in retained_items}
     items_by_identity = dict(retained_by_identity)
     next_revision_number = len(proposal.revisions.all()) + 1
-    raw_additions = []
+    foods = _visible_catalog_foods(owner)
+    pending_additions = []
     merged_addition = False
     for index, item in enumerate(result["items_to_add"]):
-        identity = _follow_up_identity(item)
+        intent = _follow_up_search_intent(item)
+        catalog_match = (
+            _resolve_catalog_intent(intent=intent, user=owner, foods=foods)
+            if intent
+            else None
+        )
+        if catalog_match:
+            candidate_item = _catalog_food(
+                catalog_match["food"].current_version,
+                servings=item.get("servings", "1"),
+            )
+            is_catalog_item = True
+        else:
+            candidate_item = deepcopy(item)
+            candidate_item.pop("_catalog_search", None)
+            is_catalog_item = False
+
+        identity = _follow_up_identity(candidate_item)
         if identity in existing_identities:
             existing_item = items_by_identity[identity]
             existing_item["servings"] = str(
                 _storage_decimal(
                     _decimal(existing_item["servings"], default="1")
-                    + _decimal(item.get("servings"), default="1"),
+                    + _decimal(candidate_item.get("servings"), default="1"),
                     decimal_places=4,
                     default="1",
                 )
@@ -921,20 +1171,21 @@ def apply_proposal_follow_up(*, proposal, owner, name, items, result):
             continue
         existing_identities.add(identity)
         added_item = _rekey_follow_up_item(
-            item,
+            candidate_item,
             key=f"follow-up-{next_revision_number}-{index}",
         )
-        raw_additions.append(added_item)
+        pending_additions.append((is_catalog_item, added_item))
         items_by_identity[identity] = added_item
 
-    if len(retained_items) + len(raw_additions) > 20:
+    if len(retained_items) + len(pending_additions) > 20:
         raise ValidationError("A proposal may contain at most 20 foods.")
-    if not retained_items and not raw_additions:
+    if not retained_items and not pending_additions:
         raise ValidationError("Keep at least one food in the proposal.")
 
-    added_items = []
+    raw_additions = [item for is_catalog, item in pending_additions if not is_catalog]
+    materialized_raw_additions = []
     if raw_additions:
-        added_items = _shared_estimate_items(
+        materialized_raw_additions = _shared_estimate_items(
             {
                 "items": raw_additions,
                 "provider_name": result["provider_name"],
@@ -942,6 +1193,11 @@ def apply_proposal_follow_up(*, proposal, owner, name, items, result):
                 "provider_response_id": result["provider_response_id"],
             }
         )
+    materialized_raw = iter(materialized_raw_additions)
+    added_items = [
+        item if is_catalog else next(materialized_raw)
+        for is_catalog, item in pending_additions
+    ]
 
     if (
         not remove_keys

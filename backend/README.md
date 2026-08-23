@@ -132,14 +132,15 @@ user's proposals.
 - `GET /api/meal-proposals/`
 - `GET /api/meal-proposals/{id}/`
 - `POST /api/meal-proposals/` with `description` and `entry_date`
-  - Resolves multiple visible catalog identities by food clause with
-    typo-tolerant ordered matching, nearby numeric or written quantities,
-    complete-composite preference, and duplicate-identity ranking.
-  - Returns fully resolved pinned definitions without calling the model. For a
-    partial match, rejects catalog candidates that leave an unexplained
-    product-defining term, then sends the complete unresolved food clause and
-    shared provider context to OpenAI with web search enabled. A clause is
-    represented by either its catalog result or its AI fallback, never both.
+  - Returns descriptions fully resolved by the fast deterministic catalog path
+    without calling the model. When that path leaves anything unresolved,
+    OpenAI first extracts separate structured food intents containing provider,
+    quantity, aliases, and product-defining terms without web search.
+  - Resolves each extracted intent independently against visible shared and
+    personal catalog foods. Provider constraints and product-defining terms
+    prevent a generic or partial match from selecting a different menu item.
+    Only intents still unmatched are sent to OpenAI with web search for a full
+    nutrition estimate.
   - Materializes the normalized AI result and its components as deduplicated,
     immediately active, read-only shared Food Items. The private proposal references those exact
     versions; its description, date, owner, and review state are never copied
@@ -153,8 +154,9 @@ user's proposals.
   - Preserves existing foods and local review edits, rejects duplicate
     additions, and requires the provider to make a disclosed best-effort
     assumption when a target or portion is ambiguous.
-  - Materializes newly estimated foods with their sources and provenance and
-    records a separate immutable `ai_follow_up` proposal revision.
+  - Resolves AI-extracted additions against the visible catalog before
+    materializing genuinely new shared foods with their sources and provenance,
+    then records a separate immutable `ai_follow_up` proposal revision.
 - `DELETE /api/meal-proposals/{id}/` for unaccepted drafts
 - `POST /api/meal-proposals/{id}/accept/`
   - Reuses unchanged shared definitions. Nutrient or component edits create a

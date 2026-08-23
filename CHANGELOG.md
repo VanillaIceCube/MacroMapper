@@ -14,6 +14,16 @@ All notable changes to this project are documented in this file.
 - Resolved meal descriptions by complete food clause so partial fuzzy catalog
   matches cannot discard defining terms or be combined with unrelated AI
   fallback foods; unresolved clauses now retain shared provider context.
+- Prevented conversational descriptions such as fries from two different
+  restaurants from bypassing existing catalog foods and creating duplicate AI
+  estimates.
+
+### Changed
+
+- Added structured AI food-intent extraction for descriptions the deterministic
+  catalog path cannot fully resolve. Each provider-aware intent now searches the
+  visible catalog before nutrition estimation, and AI follow-up additions use
+  the same catalog-reuse step.
 
 ## 2026-08-22
 
