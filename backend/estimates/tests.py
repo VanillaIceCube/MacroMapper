@@ -588,6 +588,43 @@ class OpenAIProviderTests(TestCase):
         self.assertEqual(result["items"][0]["portion_options"][1]["key"], "g")
         self.assertEqual(result["items"][0]["selected_portion_key"], "g")
 
+    def test_provider_defaults_beverages_to_natural_containers(self):
+        parsed = EstimatedMeal(
+            name="Modelo",
+            confidence_score=Decimal("0.8"),
+            items=[
+                EstimatedFood(
+                    name="Modelo beer",
+                    servings=6,
+                    serving_quantity=1,
+                    serving_unit="serving",
+                    serving_label="1 can",
+                    serving_weight_grams=355,
+                    serving_volume_ml=Decimal("354.88235475"),
+                    confidence_score=Decimal("0.8"),
+                    nutrients=EstimatedNutrients(calories=Decimal("144")),
+                )
+            ],
+        )
+        client = Mock()
+        client.responses.parse.return_value = SimpleNamespace(
+            id="resp_modelo", output_parsed=parsed
+        )
+
+        result = OpenAIMealEstimationProvider(client=client).estimate(
+            "6 cans of Modelo"
+        )
+
+        item = result["items"][0]
+        options = {option["key"]: option for option in item["portion_options"]}
+        self.assertEqual(item["servings"], 6)
+        self.assertEqual(item["serving_quantity"], 1)
+        self.assertEqual(item["serving_label"], "1 can")
+        self.assertEqual(item["selected_portion_key"], "base")
+        self.assertEqual(
+            options["fl_oz"]["serving_multiplier"], str(Decimal("1") / 12)
+        )
+
     def test_prompt_forbids_medical_advice(self):
         self.assertIn("Do not provide dietary", SYSTEM_PROMPT)
         self.assertIn("medical", SYSTEM_PROMPT)
@@ -597,4 +634,5 @@ class OpenAIProviderTests(TestCase):
         self.assertIn("stable serving_quantity", SYSTEM_PROMPT)
         self.assertIn('"1 burger"', SYSTEM_PROMPT)
         self.assertIn("serving_weight_grams", SYSTEM_PROMPT)
-        self.assertIn("deterministic Grams option", SYSTEM_PROMPT)
+        self.assertIn('serving_label "1 can"', SYSTEM_PROMPT)
+        self.assertIn("serving_volume_ml", SYSTEM_PROMPT)

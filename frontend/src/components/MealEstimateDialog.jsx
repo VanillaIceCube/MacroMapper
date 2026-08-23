@@ -786,7 +786,7 @@ function ProposalFood({
             size="small"
             value={servingAmountValue(item)}
             onChange={(event) => onServings(item.key, event.target.value, item)}
-            inputProps={{ min: 0.0001, step: 0.25 }}
+            inputProps={{ min: 0, step: 1 }}
             sx={{ gridArea: 'quantity', minWidth: 0, width: '100%' }}
           />
           <TextField

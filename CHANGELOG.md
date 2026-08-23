@@ -13,6 +13,8 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Defaulted beverages to natural containers such as cans, glasses, bottles,
+  and shakes while retaining standardized volume conversions in the dropdown.
 - Preserved known macro totals when another component lacks that nutrient so
   carbohydrates and fats no longer disappear from meal breakdown charts.
 - Removed redundant measured-serving labels such as `16 fl oz` from unit

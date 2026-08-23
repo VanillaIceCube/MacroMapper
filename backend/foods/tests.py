@@ -97,6 +97,25 @@ class FoodModelTests(TestCase):
             Decimal(by_key["oz"]["serving_multiplier"]), Decimal("28.349523125") / 61
         )
 
+    def test_natural_beverage_serving_adds_volume_units(self):
+        options = portion_options_for_serving(
+            quantity="1",
+            unit=FoodItemVersion.ServingUnit.SERVING,
+            label="1 can",
+            weight_grams="355",
+            volume_milliliters="354.88235475",
+        )
+        by_key = {option["key"]: option for option in options}
+
+        self.assertEqual(by_key["base"]["label"], "1 can")
+        self.assertEqual(
+            Decimal(by_key["ml"]["serving_multiplier"]),
+            Decimal("1") / Decimal("354.88235475"),
+        )
+        self.assertEqual(
+            Decimal(by_key["fl_oz"]["serving_multiplier"]), Decimal("1") / 12
+        )
+
     def test_personal_food_requires_an_owner_at_database_level(self):
         with self.assertRaises(IntegrityError), transaction.atomic():
             FoodItem.objects.create(

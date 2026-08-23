@@ -48,7 +48,9 @@ def _decimal_string(value):
     return format(value.normalize(), "f")
 
 
-def portion_options_for_serving(*, quantity, unit, label="", weight_grams=None):
+def portion_options_for_serving(
+    *, quantity, unit, label="", weight_grams=None, volume_milliliters=None
+):
     """Return exact display-unit conversions anchored to one declared serving."""
 
     base_quantity = _decimal(quantity)
@@ -80,14 +82,19 @@ def portion_options_for_serving(*, quantity, unit, label="", weight_grams=None):
             )
 
     conversions = None
+    base_canonical_quantity = None
     if unit in MASS_UNITS_IN_GRAMS:
         conversions = MASS_UNITS_IN_GRAMS
+        base_canonical_quantity = base_quantity * conversions[unit]
     elif unit in VOLUME_UNITS_IN_MILLILITERS:
         conversions = VOLUME_UNITS_IN_MILLILITERS
+        base_canonical_quantity = base_quantity * conversions[unit]
+    elif volume_milliliters is not None:
+        conversions = VOLUME_UNITS_IN_MILLILITERS
+        base_canonical_quantity = _decimal(volume_milliliters)
     if conversions is None:
         return options
 
-    base_canonical_quantity = base_quantity * conversions[unit]
     for option_unit, canonical_quantity in conversions.items():
         options.append(
             {
