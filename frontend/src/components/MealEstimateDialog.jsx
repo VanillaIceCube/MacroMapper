@@ -241,12 +241,10 @@ function summarizedContributions(items) {
 }
 
 function macroCalorieSegments(item) {
-  const segments = MACRO_CALORIE_FIELDS.filter((field) => item[field.key] != null).map(
-    (field) => ({
-      ...field,
-      calories: Math.max(Number(item[field.key]) || 0, 0) * field.caloriesPerGram,
-    }),
-  );
+  const segments = MACRO_CALORIE_FIELDS.filter((field) => item[field.key] != null).map((field) => ({
+    ...field,
+    calories: Math.max(Number(item[field.key]) || 0, 0) * field.caloriesPerGram,
+  }));
   const total = segments.reduce((sum, segment) => sum + segment.calories, 0);
   return total
     ? segments.map((segment) => ({
@@ -278,8 +276,7 @@ function NutritionCards({
     >
       {NUTRIENT_FIELDS.map(({ key, label, unit, note, color }) => {
         const isEditable =
-          onNutrientChange &&
-          (!editableNutrientKeys || editableNutrientKeys.includes(key));
+          onNutrientChange && (!editableNutrientKeys || editableNutrientKeys.includes(key));
         return (
           <Paper
             key={key}
@@ -292,63 +289,63 @@ function NutritionCards({
               bgcolor: 'var(--atlas-paper)',
             }}
           >
-          <Typography
-            variant={compact ? 'caption' : 'overline'}
-            sx={{
-              color: 'var(--atlas-ink-muted)',
-              lineHeight: 1.1,
-              fontWeight: 700,
-            }}
-          >
-            {label}
-          </Typography>
-          {isEditable ? (
-            <TextField
-              type="number"
-              variant="standard"
-              size="small"
-              fullWidth
-              value={values[key] ?? ''}
-              onChange={(event) => onNutrientChange(key, event.target.value)}
-              inputProps={{
-                min: 0,
-                step: 'any',
-                'aria-label': `${label} for ${itemName}`,
-              }}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <Typography variant="caption">{unit}</Typography>
-                  </InputAdornment>
-                ),
-              }}
-              sx={{
-                '& .MuiInputBase-input': {
-                  py: 0.25,
-                  fontSize: '1rem',
-                  fontWeight: 700,
-                  lineHeight: 1.15,
-                },
-              }}
-            />
-          ) : (
-            <Stack direction="row" spacing={0.4} alignItems="baseline">
-              <Typography variant={compact ? 'subtitle1' : 'h6'} sx={{ lineHeight: 1.15 }}>
-                {formatAmount(values[key])}
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'var(--atlas-ink-muted)' }}>
-                {unit}
-              </Typography>
-            </Stack>
-          )}
-          {!compact && (
             <Typography
-              variant="caption"
-              sx={{ color: 'var(--atlas-ink-muted)', display: 'block', mt: 0.15 }}
+              variant={compact ? 'caption' : 'overline'}
+              sx={{
+                color: 'var(--atlas-ink-muted)',
+                lineHeight: 1.1,
+                fontWeight: 700,
+              }}
             >
-              {note}
+              {label}
             </Typography>
-          )}
+            {isEditable ? (
+              <TextField
+                type="number"
+                variant="standard"
+                size="small"
+                fullWidth
+                value={values[key] ?? ''}
+                onChange={(event) => onNutrientChange(key, event.target.value)}
+                inputProps={{
+                  min: 0,
+                  step: 'any',
+                  'aria-label': `${label} for ${itemName}`,
+                }}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Typography variant="caption">{unit}</Typography>
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  '& .MuiInputBase-input': {
+                    py: 0.25,
+                    fontSize: '1rem',
+                    fontWeight: 700,
+                    lineHeight: 1.15,
+                  },
+                }}
+              />
+            ) : (
+              <Stack direction="row" spacing={0.4} alignItems="baseline">
+                <Typography variant={compact ? 'subtitle1' : 'h6'} sx={{ lineHeight: 1.15 }}>
+                  {formatAmount(values[key])}
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'var(--atlas-ink-muted)' }}>
+                  {unit}
+                </Typography>
+              </Stack>
+            )}
+            {!compact && (
+              <Typography
+                variant="caption"
+                sx={{ color: 'var(--atlas-ink-muted)', display: 'block', mt: 0.15 }}
+              >
+                {note}
+              </Typography>
+            )}
           </Paper>
         );
       })}
@@ -748,122 +745,122 @@ function ProposalFood({
         </Stack>
       </Box>
       <Box sx={{ p: isComponent ? 0.75 : 1 }}>
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: {
-            xs: 'minmax(0, 1fr)',
-            md: 'minmax(360px, 1fr) auto',
-          },
-          gridTemplateAreas: {
-            xs: '"nutrition" "controls"',
-            md: '"nutrition controls"',
-          },
-          columnGap: 0.75,
-          rowGap: 0.75,
-          alignItems: 'center',
-        }}
-      >
-        <Box sx={{ minWidth: 0, gridArea: 'nutrition' }}>
-          <ItemNutritionCards
-            item={item}
-            compact
-            onNutrientChange={
-              nutritionEditing
-                ? (nutrient, value) => onNutrientChange(item.key, nutrient, value)
-                : undefined
-            }
-          />
-        </Box>
         <Box
           sx={{
-            gridArea: 'controls',
             display: 'grid',
-            width: '100%',
             gridTemplateColumns: {
-              xs: '96px minmax(0, 1fr)',
-              sm: '96px 220px',
+              xs: 'minmax(0, 1fr)',
+              md: 'minmax(360px, 1fr) auto',
             },
-            gridTemplateAreas: '"quantity portion"',
-            alignItems: 'center',
-            justifyContent: { sm: 'end' },
+            gridTemplateAreas: {
+              xs: '"nutrition" "controls"',
+              md: '"nutrition controls"',
+            },
             columnGap: 0.75,
+            rowGap: 0.75,
+            alignItems: 'center',
           }}
         >
-          <TextField
-            label={isComponent ? 'Amount' : 'Quantity'}
-            type="number"
-            size="small"
-            value={servingAmountValue(item)}
-            onChange={(event) => onServings(item.key, event.target.value, item)}
-            inputProps={{ min: 0, step: 1 }}
-            sx={{ gridArea: 'quantity', minWidth: 0, width: '100%' }}
-          />
-          <TextField
-            select
-            label="Unit / portion"
-            size="small"
-            value={activePortion.key}
-            onChange={(event) => onPortionChange(item.key, event.target.value)}
-            disabled={options.length < 2}
-            sx={{ gridArea: 'portion', minWidth: 0, width: '100%' }}
+          <Box sx={{ minWidth: 0, gridArea: 'nutrition' }}>
+            <ItemNutritionCards
+              item={item}
+              compact
+              onNutrientChange={
+                nutritionEditing
+                  ? (nutrient, value) => onNutrientChange(item.key, nutrient, value)
+                  : undefined
+              }
+            />
+          </Box>
+          <Box
+            sx={{
+              gridArea: 'controls',
+              display: 'grid',
+              width: '100%',
+              gridTemplateColumns: {
+                xs: '96px minmax(0, 1fr)',
+                sm: '96px 220px',
+              },
+              gridTemplateAreas: '"quantity portion"',
+              alignItems: 'center',
+              justifyContent: { sm: 'end' },
+              columnGap: 0.75,
+            }}
           >
-            {options.map((option) => (
-              <MenuItem key={option.key} value={option.key}>
-                {portionOptionLabel(option)}
-              </MenuItem>
-            ))}
-          </TextField>
+            <TextField
+              label={isComponent ? 'Amount' : 'Quantity'}
+              type="number"
+              size="small"
+              value={servingAmountValue(item)}
+              onChange={(event) => onServings(item.key, event.target.value, item)}
+              inputProps={{ min: 0, step: 1 }}
+              sx={{ gridArea: 'quantity', minWidth: 0, width: '100%' }}
+            />
+            <TextField
+              select
+              label="Unit / portion"
+              size="small"
+              value={activePortion.key}
+              onChange={(event) => onPortionChange(item.key, event.target.value)}
+              disabled={options.length < 2}
+              sx={{ gridArea: 'portion', minWidth: 0, width: '100%' }}
+            >
+              {options.map((option) => (
+                <MenuItem key={option.key} value={option.key}>
+                  {portionOptionLabel(option)}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Box>
         </Box>
-      </Box>
-      {hasDetails && (
-        <Collapse in={detailsOpen} unmountOnExit>
-          <Paper elevation={0} sx={{ mt: 0.5, p: 0.75, border: '1px solid var(--atlas-border)' }}>
-            <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 0.25 }}>
-              <Chip size="small" label={source.label} color={source.color} variant="outlined" />
-              {item.confidence_score != null && (
-                <Chip
-                  size="small"
-                  label={`${Math.round(Number(item.confidence_score) * 100)}% confidence`}
-                  variant="outlined"
-                />
-              )}
-              {item.provider_name && (
-                <Chip size="small" label={item.provider_name} variant="outlined" />
-              )}
-            </Stack>
-            {!!item.sources?.length && (
-              <Stack component="ul" spacing={0.25} sx={{ my: 0.5, pl: 2.25 }}>
-                {item.sources.map((entry) => (
-                  <Typography component="li" variant="caption" key={entry.url}>
-                    <Link href={entry.url} target="_blank" rel="noopener noreferrer">
-                      {entry.title}
-                    </Link>
-                    {entry.is_official ? ' · official source' : ''}
-                  </Typography>
-                ))}
+        {hasDetails && (
+          <Collapse in={detailsOpen} unmountOnExit>
+            <Paper elevation={0} sx={{ mt: 0.5, p: 0.75, border: '1px solid var(--atlas-border)' }}>
+              <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 0.25 }}>
+                <Chip size="small" label={source.label} color={source.color} variant="outlined" />
+                {item.confidence_score != null && (
+                  <Chip
+                    size="small"
+                    label={`${Math.round(Number(item.confidence_score) * 100)}% confidence`}
+                    variant="outlined"
+                  />
+                )}
+                {item.provider_name && (
+                  <Chip size="small" label={item.provider_name} variant="outlined" />
+                )}
               </Stack>
-            )}
-          </Paper>
-        </Collapse>
-      )}
-      {!!item.components?.length && (
-        <Collapse in={componentsOpen} unmountOnExit>
-          <Stack spacing={0.75} sx={{ mt: 0.85 }}>
-            {item.components.map((component) => (
-              <ProposalFood
-                key={component.key}
-                item={component}
-                depth={depth + 1}
-                onServings={onServings}
-                onPortionChange={onPortionChange}
-                onNutrientChange={onNutrientChange}
-                onRemove={onRemove}
-              />
-            ))}
-          </Stack>
-        </Collapse>
-      )}
+              {!!item.sources?.length && (
+                <Stack component="ul" spacing={0.25} sx={{ my: 0.5, pl: 2.25 }}>
+                  {item.sources.map((entry) => (
+                    <Typography component="li" variant="caption" key={entry.url}>
+                      <Link href={entry.url} target="_blank" rel="noopener noreferrer">
+                        {entry.title}
+                      </Link>
+                      {entry.is_official ? ' · official source' : ''}
+                    </Typography>
+                  ))}
+                </Stack>
+              )}
+            </Paper>
+          </Collapse>
+        )}
+        {!!item.components?.length && (
+          <Collapse in={componentsOpen} unmountOnExit>
+            <Stack spacing={0.75} sx={{ mt: 0.85 }}>
+              {item.components.map((component) => (
+                <ProposalFood
+                  key={component.key}
+                  item={component}
+                  depth={depth + 1}
+                  onServings={onServings}
+                  onPortionChange={onPortionChange}
+                  onNutrientChange={onNutrientChange}
+                  onRemove={onRemove}
+                />
+              ))}
+            </Stack>
+          </Collapse>
+        )}
       </Box>
     </Paper>
   );
