@@ -142,9 +142,12 @@ user's proposals.
     Only intents still unmatched are sent to OpenAI with web search for a full
     nutrition estimate.
   - Materializes the normalized AI result and its components as deduplicated,
-    immediately active, read-only shared Food Items. The private proposal references those exact
-    versions; its description, date, owner, and review state are never copied
-    into the shared catalog.
+    immediately active, read-only shared Food Items only after a server-side
+    publication boundary reconstructs allowlisted fields, validates numeric and
+    source data, normalizes catalog text, and rejects control, markup, URL-like,
+    instruction-like, or personal-metadata payloads. The private proposal
+    references those exact versions; its description, date, owner, and review
+    state are never copied into the shared catalog.
 - `PATCH /api/meal-proposals/{id}/` with an edited `name` and/or `items`
 - `POST /api/meal-proposals/{id}/follow-up/` with `follow_up`, the current
   `name`, and current `items`

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
 import re
 import unicodedata
 from copy import deepcopy
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from difflib import SequenceMatcher
+from urllib.parse import urlsplit
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -87,6 +89,14 @@ FOOD_ITEM_BOUNDARY_PATTERN = re.compile(
     r"(?:\+|;|,|\b(?:and|plus)\b)",
     re.IGNORECASE,
 )
+
+UNSAFE_CATALOG_TEXT_PATTERN = re.compile(
+    r"(?:[\x00-\x1f\x7f]|<[^>]*>|https?://|www\.|\b(?:ignore|override)\b.{0,40}"
+    r"\b(?:instruction|prompt|system|developer)\b|\b(?:system|developer|assistant|user)"
+    r"\s*:|\b(?:private|personal)\s+(?:meal|note|data|information)\b)",
+    re.IGNORECASE,
+)
+EMAIL_PATTERN = re.compile(r"\b[^\s@]+@[^\s@]+\.[^\s@]+\b")
 
 
 def _normalize_search_token(value):
@@ -831,6 +841,193 @@ def create_proposal_revision(*, proposal, kind, created_by):
     return revision
 
 
+def _catalog_publication_error():
+    return EstimationProviderError(
+        "The meal estimation provider returned catalog data that could not be published safely."
+    )
+
+
+def _published_text(value, *, max_length, allow_blank=False):
+    if not isinstance(value, str):
+        raise _catalog_publication_error()
+    if UNSAFE_CATALOG_TEXT_PATTERN.search(value) or EMAIL_PATTERN.search(value):
+        raise _catalog_publication_error()
+    normalized = " ".join(unicodedata.normalize("NFKC", value).split())
+    if (not normalized and not allow_blank) or len(normalized) > max_length:
+        raise _catalog_publication_error()
+    return normalized
+
+
+def _published_decimal(
+    value,
+    *,
+    allow_null=False,
+    positive=False,
+    maximum=None,
+):
+    if value is None and allow_null:
+        return None
+    try:
+        parsed = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError) as error:
+        raise _catalog_publication_error() from error
+    if not parsed.is_finite() or parsed < 0 or (positive and parsed <= 0):
+        raise _catalog_publication_error()
+    if maximum is not None and parsed > Decimal(str(maximum)):
+        raise _catalog_publication_error()
+    return str(parsed)
+
+
+def _published_source(source):
+    if not isinstance(source, dict):
+        raise _catalog_publication_error()
+    title = _published_text(source.get("title"), max_length=200)
+    provider = _published_text(
+        source.get("provider", ""),
+        max_length=160,
+        allow_blank=True,
+    )
+    url = source.get("url")
+    if (
+        not isinstance(url, str)
+        or len(url) > 2048
+        or any(character.isspace() or ord(character) < 32 for character in url)
+    ):
+        raise _catalog_publication_error()
+    parsed_url = urlsplit(url)
+    if (
+        parsed_url.scheme not in {"http", "https"}
+        or not parsed_url.hostname
+        or parsed_url.username
+        or parsed_url.password
+    ):
+        raise _catalog_publication_error()
+    hostname = parsed_url.hostname.casefold()
+    if hostname == "localhost" or hostname.endswith(
+        (".localhost", ".local", ".internal")
+    ):
+        raise _catalog_publication_error()
+    try:
+        address = ipaddress.ip_address(hostname)
+    except ValueError:
+        address = None
+    if address is not None and not address.is_global:
+        raise _catalog_publication_error()
+    return {
+        "title": title,
+        "provider": provider,
+        "url": url,
+        "accessed_on": source.get("accessed_on"),
+    }
+
+
+def _published_provider_item(item, *, depth=0):
+    if not isinstance(item, dict) or depth > 8:
+        raise _catalog_publication_error()
+    components = item.get("components", [])
+    sources = item.get("sources", [])
+    nutrients = item.get("nutrients", {})
+    if not isinstance(components, list) or len(components) > 30:
+        raise _catalog_publication_error()
+    if not isinstance(sources, list) or len(sources) > 20:
+        raise _catalog_publication_error()
+    if not isinstance(nutrients, dict) or set(nutrients) - set(NUTRIENT_FIELDS):
+        raise _catalog_publication_error()
+
+    origin_type = item.get("origin_type") or FoodItem.OriginType.GENERIC
+    serving_unit = item.get("serving_unit") or FoodItemVersion.ServingUnit.SERVING
+    provenance = item.get("provenance") or FoodItemVersion.Provenance.AI_ESTIMATE
+    if origin_type not in FoodItem.OriginType.values:
+        raise _catalog_publication_error()
+    if serving_unit not in FoodItemVersion.ServingUnit.values:
+        raise _catalog_publication_error()
+    if provenance not in {
+        FoodItemVersion.Provenance.OFFICIAL,
+        FoodItemVersion.Provenance.AI_ESTIMATE,
+    }:
+        raise _catalog_publication_error()
+
+    provider_name = _published_text(
+        item.get("provider_name", ""),
+        max_length=160,
+        allow_blank=True,
+    )
+    if (
+        origin_type in {FoodItem.OriginType.BRANDED, FoodItem.OriginType.RESTAURANT}
+        and not provider_name
+    ):
+        raise _catalog_publication_error()
+
+    nutrient_limits = {
+        "calories": 10000,
+        "protein": 2000,
+        "carbohydrates": 2000,
+        "fat": 2000,
+        "fiber": 2000,
+        "sugar": 2000,
+        "sodium": 100000,
+        "cholesterol": 100000,
+    }
+    safe_nutrients = {
+        field: _published_decimal(
+            nutrients.get(field),
+            allow_null=True,
+            maximum=nutrient_limits[field],
+        )
+        for field in NUTRIENT_FIELDS
+    }
+    confidence = _published_decimal(
+        item.get("confidence_score"),
+        allow_null=True,
+        maximum=1,
+    )
+    key = item.get("key")
+    if not isinstance(key, str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,160}", key):
+        raise _catalog_publication_error()
+
+    return {
+        "key": key,
+        "name": _published_text(item.get("name"), max_length=200),
+        "provider_name": provider_name,
+        "origin_type": origin_type,
+        "servings": _published_decimal(
+            item.get("servings", "1"),
+            positive=True,
+            maximum=1000,
+        ),
+        "serving_quantity": _published_decimal(
+            item.get("serving_quantity", "1"),
+            positive=True,
+            maximum=100000,
+        ),
+        "serving_unit": serving_unit,
+        "serving_label": _published_text(
+            item.get("serving_label") or "one serving",
+            max_length=120,
+        ),
+        "serving_weight_grams": _published_decimal(
+            item.get("serving_weight_grams"),
+            allow_null=True,
+            positive=True,
+            maximum=100000,
+        ),
+        "serving_volume_ml": _published_decimal(
+            item.get("serving_volume_ml"),
+            allow_null=True,
+            positive=True,
+            maximum=100000,
+        ),
+        "provenance": provenance,
+        "confidence_score": confidence,
+        "nutrients": safe_nutrients,
+        "sources": [_published_source(source) for source in sources],
+        "components": [
+            _published_provider_item(component, depth=depth + 1)
+            for component in components
+        ],
+    }
+
+
 def _fingerprint_decimal(value, *, decimal_places, default="0"):
     return str(_storage_decimal(value, decimal_places=decimal_places, default=default))
 
@@ -949,7 +1146,15 @@ def _materialize_shared_item(*, item, estimate):
 
 
 def _shared_estimate_items(estimate):
-    normalized = normalize_items(estimate["items"])
+    if (
+        not isinstance(estimate.get("items"), list)
+        or not estimate["items"]
+        or len(estimate["items"]) > 20
+    ):
+        raise _catalog_publication_error()
+    normalized = normalize_items(
+        [_published_provider_item(item) for item in estimate["items"]]
+    )
     result = []
     for item in normalized:
         food, version = _materialize_shared_item(item=item, estimate=estimate)

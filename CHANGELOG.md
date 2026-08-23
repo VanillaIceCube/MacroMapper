@@ -17,6 +17,9 @@ All notable changes to this project are documented in this file.
 - Prevented conversational descriptions such as fries from two different
   restaurants from bypassing existing catalog foods and creating duplicate AI
   estimates.
+- Added a server-side publication boundary for provider-derived shared foods so
+  only allowlisted, normalized, source-validated catalog fields can be made
+  globally visible; unsafe or instruction-like metadata is rejected atomically.
 
 ### Changed
 
