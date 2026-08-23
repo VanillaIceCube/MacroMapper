@@ -15,6 +15,12 @@ All notable changes to this project are documented in this file.
   servings and ingredients change.
 - Added grams and calorie-share percentages to the meal summary chart legends
   so macro and component contributions can be compared at a glance.
+- Centered the macro donut and legend as a bounded group so wide layouts keep
+  the chart labels visually connected.
+- Kept macro legend labels close to their values and collapsed estimated meal
+  components by default for faster top-level scanning.
+- Enlarged the macro donut responsively so it fills its summary card more
+  evenly without stretching the legend.
 
 ## 2026-08-16
 

@@ -159,22 +159,15 @@ describe('MealEstimateDialog', () => {
     expect(within(reviewDialog).getByLabelText('Double burger macro values')).toHaveTextContent(
       /Protein\s*24\s*g/,
     );
-    expect(within(reviewDialog).getByLabelText('Burger patty macro values')).toHaveTextContent(
-      /Protein\s*24\s*g/,
-    );
-
-    await user.click(
-      within(reviewDialog).getByRole('button', { name: 'Collapse components for Double burger' }),
-    );
-    await waitFor(() => {
-      expect(
-        within(reviewDialog).queryByLabelText('Burger patty macro values'),
-      ).not.toBeInTheDocument();
-    });
+    expect(
+      within(reviewDialog).queryByLabelText('Burger patty macro values'),
+    ).not.toBeInTheDocument();
     await user.click(
       within(reviewDialog).getByRole('button', { name: 'Expand components for Double burger' }),
     );
-    expect(await within(reviewDialog).findByLabelText('Burger patty macro values')).toBeVisible();
+    expect(
+      await within(reviewDialog).findByLabelText('Burger patty macro values'),
+    ).toHaveTextContent(/Protein\s*24\s*g/);
 
     expect(within(reviewDialog).queryByText('AI estimate')).not.toBeInTheDocument();
     await user.click(

@@ -236,14 +236,20 @@ function MacroCalorieChart({ values }) {
       <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.75 }}>
         Macro calorie split
       </Typography>
-      <Stack direction="row" spacing={1.5} alignItems="center">
+      <Stack
+        direction="row"
+        spacing={1.5}
+        alignItems="center"
+        justifyContent="center"
+        sx={{ width: '100%', maxWidth: 380, mx: 'auto' }}
+      >
         <Box
           role="img"
           aria-label={`Macro calorie split: protein ${percentages.protein}%, carbs ${percentages.carbohydrates}%, fat ${percentages.fat}%`}
           sx={{
             position: 'relative',
-            width: 96,
-            height: 96,
+            width: 'clamp(104px, 38%, 144px)',
+            aspectRatio: '1 / 1',
             flex: '0 0 auto',
             borderRadius: '50%',
             background,
@@ -252,7 +258,7 @@ function MacroCalorieChart({ values }) {
             '&::after': {
               content: '""',
               position: 'absolute',
-              inset: 14,
+              inset: '15%',
               borderRadius: '50%',
               bgcolor: 'var(--atlas-paper)',
             },
@@ -267,7 +273,7 @@ function MacroCalorieChart({ values }) {
             </Typography>
           </Box>
         </Box>
-        <Stack spacing={0.5} sx={{ minWidth: 0, flex: 1 }}>
+        <Stack spacing={0.5} sx={{ minWidth: 0, flex: '0 1 auto' }}>
           {[
             ['Protein', values.protein, percentages.protein, 'var(--atlas-forest)'],
             ['Carbs', values.carbohydrates, percentages.carbohydrates, 'var(--atlas-mineral)'],
@@ -275,7 +281,7 @@ function MacroCalorieChart({ values }) {
           ].map(([label, grams, percentage, color]) => (
             <Stack key={label} direction="row" alignItems="center" spacing={0.75}>
               <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color }} />
-              <Typography variant="caption" sx={{ flex: 1 }}>
+              <Typography variant="caption" sx={{ flex: '0 0 48px' }}>
                 {label}
               </Typography>
               <Typography variant="caption" sx={{ fontWeight: 800, whiteSpace: 'nowrap' }}>
@@ -440,7 +446,7 @@ function removeFromTree(items, key) {
 }
 
 function ProposalFood({ item, depth = 0, onServings, onRemove }) {
-  const [componentsOpen, setComponentsOpen] = useState(true);
+  const [componentsOpen, setComponentsOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const source = sourceLabels[item.source_kind] || sourceLabels.ai_estimate;
   const isComponent = depth > 0;
