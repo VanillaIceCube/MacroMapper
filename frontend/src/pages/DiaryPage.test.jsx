@@ -92,14 +92,69 @@ describe('DiaryPage', () => {
     const dailySummary = screen.getByRole('region', { name: 'Daily summary' });
     expect(within(dailySummary).getByText('95', { selector: 'h5' })).toBeInTheDocument();
     expect(within(dailySummary).getByText('0.5', { selector: 'h5' })).toBeInTheDocument();
-    expect(
-      within(within(dailySummary).getByText('Sugar').parentElement).getByText('—'),
-    ).toBeInTheDocument();
+    const sugarTotal = within(dailySummary).getByRole('group', { name: 'Sugar daily total' });
+    expect(within(sugarTotal).getByText('—')).toBeInTheDocument();
     expect(screen.getByText('80% confidence')).toBeInTheDocument();
     expect(screen.getByText('1 × Apple')).toBeInTheDocument();
     expect(screen.getByText('95 kcal')).toBeInTheDocument();
     expect(screen.getByText('Not scored')).toBeInTheDocument();
     expect(screen.getByText('User entered')).toBeInTheDocument();
+  });
+
+  test('rounds macro charts and shows the original AI follow-up wording', async () => {
+    const estimatedMeal = {
+      ...meal,
+      notes: 'Estimated from: A single apple\n\nAI follow-ups:\n- I only ate half the apple',
+      items: [
+        {
+          ...meal.items[0],
+          nutrients: [
+            { key: 'calories', name: 'Calories', unit: 'kcal', amount: '95.4000' },
+            { key: 'protein', name: 'Protein', unit: 'g', amount: '0.5000' },
+            {
+              key: 'carbohydrates',
+              name: 'Carbohydrates',
+              unit: 'g',
+              amount: '1.5000',
+            },
+            { key: 'fat', name: 'Fat', unit: 'g', amount: '0.4000' },
+          ],
+        },
+      ],
+    };
+    fetchDailyDiary.mockResolvedValue(
+      response({
+        date: '2026-08-16',
+        meals: [estimatedMeal],
+        totals: [
+          { key: 'calories', name: 'Calories', unit: 'kcal', amount: '95.4000' },
+          { key: 'protein', name: 'Protein', unit: 'g', amount: '0.5000' },
+          {
+            key: 'carbohydrates',
+            name: 'Carbohydrates',
+            unit: 'g',
+            amount: '1.5000',
+          },
+          { key: 'fat', name: 'Fat', unit: 'g', amount: '0.4000' },
+        ],
+      }),
+    );
+
+    renderWithProviders(<DiaryPage />);
+
+    const macroSplit = await screen.findByRole('figure', { name: 'Macro calorie split' });
+    expect(within(macroSplit).getByText('95')).toBeInTheDocument();
+    expect(within(macroSplit).getByText('1 g (17%)')).toBeInTheDocument();
+    expect(within(macroSplit).getByText('2 g (52%)')).toBeInTheDocument();
+    expect(within(macroSplit).getByText('0 g (31%)')).toBeInTheDocument();
+
+    const caloriesByMeal = screen.getByRole('figure', { name: 'Calories by meal' });
+    expect(within(caloriesByMeal).getByText('95 kcal (100%)')).toBeInTheDocument();
+
+    expect(
+      screen.getByText('A single apple AI follow-ups: - I only ate half the apple'),
+    ).toBeVisible();
+    expect(screen.queryByText(/Estimated from:/i)).not.toBeInTheDocument();
   });
 
   test('creates a meal from a searched catalog food', async () => {

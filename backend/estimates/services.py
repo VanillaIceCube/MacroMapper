@@ -832,7 +832,7 @@ def _items_by_key(items):
 
 
 @transaction.atomic
-def create_proposal_revision(*, proposal, kind, created_by, message=""):
+def create_proposal_revision(*, proposal, kind, created_by, follow_up="", message=""):
     locked_proposal = MealProposal.objects.select_for_update().get(pk=proposal.pk)
     parent = locked_proposal.revisions.order_by("-revision_number", "-id").first()
     revision = MealProposalRevision(
@@ -841,6 +841,7 @@ def create_proposal_revision(*, proposal, kind, created_by, message=""):
         kind=kind,
         name=locked_proposal.name,
         items=deepcopy(locked_proposal.items),
+        follow_up=follow_up,
         message=message,
         parent_revision=parent,
         created_by=created_by,
@@ -1332,7 +1333,7 @@ def _follow_up_search_intent(item):
 
 
 @transaction.atomic
-def apply_proposal_follow_up(*, proposal, owner, name, items, result):
+def apply_proposal_follow_up(*, proposal, owner, follow_up, items, result):
     proposal = (
         MealProposal.objects.select_for_update()
         .prefetch_related("revisions")
@@ -1447,7 +1448,7 @@ def apply_proposal_follow_up(*, proposal, owner, name, items, result):
             "proposal": proposal,
         }
 
-    proposal.name = name
+    proposal.name = _brief_generated_meal_name(result["name"])
     proposal.items = normalize_items([*retained_items, *added_items])
     proposal.generator = MealProposal.Generator.OPENAI
     provider_name = result["provider_name"]
@@ -1482,6 +1483,7 @@ def apply_proposal_follow_up(*, proposal, owner, name, items, result):
         proposal=proposal,
         kind=MealProposalRevision.Kind.AI_FOLLOW_UP,
         created_by=owner,
+        follow_up=follow_up,
         message=result["message"],
     )
     return {
@@ -1796,16 +1798,16 @@ def accept_proposal(*, proposal):
     if not items:
         raise ValidationError("Add at least one food before saving this meal.")
 
-    follow_up_messages = list(
+    follow_up_requests = list(
         proposal.revisions.filter(kind=MealProposalRevision.Kind.AI_FOLLOW_UP)
-        .exclude(message="")
+        .exclude(follow_up="")
         .order_by("revision_number", "id")
-        .values_list("message", flat=True)
+        .values_list("follow_up", flat=True)
     )
     notes = f"Estimated from: {proposal.description}"
-    if follow_up_messages:
+    if follow_up_requests:
         notes += "\n\nAI follow-ups:\n" + "\n".join(
-            f"- {message}" for message in follow_up_messages
+            f"- {request}" for request in follow_up_requests
         )
 
     meal = MealEntry.objects.create(

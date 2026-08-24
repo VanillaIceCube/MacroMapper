@@ -21,6 +21,7 @@ from .provider import (
     SYSTEM_PROMPT,
     EstimatedFood,
     EstimatedMeal,
+    EstimatedMealFollowUp,
     EstimatedNutrients,
     EstimatedSource,
     EstimationProviderError,
@@ -343,7 +344,7 @@ class MealProposalApiTests(TestCase):
                     "defining_terms": ["fries"],
                     "aliases": ["World Famous Fries"],
                 },
-            ]
+            ],
         }
 
         with patch("estimates.services.get_estimation_provider", return_value=provider):
@@ -394,7 +395,7 @@ class MealProposalApiTests(TestCase):
                     "defining_terms": ["fries"],
                     "aliases": ["World Famous Fries"],
                 },
-            ]
+            ],
         }
         provider.estimate.return_value = simple_ai_estimate(
             name="World Famous Fries",
@@ -658,6 +659,7 @@ class MealProposalApiTests(TestCase):
         )
         provider = Mock()
         provider.follow_up.return_value = {
+            "name": "Burger & KFC Fries",
             "message": "Added one order of KFC fries.",
             "confidence_score": Decimal("0.8"),
             "remove_keys": [],
@@ -681,6 +683,7 @@ class MealProposalApiTests(TestCase):
             )
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["proposal"]["name"], "Burger & KFC Fries")
         self.assertEqual(FoodItem.objects.count(), food_count)
         self.assertEqual(
             response.data["proposal"]["items"][1]["food_item_id"],
@@ -705,6 +708,7 @@ class MealProposalApiTests(TestCase):
         self.assertEqual(proposal_response.status_code, 201)
         self.assertNotIn("_catalog_search", proposal_response.data["items"][0])
         provider.follow_up.return_value = {
+            "name": "Half Apple",
             "message": "Changed the apple to half a serving.",
             "confidence_score": Decimal("0.9"),
             "remove_keys": [],
@@ -734,12 +738,18 @@ class MealProposalApiTests(TestCase):
             Decimal(response.data["proposal"]["items"][0]["servings"]),
             Decimal("0.5"),
         )
+        self.assertEqual(response.data["proposal"]["name"], "Half Apple")
         self.assertEqual(
             response.data["proposal"]["revisions"][-1]["message"],
             "Changed the apple to half a serving.",
         )
+        self.assertEqual(
+            response.data["proposal"]["revisions"][-1]["follow_up"],
+            "I only ate half the apple",
+        )
 
         provider.follow_up.return_value = {
+            "name": "Quarter Apple",
             "message": "Changed the apple to a quarter serving.",
             "confidence_score": Decimal("0.85"),
             "remove_keys": [],
@@ -766,16 +776,18 @@ class MealProposalApiTests(TestCase):
             )
 
         self.assertEqual(second_response.status_code, 200)
+        self.assertEqual(second_response.data["proposal"]["name"], "Quarter Apple")
         accepted = self.client.post(
             f"/api/meal-proposals/{proposal_response.data['id']}/accept/"
         )
         self.assertEqual(accepted.status_code, 201)
+        self.assertEqual(accepted.data["name"], "Quarter Apple")
         self.assertEqual(
             accepted.data["notes"],
             "Estimated from: A single apple\n\n"
             "AI follow-ups:\n"
-            "- Changed the apple to half a serving.\n"
-            "- Changed the apple to a quarter serving.",
+            "- I only ate half the apple\n"
+            "- Actually, I only ate a quarter",
         )
 
     def test_unsafe_provider_catalog_metadata_is_rejected_before_publication(self):
@@ -1511,7 +1523,7 @@ class OpenAIProviderTests(TestCase):
                     defining_terms=["fries"],
                     aliases=["World Famous Fries"],
                 ),
-            ]
+            ],
         )
         client = Mock()
         client.responses.parse.return_value = SimpleNamespace(
@@ -1579,6 +1591,30 @@ class OpenAIProviderTests(TestCase):
         )
         self.assertEqual(result["items"][0]["portion_options"][1]["key"], "g")
         self.assertEqual(result["items"][0]["selected_portion_key"], "g")
+
+    def test_provider_returns_a_refreshed_follow_up_meal_name(self):
+        parsed = EstimatedMealFollowUp(
+            name="Burger & Fries",
+            message="Added fries.",
+            confidence_score=Decimal("0.9"),
+        )
+        client = Mock()
+        client.responses.parse.return_value = SimpleNamespace(
+            id="resp_follow_up_name",
+            output_parsed=parsed,
+        )
+
+        result = OpenAIMealEstimationProvider(client=client).follow_up(
+            original_description="A burger",
+            meal_name="Burger",
+            items=[],
+            follow_up="Add fries",
+        )
+
+        request = client.responses.parse.call_args.kwargs
+        self.assertEqual(request["text_format"], EstimatedMealFollowUp)
+        self.assertEqual(result["name"], "Burger & Fries")
+        self.assertEqual(result["message"], "Added fries.")
 
     def test_provider_normalizes_declared_total_nutrients_to_one_base_serving(self):
         parsed = EstimatedMeal(

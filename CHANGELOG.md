@@ -5,15 +5,19 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
-- Included every AI review follow-up message in the saved meal Context so
-  assumptions and corrections remain visible in the diary after acceptance.
+- Included each user's original Adjust with AI follow-up request in the saved
+  meal Context, while retaining AI result messages separately in revision history.
 
 ### Changed
 
+- Refreshed the concise meal title whenever Adjust with AI successfully changes
+  an estimate, so additions and removals are reflected before diary acceptance.
+- Vertically centered the Macro calorie split visualization when the neighboring
+  Calories by meal chart grows taller.
 - Rebalanced the Daily Summary charts around a balanced macro-calorie panel with
-  a larger donut and a wider Calories by meal chart with two-line space for
-  longer meal titles, compact vertically centered labels, thicker stacked
-  bars, and whole-number macro-split values.
+  a larger full-card donut layout and a wider Calories by meal chart with
+  two-line space for longer meal titles, compact vertically centered labels,
+  thicker stacked bars, and whole-number macro-split values.
 
 ## 2026-08-23
 

@@ -118,6 +118,7 @@ class FollowUpServingUpdate(BaseModel):
 class EstimatedMealFollowUp(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    name: str = Field(min_length=1, max_length=80)
     message: str = Field(min_length=1, max_length=300)
     confidence_score: float = Field(ge=0, le=1)
     remove_keys: list[str] = Field(default_factory=list, max_length=20)
@@ -231,6 +232,11 @@ a duplicate row. For every newly mentioned top-level food, include concise
 catalog_search_terms and catalog_defining_terms that can be used to find the same food in
 an existing catalog before creating it. Search terms may include true product aliases but
 must not broaden into a different menu item.
+
+Set name to a refreshed concise title for the complete meal after applying the requested
+operations. Use the "[Company] [Food Items]" format whenever a restaurant or brand is
+known, mention each company only once, include only the key foods, and keep it to 80
+characters or fewer. Return the best current title even when only a serving changes.
 
 Make a reasonable best-effort portion estimate whenever the food and requested action are
 identifiable, even when the amount is informal, approximate, or omitted. Never ask for a
@@ -476,6 +482,7 @@ class OpenAIMealEstimationProvider:
                     "The estimation provider did not return a usable follow-up."
                 )
             return {
+                "name": parsed.name,
                 "message": parsed.message,
                 "confidence_score": parsed.confidence_score,
                 "remove_keys": parsed.remove_keys,

@@ -946,6 +946,8 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
               {launchNutrients.map((nutrient) => (
                 <Paper
                   key={nutrient.key}
+                  role="group"
+                  aria-label={`${nutrient.label} daily total`}
                   elevation={0}
                   sx={{
                     minWidth: 0,
@@ -1015,6 +1017,8 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   bgcolor: 'var(--atlas-paper)',
                   border: '1px solid var(--atlas-border)',
                   borderRadius: 1.5,
+                  display: 'flex',
+                  flexDirection: 'column',
                 }}
               >
                 <Typography
@@ -1025,8 +1029,14 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   Macro calorie split
                 </Typography>
                 {loading ? (
-                  <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center">
-                    <Skeleton variant="circular" width={128} height={128} />
+                  <Stack
+                    direction="row"
+                    spacing={1.5}
+                    alignItems="center"
+                    justifyContent="center"
+                    sx={{ flex: 1 }}
+                  >
+                    <Skeleton variant="circular" width={152} height={152} />
                     <Stack spacing={0.5} sx={{ width: 120 }}>
                       {[0, 1, 2].map((row) => (
                         <Skeleton key={row} />
@@ -1038,8 +1048,8 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                     direction="row"
                     spacing={1}
                     alignItems="center"
-                    justifyContent="center"
-                    sx={{ width: '100%', maxWidth: 310, mx: 'auto' }}
+                    justifyContent="space-evenly"
+                    sx={{ width: '100%', flex: 1, px: 0.5 }}
                   >
                     <Box
                       role="img"
@@ -1048,7 +1058,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                         .join(', ')}`}
                       sx={{
                         position: 'relative',
-                        width: 'clamp(120px, 44%, 140px)',
+                        width: 'clamp(136px, 48%, 190px)',
                         aspectRatio: '1 / 1',
                         flex: '0 0 auto',
                         borderRadius: '50%',
@@ -1080,7 +1090,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                         </Typography>
                       </Box>
                     </Box>
-                    <Stack spacing={0.5} sx={{ minWidth: 0, flex: '0 1 auto' }}>
+                    <Stack spacing={0.5} sx={{ minWidth: 0, flex: '0 0 auto' }}>
                       {dailyMacroSummary.macros.map((macro) => (
                         <Stack key={macro.key} direction="row" alignItems="center" spacing={0.75}>
                           <Box

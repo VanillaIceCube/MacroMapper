@@ -9,6 +9,7 @@ class MealProposalRevisionInline(admin.TabularInline):
     fields = (
         "revision_number",
         "kind",
+        "follow_up",
         "message",
         "parent_revision",
         "created_by",
@@ -85,6 +86,7 @@ class MealProposalRevisionAdmin(admin.ModelAdmin):
         "kind",
         "name",
         "items",
+        "follow_up",
         "message",
         "parent_revision",
         "created_by",
