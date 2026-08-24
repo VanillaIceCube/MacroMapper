@@ -187,6 +187,22 @@ const mealItemNutrientAmount = (item, nutrientKey) => {
   return Number.isFinite(amount) ? amount : null;
 };
 
+const mealItemMacroSegments = (item) => {
+  const segments = macroCalorieFields.flatMap((field) => {
+    const grams = mealItemNutrientAmount(item, field.key);
+    if (grams === null) return [];
+    return [{ ...field, calories: Math.max(grams, 0) * field.caloriesPerGram }];
+  });
+  const totalCalories = segments.reduce((total, segment) => total + segment.calories, 0);
+
+  return totalCalories
+    ? segments.map((segment) => ({
+        ...segment,
+        percentage: (segment.calories / totalCalories) * 100,
+      }))
+    : [];
+};
+
 const mealMacroSegments = (meal) => {
   const segments = macroCalorieFields.flatMap((field) => {
     const grams = mealNutrientAmount(meal, field.key);
@@ -201,6 +217,17 @@ const mealMacroSegments = (meal) => {
         percentage: (segment.calories / totalCalories) * 100,
       }))
     : [];
+};
+
+const macroDonutBackground = (segments) => {
+  if (!segments.length) return 'var(--atlas-border)';
+  let cursor = 0;
+  const stops = segments.map((segment) => {
+    const start = cursor;
+    cursor += segment.percentage;
+    return `${segment.color} ${start}% ${cursor}%`;
+  });
+  return `conic-gradient(${stops.join(', ')})`;
 };
 
 async function responseError(response, fallback) {
@@ -1490,6 +1517,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                               </Box>
                               {meal.items.map((item, itemIndex) => {
                                 const itemCalories = mealItemNutrientAmount(item, 'calories');
+                                const itemMacroSegments = mealItemMacroSegments(item);
                                 const confidence = Number(item.confidence_score);
                                 const hasConfidence =
                                   item.confidence_score !== null && Number.isFinite(confidence);
@@ -1570,17 +1598,44 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                         }}
                                       >
                                         <Box
+                                          role="img"
+                                          aria-label={
+                                            itemMacroSegments.length
+                                              ? `${item.food_name} macro calorie stack: ${itemMacroSegments
+                                                  .map(
+                                                    (segment) =>
+                                                      `${segment.label} ${formatWholeAmount(
+                                                        segment.calories,
+                                                      )} kilocalories`,
+                                                  )
+                                                  .join(', ')}`
+                                              : `${item.food_name} macro calorie stack unavailable`
+                                          }
                                           sx={{
+                                            display: 'flex',
                                             width: `${
                                               itemCalories !== null && highestFoodCalories > 0
                                                 ? (itemCalories / highestFoodCalories) * 100
                                                 : 0
                                             }%`,
                                             height: '100%',
-                                            bgcolor: 'var(--calorie-color)',
+                                            bgcolor: itemMacroSegments.length
+                                              ? 'transparent'
+                                              : 'var(--calorie-color)',
                                             borderRadius: 999,
+                                            overflow: 'hidden',
                                           }}
-                                        />
+                                        >
+                                          {itemMacroSegments.map((segment) => (
+                                            <Box
+                                              key={segment.key}
+                                              sx={{
+                                                width: `${segment.percentage}%`,
+                                                bgcolor: segment.color,
+                                              }}
+                                            />
+                                          ))}
+                                        </Box>
                                       </Box>
                                     </Box>
                                     <Box role="cell" sx={{ minWidth: 0 }}>
@@ -1675,73 +1730,102 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                 calorie share
                               </Typography>
                             </Stack>
-                            <Box
-                              role="img"
-                              aria-label={
-                                macroSegments.length
-                                  ? `${meal.name} macro balance: ${macroSegments
-                                      .map(
-                                        (segment) =>
-                                          `${segment.label} ${Math.round(segment.percentage)} percent`,
-                                      )
-                                      .join(', ')}`
-                                  : `${meal.name} macro balance unavailable`
-                              }
-                              sx={{
-                                display: 'flex',
-                                height: 12,
-                                mt: 0.75,
-                                bgcolor: 'var(--atlas-border)',
-                                borderRadius: 999,
-                                overflow: 'hidden',
-                              }}
+                            <Stack
+                              direction="row"
+                              alignItems="center"
+                              spacing={{ xs: 1.5, sm: 2 }}
+                              sx={{ mt: 1 }}
                             >
-                              {macroSegments.map((segment) => (
-                                <Box
-                                  key={segment.key}
-                                  sx={{ width: `${segment.percentage}%`, bgcolor: segment.color }}
-                                />
-                              ))}
-                            </Box>
-                            <Box
-                              sx={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                                gap: 0.75,
-                                mt: 1,
-                              }}
-                            >
-                              {[
-                                ['protein', 'Protein', 'var(--protein-color)'],
-                                ['carbohydrates', 'Carbs', 'var(--carbohydrate-color)'],
-                                ['fat', 'Fat', 'var(--fat-color)'],
-                              ].map(([key, label, color]) => (
-                                <Box
-                                  key={key}
-                                  sx={{
-                                    px: 1,
-                                    py: 0.75,
+                              <Box
+                                role="img"
+                                aria-label={
+                                  macroSegments.length
+                                    ? `${meal.name} macro balance: ${macroSegments
+                                        .map(
+                                          (segment) =>
+                                            `${segment.label} ${Math.round(segment.percentage)} percent`,
+                                        )
+                                        .join(', ')}`
+                                    : `${meal.name} macro balance unavailable`
+                                }
+                                sx={{
+                                  position: 'relative',
+                                  display: 'grid',
+                                  placeItems: 'center',
+                                  flexShrink: 0,
+                                  width: { xs: 120, sm: 140 },
+                                  aspectRatio: '1 / 1',
+                                  borderRadius: '50%',
+                                  background: macroDonutBackground(macroSegments),
+                                  '&::after': {
+                                    content: '""',
+                                    position: 'absolute',
+                                    width: '58%',
+                                    aspectRatio: '1 / 1',
+                                    borderRadius: '50%',
                                     bgcolor: 'var(--atlas-paper)',
-                                    border: '1px solid var(--atlas-border-strong)',
-                                    borderTop: `2px solid ${color}`,
-                                    borderRadius: 1.25,
-                                  }}
-                                >
-                                  <Typography variant="caption" sx={{ color, fontWeight: 800 }}>
-                                    {label}
+                                  },
+                                }}
+                              >
+                                <Box sx={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
+                                  <Typography
+                                    className="numeric-data"
+                                    sx={{ fontWeight: 800, lineHeight: 1.05 }}
+                                  >
+                                    {formatWholeAmount(calories)}
                                   </Typography>
-                                  <Typography className="numeric-data" sx={{ fontWeight: 800 }}>
-                                    {mealNutrientText(meal, key)} g
+                                  <Typography
+                                    variant="caption"
+                                    sx={{ color: 'var(--atlas-ink-muted)' }}
+                                  >
+                                    kcal
                                   </Typography>
                                 </Box>
-                              ))}
-                            </Box>
+                              </Box>
+                              <Stack spacing={0.65} sx={{ minWidth: 0, flex: 1 }}>
+                                {macroSegments.map((segment) => (
+                                  <Stack
+                                    key={segment.key}
+                                    direction="row"
+                                    justifyContent="space-between"
+                                    alignItems="baseline"
+                                    spacing={1}
+                                  >
+                                    <Stack direction="row" alignItems="center" spacing={0.6}>
+                                      <Box
+                                        sx={{
+                                          width: 8,
+                                          height: 8,
+                                          flexShrink: 0,
+                                          bgcolor: segment.color,
+                                          borderRadius: '50%',
+                                        }}
+                                      />
+                                      <Typography
+                                        variant="caption"
+                                        sx={{ fontWeight: 800, textTransform: 'capitalize' }}
+                                      >
+                                        {segment.label}
+                                      </Typography>
+                                    </Stack>
+                                    <Typography
+                                      variant="caption"
+                                      className="numeric-data"
+                                      sx={{ fontWeight: 750, whiteSpace: 'nowrap' }}
+                                    >
+                                      {mealNutrientText(meal, segment.key)} g (
+                                      {Math.round(segment.percentage)}%)
+                                    </Typography>
+                                  </Stack>
+                                ))}
+                              </Stack>
+                            </Stack>
                             <Box
                               sx={{
                                 display: 'grid',
                                 gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
                                 gap: 0.75,
-                                mt: 0.75,
+                                mt: 1.25,
                               }}
                             >
                               {[

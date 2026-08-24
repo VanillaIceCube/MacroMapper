@@ -31,8 +31,8 @@ All notable changes to this project are documented in this file.
   summaries at the top, macro calorie-split and calories-by-meal charts, compact
   color-coded daily nutrient cards, parallel estimate/manual entry paths, and
   responsive meal ledger cards with food counts, daily calorie share, a per-food
-  calorie, confidence, and provenance breakdown, saved estimate confidence,
-  serving context, macro balance, and uniformly unshaded, outlined per-meal
+  macro-calorie, confidence, and provenance breakdown, saved estimate confidence,
+  serving context, per-meal macro donuts, and uniformly unshaded, outlined secondary
   nutrient totals without shortcut or method columns.
 - Added structured AI food-intent extraction for descriptions the deterministic
   catalog path cannot fully resolve. Each provider-aware intent now searches the
