@@ -64,6 +64,7 @@ class FoodSearchIntent(BaseModel):
 class MealSearchPlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    name: str = Field(min_length=1, max_length=80)
     items: list[FoodSearchIntent] = Field(min_length=1, max_length=20)
 
 
@@ -102,7 +103,7 @@ class EstimatedFood(BaseModel):
 class EstimatedMeal(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    name: str = Field(min_length=1, max_length=120)
+    name: str = Field(min_length=1, max_length=80)
     confidence_score: float = Field(ge=0, le=1)
     items: list[EstimatedFood] = Field(min_length=1, max_length=20)
 
@@ -132,8 +133,10 @@ EstimatedFood.model_rebuild()
 
 SYSTEM_PROMPT = """You create factual, editable nutrition estimates from meal descriptions.
 Return only the requested structured meal data. Set the meal-level name to a concise,
-user-facing title that summarizes the foods, such as "Pub Burger, Poutine & Milkshake",
-rather than copying the full input description. Search for official brand or restaurant
+user-facing title in the form "[Company] [Food Items]" whenever a restaurant or brand is
+known, such as "KFC Fried Chicken, Fries & Biscuit". Mention the company once, include
+only the key foods, keep the title to 80 characters or fewer, and never copy the full
+input description. Search for official brand or restaurant
 nutrition pages first. Mark an item official only when its nutrient values are directly
 supported by an official published source; otherwise mark it ai_estimate. Preserve source
 URLs and identify which sources are official. Food names, provider names, serving labels,
@@ -183,6 +186,11 @@ INTENT_EXTRACTION_SYSTEM_PROMPT = """You convert a conversational meal descripti
 structured food search intents for an existing nutrition catalog. Return one intent for
 each distinct food the user consumed. Do not estimate nutrition and do not merge foods
 from different providers.
+
+Set name to a concise meal title in the form "[Company] [Food Items]" whenever a
+restaurant or brand is known. Mention each relevant company only once, include only the
+key foods, keep the title to 80 characters or fewer, and never copy conversational filler
+or the full meal description.
 
 Preserve the food-specific source phrase in raw_text without personal details. Put the
 canonical food or menu-product name in search_name, the restaurant or brand in
@@ -382,6 +390,7 @@ class OpenAIMealEstimationProvider:
                     "The estimation provider did not return usable food searches."
                 )
             return {
+                "name": parsed.name,
                 "items": [item.model_dump(mode="python") for item in parsed.items],
                 "provider_name": self.name,
                 "provider_model": self.model,

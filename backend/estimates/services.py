@@ -596,6 +596,14 @@ def _validated_search_intents(result):
     return intents
 
 
+def _brief_generated_meal_name(value):
+    name = re.sub(r"\s+", " ", str(value or "")).strip()
+    if len(name) <= 80:
+        return name
+    shortened = name[:80].rsplit(" ", 1)[0].rstrip(" ,&-/")
+    return shortened or name[:80]
+
+
 def resolve_catalog_intents(*, intents, user):
     foods = _visible_catalog_foods(user)
     matches = []
@@ -824,7 +832,7 @@ def _items_by_key(items):
 
 
 @transaction.atomic
-def create_proposal_revision(*, proposal, kind, created_by):
+def create_proposal_revision(*, proposal, kind, created_by, message=""):
     locked_proposal = MealProposal.objects.select_for_update().get(pk=proposal.pk)
     parent = locked_proposal.revisions.order_by("-revision_number", "-id").first()
     revision = MealProposalRevision(
@@ -833,6 +841,7 @@ def create_proposal_revision(*, proposal, kind, created_by):
         kind=kind,
         name=locked_proposal.name,
         items=deepcopy(locked_proposal.items),
+        message=message,
         parent_revision=parent,
         created_by=created_by,
     )
@@ -1192,12 +1201,15 @@ def create_proposal(*, owner, description, entry_date):
     description = description.strip()
     resolution = resolve_catalog_matches(description=description, user=owner)
     provider = None
+    intent_name = ""
     if resolution["unmatched_description"]:
         provider = get_estimation_provider()
         try:
             search_plan = provider.extract_intents(description)
         except (AttributeError, EstimationProviderError):
             search_plan = None
+        if isinstance(search_plan, dict):
+            intent_name = _brief_generated_meal_name(search_plan.get("name"))
         intents = _validated_search_intents(search_plan)
         if intents:
             resolution = resolve_catalog_intents(intents=intents, user=owner)
@@ -1219,7 +1231,10 @@ def create_proposal(*, owner, description, entry_date):
             owner=owner,
             description=description,
             entry_date=entry_date,
-            name=(matches[0]["food"].name if len(matches) == 1 else description[:120]),
+            name=(
+                intent_name
+                or (matches[0]["food"].name if len(matches) == 1 else description[:120])
+            ),
             generator=MealProposal.Generator.CATALOG,
             provider_name="MacroMapper catalog",
             confidence_score=(min(confidence_values) if confidence_values else None),
@@ -1254,7 +1269,7 @@ def create_proposal(*, owner, description, entry_date):
         owner=owner,
         description=description,
         entry_date=entry_date,
-        name=description[:120] if catalog_items else estimate["name"],
+        name=intent_name or _brief_generated_meal_name(estimate["name"]),
         generator=MealProposal.Generator.OPENAI,
         provider_name=(
             f"MacroMapper catalog + {estimate['provider_name']}"
@@ -1467,6 +1482,7 @@ def apply_proposal_follow_up(*, proposal, owner, name, items, result):
         proposal=proposal,
         kind=MealProposalRevision.Kind.AI_FOLLOW_UP,
         created_by=owner,
+        message=result["message"],
     )
     return {
         "applied": True,
@@ -1780,11 +1796,23 @@ def accept_proposal(*, proposal):
     if not items:
         raise ValidationError("Add at least one food before saving this meal.")
 
+    follow_up_messages = list(
+        proposal.revisions.filter(kind=MealProposalRevision.Kind.AI_FOLLOW_UP)
+        .exclude(message="")
+        .order_by("revision_number", "id")
+        .values_list("message", flat=True)
+    )
+    notes = f"Estimated from: {proposal.description}"
+    if follow_up_messages:
+        notes += "\n\nAI follow-ups:\n" + "\n".join(
+            f"- {message}" for message in follow_up_messages
+        )
+
     meal = MealEntry.objects.create(
         owner=proposal.owner,
         entry_date=proposal.entry_date,
         name=proposal.name,
-        notes=f"Estimated from: {proposal.description}",
+        notes=notes,
     )
     item_inputs = []
     for order, item in enumerate(items):

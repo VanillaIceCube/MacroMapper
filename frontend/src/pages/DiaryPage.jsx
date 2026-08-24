@@ -999,7 +999,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                 display: 'grid',
                 gridTemplateColumns: {
                   xs: '1fr',
-                  sm: 'minmax(210px, 0.8fr) minmax(0, 1.2fr)',
+                  md: 'minmax(320px, 0.65fr) minmax(0, 1.35fr)',
                 },
                 gap: 1,
                 mt: 1,
@@ -1026,7 +1026,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                 </Typography>
                 {loading ? (
                   <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center">
-                    <Skeleton variant="circular" width={112} height={112} />
+                    <Skeleton variant="circular" width={128} height={128} />
                     <Stack spacing={0.5} sx={{ width: 120 }}>
                       {[0, 1, 2].map((row) => (
                         <Skeleton key={row} />
@@ -1036,10 +1036,10 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                 ) : (
                   <Stack
                     direction="row"
-                    spacing={1.5}
+                    spacing={1}
                     alignItems="center"
                     justifyContent="center"
-                    sx={{ width: '100%', maxWidth: 380, mx: 'auto' }}
+                    sx={{ width: '100%', maxWidth: 310, mx: 'auto' }}
                   >
                     <Box
                       role="img"
@@ -1048,7 +1048,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                         .join(', ')}`}
                       sx={{
                         position: 'relative',
-                        width: 'clamp(104px, 38%, 144px)',
+                        width: 'clamp(120px, 44%, 140px)',
                         aspectRatio: '1 / 1',
                         flex: '0 0 auto',
                         borderRadius: '50%',
@@ -1071,7 +1071,9 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                           className="numeric-data"
                           sx={{ fontWeight: 800, lineHeight: 1.1 }}
                         >
-                          {totalsByKey.calories ? formatAmount(totalsByKey.calories.amount) : '—'}
+                          {totalsByKey.calories
+                            ? formatWholeAmount(totalsByKey.calories.amount)
+                            : '—'}
                         </Typography>
                         <Typography variant="caption" sx={{ color: 'var(--atlas-ink-muted)' }}>
                           kcal
@@ -1095,7 +1097,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                             className="numeric-data"
                             sx={{ fontWeight: 800, whiteSpace: 'nowrap' }}
                           >
-                            {formatAmount(macro.grams)} g ({Math.round(macro.percentage)}%)
+                            {formatWholeAmount(macro.grams)} g ({Math.round(macro.percentage)}%)
                           </Typography>
                         </Stack>
                       ))}
@@ -1157,22 +1159,37 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                             alignItems="center"
                             sx={{ minWidth: 0 }}
                           >
-                            <Typography
-                              variant="caption"
-                              noWrap
-                              title={meal.name}
-                              sx={{ width: { xs: 86, sm: 112 }, flex: '0 0 auto' }}
+                            <Box
+                              sx={{
+                                width: { xs: 104, sm: 180, lg: 240 },
+                                flex: '0 0 auto',
+                                height: '2rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                              }}
                             >
-                              {meal.name}
-                            </Typography>
+                              <Typography
+                                variant="caption"
+                                title={meal.name}
+                                sx={{
+                                  display: '-webkit-box',
+                                  WebkitBoxOrient: 'vertical',
+                                  WebkitLineClamp: 2,
+                                  overflow: 'hidden',
+                                  lineHeight: 1.2,
+                                }}
+                              >
+                                {meal.name}
+                              </Typography>
+                            </Box>
                             <Box
                               role="img"
                               aria-label={stackLabel}
                               sx={{
-                                height: 14,
+                                height: 20,
                                 minWidth: 0,
                                 flex: 1,
-                                borderRadius: 7,
+                                borderRadius: 10,
                                 bgcolor: 'var(--atlas-border)',
                                 overflow: 'hidden',
                               }}
@@ -1188,7 +1205,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                   bgcolor: meal.macroSegments.length
                                     ? 'transparent'
                                     : 'var(--calorie-color)',
-                                  borderRadius: 7,
+                                  borderRadius: 10,
                                   overflow: 'hidden',
                                 }}
                               >
@@ -1411,36 +1428,10 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                           <Stack
                             direction="row"
                             alignItems="center"
-                            justifyContent={{ xs: 'space-between', sm: 'flex-end' }}
-                            spacing={0.5}
+                            justifyContent="flex-end"
+                            spacing={0.25}
                             sx={{ width: { xs: '100%', sm: 'auto' } }}
                           >
-                            <Box sx={{ textAlign: { sm: 'right' }, mr: { sm: 0.5 } }}>
-                              <Typography
-                                variant="overline"
-                                sx={{
-                                  display: 'block',
-                                  color: 'var(--atlas-ink-muted)',
-                                  lineHeight: 1,
-                                }}
-                              >
-                                Calories
-                              </Typography>
-                              <Typography
-                                variant="h5"
-                                className="numeric-data"
-                                sx={{
-                                  color: 'var(--calorie-color)',
-                                  fontWeight: 800,
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                {mealNutrientText(meal, 'calories')}{' '}
-                                <Typography component="span" variant="caption">
-                                  kcal
-                                </Typography>
-                              </Typography>
-                            </Box>
                             <IconButton
                               aria-label={`edit ${meal.name}`}
                               onClick={() => setEditor({ open: true, meal })}
@@ -1463,7 +1454,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                             display: 'grid',
                             gridTemplateColumns: {
                               xs: '1fr',
-                              md: 'minmax(0, 1.15fr) minmax(360px, 0.85fr)',
+                              md: 'minmax(0, 1.35fr) minmax(320px, 0.65fr)',
                             },
                             gap: { xs: 1.5, md: 2.5 },
                             mt: 2,
@@ -1699,7 +1690,11 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                 </Typography>
                                 <Typography
                                   variant="body2"
-                                  sx={{ mt: 0.15, color: 'var(--atlas-ink-muted)' }}
+                                  sx={{
+                                    mt: 0.15,
+                                    color: 'var(--atlas-ink-muted)',
+                                    whiteSpace: 'pre-line',
+                                  }}
                                 >
                                   {mealContextText(meal.notes)}
                                 </Typography>

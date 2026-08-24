@@ -1,6 +1,20 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 2026-08-24
+
+### Added
+
+- Included every AI review follow-up message in the saved meal Context so
+  assumptions and corrections remain visible in the diary after acceptance.
+
+### Changed
+
+- Rebalanced the Daily Summary charts around a balanced macro-calorie panel with
+  a larger donut and a wider Calories by meal chart with two-line space for
+  longer meal titles, compact vertically centered labels, thicker stacked
+  bars, and whole-number macro-split values.
+
 ## 2026-08-23
 
 ### Added
@@ -11,6 +25,8 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Preserved concise AI-generated meal titles for mixed catalog and estimated
+  foods, using a brief company-and-food naming format instead of diary prose.
 - Rolled up known daily nutrient values even when another saved food lacks that
   nutrient, and stopped rendering unknown daily values as zero.
 - Resolved meal descriptions by complete food clause so partial fuzzy catalog
@@ -30,8 +46,8 @@ All notable changes to this project are documented in this file.
 - Redesigned the meal diary as a Quick Logbook with date and nutrition
   summaries at the top, macro calorie-split and calories-by-meal charts, compact
   color-coded daily nutrient cards, parallel estimate/manual entry paths, and
-  responsive meal ledger cards with food counts, daily calorie share, a per-food
-  macro-calorie, confidence, and provenance breakdown, saved estimate confidence,
+  responsive meal ledger cards with food counts, daily calorie share, wider per-food
+  macro-calorie, confidence, and provenance breakdowns, saved estimate confidence,
   serving context, per-meal macro donuts, and uniformly unshaded, outlined secondary
   nutrient totals without shortcut or method columns.
 - Added structured AI food-intent extraction for descriptions the deterministic

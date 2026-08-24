@@ -325,6 +325,7 @@ class MealProposalApiTests(TestCase):
         )
         provider = Mock()
         provider.extract_intents.return_value = {
+            "name": "KFC & McDonald's Fries",
             "items": [
                 {
                     "raw_text": "fries from KFC",
@@ -361,6 +362,7 @@ class MealProposalApiTests(TestCase):
         )
         provider.estimate.assert_not_called()
         self.assertEqual(response.data["generator"], MealProposal.Generator.CATALOG)
+        self.assertEqual(response.data["name"], "KFC & McDonald's Fries")
         self.assertEqual(
             [item["food_item_id"] for item in response.data["items"]],
             [kfc_fries.pk, mcdonalds_fries.pk],
@@ -374,6 +376,7 @@ class MealProposalApiTests(TestCase):
         )
         provider = Mock()
         provider.extract_intents.return_value = {
+            "name": "KFC & McDonald's Fries",
             "items": [
                 {
                     "raw_text": "fries from KFC",
@@ -415,6 +418,7 @@ class MealProposalApiTests(TestCase):
             )
 
         self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["name"], "KFC & McDonald's Fries")
         provider.estimate.assert_called_once_with("fries from McDonald's")
         self.assertEqual(
             [item["food_item_id"] for item in response.data["items"][:1]],
@@ -729,6 +733,49 @@ class MealProposalApiTests(TestCase):
         self.assertEqual(
             Decimal(response.data["proposal"]["items"][0]["servings"]),
             Decimal("0.5"),
+        )
+        self.assertEqual(
+            response.data["proposal"]["revisions"][-1]["message"],
+            "Changed the apple to half a serving.",
+        )
+
+        provider.follow_up.return_value = {
+            "message": "Changed the apple to a quarter serving.",
+            "confidence_score": Decimal("0.85"),
+            "remove_keys": [],
+            "serving_updates": [
+                {
+                    "key": response.data["proposal"]["items"][0]["key"],
+                    "servings": 0.25,
+                }
+            ],
+            "items_to_add": [],
+            "provider_name": "OpenAI",
+            "provider_model": "gpt-test",
+            "provider_response_id": "resp_second_follow_up",
+        }
+        with patch("estimates.views.get_estimation_provider", return_value=provider):
+            second_response = self.client.post(
+                f"/api/meal-proposals/{proposal_response.data['id']}/follow-up/",
+                {
+                    "follow_up": "Actually, I only ate a quarter",
+                    "name": response.data["proposal"]["name"],
+                    "items": response.data["proposal"]["items"],
+                },
+                format="json",
+            )
+
+        self.assertEqual(second_response.status_code, 200)
+        accepted = self.client.post(
+            f"/api/meal-proposals/{proposal_response.data['id']}/accept/"
+        )
+        self.assertEqual(accepted.status_code, 201)
+        self.assertEqual(
+            accepted.data["notes"],
+            "Estimated from: A single apple\n\n"
+            "AI follow-ups:\n"
+            "- Changed the apple to half a serving.\n"
+            "- Changed the apple to a quarter serving.",
         )
 
     def test_unsafe_provider_catalog_metadata_is_rejected_before_publication(self):
@@ -1446,6 +1493,7 @@ class OpenAIProviderTests(TestCase):
 
     def test_provider_extracts_catalog_search_intents_without_web_search(self):
         parsed = MealSearchPlan(
+            name="KFC & McDonald's Fries",
             items=[
                 FoodSearchIntent(
                     raw_text="fries from KFC",
@@ -1483,6 +1531,7 @@ class OpenAIProviderTests(TestCase):
             [item["provider_name"] for item in result["items"]],
             ["KFC", "McDonald's"],
         )
+        self.assertEqual(result["name"], "KFC & McDonald's Fries")
         self.assertEqual(result["provider_response_id"], "resp_intents")
 
     def test_provider_uses_web_search_structured_output_and_retains_metadata(self):

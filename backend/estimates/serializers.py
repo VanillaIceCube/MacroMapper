@@ -352,6 +352,7 @@ class MealProposalRevisionSerializer(serializers.ModelSerializer):
             "kind",
             "name",
             "items",
+            "message",
             "parent_revision_id",
             "created_at",
         )
