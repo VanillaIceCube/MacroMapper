@@ -3,11 +3,15 @@ import userEvent from '@testing-library/user-event';
 import DiaryPage from './DiaryPage';
 import { renderWithProviders } from '../test-support/utils';
 import {
+  acceptMealProposal,
   createMeal,
+  createMealProposal,
   createPersonalFood,
   deleteMeal,
   fetchDailyDiary,
+  followUpMealProposal,
   searchFoods,
+  updateMealProposal,
   updateMeal,
 } from '../services/mealApiClient';
 
@@ -18,6 +22,7 @@ vi.mock('../services/mealApiClient', () => ({
   createPersonalFood: vi.fn(),
   deleteMeal: vi.fn(),
   fetchDailyDiary: vi.fn(),
+  followUpMealProposal: vi.fn(),
   searchFoods: vi.fn(),
   updateMealProposal: vi.fn(),
   updateMeal: vi.fn(),
@@ -136,6 +141,44 @@ const breakfastBurrito = {
       },
     ],
   },
+};
+
+const estimatedProposal = {
+  id: 90,
+  name: 'Estimated lunch',
+  provider_name: 'OpenAI',
+  provider_model: 'gpt-test',
+  confidence_score: '0.840',
+  items: [
+    {
+      key: 'estimated-taco',
+      food_item_id: 8,
+      food_version_id: 10,
+      name: 'Carne Asada Taco',
+      provider_name: 'San Diego Taco Co.',
+      origin_type: 'restaurant',
+      servings: '1',
+      serving_quantity: '1',
+      serving_unit: 'item',
+      serving_label: 'one taco',
+      portion_options: [
+        { key: 'base', label: 'one taco', unit_label: 'serving', serving_multiplier: '1' },
+      ],
+      selected_portion_key: 'base',
+      provenance: 'ai_estimate',
+      source_kind: 'ai_estimate',
+      confidence_score: '0.910',
+      is_user_modified: false,
+      nutrients: {
+        calories: '240',
+        protein: '18',
+        carbohydrates: '22',
+        fat: '9',
+      },
+      sources: [],
+      components: [],
+    },
+  ],
 };
 
 const meal = {
@@ -275,7 +318,7 @@ describe('DiaryPage', () => {
 
     await screen.findByText('Nothing logged yet');
     await user.click(screen.getByRole('button', { name: 'Add manually' }));
-    const addDialog = await screen.findByRole('dialog', { name: /Add meal manually/ });
+    const addDialog = await screen.findByRole('dialog', { name: /Add meal/ });
     await user.type(within(addDialog).getByRole('textbox', { name: /Meal name/ }), 'Lunch');
     await user.click(await screen.findByRole('button', { name: 'Add' }));
     expect(within(addDialog).getByRole('region', { name: 'Meal macro breakdown' })).toBeVisible();
@@ -312,6 +355,111 @@ describe('DiaryPage', () => {
     expect(showSnackbar).toHaveBeenCalledWith('success', 'Meal added.');
   });
 
+  test('keeps AI entry prompt-first and opens the unified builder for manual entry', async () => {
+    const user = userEvent.setup();
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Estimate meal' }));
+    let dialog = await screen.findByRole('dialog', { name: 'Estimate a meal' });
+    expect(within(dialog).getByRole('textbox', { name: 'Describe what you ate' })).toBeVisible();
+    expect(screen.queryByRole('dialog', { name: /Add meal/ })).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: 'Add manually' }));
+    dialog = await screen.findByRole('dialog', { name: /Add meal/ });
+    expect(within(dialog).getByText('Create a personal food')).toBeVisible();
+    await waitFor(() =>
+      expect(within(dialog).getByRole('textbox', { name: 'Search catalog' })).toHaveFocus(),
+    );
+  });
+
+  test('hands an AI proposal to the unified builder and combines it with catalog foods', async () => {
+    const user = userEvent.setup();
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    createMealProposal.mockResolvedValue(response(estimatedProposal));
+    updateMealProposal.mockResolvedValue(response(estimatedProposal));
+    acceptMealProposal.mockResolvedValue(response(meal));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Estimate meal' }));
+    const estimateDialog = await screen.findByRole('dialog', { name: 'Estimate a meal' });
+    await user.type(
+      within(estimateDialog).getByRole('textbox', { name: 'Describe what you ate' }),
+      'Carne asada taco',
+    );
+    await user.click(within(estimateDialog).getByRole('button', { name: 'Create estimate' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Review meal estimate' });
+    expect(await within(dialog).findByLabelText('Carne Asada Taco macro values')).toBeVisible();
+    expect(within(dialog).getByText('Adjust with AI')).toBeVisible();
+    expect(within(dialog).queryByText('Create a personal food')).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Expand add another food' }));
+    await user.click(await within(dialog).findByRole('button', { name: 'Add' }));
+    expect(within(dialog).getByLabelText('Apple macro values')).toBeVisible();
+    await user.click(within(dialog).getByRole('button', { name: 'Save meal' }));
+
+    await waitFor(() => {
+      expect(updateMealProposal).toHaveBeenCalledWith(
+        90,
+        expect.objectContaining({
+          name: 'Estimated lunch',
+          items: expect.arrayContaining([
+            expect.objectContaining({ food_item_id: 7, food_version_id: 9 }),
+            expect.objectContaining({ food_item_id: 8, food_version_id: 10 }),
+          ]),
+        }),
+        'access-token',
+      );
+    });
+    expect(acceptMealProposal).toHaveBeenCalledWith(90, 'access-token');
+    expect(createMeal).not.toHaveBeenCalled();
+  });
+
+  test('keeps AI follow-up in the unified estimate review', async () => {
+    const user = userEvent.setup();
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    createMealProposal.mockResolvedValue(response(estimatedProposal));
+    followUpMealProposal.mockResolvedValue(
+      response({
+        applied: true,
+        message: 'Updated the meal.',
+        proposal: { ...estimatedProposal, name: 'Updated estimated lunch' },
+      }),
+    );
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Estimate meal' }));
+    const estimateDialog = await screen.findByRole('dialog', { name: 'Estimate a meal' });
+    await user.type(
+      within(estimateDialog).getByRole('textbox', { name: 'Describe what you ate' }),
+      'Carne asada taco',
+    );
+    await user.click(within(estimateDialog).getByRole('button', { name: 'Create estimate' }));
+
+    const reviewDialog = await screen.findByRole('dialog', { name: 'Review meal estimate' });
+    await user.type(
+      within(reviewDialog).getByRole('textbox', { name: 'Ask AI to make changes' }),
+      'Add salsa',
+    );
+    await user.click(within(reviewDialog).getByRole('button', { name: 'Apply' }));
+
+    await waitFor(() =>
+      expect(within(reviewDialog).getByRole('textbox', { name: 'Meal name' })).toHaveValue(
+        'Updated estimated lunch',
+      ),
+    );
+    expect(followUpMealProposal).toHaveBeenCalledWith(
+      90,
+      expect.objectContaining({ follow_up: 'Add salsa', name: 'Estimated lunch' }),
+      'access-token',
+    );
+  });
+
   test('shows catalog estimate tags and details and restores a removed food', async () => {
     const user = userEvent.setup();
     searchFoods.mockResolvedValue(response([estimatedTaco]));
@@ -320,7 +468,7 @@ describe('DiaryPage', () => {
 
     await screen.findByText('Nothing logged yet');
     await user.click(screen.getByRole('button', { name: 'Add manually' }));
-    const dialog = await screen.findByRole('dialog', { name: /Add meal manually/ });
+    const dialog = await screen.findByRole('dialog', { name: /Add meal/ });
 
     expect(within(dialog).getByText('AI estimate')).toBeVisible();
     expect(within(dialog).getByText('91% confidence')).toBeVisible();
@@ -378,7 +526,7 @@ describe('DiaryPage', () => {
 
     await screen.findByText('Nothing logged yet');
     await user.click(screen.getByRole('button', { name: 'Add manually' }));
-    const editor = await screen.findByRole('dialog', { name: /Add meal manually/ });
+    const editor = await screen.findByRole('dialog', { name: /Add meal/ });
     await user.type(within(editor).getByRole('textbox', { name: /Meal name/ }), 'Draft lunch');
     await user.click(within(editor).getByRole('button', { name: 'Cancel' }));
 
@@ -391,7 +539,7 @@ describe('DiaryPage', () => {
         screen.queryByRole('dialog', { name: 'Discard manual meal changes?' }),
       ).not.toBeInTheDocument(),
     );
-    const resumedEditor = screen.getByRole('dialog', { name: /Add meal manually/ });
+    const resumedEditor = screen.getByRole('dialog', { name: /Add meal/ });
     expect(resumedEditor).toBeVisible();
 
     await user.click(within(resumedEditor).getByRole('button', { name: 'Cancel' }));
@@ -412,7 +560,7 @@ describe('DiaryPage', () => {
 
     await screen.findByText('Nothing logged yet');
     await user.click(screen.getByRole('button', { name: 'Add manually' }));
-    const dialog = await screen.findByRole('dialog', { name: /Add meal manually/ });
+    const dialog = await screen.findByRole('dialog', { name: /Add meal/ });
     await user.click(within(dialog).getByText('Create a personal food'));
     await user.type(within(dialog).getByRole('textbox', { name: 'Food name' }), 'Apple');
     await user.type(within(dialog).getByRole('spinbutton', { name: 'Calories (kcal)' }), '95');
@@ -467,7 +615,7 @@ describe('DiaryPage', () => {
 
     await screen.findByText('Nothing logged yet');
     await user.click(screen.getByRole('button', { name: 'Add manually' }));
-    const dialog = await screen.findByRole('dialog', { name: /Add meal manually/ });
+    const dialog = await screen.findByRole('dialog', { name: /Add meal/ });
     await user.click(within(dialog).getByRole('button', { name: 'Add' }));
 
     expect(

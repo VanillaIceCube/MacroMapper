@@ -946,10 +946,15 @@ class MealProposalApiTests(TestCase):
         item["nutrients"]["calories"] = "1"
         updated = self.client.patch(
             f"/api/meal-proposals/{proposal_id}/",
-            {"name": "Cheese-free burger", "items": [item]},
+            {
+                "name": "Cheese-free burger",
+                "notes": "Extra crispy, please.",
+                "items": [item],
+            },
             format="json",
         )
         self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.data["notes"], "Extra crispy, please.")
         self.assertEqual(updated.data["items"][0]["nutrients"]["calories"], "200")
         self.assertEqual(
             updated.data["items"][0]["source_kind"], "user_modified_estimate"
@@ -970,6 +975,11 @@ class MealProposalApiTests(TestCase):
         meal = MealEntry.objects.get(pk=accepted.data["id"])
         self.assertEqual(meal.owner, self.user)
         self.assertEqual(meal.name, "Cheese-free burger")
+        self.assertEqual(
+            meal.notes,
+            "Extra crispy, please.\n\n"
+            "Estimated from: A restaurant burger without cheese",
+        )
         saved_item = meal.items.get()
         self.assertEqual(saved_item.calories, Decimal("200"))
         self.assertEqual(saved_item.component_snapshot[0]["food_name"], "Burger patty")

@@ -56,6 +56,7 @@ export const catalogFoodToManualMealItem = (food) => {
     key: nextKey('manual-food', food.id),
     food_item: food.id,
     food_version: null,
+    catalog_food_version: version.id,
     name: food.name,
     provider_name: food.provider_name,
     origin_type: food.origin_type,
@@ -75,6 +76,49 @@ export const catalogFoodToManualMealItem = (food) => {
     components: (version.components || []).map(componentSnapshotToMealItem),
   });
 };
+
+export const proposalItemToManualMealItem = (item) => {
+  const normalized = withPortionSelection({
+    ...item,
+    key: item.key,
+    food_item: item.food_item_id,
+    food_version: item.food_version_id,
+    catalog_food_version: item.food_version_id,
+    nutrients: Array.isArray(item.nutrients)
+      ? nutrientArrayToValues(item.nutrients)
+      : item.nutrients || {},
+    sources: item.sources || [],
+    components: (item.components || []).map(proposalItemToManualMealItem),
+  });
+  return {
+    ...normalized,
+    selected_portion_key: item.selected_portion_key || normalized.selected_portion_key,
+  };
+};
+
+export const manualMealItemToProposalItem = (item) => ({
+  key: item.key,
+  food_item_id: item.food_item ?? null,
+  food_version_id: item.food_version || item.catalog_food_version || null,
+  name: item.name,
+  provider_name: item.provider_name || '',
+  origin_type: item.origin_type || 'generic',
+  servings: String(item.servings ?? '1'),
+  serving_quantity: item.serving_quantity || '1',
+  serving_unit: item.serving_unit || 'serving',
+  serving_label: item.serving_label || 'one serving',
+  serving_weight_grams: item.serving_weight_grams ?? null,
+  serving_volume_ml: item.serving_volume_ml ?? null,
+  portion_options: item.portion_options || [],
+  selected_portion_key: item.selected_portion_key,
+  provenance: item.provenance || 'community_estimate',
+  source_kind: item.source_kind || sourceKindForProvenance(item.provenance),
+  confidence_score: item.confidence_score ?? null,
+  is_user_modified: Boolean(item.is_user_modified),
+  nutrients: item.nutrients || {},
+  sources: item.sources || [],
+  components: (item.components || []).map(manualMealItemToProposalItem),
+});
 
 export const savedMealItemToEditableMealItem = (item) => {
   const servings = Number(item.servings);
@@ -122,6 +166,8 @@ export const catalogFoodToProposalItem = (food) => {
       ...source,
       is_official: sourceKind === 'official_verified',
     })),
-    components: [],
+    components: (version.components || [])
+      .map(componentSnapshotToMealItem)
+      .map(manualMealItemToProposalItem),
   });
 };

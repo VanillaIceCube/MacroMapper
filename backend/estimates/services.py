@@ -840,6 +840,7 @@ def create_proposal_revision(*, proposal, kind, created_by, follow_up="", messag
         revision_number=(parent.revision_number + 1 if parent else 1),
         kind=kind,
         name=locked_proposal.name,
+        notes=locked_proposal.notes,
         items=deepcopy(locked_proposal.items),
         follow_up=follow_up,
         message=message,
@@ -1804,11 +1805,16 @@ def accept_proposal(*, proposal):
         .order_by("revision_number", "id")
         .values_list("follow_up", flat=True)
     )
-    notes = f"Estimated from: {proposal.description}"
+    estimate_context = f"Estimated from: {proposal.description}"
     if follow_up_requests:
-        notes += "\n\nAI follow-ups:\n" + "\n".join(
+        estimate_context += "\n\nAI follow-ups:\n" + "\n".join(
             f"- {request}" for request in follow_up_requests
         )
+    notes = (
+        f"{proposal.notes.strip()}\n\n{estimate_context}"
+        if proposal.notes.strip()
+        else estimate_context
+    )
 
     meal = MealEntry.objects.create(
         owner=proposal.owner,

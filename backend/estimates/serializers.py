@@ -351,6 +351,7 @@ class MealProposalRevisionSerializer(serializers.ModelSerializer):
             "revision_number",
             "kind",
             "name",
+            "notes",
             "items",
             "follow_up",
             "message",
@@ -371,6 +372,7 @@ class MealProposalSerializer(serializers.ModelSerializer):
             "description",
             "entry_date",
             "name",
+            "notes",
             "status",
             "generator",
             "provider_name",
@@ -400,6 +402,7 @@ class MealProposalSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             "name": {"required": False},
             "description": {"max_length": 2000},
+            "notes": {"required": False, "allow_blank": True, "max_length": 2000},
         }
 
     def validate_description(self, value):
@@ -413,6 +416,9 @@ class MealProposalSerializer(serializers.ModelSerializer):
         if not value:
             raise serializers.ValidationError("Name the proposed meal.")
         return value
+
+    def validate_notes(self, value):
+        return value.strip()
 
     def validate(self, attrs):
         if self.instance is not None:

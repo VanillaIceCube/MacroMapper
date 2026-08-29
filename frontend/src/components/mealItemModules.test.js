@@ -131,7 +131,11 @@ describe('meal item adapters', () => {
       food_item_id: 7,
       food_version_id: 9,
       source_kind: 'official_verified',
-      components: [],
+    });
+    expect(proposal.components[0]).toMatchObject({
+      food_item_id: 8,
+      food_version_id: 10,
+      nutrients: { calories: '95' },
     });
     expect(proposal.sources[0].is_official).toBe(true);
   });
