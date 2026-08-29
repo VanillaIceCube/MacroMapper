@@ -140,11 +140,11 @@ describe('MealEstimateDialog', () => {
     expect(within(reviewDialog).getByLabelText('Full meal nutrition values')).toBeVisible();
     expect(
       within(reviewDialog).getByRole('img', {
-        name: 'Macro Balance: protein 100 percent, carbs 0 percent, fat 0 percent',
+        name: 'Macro Balance: protein 100 percent',
       }),
     ).toBeVisible();
     expect(within(reviewDialog).getByText('24 g (100%)')).toBeVisible();
-    expect(within(reviewDialog).getAllByText('0 g (0%)')).toHaveLength(2);
+    expect(within(reviewDialog).queryByText('0 g (0%)')).not.toBeInTheDocument();
     expect(within(reviewDialog).getByLabelText('Burger patty 400 kcal (100%)')).toBeVisible();
     expect(macroBreakdown).toHaveTextContent(/24\s*g/);
 
@@ -693,7 +693,7 @@ describe('MealEstimateDialog', () => {
 
     expect(
       within(reviewDialog).getByRole('img', {
-        name: 'Macro Balance: protein 45 percent, carbs 55 percent, fat 0 percent',
+        name: 'Macro Balance: protein 45 percent, carbs 55 percent',
       }),
     ).toBeVisible();
     expect(within(reviewDialog).getByText('30 g (55%)')).toBeVisible();

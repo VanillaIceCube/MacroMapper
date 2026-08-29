@@ -1392,38 +1392,44 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
 
                         <Box
                           sx={{
-                            display: 'grid',
-                            gridTemplateColumns: {
-                              xs: '1fr',
-                              md: 'minmax(0, 1.35fr) minmax(320px, 0.65fr)',
-                            },
-                            gap: { xs: 1.5, md: 2.5 },
                             mt: 2,
                             pt: 2,
                             borderTop: '1px solid var(--atlas-border)',
                           }}
                         >
-                          <Box sx={{ minWidth: 0 }}>
-                            <Typography
-                              variant="overline"
-                              sx={{
-                                color: 'var(--atlas-ink-muted)',
-                                fontWeight: 800,
-                                lineHeight: 1,
-                              }}
-                            >
-                              Foods &amp; servings
-                            </Typography>
-                            <Box
-                              role="table"
-                              aria-label={`${meal.name} food breakdown`}
-                              sx={{
-                                mt: 0.75,
-                                border: '1px solid var(--atlas-border)',
-                                borderRadius: 0.75,
-                                overflow: 'hidden',
-                              }}
-                            >
+                          <Typography
+                            variant="overline"
+                            sx={{
+                              color: 'var(--atlas-ink-muted)',
+                              fontWeight: 800,
+                              lineHeight: 1,
+                            }}
+                          >
+                            Foods &amp; servings
+                          </Typography>
+                          <Box
+                            data-testid={`meal-${meal.id}-nutrition-columns`}
+                            sx={{
+                              display: 'grid',
+                              gridTemplateColumns: {
+                                xs: '1fr',
+                                md: 'minmax(0, 1.35fr) minmax(320px, 0.65fr)',
+                              },
+                              alignItems: 'start',
+                              gap: { xs: 1.5, md: 2.5 },
+                              mt: 0.75,
+                            }}
+                          >
+                            <Box sx={{ minWidth: 0 }}>
+                              <Box
+                                role="table"
+                                aria-label={`${meal.name} food breakdown`}
+                                sx={{
+                                  border: '1px solid var(--atlas-border)',
+                                  borderRadius: 0.75,
+                                  overflow: 'hidden',
+                                }}
+                              >
                               <Box
                                 role="row"
                                 sx={{
@@ -1647,6 +1653,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                               ))}
                             </Box>
                           </Box>
+                        </Box>
                         </Box>
                       </Paper>
                     );

@@ -153,6 +153,17 @@ describe('DiaryPage', () => {
     expect(screen.getByText('95 kcal')).toBeInTheDocument();
     expect(screen.getByText('Not scored')).toBeInTheDocument();
     expect(screen.getByText('User entered')).toBeInTheDocument();
+
+    const nutritionColumns = screen.getByTestId('meal-11-nutrition-columns');
+    const foodTable = within(nutritionColumns).getByRole('table', {
+      name: 'Breakfast food breakdown',
+    });
+    const macroBalance = within(nutritionColumns).getByRole('figure', {
+      name: 'Breakfast Macro Balance',
+    });
+    expect(nutritionColumns).toHaveStyle({ alignItems: 'start' });
+    expect(nutritionColumns.children[0].firstElementChild).toBe(foodTable);
+    expect(nutritionColumns.children[1].firstElementChild).toBe(macroBalance);
   });
 
   test('rounds macro charts and shows the original AI follow-up wording', async () => {

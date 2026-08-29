@@ -16,6 +16,8 @@ All notable changes to this project are documented in this file.
 - Render each diary meal's Macro Balance with the shared macro-calorie component
   and use the same title, typography, number formatting, legend alignment, and
   bordered container across the meal log, meal editors, and daily dashboard.
+- Place the meal-log food table and Macro Balance container in the same aligned
+  grid row beneath their shared section label.
 - Show catalog provenance, confidence, and company/provider metadata as compact
   tags above each food result.
 - Add an AI-style estimate-details action to catalog foods for reviewing their
