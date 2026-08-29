@@ -443,6 +443,14 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
+  const selectedFoodIds = useMemo(
+    () => new Set(items.map((item) => String(item.food_item))),
+    [items],
+  );
+  const availableFoods = useMemo(
+    () => foods.filter((food) => !selectedFoodIds.has(String(food.id))),
+    [foods, selectedFoodIds],
+  );
 
   const runSearch = useCallback(async () => {
     setSearching(true);
@@ -495,7 +503,10 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
   }, [date, meal, open, token]);
 
   const addFood = (food) => {
-    setItems((current) => [...current, manualItemFromFood(food)]);
+    setItems((current) => {
+      if (current.some((item) => String(item.food_item) === String(food.id))) return current;
+      return [...current, manualItemFromFood(food)];
+    });
   };
 
   const updateItem = (index, update) => {
@@ -731,7 +742,7 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
                     Search the shared catalog and your personal foods.
                   </Typography>
                 </Box>
-                <Chip label={`${foods.length} results`} size="small" variant="outlined" />
+                <Chip label={`${availableFoods.length} results`} size="small" variant="outlined" />
               </Stack>
               <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
                 <TextField
@@ -765,13 +776,13 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
                     <Skeleton key={value} variant="rounded" height={92} />
                   ))}
                 </Stack>
-              ) : foods.length ? (
+              ) : availableFoods.length ? (
                 <List
                   disablePadding
                   aria-label="Food search results"
                   sx={{ maxHeight: 360, mt: 1.5, overflow: 'auto' }}
                 >
-                  {foods.map((food) => {
+                  {availableFoods.map((food) => {
                     const version = food.current_version || {};
                     const source =
                       provenanceLabels[version.provenance] ||
@@ -827,7 +838,9 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
                 </List>
               ) : (
                 <Typography sx={{ mt: 1.5 }} color="text.secondary">
-                  No foods matched this search. Try another term or create a personal food below.
+                  {foods.length
+                    ? 'All matching foods are already in this meal.'
+                    : 'No foods matched this search. Try another term or create a personal food below.'}
                 </Typography>
               )}
             </Paper>

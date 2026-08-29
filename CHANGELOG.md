@@ -7,6 +7,8 @@ All notable changes to this project are documented in this file.
 
 - Replaced the manual meal builder's up/down item controls with accessible
   mouse, touch, and keyboard drag handles modeled on Notoli's reorder pattern.
+- Hide catalog foods after they are added to a manual meal and prevent duplicate
+  additions until the existing item is removed.
 
 ## 2026-08-24
 
