@@ -196,7 +196,7 @@ describe('DiaryPage', () => {
 
     renderWithProviders(<DiaryPage />);
 
-    const macroSplit = await screen.findByRole('figure', { name: 'Macro calorie split' });
+    const macroSplit = await screen.findByRole('figure', { name: 'Macro Balance' });
     expect(within(macroSplit).getByText('95')).toBeInTheDocument();
     expect(within(macroSplit).getByText('1 g (17%)')).toBeInTheDocument();
     expect(within(macroSplit).getByText('2 g (52%)')).toBeInTheDocument();

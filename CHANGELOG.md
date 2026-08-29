@@ -13,6 +13,9 @@ All notable changes to this project are documented in this file.
 - Consolidate meal nutrition definitions, calculations, item adapters, editor
   tree operations, macro split charts, and calorie-contribution charts into
   shared modules used by AI estimates, manual entry, and the diary dashboard.
+- Render each diary meal's Macro Balance with the shared macro-calorie component
+  and use the same title, typography, number formatting, legend alignment, and
+  bordered container across the meal log, meal editors, and daily dashboard.
 - Show catalog provenance, confidence, and company/provider metadata as compact
   tags above each food result.
 - Add an AI-style estimate-details action to catalog foods for reviewing their
@@ -33,7 +36,7 @@ All notable changes to this project are documented in this file.
   macro/component charts, personal-food creation, and protected unsaved drafts.
 - Refreshed the concise meal title whenever Adjust with AI successfully changes
   an estimate, so additions and removals are reflected before diary acceptance.
-- Vertically centered the Macro calorie split visualization when the neighboring
+- Vertically centered the Macro Balance visualization when the neighboring
   Calories by meal chart grows taller.
 - Rebalanced the Daily Summary charts around a balanced macro-calorie panel with
   a larger full-card donut layout and a wider Calories by meal chart with

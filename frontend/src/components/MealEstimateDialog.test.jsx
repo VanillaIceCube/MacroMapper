@@ -140,7 +140,7 @@ describe('MealEstimateDialog', () => {
     expect(within(reviewDialog).getByLabelText('Full meal nutrition values')).toBeVisible();
     expect(
       within(reviewDialog).getByRole('img', {
-        name: 'Macro calorie split: protein 100%, carbs 0%, fat 0%',
+        name: 'Macro Balance: protein 100 percent, carbs 0 percent, fat 0 percent',
       }),
     ).toBeVisible();
     expect(within(reviewDialog).getByText('24 g (100%)')).toBeVisible();
@@ -693,7 +693,7 @@ describe('MealEstimateDialog', () => {
 
     expect(
       within(reviewDialog).getByRole('img', {
-        name: 'Macro calorie split: protein 45%, carbs 55%, fat 0%',
+        name: 'Macro Balance: protein 45 percent, carbs 55 percent, fat 0 percent',
       }),
     ).toBeVisible();
     expect(within(reviewDialog).getByText('30 g (55%)')).toBeVisible();
