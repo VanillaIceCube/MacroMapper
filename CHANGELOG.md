@@ -5,10 +5,18 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
-- Replaced the manual meal builder's up/down item controls with accessible
-  mouse, touch, and keyboard drag handles modeled on Notoli's reorder pattern.
 - Hide catalog foods after they are added to a manual meal and prevent duplicate
   additions until the existing item is removed.
+- Extract the AI estimate food editor into one shared component and use it for
+  manual meal items, including the same responsive layout, nutrition editing,
+  count/unit controls, details menu, removal, and recursive component breakdown.
+- Consolidate meal nutrition definitions, calculations, item adapters, editor
+  tree operations, macro split charts, and calorie-contribution charts into
+  shared modules used by AI estimates, manual entry, and the diary dashboard.
+- Show catalog provenance, confidence, and company/provider metadata as compact
+  tags above each food result.
+- Add an AI-style estimate-details action to catalog foods for reviewing their
+  metadata and supporting source links.
 
 ## 2026-08-24
 
@@ -21,7 +29,7 @@ All notable changes to this project are documented in this file.
 
 - Redesigned manual meal entry as a responsive meal-building workflow that
   mirrors estimate review with editable meal details, catalog nutrition and
-  provenance, portion-aware item controls, reordering, live meal totals and
+  provenance, portion-aware item controls, live meal totals and
   macro/component charts, personal-food creation, and protected unsaved drafts.
 - Refreshed the concise meal title whenever Adjust with AI successfully changes
   an estimate, so additions and removals are reflected before diary acceptance.

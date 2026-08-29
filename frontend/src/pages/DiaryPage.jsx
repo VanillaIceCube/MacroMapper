@@ -4,42 +4,29 @@ import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import RestaurantMenuOutlinedIcon from '@mui/icons-material/RestaurantMenuOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import TodayOutlinedIcon from '@mui/icons-material/TodayOutlined';
-import {
-  DndContext,
-  KeyboardSensor,
-  MouseSensor,
-  TouchSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  arrayMove,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import {
   Alert,
   Box,
   Button,
   Chip,
   CircularProgress,
+  Collapse,
   Container,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   IconButton,
+  Link,
   List,
+  Menu,
   MenuItem,
   Paper,
   Skeleton,
@@ -56,81 +43,34 @@ import {
   searchFoods,
   updateMeal,
 } from '../services/mealApiClient';
-import MealEstimateDialog, {
-  ItemNutritionCards,
-  MacroChart,
-  NutritionCards,
-} from '../components/MealEstimateDialog';
-
-const launchNutrients = [
-  {
-    key: 'calories',
-    label: 'Calories',
-    unit: 'kcal',
-    color: 'var(--calorie-color)',
-    background: 'var(--atlas-paper)',
-  },
-  {
-    key: 'protein',
-    label: 'Protein',
-    unit: 'g',
-    color: 'var(--protein-color)',
-    background: 'var(--atlas-forest-soft)',
-  },
-  {
-    key: 'carbohydrates',
-    label: 'Carbs',
-    unit: 'g',
-    color: 'var(--carbohydrate-color)',
-    background: 'var(--atlas-mineral-soft)',
-  },
-  {
-    key: 'fat',
-    label: 'Fat',
-    unit: 'g',
-    color: 'var(--fat-color)',
-    background: 'var(--atlas-persimmon-soft)',
-  },
-  {
-    key: 'fiber',
-    label: 'Fiber',
-    unit: 'g',
-    color: 'var(--fiber-color)',
-    background: 'var(--atlas-paper)',
-  },
-  {
-    key: 'sugar',
-    label: 'Sugar',
-    unit: 'g',
-    color: 'var(--sugar-color)',
-    background: 'var(--atlas-paper)',
-  },
-  {
-    key: 'sodium',
-    label: 'Sodium',
-    unit: 'mg',
-    color: 'var(--sodium-color)',
-    background: 'var(--atlas-paper)',
-  },
-  {
-    key: 'cholesterol',
-    label: 'Cholesterol',
-    unit: 'mg',
-    color: 'var(--cholesterol-color)',
-    background: 'var(--atlas-paper)',
-  },
-];
-
-const macroCalorieFields = [
-  { key: 'protein', label: 'protein', caloriesPerGram: 4, color: 'var(--protein-color)' },
-  {
-    key: 'carbohydrates',
-    label: 'carbs',
-    caloriesPerGram: 4,
-    color: 'var(--carbohydrate-color)',
-  },
-  { key: 'fat', label: 'fat', caloriesPerGram: 9, color: 'var(--fat-color)' },
-];
+import MealEstimateDialog from '../components/MealEstimateDialog';
+import MealItemEditorRow from '../components/MealItemEditorRow';
+import {
+  catalogFoodToManualMealItem,
+  savedMealItemToEditableMealItem,
+} from '../components/mealItemAdapters';
+import {
+  changeMealItemNutrient,
+  changeMealItemPortion,
+  changeMealItemServings,
+  removeMealItemFromTree,
+} from '../components/mealItemTree';
+import CalorieContributionChart from '../components/nutrition/CalorieContributionChart';
+import MacroCalorieBar from '../components/nutrition/MacroCalorieBar';
+import MacroCalorieSplit from '../components/nutrition/MacroCalorieSplit';
+import MealNutritionSummary from '../components/nutrition/MealNutritionSummary';
+import { ItemNutritionCards, NutritionCards } from '../components/nutrition/NutritionCards';
+import {
+  MACRO_CALORIE_FIELDS as macroCalorieFields,
+  NUTRIENT_FIELDS as launchNutrients,
+} from '../components/nutrition/nutritionDefinitions';
+import {
+  formatNutritionAmount as formatAmount,
+  formatWholeNutritionAmount as formatWholeAmount,
+  macroCalorieSegments,
+  macroDonutBackground,
+  nutrientArrayToValues as nutrientValues,
+} from '../components/nutrition/nutritionMath';
 
 const provenanceLabels = {
   official: 'Official',
@@ -139,8 +79,6 @@ const provenanceLabels = {
   user_modified_estimate: 'User adjusted',
   user_entered: 'User entered',
 };
-
-let manualItemSequence = 0;
 
 const emptyPersonalFood = () => ({
   name: '',
@@ -157,19 +95,6 @@ const shiftDate = (date, days) => {
   const value = new Date(`${date}T12:00:00`);
   value.setDate(value.getDate() + days);
   return value.toISOString().slice(0, 10);
-};
-
-const formatAmount = (amount) => {
-  if (amount === null || amount === undefined || amount === '') return '—';
-  const numeric = Number(amount);
-  return Number.isFinite(numeric)
-    ? numeric.toLocaleString(undefined, { maximumFractionDigits: 2 })
-    : '—';
-};
-
-const formatWholeAmount = (amount) => {
-  const numeric = Number(amount);
-  return Number.isFinite(numeric) ? Math.round(numeric).toLocaleString() : '—';
 };
 
 const mealContextText = (notes) => notes.replace(/^Estimated from:\s*/i, '').trim() || notes;
@@ -210,137 +135,10 @@ const mealItemNutrientAmount = (item, nutrientKey) => {
   return Number.isFinite(amount) ? amount : null;
 };
 
-const mealItemMacroSegments = (item) => {
-  const segments = macroCalorieFields.flatMap((field) => {
-    const grams = mealItemNutrientAmount(item, field.key);
-    if (grams === null) return [];
-    return [{ ...field, calories: Math.max(grams, 0) * field.caloriesPerGram }];
-  });
-  const totalCalories = segments.reduce((total, segment) => total + segment.calories, 0);
-
-  return totalCalories
-    ? segments.map((segment) => ({
-        ...segment,
-        percentage: (segment.calories / totalCalories) * 100,
-      }))
-    : [];
-};
-
-const mealMacroSegments = (meal) => {
-  const segments = macroCalorieFields.flatMap((field) => {
-    const grams = mealNutrientAmount(meal, field.key);
-    if (grams === null) return [];
-    return [{ ...field, calories: Math.max(grams, 0) * field.caloriesPerGram }];
-  });
-  const totalCalories = segments.reduce((total, segment) => total + segment.calories, 0);
-
-  return totalCalories
-    ? segments.map((segment) => ({
-        ...segment,
-        percentage: (segment.calories / totalCalories) * 100,
-      }))
-    : [];
-};
-
-const macroDonutBackground = (segments) => {
-  if (!segments.length) return 'var(--atlas-border)';
-  let cursor = 0;
-  const stops = segments.map((segment) => {
-    const start = cursor;
-    cursor += segment.percentage;
-    return `${segment.color} ${start}% ${cursor}%`;
-  });
-  return `conic-gradient(${stops.join(', ')})`;
-};
-
-const nutrientValues = (nutrients = [], divisor = 1) =>
-  Object.fromEntries(
-    nutrients.map((nutrient) => {
-      const amount = Number(nutrient.amount);
-      return [
-        nutrient.key,
-        Number.isFinite(amount) && divisor > 0 ? String(amount / divisor) : nutrient.amount,
-      ];
-    }),
+const mealMacroSegments = (meal) =>
+  macroCalorieSegments(
+    Object.fromEntries(macroCalorieFields.map(({ key }) => [key, mealNutrientAmount(meal, key)])),
   );
-
-const basePortionOption = (item) => ({
-  key: 'base',
-  label: item.serving_label || `${formatAmount(item.serving_quantity)} ${item.serving_unit}`,
-  unit_label: 'serving',
-  serving_multiplier: '1',
-});
-
-const manualPortionOptions = (item) =>
-  item.portion_options?.length ? item.portion_options : [basePortionOption(item)];
-
-const selectedManualPortion = (item) =>
-  manualPortionOptions(item).find((option) => option.key === item.selected_portion_key) ||
-  manualPortionOptions(item)[0];
-
-const manualQuantity = (item) => {
-  if (item.servings === '') return '';
-  const servings = Number(item.servings);
-  const multiplier = Number(selectedManualPortion(item).serving_multiplier);
-  if (!Number.isFinite(servings) || !Number.isFinite(multiplier) || multiplier <= 0) {
-    return item.servings;
-  }
-  return String(Number((servings / multiplier).toFixed(6)));
-};
-
-const manualItemFromFood = (food) => {
-  const version = food.current_version || {};
-  const portions = version.portion_options?.length
-    ? version.portion_options
-    : [basePortionOption(version)];
-  return {
-    key: `manual-food-${food.id}-${manualItemSequence++}`,
-    food_item: food.id,
-    food_version: null,
-    name: food.name,
-    provider: food.provider_name,
-    servings: '1',
-    serving_quantity: version.serving_quantity || '1',
-    serving_unit: version.serving_unit || 'serving',
-    serving_label: version.serving_label || 'one serving',
-    portion_options: portions,
-    selected_portion_key: portions[0].key,
-    provenance: version.provenance || (food.scope === 'personal' ? 'user_entered' : 'official'),
-    confidence_score: version.confidence_score,
-    nutrients: nutrientValues(version.nutrients),
-    sources: version.sources || [],
-    components: [],
-    component_snapshot: (version.components || []).map((component) => ({
-      ...component,
-      food_name: component.food_name || component.food_item_name,
-      components: component.components || [],
-    })),
-  };
-};
-
-const manualItemFromSavedMeal = (item) => {
-  const servings = Number(item.servings);
-  const portions = [basePortionOption(item)];
-  return {
-    key: `manual-saved-${item.id || item.food_item_id}-${manualItemSequence++}`,
-    food_item: item.food_item_id,
-    food_version: item.food_version_id,
-    name: item.food_name,
-    provider: item.provider_name,
-    servings: String(servings),
-    serving_quantity: item.serving_quantity,
-    serving_unit: item.serving_unit,
-    serving_label: item.serving_label,
-    portion_options: portions,
-    selected_portion_key: portions[0].key,
-    provenance: item.provenance,
-    confidence_score: item.confidence_score,
-    nutrients: nutrientValues(item.nutrients, servings),
-    sources: [],
-    components: [],
-    component_snapshot: item.component_snapshot || [],
-  };
-};
 
 const manualDraftFingerprint = ({ name, notes, entryDate, items, newFood = {} }) =>
   JSON.stringify({
@@ -367,61 +165,6 @@ async function responseError(response, fallback) {
   return fallback;
 }
 
-function MealItemBreakdown({ components }) {
-  if (!components?.length) return null;
-  return (
-    <Box component="ul" sx={{ mt: 0.75, mb: 0, pl: 2.5 }}>
-      {components.map((component) => (
-        <Box component="li" key={`${component.food_version_id}-${component.food_name}`}>
-          <Typography variant="caption">
-            {formatAmount(component.servings)} × {component.food_name}
-          </Typography>
-          <MealItemBreakdown components={component.components} />
-        </Box>
-      ))}
-    </Box>
-  );
-}
-
-const verticalDragModifiers = [
-  ({ transform }) => ({
-    ...transform,
-    x: 0,
-  }),
-];
-
-function SortableManualMealItem({ itemKey, children }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    setActivatorNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: itemKey });
-
-  return (
-    <Box
-      component="li"
-      ref={setNodeRef}
-      sx={{
-        listStyle: 'none',
-        transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.78 : 1,
-        position: 'relative',
-        zIndex: isDragging ? 1 : 'auto',
-      }}
-    >
-      {children({
-        handleProps: { ...attributes, ...listeners },
-        setActivatorNodeRef,
-      })}
-    </Box>
-  );
-}
-
 function MealEditor({ date, meal, open, token, onClose, onSaved }) {
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
@@ -435,14 +178,10 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
   const [error, setError] = useState('');
   const [newFood, setNewFood] = useState(emptyPersonalFood);
   const [discardOpen, setDiscardOpen] = useState(false);
+  const [catalogActionsAnchorEl, setCatalogActionsAnchorEl] = useState(null);
+  const [catalogActionsFoodId, setCatalogActionsFoodId] = useState(null);
+  const [catalogDetailFoodIds, setCatalogDetailFoodIds] = useState(() => new Set());
   const baselineRef = useRef('');
-  const dragSensors = useSensors(
-    useSensor(MouseSensor),
-    useSensor(TouchSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
   const selectedFoodIds = useMemo(
     () => new Set(items.map((item) => String(item.food_item))),
     [items],
@@ -451,6 +190,7 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
     () => foods.filter((food) => !selectedFoodIds.has(String(food.id))),
     [foods, selectedFoodIds],
   );
+  const activeCatalogFood = availableFoods.find((food) => food.id === catalogActionsFoodId);
 
   const runSearch = useCallback(async () => {
     setSearching(true);
@@ -470,7 +210,7 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
     const initialName = meal?.name ?? '';
     const initialNotes = meal?.notes ?? '';
     const initialDate = meal?.entry_date ?? date;
-    const initialItems = meal?.items?.map(manualItemFromSavedMeal) ?? [];
+    const initialItems = meal?.items?.map(savedMealItemToEditableMealItem) ?? [];
     setName(initialName);
     setNotes(initialNotes);
     setEntryDate(initialDate);
@@ -486,6 +226,9 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
     setQuery('');
     setError('');
     setDiscardOpen(false);
+    setCatalogActionsAnchorEl(null);
+    setCatalogActionsFoodId(null);
+    setCatalogDetailFoodIds(new Set());
     setNewFood(initialNewFood);
     setSearching(true);
     searchFoods('', token).then(async (response) => {
@@ -505,38 +248,38 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
   const addFood = (food) => {
     setItems((current) => {
       if (current.some((item) => String(item.food_item) === String(food.id))) return current;
-      return [...current, manualItemFromFood(food)];
+      return [...current, catalogFoodToManualMealItem(food)];
     });
   };
 
-  const updateItem = (index, update) => {
-    setItems((current) =>
-      current.map((item, itemIndex) => (itemIndex === index ? update(item) : item)),
-    );
+  const closeCatalogActions = () => {
+    setCatalogActionsAnchorEl(null);
+    setCatalogActionsFoodId(null);
   };
 
-  const handleItemDragEnd = ({ active, over }) => {
-    if (!over || active.id === over.id) return;
-    setItems((current) => {
-      const oldIndex = current.findIndex((item) => item.key === active.id);
-      const newIndex = current.findIndex((item) => item.key === over.id);
-      if (oldIndex < 0 || newIndex < 0) return current;
-      return arrayMove(current, oldIndex, newIndex);
+  const toggleCatalogDetails = (foodId) => {
+    setCatalogDetailFoodIds((current) => {
+      const next = new Set(current);
+      if (next.has(foodId)) next.delete(foodId);
+      else next.add(foodId);
+      return next;
     });
   };
 
-  const changeQuantity = (index, amount) => {
-    updateItem(index, (item) => {
-      const multiplier = Number(selectedManualPortion(item).serving_multiplier);
-      const numericAmount = Number(amount);
-      return {
-        ...item,
-        servings:
-          amount === '' || !Number.isFinite(numericAmount) || !Number.isFinite(multiplier)
-            ? amount
-            : String(Number((numericAmount * multiplier).toFixed(8))),
-      };
-    });
+  const changeServings = (key, amount, item) => {
+    setItems((current) => changeMealItemServings(current, key, amount, item));
+  };
+
+  const changePortion = (key, selectedPortionKey) => {
+    setItems((current) => changeMealItemPortion(current, key, selectedPortionKey));
+  };
+
+  const changeNutrient = (key, nutrient, totalValue) => {
+    setItems((current) => changeMealItemNutrient(current, key, nutrient, totalValue));
+  };
+
+  const removeItem = (key) => {
+    setItems((current) => removeMealItemFromTree(current, key));
   };
 
   const currentFingerprint = manualDraftFingerprint({ name, notes, entryDate, items, newFood });
@@ -777,65 +520,173 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
                   ))}
                 </Stack>
               ) : availableFoods.length ? (
-                <List
-                  disablePadding
-                  aria-label="Food search results"
-                  sx={{ maxHeight: 360, mt: 1.5, overflow: 'auto' }}
-                >
-                  {availableFoods.map((food) => {
-                    const version = food.current_version || {};
-                    const source =
-                      provenanceLabels[version.provenance] ||
-                      (food.scope === 'personal' ? 'Personal' : 'Catalog');
-                    return (
-                      <Paper
-                        component="li"
-                        key={food.id}
-                        elevation={0}
-                        sx={{
-                          listStyle: 'none',
-                          mb: 1,
-                          p: 1.25,
-                          bgcolor: 'var(--atlas-paper)',
-                          border: '1px solid var(--atlas-border)',
-                          borderLeft: `4px solid ${food.scope === 'personal' ? 'var(--atlas-persimmon)' : 'var(--atlas-forest)'}`,
-                        }}
-                      >
-                        <Stack
-                          direction={{ xs: 'column', sm: 'row' }}
-                          justifyContent="space-between"
-                          gap={1}
+                <>
+                  <List
+                    disablePadding
+                    aria-label="Food search results"
+                    sx={{ maxHeight: 360, mt: 1.5, overflow: 'auto' }}
+                  >
+                    {availableFoods.map((food) => {
+                      const version = food.current_version || {};
+                      const source =
+                        provenanceLabels[version.provenance] ||
+                        (food.scope === 'personal' ? 'Personal' : 'Catalog');
+                      return (
+                        <Paper
+                          component="li"
+                          key={food.id}
+                          elevation={0}
+                          sx={{
+                            listStyle: 'none',
+                            mb: 1,
+                            p: 1.25,
+                            bgcolor: 'var(--atlas-paper)',
+                            border: '1px solid var(--atlas-border)',
+                            borderLeft: `4px solid ${food.scope === 'personal' ? 'var(--atlas-persimmon)' : 'var(--atlas-forest)'}`,
+                          }}
                         >
-                          <Box sx={{ minWidth: 0 }}>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                              {food.name}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {food.provider_name ||
-                                (food.scope === 'personal' ? 'Your food' : 'Shared catalog')}
-                              {' · '}
-                              {version.serving_label ||
-                                `${formatAmount(version.serving_quantity)} ${version.serving_unit || 'serving'}`}
-                            </Typography>
-                          </Box>
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            <Chip size="small" label={source} variant="outlined" />
-                            <Button onClick={() => addFood(food)} startIcon={<AddIcon />}>
-                              Add
-                            </Button>
+                          <Stack
+                            direction={{ xs: 'column', sm: 'row' }}
+                            justifyContent="space-between"
+                            gap={1}
+                          >
+                            <Box sx={{ minWidth: 0 }}>
+                              <Stack
+                                direction="row"
+                                spacing={0.75}
+                                useFlexGap
+                                flexWrap="wrap"
+                                sx={{ mb: 0.5 }}
+                              >
+                                <Chip size="small" label={source} variant="outlined" />
+                                {version.confidence_score != null && (
+                                  <Chip
+                                    size="small"
+                                    label={`${Math.round(Number(version.confidence_score) * 100)}% confidence`}
+                                    variant="outlined"
+                                  />
+                                )}
+                                {food.provider_name && (
+                                  <Chip
+                                    size="small"
+                                    label={food.provider_name}
+                                    variant="outlined"
+                                  />
+                                )}
+                              </Stack>
+                              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                                {food.name}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {version.serving_label ||
+                                  `${formatAmount(version.serving_quantity)} ${version.serving_unit || 'serving'}`}
+                              </Typography>
+                            </Box>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <Button onClick={() => addFood(food)} startIcon={<AddIcon />}>
+                                Add
+                              </Button>
+                              <IconButton
+                                size="small"
+                                aria-label={`More actions for ${food.name}`}
+                                aria-haspopup="menu"
+                                aria-expanded={
+                                  catalogActionsFoodId === food.id &&
+                                  Boolean(catalogActionsAnchorEl)
+                                }
+                                onClick={(event) => {
+                                  setCatalogActionsAnchorEl(event.currentTarget);
+                                  setCatalogActionsFoodId(food.id);
+                                }}
+                              >
+                                <MoreVertIcon fontSize="small" />
+                              </IconButton>
+                            </Stack>
                           </Stack>
-                        </Stack>
-                        <Box sx={{ mt: 1 }}>
-                          <NutritionCards
-                            values={nutrientValues(version.nutrients)}
-                            ariaLabel={`${food.name} catalog nutrition`}
-                            compact
-                          />
-                        </Box>
-                      </Paper>
-                    );
-                  })}
-                </List>
+                          <Collapse in={catalogDetailFoodIds.has(food.id)} unmountOnExit>
+                            <Paper
+                              elevation={0}
+                              sx={{ mt: 0.75, p: 0.75, border: '1px solid var(--atlas-border)' }}
+                            >
+                              <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                                <Chip size="small" label={source} variant="outlined" />
+                                {version.confidence_score != null && (
+                                  <Chip
+                                    size="small"
+                                    label={`${Math.round(Number(version.confidence_score) * 100)}% confidence`}
+                                    variant="outlined"
+                                  />
+                                )}
+                                {food.provider_name && (
+                                  <Chip
+                                    size="small"
+                                    label={food.provider_name}
+                                    variant="outlined"
+                                  />
+                                )}
+                              </Stack>
+                              {!!version.sources?.length ? (
+                                <Stack component="ul" spacing={0.25} sx={{ mb: 0, pl: 2.25 }}>
+                                  {version.sources.map((estimateSource) => (
+                                    <Typography
+                                      component="li"
+                                      variant="caption"
+                                      key={estimateSource.url || estimateSource.title}
+                                    >
+                                      {estimateSource.url ? (
+                                        <Link
+                                          href={estimateSource.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                        >
+                                          {estimateSource.title || estimateSource.url}
+                                        </Link>
+                                      ) : (
+                                        estimateSource.title
+                                      )}
+                                    </Typography>
+                                  ))}
+                                </Stack>
+                              ) : (
+                                <Typography variant="caption" color="text.secondary">
+                                  No source links were provided for this estimate.
+                                </Typography>
+                              )}
+                            </Paper>
+                          </Collapse>
+                          <Box sx={{ mt: 1 }}>
+                            <NutritionCards
+                              values={nutrientValues(version.nutrients)}
+                              ariaLabel={`${food.name} catalog nutrition`}
+                              compact
+                            />
+                          </Box>
+                        </Paper>
+                      );
+                    })}
+                  </List>
+                  <Menu
+                    anchorEl={catalogActionsAnchorEl}
+                    open={Boolean(catalogActionsAnchorEl && activeCatalogFood)}
+                    onClose={closeCatalogActions}
+                    MenuListProps={{
+                      'aria-label': `Actions for ${activeCatalogFood?.name || 'catalog food'}`,
+                    }}
+                  >
+                    <MenuItem
+                      aria-label={`${catalogDetailFoodIds.has(catalogActionsFoodId) ? 'Hide' : 'Show'} estimate details for ${activeCatalogFood?.name || 'catalog food'}`}
+                      onClick={() => {
+                        toggleCatalogDetails(catalogActionsFoodId);
+                        closeCatalogActions();
+                      }}
+                    >
+                      <InfoOutlinedIcon fontSize="small" sx={{ mr: 1.25 }} />
+                      {catalogDetailFoodIds.has(catalogActionsFoodId)
+                        ? 'Hide details'
+                        : 'Estimate details'}
+                    </MenuItem>
+                  </Menu>
+                </>
               ) : (
                 <Typography sx={{ mt: 1.5 }} color="text.secondary">
                   {foods.length
@@ -857,8 +708,8 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
                     Review meal items
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Adjust quantity or unit, drag the handle to reorder foods, and inspect their
-                    saved source.
+                    Adjust count, unit, nutrition, components, and estimate details using the same
+                    controls as AI estimates.
                   </Typography>
                 </Box>
                 <Chip
@@ -888,159 +739,25 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
                   </Typography>
                 </Box>
               ) : (
-                <DndContext
-                  sensors={dragSensors}
-                  collisionDetection={closestCenter}
-                  modifiers={verticalDragModifiers}
-                  onDragEnd={handleItemDragEnd}
-                >
-                  <SortableContext
-                    items={items.map((item) => item.key)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <List
-                      disablePadding
-                      aria-label="Selected meal items"
-                      sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}
-                    >
-                      {items.map((item, index) => (
-                        <SortableManualMealItem key={item.key} itemKey={item.key}>
-                          {({ handleProps, setActivatorNodeRef }) => (
-                            <Paper
-                              elevation={0}
-                              sx={{
-                                p: 1.25,
-                                border: '1px solid var(--atlas-border)',
-                                borderLeft: `4px solid ${item.provenance === 'user_entered' || item.provenance === 'user_modified_estimate' ? 'var(--atlas-persimmon)' : 'var(--atlas-forest)'}`,
-                              }}
-                            >
-                              <Stack direction="row" justifyContent="space-between" gap={1}>
-                                <Box sx={{ minWidth: 0 }}>
-                                  <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                                    {item.name}
-                                  </Typography>
-                                  <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-                                    <Chip
-                                      size="small"
-                                      label={provenanceLabels[item.provenance] || 'Catalog'}
-                                      variant="outlined"
-                                    />
-                                    {item.provider && <Chip size="small" label={item.provider} />}
-                                    {item.confidence_score != null && (
-                                      <Chip
-                                        size="small"
-                                        label={`${Math.round(Number(item.confidence_score) * 100)}% confidence`}
-                                        variant="outlined"
-                                      />
-                                    )}
-                                  </Stack>
-                                </Box>
-                                <Stack direction="row" spacing={0} alignItems="center">
-                                  <IconButton
-                                    ref={setActivatorNodeRef}
-                                    {...handleProps}
-                                    aria-label={`Drag ${item.name}`}
-                                    title={`Drag to reorder ${item.name}`}
-                                    sx={{
-                                      width: 44,
-                                      height: 44,
-                                      color: 'var(--atlas-mineral-dark)',
-                                      cursor: 'grab',
-                                      touchAction: 'none',
-                                      userSelect: 'none',
-                                      WebkitUserSelect: 'none',
-                                      '&:active': { cursor: 'grabbing' },
-                                    }}
-                                  >
-                                    <DragIndicatorIcon fontSize="small" />
-                                  </IconButton>
-                                  <IconButton
-                                    aria-label={`remove ${item.name}`}
-                                    title={`Remove ${item.name}`}
-                                    onClick={() =>
-                                      setItems((current) =>
-                                        current.filter((_value, itemIndex) => itemIndex !== index),
-                                      )
-                                    }
-                                    sx={{
-                                      width: 44,
-                                      height: 44,
-                                      color: 'var(--atlas-mineral-dark)',
-                                    }}
-                                  >
-                                    <DeleteOutlineIcon fontSize="small" />
-                                  </IconButton>
-                                </Stack>
-                              </Stack>
-                              <Box sx={{ mt: 1 }}>
-                                <ItemNutritionCards item={item} compact />
-                              </Box>
-                              <Box
-                                sx={{
-                                  display: 'grid',
-                                  gridTemplateColumns: {
-                                    xs: 'minmax(0, 1fr)',
-                                    sm: '120px minmax(180px, 1fr)',
-                                  },
-                                  gap: 1,
-                                  mt: 1.25,
-                                }}
-                              >
-                                <TextField
-                                  label="Quantity"
-                                  type="number"
-                                  size="small"
-                                  value={manualQuantity(item)}
-                                  onChange={(event) => changeQuantity(index, event.target.value)}
-                                  inputProps={{ min: 0.0001, step: 0.25 }}
-                                />
-                                <TextField
-                                  select
-                                  label="Portion or unit"
-                                  size="small"
-                                  value={selectedManualPortion(item).key}
-                                  onChange={(event) =>
-                                    updateItem(index, (current) => ({
-                                      ...current,
-                                      selected_portion_key: event.target.value,
-                                    }))
-                                  }
-                                >
-                                  {manualPortionOptions(item).map((option) => (
-                                    <MenuItem key={option.key} value={option.key}>
-                                      {option.label || option.unit_label || option.key}
-                                    </MenuItem>
-                                  ))}
-                                </TextField>
-                              </Box>
-                              {!!item.component_snapshot?.length && (
-                                <Box component="details" sx={{ mt: 1 }}>
-                                  <Typography
-                                    component="summary"
-                                    variant="caption"
-                                    sx={{
-                                      cursor: 'pointer',
-                                      fontWeight: 800,
-                                      minHeight: 44,
-                                      py: 1,
-                                    }}
-                                  >
-                                    Component details ({item.component_snapshot.length})
-                                  </Typography>
-                                  <MealItemBreakdown components={item.component_snapshot} />
-                                </Box>
-                              )}
-                            </Paper>
-                          )}
-                        </SortableManualMealItem>
-                      ))}
-                    </List>
-                  </SortableContext>
-                </DndContext>
+                <Stack spacing={1.5} sx={{ mt: 1.5 }} aria-label="Selected meal items">
+                  {items.map((item) => (
+                    <MealItemEditorRow
+                      key={item.key}
+                      item={item}
+                      onServings={changeServings}
+                      onPortionChange={changePortion}
+                      onNutrientChange={changeNutrient}
+                      onRemove={removeItem}
+                      renderNutrition={(foodItem, onChange) => (
+                        <ItemNutritionCards item={foodItem} compact onNutrientChange={onChange} />
+                      )}
+                    />
+                  ))}
+                </Stack>
               )}
             </Paper>
 
-            {!!items.length && <MacroChart items={items} />}
+            {!!items.length && <MealNutritionSummary items={items} />}
 
             <Box
               component="details"
@@ -1183,43 +900,15 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
     [data.totals],
   );
 
-  const dailyMacroSummary = useMemo(() => {
-    const macros = macroCalorieFields.map((field) => {
-      const amount = Number(totalsByKey[field.key]?.amount);
-      const grams = Number.isFinite(amount) ? amount : 0;
+  const dailyNutrientValues = useMemo(
+    () =>
+      Object.fromEntries(launchNutrients.map(({ key }) => [key, totalsByKey[key]?.amount ?? null])),
+    [totalsByKey],
+  );
 
-      return {
-        ...field,
-        grams,
-        calories: grams * field.caloriesPerGram,
-      };
-    });
-    const totalCalories = macros.reduce((total, macro) => total + macro.calories, 0);
-    let chartPosition = 0;
-    const chartSegments = macros.map((macro) => {
-      const percentage = totalCalories ? (macro.calories / totalCalories) * 100 : 0;
-      const start = chartPosition;
-      chartPosition += percentage;
-
-      return {
-        ...macro,
-        percentage,
-        gradientStop: `${macro.color} ${start}% ${chartPosition}%`,
-      };
-    });
-
-    return {
-      macros: chartSegments,
-      totalCalories,
-      background: totalCalories
-        ? `conic-gradient(${chartSegments.map((macro) => macro.gradientStop).join(', ')})`
-        : 'var(--atlas-border)',
-    };
-  }, [totalsByKey]);
-
-  const mealCalorieSummary = useMemo(() => {
-    const contributions = data.meals
-      .flatMap((meal) => {
+  const mealCalorieContributions = useMemo(
+    () =>
+      data.meals.flatMap((meal) => {
         const calories = mealNutrientAmount(meal, 'calories');
         return calories === null
           ? []
@@ -1233,64 +922,9 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                 ),
               },
             ];
-      })
-      .sort((first, second) => second.calories - first.calories);
-    const displayedContributions =
-      contributions.length > 5
-        ? [
-            ...contributions.slice(0, 4),
-            {
-              key: 'other-meals',
-              name: `Other meals (${contributions.length - 4})`,
-              calories: contributions
-                .slice(4)
-                .reduce((total, contribution) => total + contribution.calories, 0),
-              ...Object.fromEntries(
-                macroCalorieFields.map(({ key }) => [
-                  key,
-                  contributions.slice(4).some((contribution) => contribution[key] !== null)
-                    ? contributions
-                        .slice(4)
-                        .reduce((total, contribution) => total + (contribution[key] || 0), 0)
-                    : null,
-                ]),
-              ),
-            },
-          ]
-        : contributions;
-    const totalCalories = displayedContributions.reduce(
-      (total, contribution) => total + contribution.calories,
-      0,
-    );
-    const highestCalories = Math.max(
-      ...displayedContributions.map((contribution) => contribution.calories),
-      0,
-    );
-    return {
-      totalCalories,
-      meals: displayedContributions.map((contribution) => {
-        const macroSegments = macroCalorieFields
-          .filter(({ key }) => contribution[key] !== null)
-          .map((field) => ({
-            ...field,
-            calories: Math.max(Number(contribution[field.key]) || 0, 0) * field.caloriesPerGram,
-          }));
-        const macroCalories = macroSegments.reduce((total, segment) => total + segment.calories, 0);
-
-        return {
-          ...contribution,
-          percentage: totalCalories ? (contribution.calories / totalCalories) * 100 : 0,
-          relativeBarWidth: highestCalories ? (contribution.calories / highestCalories) * 100 : 0,
-          macroSegments: macroCalories
-            ? macroSegments.map((segment) => ({
-                ...segment,
-                percentage: (segment.calories / macroCalories) * 100,
-              }))
-            : [],
-        };
       }),
-    };
-  }, [data.meals]);
+    [data.meals],
+  );
 
   const removeMeal = async () => {
     const response = await deleteMeal(pendingDelete.id, token);
@@ -1540,255 +1174,21 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                 mt: 1,
               }}
             >
-              <Paper
-                component="figure"
-                aria-label="Macro calorie split"
-                elevation={0}
-                sx={{
-                  m: 0,
-                  p: { xs: 1.25, sm: 1.5 },
-                  bgcolor: 'var(--atlas-paper)',
-                  border: '1px solid var(--atlas-border)',
-                  borderRadius: 1.5,
-                  display: 'flex',
-                  flexDirection: 'column',
-                }}
-              >
-                <Typography
-                  component="figcaption"
-                  variant="subtitle2"
-                  sx={{ fontWeight: 800, mb: 0.75 }}
-                >
-                  Macro calorie split
-                </Typography>
-                {loading ? (
-                  <Stack
-                    direction="row"
-                    spacing={1.5}
-                    alignItems="center"
-                    justifyContent="center"
-                    sx={{ flex: 1 }}
-                  >
-                    <Skeleton variant="circular" width={152} height={152} />
-                    <Stack spacing={0.5} sx={{ width: 120 }}>
-                      {[0, 1, 2].map((row) => (
-                        <Skeleton key={row} />
-                      ))}
-                    </Stack>
-                  </Stack>
-                ) : (
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    alignItems="center"
-                    justifyContent="space-evenly"
-                    sx={{ width: '100%', flex: 1, px: 0.5 }}
-                  >
-                    <Box
-                      role="img"
-                      aria-label={`Macro calorie split: ${dailyMacroSummary.macros
-                        .map((macro) => `${macro.label} ${Math.round(macro.percentage)} percent`)
-                        .join(', ')}`}
-                      sx={{
-                        position: 'relative',
-                        width: 'clamp(136px, 48%, 190px)',
-                        aspectRatio: '1 / 1',
-                        flex: '0 0 auto',
-                        borderRadius: '50%',
-                        background: dailyMacroSummary.background,
-                        display: 'grid',
-                        placeItems: 'center',
-                        '&::after': {
-                          content: '""',
-                          position: 'absolute',
-                          width: '58%',
-                          aspectRatio: '1 / 1',
-                          borderRadius: '50%',
-                          bgcolor: 'var(--atlas-paper)',
-                        },
-                      }}
-                    >
-                      <Box sx={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
-                        <Typography
-                          variant="subtitle1"
-                          className="numeric-data"
-                          sx={{ fontWeight: 800, lineHeight: 1.1 }}
-                        >
-                          {totalsByKey.calories
-                            ? formatWholeAmount(totalsByKey.calories.amount)
-                            : '—'}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: 'var(--atlas-ink-muted)' }}>
-                          kcal
-                        </Typography>
-                      </Box>
-                    </Box>
-                    <Stack spacing={0.5} sx={{ minWidth: 0, flex: '0 0 auto' }}>
-                      {dailyMacroSummary.macros.map((macro) => (
-                        <Stack key={macro.key} direction="row" alignItems="center" spacing={0.75}>
-                          <Box
-                            aria-hidden="true"
-                            sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: macro.color }}
-                          />
-                          <Typography variant="caption" sx={{ flex: '0 0 48px' }}>
-                            {macro.label === 'carbs'
-                              ? 'Carbs'
-                              : `${macro.label.charAt(0).toUpperCase()}${macro.label.slice(1)}`}
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            className="numeric-data"
-                            sx={{ fontWeight: 800, whiteSpace: 'nowrap' }}
-                          >
-                            {formatWholeAmount(macro.grams)} g ({Math.round(macro.percentage)}%)
-                          </Typography>
-                        </Stack>
-                      ))}
-                    </Stack>
-                  </Stack>
-                )}
-              </Paper>
-
-              <Paper
-                component="figure"
-                aria-label="Calories by meal"
-                elevation={0}
-                sx={{
-                  m: 0,
-                  p: { xs: 1.25, sm: 1.5 },
-                  bgcolor: 'var(--atlas-paper)',
-                  border: '1px solid var(--atlas-border)',
-                  borderRadius: 1.5,
-                }}
-              >
-                <Typography
-                  component="figcaption"
-                  variant="subtitle2"
-                  sx={{ fontWeight: 800, mb: 1 }}
-                >
-                  Calories by meal
-                </Typography>
-
-                {loading ? (
-                  <Stack spacing={0.75}>
-                    {[0, 1, 2].map((row) => (
-                      <Skeleton key={row} variant="rounded" height={20} />
-                    ))}
-                  </Stack>
-                ) : mealCalorieSummary.meals.length ? (
-                  <Stack spacing={0.8} aria-label="Meal calorie chart">
-                    {mealCalorieSummary.meals.map((meal) => {
-                      const stackLabel = meal.macroSegments.length
-                        ? `${meal.name} macro calorie stack: ${meal.macroSegments
-                            .map(
-                              (segment) =>
-                                `${segment.label} ${formatWholeAmount(
-                                  segment.calories,
-                                )} kilocalories`,
-                            )
-                            .join(', ')}`
-                        : `${meal.name} macro calorie stack unavailable`;
-
-                      return (
-                        <Box
-                          key={meal.key}
-                          aria-label={`${meal.name} ${formatWholeAmount(
-                            meal.calories,
-                          )} kilocalories (${Math.round(meal.percentage)} percent)`}
-                        >
-                          <Stack
-                            direction="row"
-                            spacing={0.75}
-                            alignItems="center"
-                            sx={{ minWidth: 0 }}
-                          >
-                            <Box
-                              sx={{
-                                width: { xs: 104, sm: 180, lg: 240 },
-                                flex: '0 0 auto',
-                                height: '2rem',
-                                display: 'flex',
-                                alignItems: 'center',
-                              }}
-                            >
-                              <Typography
-                                variant="caption"
-                                title={meal.name}
-                                sx={{
-                                  display: '-webkit-box',
-                                  WebkitBoxOrient: 'vertical',
-                                  WebkitLineClamp: 2,
-                                  overflow: 'hidden',
-                                  lineHeight: 1.2,
-                                }}
-                              >
-                                {meal.name}
-                              </Typography>
-                            </Box>
-                            <Box
-                              role="img"
-                              aria-label={stackLabel}
-                              sx={{
-                                height: 20,
-                                minWidth: 0,
-                                flex: 1,
-                                borderRadius: 10,
-                                bgcolor: 'var(--atlas-border)',
-                                overflow: 'hidden',
-                              }}
-                            >
-                              <Box
-                                sx={{
-                                  display: 'flex',
-                                  width: `${Math.max(
-                                    meal.relativeBarWidth,
-                                    meal.calories > 0 ? 2 : 0,
-                                  )}%`,
-                                  height: '100%',
-                                  bgcolor: meal.macroSegments.length
-                                    ? 'transparent'
-                                    : 'var(--calorie-color)',
-                                  borderRadius: 10,
-                                  overflow: 'hidden',
-                                }}
-                              >
-                                {meal.macroSegments.map((segment) => (
-                                  <Box
-                                    key={segment.key}
-                                    sx={{
-                                      width: `${segment.percentage}%`,
-                                      bgcolor: segment.color,
-                                    }}
-                                  />
-                                ))}
-                              </Box>
-                            </Box>
-                            <Typography
-                              variant="caption"
-                              className="numeric-data"
-                              sx={{
-                                width: { xs: 92, sm: 106 },
-                                flex: '0 0 auto',
-                                color: 'var(--atlas-ink-muted)',
-                                fontSize: { xs: '0.68rem', sm: '0.75rem' },
-                                textAlign: 'right',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {formatWholeAmount(meal.calories)} kcal ({Math.round(meal.percentage)}
-                              %)
-                            </Typography>
-                          </Stack>
-                        </Box>
-                      );
-                    })}
-                  </Stack>
-                ) : (
-                  <Typography variant="body2" sx={{ color: 'var(--atlas-ink-muted)' }}>
-                    Add a meal to see its calorie contribution.
-                  </Typography>
-                )}
-              </Paper>
+              <MacroCalorieSplit
+                values={dailyNutrientValues}
+                loading={loading}
+                variant="dashboard"
+              />
+              <CalorieContributionChart
+                contributions={mealCalorieContributions}
+                title="Calories by meal"
+                chartAriaLabel="Meal calorie chart"
+                emptyText="Add a meal to see its calorie contribution."
+                loading={loading}
+                variant="dashboard"
+                otherKey="other-meals"
+                otherLabel={(count) => `Other meals (${count})`}
+              />
             </Box>
           </Paper>
 
@@ -2051,7 +1451,6 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                               </Box>
                               {meal.items.map((item, itemIndex) => {
                                 const itemCalories = mealItemNutrientAmount(item, 'calories');
-                                const itemMacroSegments = mealItemMacroSegments(item);
                                 const confidence = Number(item.confidence_score);
                                 const hasConfidence =
                                   item.confidence_score !== null && Number.isFinite(confidence);
@@ -2121,55 +1520,19 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                       >
                                         {formatWholeAmount(itemCalories)} kcal
                                       </Typography>
-                                      <Box
-                                        sx={{
-                                          mt: 0.35,
-                                          width: '100%',
-                                          height: 4,
-                                          bgcolor: 'var(--atlas-border)',
-                                          borderRadius: 999,
-                                          overflow: 'hidden',
-                                        }}
-                                      >
-                                        <Box
-                                          role="img"
-                                          aria-label={
-                                            itemMacroSegments.length
-                                              ? `${item.food_name} macro calorie stack: ${itemMacroSegments
-                                                  .map(
-                                                    (segment) =>
-                                                      `${segment.label} ${formatWholeAmount(
-                                                        segment.calories,
-                                                      )} kilocalories`,
-                                                  )
-                                                  .join(', ')}`
-                                              : `${item.food_name} macro calorie stack unavailable`
+                                      <Box sx={{ mt: 0.35 }}>
+                                        <MacroCalorieBar
+                                          name={item.food_name}
+                                          values={nutrientValues(item.nutrients)}
+                                          widthPercentage={
+                                            itemCalories !== null && highestFoodCalories > 0
+                                              ? (itemCalories / highestFoodCalories) * 100
+                                              : 0
                                           }
-                                          sx={{
-                                            display: 'flex',
-                                            width: `${
-                                              itemCalories !== null && highestFoodCalories > 0
-                                                ? (itemCalories / highestFoodCalories) * 100
-                                                : 0
-                                            }%`,
-                                            height: '100%',
-                                            bgcolor: itemMacroSegments.length
-                                              ? 'transparent'
-                                              : 'var(--calorie-color)',
-                                            borderRadius: 999,
-                                            overflow: 'hidden',
-                                          }}
-                                        >
-                                          {itemMacroSegments.map((segment) => (
-                                            <Box
-                                              key={segment.key}
-                                              sx={{
-                                                width: `${segment.percentage}%`,
-                                                bgcolor: segment.color,
-                                              }}
-                                            />
-                                          ))}
-                                        </Box>
+                                          height={4}
+                                          borderRadius={999}
+                                          wholeNumbers
+                                        />
                                       </Box>
                                     </Box>
                                     <Box role="cell" sx={{ minWidth: 0 }}>

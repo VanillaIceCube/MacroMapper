@@ -65,6 +65,35 @@ const apple = {
   },
 };
 
+const estimatedTaco = {
+  ...apple,
+  id: 8,
+  name: 'Carne Asada Taco',
+  provider_name: 'San Diego Taco Co.',
+  scope: 'catalog',
+  current_version: {
+    ...apple.current_version,
+    id: 10,
+    serving_label: 'one taco',
+    provenance: 'ai_estimate',
+    confidence_score: '0.910',
+    sources: [
+      {
+        title: 'Restaurant nutrition reference',
+        url: 'https://example.com/taco-nutrition',
+      },
+    ],
+    components: [
+      {
+        food_version_id: 12,
+        food_item_name: 'Corn tortilla',
+        servings: '1.000',
+        components: [],
+      },
+    ],
+  },
+};
+
 const meal = {
   id: 11,
   entry_date: '2026-08-16',
@@ -196,17 +225,21 @@ describe('DiaryPage', () => {
     await user.click(await screen.findByRole('button', { name: 'Add' }));
     expect(within(addDialog).getByRole('region', { name: 'Meal macro breakdown' })).toBeVisible();
     expect(within(addDialog).getByLabelText('Apple macro values')).toBeVisible();
-    expect(within(addDialog).getAllByText('User entered')).not.toHaveLength(0);
-    expect(within(addDialog).getByRole('button', { name: 'Drag Apple' })).toBeVisible();
     expect(
-      within(addDialog).queryByRole('button', { name: 'move Apple up' }),
-    ).not.toBeInTheDocument();
+      within(addDialog).getByText('All matching foods are already in this meal.'),
+    ).toBeVisible();
     expect(
-      within(addDialog).queryByRole('button', { name: 'move Apple down' }),
+      within(addDialog).queryByRole('button', { name: 'remove Apple' }),
     ).not.toBeInTheDocument();
-    await user.click(within(addDialog).getByRole('combobox', { name: 'Portion or unit' }));
+    await user.click(within(addDialog).getByRole('button', { name: 'More actions for Apple' }));
+    expect(screen.getByRole('menuitem', { name: 'Edit nutrition for Apple' })).toBeVisible();
+    expect(
+      screen.queryByRole('menuitem', { name: 'Show estimate details for Apple' }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole('menuitem', { name: 'Edit nutrition for Apple' }));
+    await user.click(within(addDialog).getByRole('combobox', { name: 'Unit' }));
     await user.click(await screen.findByRole('option', { name: 'half apple' }));
-    const quantity = within(addDialog).getByRole('spinbutton', { name: 'Quantity' });
+    const quantity = within(addDialog).getByRole('spinbutton', { name: 'Count' });
     expect(quantity).toHaveValue(2);
     await user.clear(quantity);
     await user.type(quantity, '1');
@@ -222,6 +255,65 @@ describe('DiaryPage', () => {
       );
     });
     expect(showSnackbar).toHaveBeenCalledWith('success', 'Meal added.');
+  });
+
+  test('shows catalog estimate tags and details and restores a removed food', async () => {
+    const user = userEvent.setup();
+    searchFoods.mockResolvedValue(response([estimatedTaco]));
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Add manually' }));
+    const dialog = await screen.findByRole('dialog', { name: /Add meal manually/ });
+
+    expect(within(dialog).getByText('AI estimate')).toBeVisible();
+    expect(within(dialog).getByText('91% confidence')).toBeVisible();
+    expect(within(dialog).getByText('San Diego Taco Co.')).toBeVisible();
+    expect(
+      within(dialog).queryByRole('link', { name: 'Restaurant nutrition reference' }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      within(dialog).getByRole('button', { name: 'More actions for Carne Asada Taco' }),
+    );
+    await user.click(
+      screen.getByRole('menuitem', {
+        name: 'Show estimate details for Carne Asada Taco',
+      }),
+    );
+    expect(
+      within(dialog).getByRole('link', { name: 'Restaurant nutrition reference' }),
+    ).toHaveAttribute('href', 'https://example.com/taco-nutrition');
+
+    await user.click(within(dialog).getByRole('button', { name: 'Add' }));
+    expect(within(dialog).getByText('All matching foods are already in this meal.')).toBeVisible();
+    expect(
+      within(dialog).queryByRole('button', { name: 'remove Carne Asada Taco' }),
+    ).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('Corn tortilla')).not.toBeInTheDocument();
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'Expand components for Carne Asada Taco',
+      }),
+    );
+    expect(within(dialog).getByText('Corn tortilla')).toBeVisible();
+    expect(
+      within(dialog).getByRole('button', {
+        name: 'Collapse components for Carne Asada Taco',
+      }),
+    ).toHaveAttribute('aria-expanded', 'true');
+
+    await user.click(
+      within(dialog).getByRole('button', { name: 'More actions for Carne Asada Taco' }),
+    );
+    expect(
+      screen.getByRole('menuitem', { name: 'Show estimate details for Carne Asada Taco' }),
+    ).toBeVisible();
+    await user.click(screen.getByRole('menuitem', { name: 'remove Carne Asada Taco' }));
+
+    expect(await within(dialog).findByRole('button', { name: 'Add' })).toBeVisible();
+    expect(within(dialog).getByText('No foods added yet')).toBeVisible();
   });
 
   test('protects an unsaved manual meal draft before closing', async () => {
@@ -295,7 +387,7 @@ describe('DiaryPage', () => {
     const nameInput = within(dialog).getByRole('textbox', { name: /Meal name/ });
     await user.clear(nameInput);
     await user.type(nameInput, 'Brunch');
-    const servings = within(dialog).getByLabelText('Quantity');
+    const servings = within(dialog).getByLabelText('Count');
     await user.clear(servings);
     await user.type(servings, '2');
     await user.click(within(dialog).getByRole('button', { name: 'Save changes' }));

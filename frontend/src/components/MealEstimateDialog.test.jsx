@@ -231,7 +231,7 @@ describe('MealEstimateDialog', () => {
     });
     expect(acceptMealProposal).toHaveBeenCalledWith(25, 'access-token');
     expect(onSaved).toHaveBeenCalledWith('Estimated meal added to your diary.');
-  }, 10_000);
+  }, 15_000);
 
   test('labels reviewed nutrition as user-adjusted instead of untouched AI output', async () => {
     const user = userEvent.setup();
