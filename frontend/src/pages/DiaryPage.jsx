@@ -1397,16 +1397,6 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                             borderTop: '1px solid var(--atlas-border)',
                           }}
                         >
-                          <Typography
-                            variant="overline"
-                            sx={{
-                              color: 'var(--atlas-ink-muted)',
-                              fontWeight: 800,
-                              lineHeight: 1,
-                            }}
-                          >
-                            Foods &amp; servings
-                          </Typography>
                           <Box
                             data-testid={`meal-${meal.id}-nutrition-columns`}
                             sx={{
@@ -1417,7 +1407,6 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                               },
                               alignItems: 'start',
                               gap: { xs: 1.5, md: 2.5 },
-                              mt: 0.75,
                             }}
                           >
                             <Box sx={{ minWidth: 0 }}>
@@ -1442,16 +1431,18 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                   borderBottom: '1px solid var(--atlas-border)',
                                 }}
                               >
-                                {['Food', 'Calories', 'Confidence', 'Provenance'].map((label) => (
-                                  <Typography
-                                    key={label}
-                                    role="columnheader"
-                                    variant="caption"
-                                    sx={{ color: 'var(--atlas-ink-muted)', fontWeight: 800 }}
-                                  >
-                                    {label}
-                                  </Typography>
-                                ))}
+                                {['Foods & servings', 'Calories', 'Confidence', 'Provenance'].map(
+                                  (label) => (
+                                    <Typography
+                                      key={label}
+                                      role="columnheader"
+                                      variant="caption"
+                                      sx={{ color: 'var(--atlas-ink-muted)', fontWeight: 800 }}
+                                    >
+                                      {label}
+                                    </Typography>
+                                  ),
+                                )}
                               </Box>
                               {meal.items.map((item, itemIndex) => {
                                 const itemCalories = mealItemNutrientAmount(item, 'calories');
