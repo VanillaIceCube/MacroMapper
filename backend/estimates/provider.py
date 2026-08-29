@@ -64,6 +64,7 @@ class FoodSearchIntent(BaseModel):
 class MealSearchPlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    name: str = Field(min_length=1, max_length=80)
     items: list[FoodSearchIntent] = Field(min_length=1, max_length=20)
 
 
@@ -102,7 +103,7 @@ class EstimatedFood(BaseModel):
 class EstimatedMeal(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    name: str = Field(min_length=1, max_length=120)
+    name: str = Field(min_length=1, max_length=80)
     confidence_score: float = Field(ge=0, le=1)
     items: list[EstimatedFood] = Field(min_length=1, max_length=20)
 
@@ -117,6 +118,7 @@ class FollowUpServingUpdate(BaseModel):
 class EstimatedMealFollowUp(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    name: str = Field(min_length=1, max_length=80)
     message: str = Field(min_length=1, max_length=300)
     confidence_score: float = Field(ge=0, le=1)
     remove_keys: list[str] = Field(default_factory=list, max_length=20)
@@ -132,8 +134,10 @@ EstimatedFood.model_rebuild()
 
 SYSTEM_PROMPT = """You create factual, editable nutrition estimates from meal descriptions.
 Return only the requested structured meal data. Set the meal-level name to a concise,
-user-facing title that summarizes the foods, such as "Pub Burger, Poutine & Milkshake",
-rather than copying the full input description. Search for official brand or restaurant
+user-facing title in the form "[Company] [Food Items]" whenever a restaurant or brand is
+known, such as "KFC Fried Chicken, Fries & Biscuit". Mention the company once, include
+only the key foods, keep the title to 80 characters or fewer, and never copy the full
+input description. Search for official brand or restaurant
 nutrition pages first. Mark an item official only when its nutrient values are directly
 supported by an official published source; otherwise mark it ai_estimate. Preserve source
 URLs and identify which sources are official. Food names, provider names, serving labels,
@@ -184,6 +188,11 @@ structured food search intents for an existing nutrition catalog. Return one int
 each distinct food the user consumed. Do not estimate nutrition and do not merge foods
 from different providers.
 
+Set name to a concise meal title in the form "[Company] [Food Items]" whenever a
+restaurant or brand is known. Mention each relevant company only once, include only the
+key foods, keep the title to 80 characters or fewer, and never copy conversational filler
+or the full meal description.
+
 Preserve the food-specific source phrase in raw_text without personal details. Put the
 canonical food or menu-product name in search_name, the restaurant or brand in
 provider_name when stated or clearly attached to that food, and the consumed count in
@@ -223,6 +232,11 @@ a duplicate row. For every newly mentioned top-level food, include concise
 catalog_search_terms and catalog_defining_terms that can be used to find the same food in
 an existing catalog before creating it. Search terms may include true product aliases but
 must not broaden into a different menu item.
+
+Set name to a refreshed concise title for the complete meal after applying the requested
+operations. Use the "[Company] [Food Items]" format whenever a restaurant or brand is
+known, mention each company only once, include only the key foods, and keep it to 80
+characters or fewer. Return the best current title even when only a serving changes.
 
 Make a reasonable best-effort portion estimate whenever the food and requested action are
 identifiable, even when the amount is informal, approximate, or omitted. Never ask for a
@@ -382,6 +396,7 @@ class OpenAIMealEstimationProvider:
                     "The estimation provider did not return usable food searches."
                 )
             return {
+                "name": parsed.name,
                 "items": [item.model_dump(mode="python") for item in parsed.items],
                 "provider_name": self.name,
                 "provider_model": self.model,
@@ -467,6 +482,7 @@ class OpenAIMealEstimationProvider:
                     "The estimation provider did not return a usable follow-up."
                 )
             return {
+                "name": parsed.name,
                 "message": parsed.message,
                 "confidence_score": parsed.confidence_score,
                 "remove_keys": parsed.remove_keys,

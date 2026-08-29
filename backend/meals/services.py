@@ -117,8 +117,15 @@ def daily_totals(meals):
             "name": metadata["name"],
             "unit": metadata["unit"],
             "amount": (
-                sum((getattr(item, key) for item in items), Decimal("0"))
-                if items and all(getattr(item, key) is not None for item in items)
+                sum(
+                    (
+                        getattr(item, key)
+                        for item in items
+                        if getattr(item, key) is not None
+                    ),
+                    Decimal("0"),
+                )
+                if any(getattr(item, key) is not None for item in items)
                 else None
             ),
         }

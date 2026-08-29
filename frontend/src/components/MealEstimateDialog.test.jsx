@@ -381,6 +381,40 @@ describe('MealEstimateDialog', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  test('applies the refreshed meal name returned by Adjust with AI', async () => {
+    const user = userEvent.setup();
+    const renamedProposal = {
+      ...proposal,
+      name: 'Example Restaurant Burger & Fries',
+    };
+    followUpMealProposal.mockResolvedValue(
+      response({ applied: true, message: 'Added fries.', proposal: renamedProposal }),
+    );
+    renderWithProviders(
+      <MealEstimateDialog
+        date="2026-08-16"
+        open
+        token="access-token"
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+    );
+
+    await user.type(screen.getByRole('textbox', { name: 'Describe what you ate' }), 'Burger');
+    await user.click(screen.getByRole('button', { name: 'Create estimate' }));
+    const reviewDialog = await screen.findByRole('dialog', { name: 'Review meal estimate' });
+    await user.type(
+      within(reviewDialog).getByRole('textbox', { name: 'Ask AI to make changes' }),
+      'Add fries',
+    );
+    await user.click(within(reviewDialog).getByRole('button', { name: 'Apply' }));
+
+    expect(await within(reviewDialog).findByRole('textbox', { name: 'Meal name' })).toHaveValue(
+      'Example Restaurant Burger & Fries',
+    );
+    expect(within(reviewDialog).getByText('Added fries.')).toBeVisible();
+  });
+
   test('edits a component nutrient total and updates the meal rollup', async () => {
     const user = userEvent.setup();
     renderWithProviders(

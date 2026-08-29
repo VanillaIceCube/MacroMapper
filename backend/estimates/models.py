@@ -75,6 +75,8 @@ class MealProposalRevision(models.Model):
     kind = models.CharField(max_length=24, choices=Kind)
     name = models.CharField(max_length=120)
     items = models.JSONField(default=list)
+    follow_up = models.CharField(max_length=500, blank=True)
+    message = models.CharField(max_length=300, blank=True)
     parent_revision = models.ForeignKey(
         "self",
         on_delete=models.CASCADE,

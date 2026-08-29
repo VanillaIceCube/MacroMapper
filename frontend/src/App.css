@@ -18,6 +18,10 @@
   --protein-color: var(--atlas-forest);
   --carbohydrate-color: var(--atlas-mineral-dark);
   --fat-color: var(--atlas-persimmon);
+  --fiber-color: #667d3f;
+  --sugar-color: #a54f76;
+  --sodium-color: #66699b;
+  --cholesterol-color: #9b672f;
   --activity-color: #356b7f;
   --background-color: var(--atlas-bone);
   --secondary-background-color: var(--atlas-paper);

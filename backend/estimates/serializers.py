@@ -337,7 +337,7 @@ class MealProposalFollowUpSerializer(serializers.Serializer):
         return apply_proposal_follow_up(
             proposal=self.context["proposal"],
             owner=self.context["request"].user,
-            name=self.validated_data["name"],
+            follow_up=self.validated_data["follow_up"],
             items=self.validated_data["items"],
             result=result,
         )
@@ -352,6 +352,8 @@ class MealProposalRevisionSerializer(serializers.ModelSerializer):
             "kind",
             "name",
             "items",
+            "follow_up",
+            "message",
             "parent_revision_id",
             "created_at",
         )

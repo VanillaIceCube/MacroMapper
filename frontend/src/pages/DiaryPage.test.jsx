@@ -45,6 +45,7 @@ const meal = {
   entry_date: '2026-08-16',
   name: 'Breakfast',
   notes: 'Early meal',
+  confidence_score: '0.800',
   items: [
     {
       id: 21,
@@ -56,6 +57,8 @@ const meal = {
       serving_quantity: '1.000',
       serving_unit: 'item',
       serving_label: 'one apple',
+      provenance: 'user_entered',
+      confidence_score: null,
       component_snapshot: [],
       nutrients: [{ key: 'calories', name: 'Calories', unit: 'kcal', amount: '95.0000' }],
     },
@@ -78,6 +81,7 @@ describe('DiaryPage', () => {
         totals: [
           { key: 'calories', name: 'Calories', unit: 'kcal', amount: '95.0000' },
           { key: 'protein', name: 'Protein', unit: 'g', amount: '0.5000' },
+          { key: 'sugar', name: 'Sugar', unit: 'g', amount: null },
         ],
       }),
     );
@@ -85,9 +89,72 @@ describe('DiaryPage', () => {
     renderWithProviders(<DiaryPage />);
 
     expect(await screen.findByRole('heading', { name: 'Breakfast' })).toBeInTheDocument();
-    expect(screen.getByText('95', { selector: 'h5' })).toBeInTheDocument();
-    expect(screen.getByText('0.5', { selector: 'h5' })).toBeInTheDocument();
+    const dailySummary = screen.getByRole('region', { name: 'Daily summary' });
+    expect(within(dailySummary).getByText('95', { selector: 'h5' })).toBeInTheDocument();
+    expect(within(dailySummary).getByText('0.5', { selector: 'h5' })).toBeInTheDocument();
+    const sugarTotal = within(dailySummary).getByRole('group', { name: 'Sugar daily total' });
+    expect(within(sugarTotal).getByText('—')).toBeInTheDocument();
+    expect(screen.getByText('80% confidence')).toBeInTheDocument();
     expect(screen.getByText('1 × Apple')).toBeInTheDocument();
+    expect(screen.getByText('95 kcal')).toBeInTheDocument();
+    expect(screen.getByText('Not scored')).toBeInTheDocument();
+    expect(screen.getByText('User entered')).toBeInTheDocument();
+  });
+
+  test('rounds macro charts and shows the original AI follow-up wording', async () => {
+    const estimatedMeal = {
+      ...meal,
+      notes: 'Estimated from: A single apple\n\nAI follow-ups:\n- I only ate half the apple',
+      items: [
+        {
+          ...meal.items[0],
+          nutrients: [
+            { key: 'calories', name: 'Calories', unit: 'kcal', amount: '95.4000' },
+            { key: 'protein', name: 'Protein', unit: 'g', amount: '0.5000' },
+            {
+              key: 'carbohydrates',
+              name: 'Carbohydrates',
+              unit: 'g',
+              amount: '1.5000',
+            },
+            { key: 'fat', name: 'Fat', unit: 'g', amount: '0.4000' },
+          ],
+        },
+      ],
+    };
+    fetchDailyDiary.mockResolvedValue(
+      response({
+        date: '2026-08-16',
+        meals: [estimatedMeal],
+        totals: [
+          { key: 'calories', name: 'Calories', unit: 'kcal', amount: '95.4000' },
+          { key: 'protein', name: 'Protein', unit: 'g', amount: '0.5000' },
+          {
+            key: 'carbohydrates',
+            name: 'Carbohydrates',
+            unit: 'g',
+            amount: '1.5000',
+          },
+          { key: 'fat', name: 'Fat', unit: 'g', amount: '0.4000' },
+        ],
+      }),
+    );
+
+    renderWithProviders(<DiaryPage />);
+
+    const macroSplit = await screen.findByRole('figure', { name: 'Macro calorie split' });
+    expect(within(macroSplit).getByText('95')).toBeInTheDocument();
+    expect(within(macroSplit).getByText('1 g (17%)')).toBeInTheDocument();
+    expect(within(macroSplit).getByText('2 g (52%)')).toBeInTheDocument();
+    expect(within(macroSplit).getByText('0 g (31%)')).toBeInTheDocument();
+
+    const caloriesByMeal = screen.getByRole('figure', { name: 'Calories by meal' });
+    expect(within(caloriesByMeal).getByText('95 kcal (100%)')).toBeInTheDocument();
+
+    expect(
+      screen.getByText('A single apple AI follow-ups: - I only ate half the apple'),
+    ).toBeVisible();
+    expect(screen.queryByText(/Estimated from:/i)).not.toBeInTheDocument();
   });
 
   test('creates a meal from a searched catalog food', async () => {
@@ -99,7 +166,7 @@ describe('DiaryPage', () => {
 
     await screen.findByText('Nothing logged yet');
     await user.click(screen.getByRole('button', { name: 'Add manually' }));
-    const addDialog = await screen.findByRole('dialog', { name: 'Add meal' });
+    const addDialog = await screen.findByRole('dialog', { name: /Add meal manually/ });
     await user.type(within(addDialog).getByRole('textbox', { name: /Meal name/ }), 'Lunch');
     await user.click(await screen.findByRole('button', { name: 'Add' }));
     await user.click(screen.getByRole('button', { name: 'Save meal' }));
@@ -124,7 +191,7 @@ describe('DiaryPage', () => {
 
     await screen.findByText('Nothing logged yet');
     await user.click(screen.getByRole('button', { name: 'Add manually' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Add meal' });
+    const dialog = await screen.findByRole('dialog', { name: /Add meal manually/ });
     await user.click(within(dialog).getByText('Create a personal food'));
     await user.type(within(dialog).getByRole('textbox', { name: 'Food name' }), 'Apple');
     await user.type(within(dialog).getByRole('spinbutton', { name: 'Calories (kcal)' }), '95');
@@ -150,7 +217,7 @@ describe('DiaryPage', () => {
     renderWithProviders(<DiaryPage />);
 
     await user.click(await screen.findByRole('button', { name: 'edit Breakfast' }));
-    const dialog = screen.getByRole('dialog', { name: 'Edit meal' });
+    const dialog = screen.getByRole('dialog', { name: /Edit meal/ });
     const nameInput = within(dialog).getByRole('textbox', { name: /Meal name/ });
     await user.clear(nameInput);
     await user.type(nameInput, 'Brunch');

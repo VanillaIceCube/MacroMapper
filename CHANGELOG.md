@@ -1,6 +1,24 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 2026-08-24
+
+### Added
+
+- Included each user's original Adjust with AI follow-up request in the saved
+  meal Context, while retaining AI result messages separately in revision history.
+
+### Changed
+
+- Refreshed the concise meal title whenever Adjust with AI successfully changes
+  an estimate, so additions and removals are reflected before diary acceptance.
+- Vertically centered the Macro calorie split visualization when the neighboring
+  Calories by meal chart grows taller.
+- Rebalanced the Daily Summary charts around a balanced macro-calorie panel with
+  a larger full-card donut layout and a wider Calories by meal chart with
+  two-line space for longer meal titles, compact vertically centered labels,
+  thicker stacked bars, and whole-number macro-split values.
+
 ## 2026-08-23
 
 ### Added
@@ -11,6 +29,10 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Preserved concise AI-generated meal titles for mixed catalog and estimated
+  foods, using a brief company-and-food naming format instead of diary prose.
+- Rolled up known daily nutrient values even when another saved food lacks that
+  nutrient, and stopped rendering unknown daily values as zero.
 - Resolved meal descriptions by complete food clause so partial fuzzy catalog
   matches cannot discard defining terms or be combined with unrelated AI
   fallback foods; unresolved clauses now retain shared provider context.
@@ -25,6 +47,13 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Redesigned the meal diary as a Quick Logbook with date and nutrition
+  summaries at the top, macro calorie-split and calories-by-meal charts, compact
+  color-coded daily nutrient cards, parallel estimate/manual entry paths, and
+  responsive meal ledger cards with food counts, daily calorie share, wider per-food
+  macro-calorie, confidence, and provenance breakdowns, saved estimate confidence,
+  serving context, per-meal macro donuts, and uniformly unshaded, outlined secondary
+  nutrient totals without shortcut or method columns.
 - Added structured AI food-intent extraction for descriptions the deterministic
   catalog path cannot fully resolve. Each provider-aware intent now searches the
   visible catalog before nutrition estimation, and AI follow-up additions use
