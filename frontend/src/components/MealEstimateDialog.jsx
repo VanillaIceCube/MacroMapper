@@ -259,7 +259,7 @@ function macroCalorieSegments(item) {
     : [];
 }
 
-function NutritionCards({
+export function NutritionCards({
   values,
   ariaLabel,
   compact = false,
@@ -364,7 +364,7 @@ function NutritionCards({
   );
 }
 
-function ItemNutritionCards({ item, compact = false, onNutrientChange }) {
+export function ItemNutritionCards({ item, compact = false, onNutrientChange }) {
   const values = Object.fromEntries(
     NUTRIENT_FIELDS.map(({ key }) => [key, itemNutrientTotal(item, key)]),
   );
@@ -549,7 +549,7 @@ function ComponentCalorieChart({ items }) {
   );
 }
 
-function MacroChart({ items }) {
+export function MacroChart({ items }) {
   const [open, setOpen] = useState(true);
   const values = Object.fromEntries(
     NUTRIENT_FIELDS.map(({ key }) => [key, mealNutrientTotal(items, key)]),

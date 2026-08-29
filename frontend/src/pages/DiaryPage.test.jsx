@@ -34,9 +34,34 @@ const apple = {
   provider_name: '',
   scope: 'personal',
   current_version: {
+    id: 9,
     serving_quantity: '1.000',
     serving_unit: 'item',
     serving_label: 'one apple',
+    provenance: 'user_entered',
+    confidence_score: null,
+    portion_options: [
+      {
+        key: 'base',
+        label: 'one apple',
+        unit_label: 'serving',
+        serving_multiplier: '1',
+      },
+      {
+        key: 'half',
+        label: 'half apple',
+        unit_label: 'half apple',
+        serving_multiplier: '0.5',
+      },
+    ],
+    nutrients: [
+      { key: 'calories', name: 'Calories', unit: 'kcal', amount: '95.0000' },
+      { key: 'protein', name: 'Protein', unit: 'g', amount: '0.5000' },
+      { key: 'carbohydrates', name: 'Carbohydrates', unit: 'g', amount: '25.0000' },
+      { key: 'fat', name: 'Fat', unit: 'g', amount: '0.3000' },
+    ],
+    sources: [],
+    components: [],
   },
 };
 
@@ -169,18 +194,60 @@ describe('DiaryPage', () => {
     const addDialog = await screen.findByRole('dialog', { name: /Add meal manually/ });
     await user.type(within(addDialog).getByRole('textbox', { name: /Meal name/ }), 'Lunch');
     await user.click(await screen.findByRole('button', { name: 'Add' }));
+    expect(within(addDialog).getByRole('region', { name: 'Meal macro breakdown' })).toBeVisible();
+    expect(within(addDialog).getByLabelText('Apple macro values')).toBeVisible();
+    expect(within(addDialog).getAllByText('User entered')).not.toHaveLength(0);
+    await user.click(within(addDialog).getByRole('combobox', { name: 'Portion or unit' }));
+    await user.click(await screen.findByRole('option', { name: 'half apple' }));
+    const quantity = within(addDialog).getByRole('spinbutton', { name: 'Quantity' });
+    expect(quantity).toHaveValue(2);
+    await user.clear(quantity);
+    await user.type(quantity, '1');
     await user.click(screen.getByRole('button', { name: 'Save meal' }));
 
     await waitFor(() => {
       expect(createMeal).toHaveBeenCalledWith(
         expect.objectContaining({
           name: 'Lunch',
-          item_inputs: [{ food_item: 7, servings: '1', order: 0 }],
+          item_inputs: [{ food_item: 7, servings: '0.5', order: 0 }],
         }),
         'access-token',
       );
     });
     expect(showSnackbar).toHaveBeenCalledWith('success', 'Meal added.');
+  });
+
+  test('protects an unsaved manual meal draft before closing', async () => {
+    const user = userEvent.setup();
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Add manually' }));
+    const editor = await screen.findByRole('dialog', { name: /Add meal manually/ });
+    await user.type(within(editor).getByRole('textbox', { name: /Meal name/ }), 'Draft lunch');
+    await user.click(within(editor).getByRole('button', { name: 'Cancel' }));
+
+    const discardDialog = screen.getByRole('dialog', {
+      name: 'Discard manual meal changes?',
+    });
+    await user.click(within(discardDialog).getByRole('button', { name: 'Keep editing' }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: 'Discard manual meal changes?' }),
+      ).not.toBeInTheDocument(),
+    );
+    const resumedEditor = screen.getByRole('dialog', { name: /Add meal manually/ });
+    expect(resumedEditor).toBeVisible();
+
+    await user.click(within(resumedEditor).getByRole('button', { name: 'Cancel' }));
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Discard manual meal changes?' })).getByRole(
+        'button',
+        { name: 'Discard changes' },
+      ),
+    );
+    await waitFor(() => expect(resumedEditor).not.toBeInTheDocument());
   });
 
   test('creates a personal food with explicit nutrient values', async () => {
@@ -221,10 +288,10 @@ describe('DiaryPage', () => {
     const nameInput = within(dialog).getByRole('textbox', { name: /Meal name/ });
     await user.clear(nameInput);
     await user.type(nameInput, 'Brunch');
-    const servings = within(dialog).getByLabelText('Servings');
+    const servings = within(dialog).getByLabelText('Quantity');
     await user.clear(servings);
     await user.type(servings, '2');
-    await user.click(within(dialog).getByRole('button', { name: 'Save meal' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() => {
       expect(updateMeal).toHaveBeenCalledWith(

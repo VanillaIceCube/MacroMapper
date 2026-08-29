@@ -1,4 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -22,8 +24,7 @@ import {
   DialogTitle,
   IconButton,
   List,
-  ListItem,
-  ListItemText,
+  MenuItem,
   Paper,
   Skeleton,
   Stack,
@@ -39,7 +40,11 @@ import {
   searchFoods,
   updateMeal,
 } from '../services/mealApiClient';
-import MealEstimateDialog from '../components/MealEstimateDialog';
+import MealEstimateDialog, {
+  ItemNutritionCards,
+  MacroChart,
+  NutritionCards,
+} from '../components/MealEstimateDialog';
 
 const launchNutrients = [
   {
@@ -118,6 +123,8 @@ const provenanceLabels = {
   user_modified_estimate: 'User adjusted',
   user_entered: 'User entered',
 };
+
+let manualItemSequence = 0;
 
 const emptyPersonalFood = () => ({
   name: '',
@@ -230,6 +237,108 @@ const macroDonutBackground = (segments) => {
   return `conic-gradient(${stops.join(', ')})`;
 };
 
+const nutrientValues = (nutrients = [], divisor = 1) =>
+  Object.fromEntries(
+    nutrients.map((nutrient) => {
+      const amount = Number(nutrient.amount);
+      return [
+        nutrient.key,
+        Number.isFinite(amount) && divisor > 0 ? String(amount / divisor) : nutrient.amount,
+      ];
+    }),
+  );
+
+const basePortionOption = (item) => ({
+  key: 'base',
+  label: item.serving_label || `${formatAmount(item.serving_quantity)} ${item.serving_unit}`,
+  unit_label: 'serving',
+  serving_multiplier: '1',
+});
+
+const manualPortionOptions = (item) =>
+  item.portion_options?.length ? item.portion_options : [basePortionOption(item)];
+
+const selectedManualPortion = (item) =>
+  manualPortionOptions(item).find((option) => option.key === item.selected_portion_key) ||
+  manualPortionOptions(item)[0];
+
+const manualQuantity = (item) => {
+  if (item.servings === '') return '';
+  const servings = Number(item.servings);
+  const multiplier = Number(selectedManualPortion(item).serving_multiplier);
+  if (!Number.isFinite(servings) || !Number.isFinite(multiplier) || multiplier <= 0) {
+    return item.servings;
+  }
+  return String(Number((servings / multiplier).toFixed(6)));
+};
+
+const manualItemFromFood = (food) => {
+  const version = food.current_version || {};
+  const portions = version.portion_options?.length
+    ? version.portion_options
+    : [basePortionOption(version)];
+  return {
+    key: `manual-food-${food.id}-${manualItemSequence++}`,
+    food_item: food.id,
+    food_version: null,
+    name: food.name,
+    provider: food.provider_name,
+    servings: '1',
+    serving_quantity: version.serving_quantity || '1',
+    serving_unit: version.serving_unit || 'serving',
+    serving_label: version.serving_label || 'one serving',
+    portion_options: portions,
+    selected_portion_key: portions[0].key,
+    provenance: version.provenance || (food.scope === 'personal' ? 'user_entered' : 'official'),
+    confidence_score: version.confidence_score,
+    nutrients: nutrientValues(version.nutrients),
+    sources: version.sources || [],
+    components: [],
+    component_snapshot: (version.components || []).map((component) => ({
+      ...component,
+      food_name: component.food_name || component.food_item_name,
+      components: component.components || [],
+    })),
+  };
+};
+
+const manualItemFromSavedMeal = (item) => {
+  const servings = Number(item.servings);
+  const portions = [basePortionOption(item)];
+  return {
+    key: `manual-saved-${item.id || item.food_item_id}-${manualItemSequence++}`,
+    food_item: item.food_item_id,
+    food_version: item.food_version_id,
+    name: item.food_name,
+    provider: item.provider_name,
+    servings: String(servings),
+    serving_quantity: item.serving_quantity,
+    serving_unit: item.serving_unit,
+    serving_label: item.serving_label,
+    portion_options: portions,
+    selected_portion_key: portions[0].key,
+    provenance: item.provenance,
+    confidence_score: item.confidence_score,
+    nutrients: nutrientValues(item.nutrients, servings),
+    sources: [],
+    components: [],
+    component_snapshot: item.component_snapshot || [],
+  };
+};
+
+const manualDraftFingerprint = ({ name, notes, entryDate, items, newFood = {} }) =>
+  JSON.stringify({
+    name,
+    notes,
+    entryDate,
+    items: items.map(({ food_item, food_version, servings }) => ({
+      food_item,
+      food_version,
+      servings,
+    })),
+    newFood,
+  });
+
 async function responseError(response, fallback) {
   try {
     const body = await response.json();
@@ -261,13 +370,17 @@ function MealItemBreakdown({ components }) {
 function MealEditor({ date, meal, open, token, onClose, onSaved }) {
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
+  const [entryDate, setEntryDate] = useState(date);
   const [items, setItems] = useState([]);
   const [query, setQuery] = useState('');
   const [foods, setFoods] = useState([]);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [creatingFood, setCreatingFood] = useState(false);
   const [error, setError] = useState('');
   const [newFood, setNewFood] = useState(emptyPersonalFood);
+  const [discardOpen, setDiscardOpen] = useState(false);
+  const baselineRef = useRef('');
 
   const runSearch = useCallback(async () => {
     setSearching(true);
@@ -284,20 +397,26 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
   useEffect(() => {
     if (!open) return;
     let active = true;
-    setName(meal?.name ?? '');
-    setNotes(meal?.notes ?? '');
-    setItems(
-      meal?.items?.map((item) => ({
-        food_item: item.food_item_id,
-        food_version: item.food_version_id,
-        name: item.food_name,
-        provider: item.provider_name,
-        servings: String(Number(item.servings)),
-      })) ?? [],
-    );
+    const initialName = meal?.name ?? '';
+    const initialNotes = meal?.notes ?? '';
+    const initialDate = meal?.entry_date ?? date;
+    const initialItems = meal?.items?.map(manualItemFromSavedMeal) ?? [];
+    setName(initialName);
+    setNotes(initialNotes);
+    setEntryDate(initialDate);
+    setItems(initialItems);
+    const initialNewFood = emptyPersonalFood();
+    baselineRef.current = manualDraftFingerprint({
+      name: initialName,
+      notes: initialNotes,
+      entryDate: initialDate,
+      items: initialItems,
+      newFood: initialNewFood,
+    });
     setQuery('');
     setError('');
-    setNewFood(emptyPersonalFood());
+    setDiscardOpen(false);
+    setNewFood(initialNewFood);
     setSearching(true);
     searchFoods('', token).then(async (response) => {
       if (!active) return;
@@ -311,30 +430,69 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
     return () => {
       active = false;
     };
-  }, [meal, open, token]);
+  }, [date, meal, open, token]);
 
   const addFood = (food) => {
-    setItems((current) => [
-      ...current,
-      {
-        food_item: food.id,
-        food_version: null,
-        name: food.name,
-        provider: food.provider_name,
-        servings: '1',
-      },
-    ]);
+    setItems((current) => [...current, manualItemFromFood(food)]);
+  };
+
+  const updateItem = (index, update) => {
+    setItems((current) =>
+      current.map((item, itemIndex) => (itemIndex === index ? update(item) : item)),
+    );
+  };
+
+  const moveItem = (index, direction) => {
+    setItems((current) => {
+      const destination = index + direction;
+      if (destination < 0 || destination >= current.length) return current;
+      const next = [...current];
+      [next[index], next[destination]] = [next[destination], next[index]];
+      return next;
+    });
+  };
+
+  const changeQuantity = (index, amount) => {
+    updateItem(index, (item) => {
+      const multiplier = Number(selectedManualPortion(item).serving_multiplier);
+      const numericAmount = Number(amount);
+      return {
+        ...item,
+        servings:
+          amount === '' || !Number.isFinite(numericAmount) || !Number.isFinite(multiplier)
+            ? amount
+            : String(Number((numericAmount * multiplier).toFixed(8))),
+      };
+    });
+  };
+
+  const currentFingerprint = manualDraftFingerprint({ name, notes, entryDate, items, newFood });
+  const hasUnsavedChanges = Boolean(
+    baselineRef.current && currentFingerprint !== baselineRef.current,
+  );
+  const requestClose = () => {
+    if (hasUnsavedChanges) {
+      setDiscardOpen(true);
+    } else {
+      onClose();
+    }
   };
 
   const save = async () => {
-    if (!name.trim() || !items.length) {
+    if (!name.trim() || !entryDate || !items.length) {
       setError('Name the meal and add at least one food.');
+      return;
+    }
+    if (
+      items.some((item) => !Number.isFinite(Number(item.servings)) || Number(item.servings) <= 0)
+    ) {
+      setError('Each meal item needs a quantity greater than zero.');
       return;
     }
     setSaving(true);
     setError('');
     const payload = {
-      entry_date: date,
+      entry_date: entryDate,
       name: name.trim(),
       notes: notes.trim(),
       item_inputs: items.map((item, order) => ({
@@ -363,7 +521,7 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
     const nutrients = Object.fromEntries(
       Object.entries(newFood).filter(([key, value]) => key !== 'name' && value !== ''),
     );
-    setSaving(true);
+    setCreatingFood(true);
     setError('');
     const response = await createPersonalFood(
       {
@@ -391,230 +549,498 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
     } else {
       setError(await responseError(response, 'Could not create this personal food.'));
     }
-    setSaving(false);
+    setCreatingFood(false);
   };
 
   return (
-    <Dialog
-      open={open}
-      onClose={saving ? undefined : onClose}
-      fullWidth
-      maxWidth="md"
-      fullScreen={false}
-      sx={{
-        '& .MuiDialog-paper': {
-          bgcolor: 'var(--atlas-paper)',
-          border: '1px solid var(--atlas-border-strong)',
-          boxShadow: '0 24px 64px rgba(23, 50, 77, 0.16)',
-        },
-      }}
-    >
-      <DialogTitle
+    <>
+      <Dialog
+        open={open}
+        onClose={saving || creatingFood ? undefined : requestClose}
+        fullWidth
+        maxWidth="md"
+        aria-labelledby="manual-meal-editor-title"
         sx={{
-          bgcolor: 'var(--atlas-mineral-soft)',
-          color: 'var(--atlas-ink)',
-          borderBottom: '1px solid var(--atlas-border)',
+          '& .MuiDialog-paper': {
+            m: { xs: 0, sm: 2 },
+            width: { xs: '100%', sm: 'calc(100% - 32px)' },
+            height: { xs: '100%', sm: 'auto' },
+            maxHeight: { xs: '100%', sm: 'calc(100% - 32px)' },
+            borderRadius: { xs: 0, sm: 3 },
+            bgcolor: 'var(--atlas-paper)',
+            border: '1px solid var(--atlas-border-strong)',
+            boxShadow: '0 24px 64px rgba(23, 50, 77, 0.16)',
+          },
         }}
       >
-        <Typography component="span" variant="overline" sx={{ display: 'block' }}>
-          {meal ? 'Saved meal' : 'Manual entry'}
-        </Typography>
-        <Typography component="span" variant="h5">
-          {meal ? 'Edit meal' : 'Add meal manually'}
-        </Typography>
-      </DialogTitle>
-      <DialogContent dividers sx={{ bgcolor: 'var(--atlas-paper)', borderColor: 'transparent' }}>
-        <Stack spacing={2.5}>
-          {error && <Alert severity="error">{error}</Alert>}
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-            <TextField
-              label="Meal name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              required
-              fullWidth
-            />
-            <TextField label="Date" type="date" value={date} disabled sx={{ minWidth: 170 }} />
-          </Stack>
-          <TextField
-            label="Notes (optional)"
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            multiline
-            minRows={2}
-          />
-
-          <Box
-            sx={{
-              p: { xs: 2, sm: 2.5 },
-              bgcolor: 'var(--atlas-mineral-soft)',
-              border: '1px solid rgba(71, 121, 138, 0.24)',
-              borderRadius: 2,
-            }}
-          >
-            <Typography component="h3" variant="h6">
-              Meal items
-            </Typography>
-            {!items.length && (
-              <Typography color="text.secondary" sx={{ mt: 1 }}>
-                Search below to add foods.
-              </Typography>
-            )}
-            <List disablePadding>
-              {items.map((item, index) => (
-                <ListItem
-                  key={`${item.food_item}-${index}`}
-                  disableGutters
-                  sx={{ borderBottom: '1px solid var(--atlas-border)' }}
-                  secondaryAction={
-                    <IconButton
-                      aria-label={`remove ${item.name}`}
-                      onClick={() =>
-                        setItems((current) =>
-                          current.filter((_value, itemIndex) => itemIndex !== index),
-                        )
-                      }
-                    >
-                      <DeleteOutlineIcon />
-                    </IconButton>
-                  }
-                >
-                  <ListItemText
-                    primary={item.name}
-                    secondary={item.provider || 'Personal or generic food'}
-                  />
-                  <TextField
-                    label="Servings"
-                    type="number"
-                    value={item.servings}
-                    onChange={(event) =>
-                      setItems((current) =>
-                        current.map((value, itemIndex) =>
-                          itemIndex === index ? { ...value, servings: event.target.value } : value,
-                        ),
-                      )
-                    }
-                    inputProps={{ min: 0.0001, step: 0.25 }}
-                    sx={{ width: 120, mr: 6 }}
-                  />
-                </ListItem>
-              ))}
-            </List>
-          </Box>
-
-          <Box>
-            <Typography component="h3" variant="h6">
-              Find a food
-            </Typography>
-            <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-              <TextField
-                label="Search catalog"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') runSearch();
-                }}
-                fullWidth
-              />
-              <Button
+        <DialogTitle
+          id="manual-meal-editor-title"
+          sx={{
+            bgcolor: 'var(--atlas-mineral-soft)',
+            color: 'var(--atlas-ink)',
+            borderBottom: '1px solid var(--atlas-border)',
+            py: { xs: 1.5, sm: 2 },
+          }}
+        >
+          <Typography component="span" variant="overline" sx={{ display: 'block' }}>
+            {meal ? 'Saved meal · manual builder' : 'Manual meal builder'}
+          </Typography>
+          <Typography component="span" variant="h5">
+            {meal ? 'Edit meal' : 'Add meal manually'}
+          </Typography>
+          <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
+            {['1. Name the meal', '2. Add foods', '3. Review and save'].map((step) => (
+              <Chip
+                key={step}
+                label={step}
+                size="small"
                 variant="outlined"
-                onClick={runSearch}
-                disabled={searching}
-                aria-label="search foods"
-              >
-                <SearchIcon />
-              </Button>
-            </Stack>
-            {searching ? (
-              <CircularProgress size={24} sx={{ mt: 2 }} />
-            ) : (
-              <List
+                sx={{ bgcolor: 'rgba(255, 253, 248, 0.72)' }}
+              />
+            ))}
+          </Stack>
+        </DialogTitle>
+        <DialogContent
+          dividers
+          sx={{ bgcolor: 'var(--atlas-paper)', borderColor: 'transparent', px: { xs: 1.5, sm: 3 } }}
+        >
+          <Stack spacing={2.25}>
+            {error && <Alert severity="error">{error}</Alert>}
+            <Alert severity="info" variant="outlined">
+              Build with catalog or personal foods, then review the same nutrition summary used for
+              meal estimates before saving.
+            </Alert>
+
+            <Paper
+              component="section"
+              aria-labelledby="manual-meal-identity-heading"
+              elevation={0}
+              sx={{ p: { xs: 1.5, sm: 2 }, border: '1px solid var(--atlas-border)' }}
+            >
+              <Typography id="manual-meal-identity-heading" component="h3" variant="h6">
+                Meal details
+              </Typography>
+              <Stack spacing={1.5} sx={{ mt: 1.5 }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                  <TextField
+                    label="Meal name"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    required
+                    fullWidth
+                  />
+                  <TextField
+                    label="Date"
+                    type="date"
+                    value={entryDate}
+                    onChange={(event) => setEntryDate(event.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                    required
+                    sx={{ minWidth: { sm: 180 } }}
+                  />
+                </Stack>
+                <TextField
+                  label="Notes (optional)"
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  multiline
+                  minRows={2}
+                  helperText="Add preparation details or context you want saved with this meal."
+                />
+              </Stack>
+            </Paper>
+
+            <Paper
+              component="section"
+              aria-labelledby="food-search-heading"
+              elevation={0}
+              sx={{
+                p: { xs: 1.5, sm: 2 },
+                bgcolor: 'var(--atlas-mineral-soft)',
+                border: '1px solid rgba(71, 121, 138, 0.32)',
+              }}
+            >
+              <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" gap={1}>
+                <Box>
+                  <Typography id="food-search-heading" component="h3" variant="h6">
+                    Find and add foods
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Search the shared catalog and your personal foods.
+                  </Typography>
+                </Box>
+                <Chip label={`${foods.length} results`} size="small" variant="outlined" />
+              </Stack>
+              <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
+                <TextField
+                  label="Search catalog"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      runSearch();
+                    }
+                  }}
+                  fullWidth
+                />
+                <Button
+                  variant="outlined"
+                  onClick={runSearch}
+                  disabled={searching}
+                  startIcon={searching ? <CircularProgress size={18} /> : <SearchIcon />}
+                  aria-label="search foods"
+                  sx={{ minWidth: { xs: 52, sm: 116 }, px: { xs: 1.5, sm: 2.5 } }}
+                >
+                  <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                    Search
+                  </Box>
+                </Button>
+              </Stack>
+              {searching ? (
+                <Stack spacing={1} sx={{ mt: 1.5 }} aria-label="Loading food results">
+                  {[0, 1].map((value) => (
+                    <Skeleton key={value} variant="rounded" height={92} />
+                  ))}
+                </Stack>
+              ) : foods.length ? (
+                <List
+                  disablePadding
+                  aria-label="Food search results"
+                  sx={{ maxHeight: 360, mt: 1.5, overflow: 'auto' }}
+                >
+                  {foods.map((food) => {
+                    const version = food.current_version || {};
+                    const source =
+                      provenanceLabels[version.provenance] ||
+                      (food.scope === 'personal' ? 'Personal' : 'Catalog');
+                    return (
+                      <Paper
+                        component="li"
+                        key={food.id}
+                        elevation={0}
+                        sx={{
+                          listStyle: 'none',
+                          mb: 1,
+                          p: 1.25,
+                          bgcolor: 'var(--atlas-paper)',
+                          border: '1px solid var(--atlas-border)',
+                          borderLeft: `4px solid ${food.scope === 'personal' ? 'var(--atlas-persimmon)' : 'var(--atlas-forest)'}`,
+                        }}
+                      >
+                        <Stack
+                          direction={{ xs: 'column', sm: 'row' }}
+                          justifyContent="space-between"
+                          gap={1}
+                        >
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                              {food.name}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {food.provider_name ||
+                                (food.scope === 'personal' ? 'Your food' : 'Shared catalog')}
+                              {' · '}
+                              {version.serving_label ||
+                                `${formatAmount(version.serving_quantity)} ${version.serving_unit || 'serving'}`}
+                            </Typography>
+                          </Box>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <Chip size="small" label={source} variant="outlined" />
+                            <Button onClick={() => addFood(food)} startIcon={<AddIcon />}>
+                              Add
+                            </Button>
+                          </Stack>
+                        </Stack>
+                        <Box sx={{ mt: 1 }}>
+                          <NutritionCards
+                            values={nutrientValues(version.nutrients)}
+                            ariaLabel={`${food.name} catalog nutrition`}
+                            compact
+                          />
+                        </Box>
+                      </Paper>
+                    );
+                  })}
+                </List>
+              ) : (
+                <Typography sx={{ mt: 1.5 }} color="text.secondary">
+                  No foods matched this search. Try another term or create a personal food below.
+                </Typography>
+              )}
+            </Paper>
+
+            <Paper
+              component="section"
+              aria-labelledby="selected-foods-heading"
+              elevation={0}
+              sx={{ p: { xs: 1.5, sm: 2 }, border: '1px solid var(--atlas-border-strong)' }}
+            >
+              <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
+                <Box>
+                  <Typography id="selected-foods-heading" component="h3" variant="h6">
+                    Review meal items
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Adjust quantity or unit, reorder foods, and inspect their saved source.
+                  </Typography>
+                </Box>
+                <Chip
+                  size="small"
+                  label={`${items.length} ${items.length === 1 ? 'item' : 'items'}`}
+                  color={items.length ? 'success' : 'default'}
+                  variant="outlined"
+                />
+              </Stack>
+              {!items.length ? (
+                <Box
+                  sx={{
+                    mt: 1.5,
+                    p: 2.5,
+                    textAlign: 'center',
+                    bgcolor: 'var(--atlas-bone)',
+                    border: '1px dashed var(--atlas-border-strong)',
+                    borderRadius: 2,
+                  }}
+                >
+                  <RestaurantMenuOutlinedIcon sx={{ color: 'var(--atlas-mineral-dark)' }} />
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                    No foods added yet
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Add a catalog or personal food to build the nutrition review.
+                  </Typography>
+                </Box>
+              ) : (
+                <List disablePadding aria-label="Selected meal items" sx={{ mt: 1.5 }}>
+                  {items.map((item, index) => (
+                    <Paper
+                      component="li"
+                      key={`${item.food_item}-${index}`}
+                      elevation={0}
+                      sx={{
+                        listStyle: 'none',
+                        mb: 1,
+                        p: 1.25,
+                        border: '1px solid var(--atlas-border)',
+                        borderLeft: `4px solid ${item.provenance === 'user_entered' || item.provenance === 'user_modified_estimate' ? 'var(--atlas-persimmon)' : 'var(--atlas-forest)'}`,
+                      }}
+                    >
+                      <Stack direction="row" justifyContent="space-between" gap={1}>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                            {item.name}
+                          </Typography>
+                          <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                            <Chip
+                              size="small"
+                              label={provenanceLabels[item.provenance] || 'Catalog'}
+                              variant="outlined"
+                            />
+                            {item.provider && <Chip size="small" label={item.provider} />}
+                            {item.confidence_score != null && (
+                              <Chip
+                                size="small"
+                                label={`${Math.round(Number(item.confidence_score) * 100)}% confidence`}
+                                variant="outlined"
+                              />
+                            )}
+                          </Stack>
+                        </Box>
+                        <Stack direction="row" spacing={0}>
+                          <IconButton
+                            aria-label={`move ${item.name} up`}
+                            disabled={index === 0}
+                            onClick={() => moveItem(index, -1)}
+                          >
+                            <ArrowUpwardIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            aria-label={`move ${item.name} down`}
+                            disabled={index === items.length - 1}
+                            onClick={() => moveItem(index, 1)}
+                          >
+                            <ArrowDownwardIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            aria-label={`remove ${item.name}`}
+                            onClick={() =>
+                              setItems((current) =>
+                                current.filter((_value, itemIndex) => itemIndex !== index),
+                              )
+                            }
+                          >
+                            <DeleteOutlineIcon fontSize="small" />
+                          </IconButton>
+                        </Stack>
+                      </Stack>
+                      <Box sx={{ mt: 1 }}>
+                        <ItemNutritionCards item={item} compact />
+                      </Box>
+                      <Box
+                        sx={{
+                          display: 'grid',
+                          gridTemplateColumns: {
+                            xs: 'minmax(0, 1fr)',
+                            sm: '120px minmax(180px, 1fr)',
+                          },
+                          gap: 1,
+                          mt: 1.25,
+                        }}
+                      >
+                        <TextField
+                          label="Quantity"
+                          type="number"
+                          size="small"
+                          value={manualQuantity(item)}
+                          onChange={(event) => changeQuantity(index, event.target.value)}
+                          inputProps={{ min: 0.0001, step: 0.25 }}
+                        />
+                        <TextField
+                          select
+                          label="Portion or unit"
+                          size="small"
+                          value={selectedManualPortion(item).key}
+                          onChange={(event) =>
+                            updateItem(index, (current) => ({
+                              ...current,
+                              selected_portion_key: event.target.value,
+                            }))
+                          }
+                        >
+                          {manualPortionOptions(item).map((option) => (
+                            <MenuItem key={option.key} value={option.key}>
+                              {option.label || option.unit_label || option.key}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </Box>
+                      {!!item.component_snapshot?.length && (
+                        <Box component="details" sx={{ mt: 1 }}>
+                          <Typography
+                            component="summary"
+                            variant="caption"
+                            sx={{ cursor: 'pointer', fontWeight: 800, minHeight: 44, py: 1 }}
+                          >
+                            Component details ({item.component_snapshot.length})
+                          </Typography>
+                          <MealItemBreakdown components={item.component_snapshot} />
+                        </Box>
+                      )}
+                    </Paper>
+                  ))}
+                </List>
+              )}
+            </Paper>
+
+            {!!items.length && <MacroChart items={items} />}
+
+            <Box
+              component="details"
+              sx={{
+                p: { xs: 1.5, sm: 2 },
+                bgcolor: 'var(--atlas-persimmon-soft)',
+                border: '1px solid rgba(169, 68, 32, 0.28)',
+                borderRadius: 2,
+              }}
+            >
+              <Typography
+                component="summary"
+                variant="h6"
                 sx={{
-                  maxHeight: 230,
-                  mt: 1,
-                  overflow: 'auto',
-                  borderBlock: '1px solid var(--atlas-border)',
+                  color: 'var(--atlas-persimmon-dark)',
+                  cursor: 'pointer',
+                  minHeight: 44,
+                  display: 'flex',
+                  alignItems: 'center',
                 }}
               >
-                {foods.map((food) => (
-                  <ListItem
-                    key={food.id}
-                    disableGutters
-                    sx={{ borderBottom: '1px solid var(--atlas-border)' }}
-                    secondaryAction={<Button onClick={() => addFood(food)}>Add</Button>}
-                  >
-                    <ListItemText
-                      primary={food.name}
-                      secondary={`${food.provider_name || (food.scope === 'personal' ? 'Personal' : 'Shared')} · ${food.current_version?.serving_label || `${food.current_version?.serving_quantity} ${food.current_version?.serving_unit}`}`}
+                Create a personal food
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                Use this when the catalog does not contain the food you need. Enter values for one
+                serving; unknown nutrients can stay blank.
+              </Typography>
+              <Stack spacing={1.5} sx={{ mt: 2 }}>
+                <TextField
+                  label="Food name"
+                  value={newFood.name}
+                  onChange={(event) =>
+                    setNewFood((current) => ({ ...current, name: event.target.value }))
+                  }
+                />
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, 1fr)' },
+                    gap: 1.25,
+                  }}
+                >
+                  {launchNutrients.map(({ key, label, unit }) => (
+                    <TextField
+                      key={key}
+                      label={`${label} (${unit})`}
+                      type="number"
+                      value={newFood[key]}
+                      onChange={(event) =>
+                        setNewFood((current) => ({ ...current, [key]: event.target.value }))
+                      }
+                      inputProps={{ min: 0, step: 0.1 }}
                     />
-                  </ListItem>
-                ))}
-              </List>
-            )}
-          </Box>
-
-          <Box
-            component="details"
-            sx={{
-              p: { xs: 2, sm: 2.5 },
-              bgcolor: 'var(--atlas-persimmon-soft)',
-              border: '1px solid rgba(169, 68, 32, 0.24)',
-              borderRadius: 2,
+                  ))}
+                </Box>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  onClick={createFood}
+                  disabled={saving || creatingFood}
+                  startIcon={creatingFood ? <CircularProgress size={18} /> : <AddIcon />}
+                >
+                  {creatingFood ? 'Creating…' : 'Create and add food'}
+                </Button>
+              </Stack>
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions
+          sx={{
+            bgcolor: 'var(--atlas-paper)',
+            borderTop: '1px solid var(--atlas-border)',
+            px: { xs: 1.5, sm: 3 },
+            py: 1.25,
+          }}
+        >
+          <Button onClick={requestClose} disabled={saving || creatingFood}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={save} disabled={saving || creatingFood}>
+            {saving ? 'Saving…' : meal ? 'Save changes' : 'Save meal'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={discardOpen}
+        onClose={() => setDiscardOpen(false)}
+        aria-labelledby="discard-manual-meal-title"
+      >
+        <DialogTitle id="discard-manual-meal-title">Discard manual meal changes?</DialogTitle>
+        <DialogContent>
+          <Typography>Your meal draft will be lost if you close the builder.</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDiscardOpen(false)}>Keep editing</Button>
+          <Button
+            color="secondary"
+            onClick={() => {
+              setDiscardOpen(false);
+              onClose();
             }}
           >
-            <Typography
-              component="summary"
-              variant="h6"
-              sx={{ color: 'var(--atlas-persimmon-dark)', cursor: 'pointer' }}
-            >
-              Create a personal food
-            </Typography>
-            <Stack spacing={1.5} sx={{ mt: 2 }}>
-              <TextField
-                label="Food name"
-                value={newFood.name}
-                onChange={(event) =>
-                  setNewFood((current) => ({ ...current, name: event.target.value }))
-                }
-              />
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, 1fr)' },
-                  gap: 1.5,
-                }}
-              >
-                {launchNutrients.map(({ key, label, unit }) => (
-                  <TextField
-                    key={key}
-                    label={`${label} (${unit})`}
-                    type="number"
-                    value={newFood[key]}
-                    onChange={(event) =>
-                      setNewFood((current) => ({ ...current, [key]: event.target.value }))
-                    }
-                    inputProps={{ min: 0, step: 0.1 }}
-                  />
-                ))}
-              </Box>
-              <Button variant="outlined" color="secondary" onClick={createFood} disabled={saving}>
-                Create and add food
-              </Button>
-            </Stack>
-          </Box>
-        </Stack>
-      </DialogContent>
-      <DialogActions
-        sx={{ bgcolor: 'var(--atlas-paper)', borderTop: '1px solid var(--atlas-border)' }}
-      >
-        <Button onClick={onClose} disabled={saving}>
-          Cancel
-        </Button>
-        <Button variant="contained" onClick={save} disabled={saving}>
-          {saving ? 'Saving…' : 'Save meal'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+            Discard changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }
 

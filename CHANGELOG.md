@@ -10,6 +10,10 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Redesigned manual meal entry as a responsive meal-building workflow that
+  mirrors estimate review with editable meal details, catalog nutrition and
+  provenance, portion-aware item controls, reordering, live meal totals and
+  macro/component charts, personal-food creation, and protected unsaved drafts.
 - Refreshed the concise meal title whenever Adjust with AI successfully changes
   an estimate, so additions and removals are reflected before diary acceptance.
 - Vertically centered the Macro calorie split visualization when the neighboring
