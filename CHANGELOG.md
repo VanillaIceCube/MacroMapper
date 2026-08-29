@@ -62,6 +62,8 @@ All notable changes to this project are documented in this file.
   catalog path cannot fully resolve. Each provider-aware intent now searches the
   visible catalog before nutrition estimation, and AI follow-up additions use
   the same catalog-reuse step.
+- Updated the shared MacroMapper logo asset to use the approved transparent,
+  tightly cropped artwork across the application shell and install icons.
 
 ## 2026-08-22
 
