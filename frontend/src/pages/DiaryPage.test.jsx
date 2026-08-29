@@ -197,6 +197,13 @@ describe('DiaryPage', () => {
     expect(within(addDialog).getByRole('region', { name: 'Meal macro breakdown' })).toBeVisible();
     expect(within(addDialog).getByLabelText('Apple macro values')).toBeVisible();
     expect(within(addDialog).getAllByText('User entered')).not.toHaveLength(0);
+    expect(within(addDialog).getByRole('button', { name: 'Drag Apple' })).toBeVisible();
+    expect(
+      within(addDialog).queryByRole('button', { name: 'move Apple up' }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(addDialog).queryByRole('button', { name: 'move Apple down' }),
+    ).not.toBeInTheDocument();
     await user.click(within(addDialog).getByRole('combobox', { name: 'Portion or unit' }));
     await user.click(await screen.findByRole('option', { name: 'half apple' }));
     const quantity = within(addDialog).getByRole('spinbutton', { name: 'Quantity' });

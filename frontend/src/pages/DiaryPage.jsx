@@ -1,16 +1,32 @@
 import AddIcon from '@mui/icons-material/Add';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import RestaurantMenuOutlinedIcon from '@mui/icons-material/RestaurantMenuOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import TodayOutlinedIcon from '@mui/icons-material/TodayOutlined';
+import {
+  DndContext,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import {
   Alert,
   Box,
@@ -367,6 +383,45 @@ function MealItemBreakdown({ components }) {
   );
 }
 
+const verticalDragModifiers = [
+  ({ transform }) => ({
+    ...transform,
+    x: 0,
+  }),
+];
+
+function SortableManualMealItem({ itemKey, children }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: itemKey });
+
+  return (
+    <Box
+      component="li"
+      ref={setNodeRef}
+      sx={{
+        listStyle: 'none',
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.78 : 1,
+        position: 'relative',
+        zIndex: isDragging ? 1 : 'auto',
+      }}
+    >
+      {children({
+        handleProps: { ...attributes, ...listeners },
+        setActivatorNodeRef,
+      })}
+    </Box>
+  );
+}
+
 function MealEditor({ date, meal, open, token, onClose, onSaved }) {
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
@@ -381,6 +436,13 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
   const [newFood, setNewFood] = useState(emptyPersonalFood);
   const [discardOpen, setDiscardOpen] = useState(false);
   const baselineRef = useRef('');
+  const dragSensors = useSensors(
+    useSensor(MouseSensor),
+    useSensor(TouchSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
 
   const runSearch = useCallback(async () => {
     setSearching(true);
@@ -442,13 +504,13 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
     );
   };
 
-  const moveItem = (index, direction) => {
+  const handleItemDragEnd = ({ active, over }) => {
+    if (!over || active.id === over.id) return;
     setItems((current) => {
-      const destination = index + direction;
-      if (destination < 0 || destination >= current.length) return current;
-      const next = [...current];
-      [next[index], next[destination]] = [next[destination], next[index]];
-      return next;
+      const oldIndex = current.findIndex((item) => item.key === active.id);
+      const newIndex = current.findIndex((item) => item.key === over.id);
+      if (oldIndex < 0 || newIndex < 0) return current;
+      return arrayMove(current, oldIndex, newIndex);
     });
   };
 
@@ -782,7 +844,8 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
                     Review meal items
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Adjust quantity or unit, reorder foods, and inspect their saved source.
+                    Adjust quantity or unit, drag the handle to reorder foods, and inspect their
+                    saved source.
                   </Typography>
                 </Box>
                 <Chip
@@ -812,124 +875,155 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
                   </Typography>
                 </Box>
               ) : (
-                <List disablePadding aria-label="Selected meal items" sx={{ mt: 1.5 }}>
-                  {items.map((item, index) => (
-                    <Paper
-                      component="li"
-                      key={`${item.food_item}-${index}`}
-                      elevation={0}
-                      sx={{
-                        listStyle: 'none',
-                        mb: 1,
-                        p: 1.25,
-                        border: '1px solid var(--atlas-border)',
-                        borderLeft: `4px solid ${item.provenance === 'user_entered' || item.provenance === 'user_modified_estimate' ? 'var(--atlas-persimmon)' : 'var(--atlas-forest)'}`,
-                      }}
+                <DndContext
+                  sensors={dragSensors}
+                  collisionDetection={closestCenter}
+                  modifiers={verticalDragModifiers}
+                  onDragEnd={handleItemDragEnd}
+                >
+                  <SortableContext
+                    items={items.map((item) => item.key)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <List
+                      disablePadding
+                      aria-label="Selected meal items"
+                      sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}
                     >
-                      <Stack direction="row" justifyContent="space-between" gap={1}>
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                            {item.name}
-                          </Typography>
-                          <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-                            <Chip
-                              size="small"
-                              label={provenanceLabels[item.provenance] || 'Catalog'}
-                              variant="outlined"
-                            />
-                            {item.provider && <Chip size="small" label={item.provider} />}
-                            {item.confidence_score != null && (
-                              <Chip
-                                size="small"
-                                label={`${Math.round(Number(item.confidence_score) * 100)}% confidence`}
-                                variant="outlined"
-                              />
-                            )}
-                          </Stack>
-                        </Box>
-                        <Stack direction="row" spacing={0}>
-                          <IconButton
-                            aria-label={`move ${item.name} up`}
-                            disabled={index === 0}
-                            onClick={() => moveItem(index, -1)}
-                          >
-                            <ArrowUpwardIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            aria-label={`move ${item.name} down`}
-                            disabled={index === items.length - 1}
-                            onClick={() => moveItem(index, 1)}
-                          >
-                            <ArrowDownwardIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            aria-label={`remove ${item.name}`}
-                            onClick={() =>
-                              setItems((current) =>
-                                current.filter((_value, itemIndex) => itemIndex !== index),
-                              )
-                            }
-                          >
-                            <DeleteOutlineIcon fontSize="small" />
-                          </IconButton>
-                        </Stack>
-                      </Stack>
-                      <Box sx={{ mt: 1 }}>
-                        <ItemNutritionCards item={item} compact />
-                      </Box>
-                      <Box
-                        sx={{
-                          display: 'grid',
-                          gridTemplateColumns: {
-                            xs: 'minmax(0, 1fr)',
-                            sm: '120px minmax(180px, 1fr)',
-                          },
-                          gap: 1,
-                          mt: 1.25,
-                        }}
-                      >
-                        <TextField
-                          label="Quantity"
-                          type="number"
-                          size="small"
-                          value={manualQuantity(item)}
-                          onChange={(event) => changeQuantity(index, event.target.value)}
-                          inputProps={{ min: 0.0001, step: 0.25 }}
-                        />
-                        <TextField
-                          select
-                          label="Portion or unit"
-                          size="small"
-                          value={selectedManualPortion(item).key}
-                          onChange={(event) =>
-                            updateItem(index, (current) => ({
-                              ...current,
-                              selected_portion_key: event.target.value,
-                            }))
-                          }
-                        >
-                          {manualPortionOptions(item).map((option) => (
-                            <MenuItem key={option.key} value={option.key}>
-                              {option.label || option.unit_label || option.key}
-                            </MenuItem>
-                          ))}
-                        </TextField>
-                      </Box>
-                      {!!item.component_snapshot?.length && (
-                        <Box component="details" sx={{ mt: 1 }}>
-                          <Typography
-                            component="summary"
-                            variant="caption"
-                            sx={{ cursor: 'pointer', fontWeight: 800, minHeight: 44, py: 1 }}
-                          >
-                            Component details ({item.component_snapshot.length})
-                          </Typography>
-                          <MealItemBreakdown components={item.component_snapshot} />
-                        </Box>
-                      )}
-                    </Paper>
-                  ))}
-                </List>
+                      {items.map((item, index) => (
+                        <SortableManualMealItem key={item.key} itemKey={item.key}>
+                          {({ handleProps, setActivatorNodeRef }) => (
+                            <Paper
+                              elevation={0}
+                              sx={{
+                                p: 1.25,
+                                border: '1px solid var(--atlas-border)',
+                                borderLeft: `4px solid ${item.provenance === 'user_entered' || item.provenance === 'user_modified_estimate' ? 'var(--atlas-persimmon)' : 'var(--atlas-forest)'}`,
+                              }}
+                            >
+                              <Stack direction="row" justifyContent="space-between" gap={1}>
+                                <Box sx={{ minWidth: 0 }}>
+                                  <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                                    {item.name}
+                                  </Typography>
+                                  <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                                    <Chip
+                                      size="small"
+                                      label={provenanceLabels[item.provenance] || 'Catalog'}
+                                      variant="outlined"
+                                    />
+                                    {item.provider && <Chip size="small" label={item.provider} />}
+                                    {item.confidence_score != null && (
+                                      <Chip
+                                        size="small"
+                                        label={`${Math.round(Number(item.confidence_score) * 100)}% confidence`}
+                                        variant="outlined"
+                                      />
+                                    )}
+                                  </Stack>
+                                </Box>
+                                <Stack direction="row" spacing={0} alignItems="center">
+                                  <IconButton
+                                    ref={setActivatorNodeRef}
+                                    {...handleProps}
+                                    aria-label={`Drag ${item.name}`}
+                                    title={`Drag to reorder ${item.name}`}
+                                    sx={{
+                                      width: 44,
+                                      height: 44,
+                                      color: 'var(--atlas-mineral-dark)',
+                                      cursor: 'grab',
+                                      touchAction: 'none',
+                                      userSelect: 'none',
+                                      WebkitUserSelect: 'none',
+                                      '&:active': { cursor: 'grabbing' },
+                                    }}
+                                  >
+                                    <DragIndicatorIcon fontSize="small" />
+                                  </IconButton>
+                                  <IconButton
+                                    aria-label={`remove ${item.name}`}
+                                    title={`Remove ${item.name}`}
+                                    onClick={() =>
+                                      setItems((current) =>
+                                        current.filter((_value, itemIndex) => itemIndex !== index),
+                                      )
+                                    }
+                                    sx={{
+                                      width: 44,
+                                      height: 44,
+                                      color: 'var(--atlas-mineral-dark)',
+                                    }}
+                                  >
+                                    <DeleteOutlineIcon fontSize="small" />
+                                  </IconButton>
+                                </Stack>
+                              </Stack>
+                              <Box sx={{ mt: 1 }}>
+                                <ItemNutritionCards item={item} compact />
+                              </Box>
+                              <Box
+                                sx={{
+                                  display: 'grid',
+                                  gridTemplateColumns: {
+                                    xs: 'minmax(0, 1fr)',
+                                    sm: '120px minmax(180px, 1fr)',
+                                  },
+                                  gap: 1,
+                                  mt: 1.25,
+                                }}
+                              >
+                                <TextField
+                                  label="Quantity"
+                                  type="number"
+                                  size="small"
+                                  value={manualQuantity(item)}
+                                  onChange={(event) => changeQuantity(index, event.target.value)}
+                                  inputProps={{ min: 0.0001, step: 0.25 }}
+                                />
+                                <TextField
+                                  select
+                                  label="Portion or unit"
+                                  size="small"
+                                  value={selectedManualPortion(item).key}
+                                  onChange={(event) =>
+                                    updateItem(index, (current) => ({
+                                      ...current,
+                                      selected_portion_key: event.target.value,
+                                    }))
+                                  }
+                                >
+                                  {manualPortionOptions(item).map((option) => (
+                                    <MenuItem key={option.key} value={option.key}>
+                                      {option.label || option.unit_label || option.key}
+                                    </MenuItem>
+                                  ))}
+                                </TextField>
+                              </Box>
+                              {!!item.component_snapshot?.length && (
+                                <Box component="details" sx={{ mt: 1 }}>
+                                  <Typography
+                                    component="summary"
+                                    variant="caption"
+                                    sx={{
+                                      cursor: 'pointer',
+                                      fontWeight: 800,
+                                      minHeight: 44,
+                                      py: 1,
+                                    }}
+                                  >
+                                    Component details ({item.component_snapshot.length})
+                                  </Typography>
+                                  <MealItemBreakdown components={item.component_snapshot} />
+                                </Box>
+                              )}
+                            </Paper>
+                          )}
+                        </SortableManualMealItem>
+                      ))}
+                    </List>
+                  </SortableContext>
+                </DndContext>
               )}
             </Paper>
 

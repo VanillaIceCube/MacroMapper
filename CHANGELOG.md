@@ -1,6 +1,13 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 2026-08-29
+
+### Changed
+
+- Replaced the manual meal builder's up/down item controls with accessible
+  mouse, touch, and keyboard drag handles modeled on Notoli's reorder pattern.
+
 ## 2026-08-24
 
 ### Added
