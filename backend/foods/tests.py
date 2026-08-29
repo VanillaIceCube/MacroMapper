@@ -599,6 +599,44 @@ class FoodApiTests(APITestCase):
         parent_detail = self.client.get(f"/api/foods/{parent_response.data['id']}/")
         component = parent_detail.data["current_version"]["components"][0]
         self.assertEqual(component["food_version_id"], old_child_version.id)
+        self.assertEqual(component["food_item_name"], "Owner smoothie")
+        self.assertEqual(component["provenance"], old_child_version.provenance)
+        self.assertEqual(
+            {item["key"]: item["amount"] for item in component["nutrients"]},
+            {"calories": "210.0000"},
+        )
+        self.assertEqual(component["components"], [])
+
+    def test_catalog_serializes_nested_component_nutrition(self):
+        self.client.force_authenticate(user=self.owner)
+        child_definition = self.personal_food_payload()["definition"]
+        child_definition["components"] = [
+            {"food_item": self.personal_food.id, "servings": "0.5", "order": 0}
+        ]
+        child_response = self.client.post(
+            "/api/foods/",
+            self.personal_food_payload(name="Smoothie cup", definition=child_definition),
+            format="json",
+        )
+        self.assertEqual(child_response.status_code, status.HTTP_201_CREATED)
+
+        parent_definition = self.personal_food_payload()["definition"]
+        parent_definition["components"] = [
+            {"food_item": child_response.data["id"], "servings": "1", "order": 0}
+        ]
+        parent_response = self.client.post(
+            "/api/foods/",
+            self.personal_food_payload(name="Breakfast combo", definition=parent_definition),
+            format="json",
+        )
+        self.assertEqual(parent_response.status_code, status.HTTP_201_CREATED)
+
+        component = parent_response.data["current_version"]["components"][0]
+        nested_component = component["components"][0]
+        self.assertEqual(component["food_item_name"], "Smoothie cup")
+        self.assertEqual(component["nutrients"][0]["amount"], "80.0000")
+        self.assertEqual(nested_component["food_item_name"], "Owner smoothie")
+        self.assertEqual(nested_component["nutrients"][0]["amount"], "210.0000")
 
     def test_delete_archives_an_owned_personal_food(self):
         self.client.force_authenticate(user=self.owner)

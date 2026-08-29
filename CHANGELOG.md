@@ -19,6 +19,9 @@ All notable changes to this project are documented in this file.
 - Place the meal-log food table and Macro Balance container in the same aligned
   grid row and move Foods & servings into the table header to remove the
   redundant label above them.
+- Include nutrient values and nested details in catalog component payloads and
+  saved component snapshots, and hydrate legacy snapshots so composite foods and
+  their components no longer show blank nutrition.
 - Show catalog provenance, confidence, and company/provider metadata as compact
   tags above each food result.
 - Add an AI-style estimate-details action to catalog foods for reviewing their

@@ -94,6 +94,50 @@ const estimatedTaco = {
   },
 };
 
+const breakfastBurrito = {
+  ...estimatedTaco,
+  id: 71,
+  name: 'Breakfast Burrito',
+  provider_name: 'San Diego Breakfast Co.',
+  current_version: {
+    ...estimatedTaco.current_version,
+    id: 72,
+    serving_label: 'one burrito',
+    nutrients: [
+      { key: 'calories', name: 'Calories', unit: 'kcal', amount: '650.0000' },
+      { key: 'protein', name: 'Protein', unit: 'g', amount: '30.0000' },
+    ],
+    components: [
+      {
+        food_item_id: 73,
+        food_version_id: 74,
+        food_item_name: 'Flour tortilla',
+        servings: '1.0000',
+        serving_quantity: '1.000',
+        serving_unit: 'item',
+        serving_label: 'one tortilla',
+        provenance: 'ai_estimate',
+        confidence_score: '0.900',
+        nutrients: [{ key: 'calories', name: 'Calories', unit: 'kcal', amount: '200.0000' }],
+        components: [],
+      },
+      {
+        food_item_id: 75,
+        food_version_id: 76,
+        food_item_name: 'Egg and potato filling',
+        servings: '1.0000',
+        serving_quantity: '1.000',
+        serving_unit: 'serving',
+        serving_label: 'one serving',
+        provenance: 'ai_estimate',
+        confidence_score: '0.850',
+        nutrients: [{ key: 'calories', name: 'Calories', unit: 'kcal', amount: '450.0000' }],
+        components: [],
+      },
+    ],
+  },
+};
+
 const meal = {
   id: 11,
   entry_date: '2026-08-16',
@@ -413,6 +457,95 @@ describe('DiaryPage', () => {
         'access-token',
       );
     });
+  });
+
+  test('shows catalog composite nutrition in manual review and expanded components', async () => {
+    const user = userEvent.setup();
+    searchFoods.mockResolvedValue(response([breakfastBurrito]));
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Add manually' }));
+    const dialog = await screen.findByRole('dialog', { name: /Add meal manually/ });
+    await user.click(within(dialog).getByRole('button', { name: 'Add' }));
+
+    expect(
+      within(within(dialog).getByLabelText('Breakfast Burrito macro values')).getByText('650'),
+    ).toBeVisible();
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Expand components for Breakfast Burrito' }),
+    );
+    expect(
+      within(within(dialog).getByLabelText('Flour tortilla macro values')).getByText('200'),
+    ).toBeVisible();
+    expect(
+      within(within(dialog).getByLabelText('Egg and potato filling macro values')).getByText('450'),
+    ).toBeVisible();
+  });
+
+  test('shows nutrition for a saved composite item and each component', async () => {
+    const user = userEvent.setup();
+    const compositeMeal = {
+      ...meal,
+      name: 'Lunch',
+      items: [
+        {
+          ...meal.items[0],
+          id: 22,
+          food_item_id: 10,
+          food_version_id: 12,
+          food_name: 'Avocado toast',
+          serving_unit: 'serving',
+          serving_label: 'one serving',
+          nutrients: [{ key: 'calories', name: 'Calories', unit: 'kcal', amount: '220.0000' }],
+          component_snapshot: [
+            {
+              food_item_id: 11,
+              food_version_id: 13,
+              food_name: 'Avocado',
+              servings: '1.0000',
+              serving_quantity: '1.000',
+              serving_unit: 'item',
+              serving_label: 'one avocado',
+              nutrients: [{ key: 'calories', name: 'Calories', unit: 'kcal', amount: '160.0000' }],
+              components: [],
+            },
+            {
+              food_item_id: 12,
+              food_version_id: 14,
+              food_name: 'Toast',
+              servings: '1.0000',
+              serving_quantity: '1.000',
+              serving_unit: 'slice',
+              serving_label: 'one slice',
+              nutrients: [{ key: 'calories', name: 'Calories', unit: 'kcal', amount: '60.0000' }],
+              components: [],
+            },
+          ],
+        },
+      ],
+    };
+    fetchDailyDiary.mockResolvedValue(
+      response({ date: '2026-08-16', meals: [compositeMeal], totals: [] }),
+    );
+    renderWithProviders(<DiaryPage />);
+
+    await user.click(await screen.findByRole('button', { name: 'edit Lunch' }));
+    const dialog = screen.getByRole('dialog', { name: /Edit meal/ });
+    expect(
+      within(within(dialog).getByLabelText('Avocado toast macro values')).getByText('220'),
+    ).toBeVisible();
+
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Expand components for Avocado toast' }),
+    );
+    expect(
+      within(within(dialog).getByLabelText('Avocado macro values')).getByText('160'),
+    ).toBeVisible();
+    expect(
+      within(within(dialog).getByLabelText('Toast macro values')).getByText('60'),
+    ).toBeVisible();
   });
 
   test('deletes a meal after confirmation', async () => {

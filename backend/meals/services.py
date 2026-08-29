@@ -50,6 +50,7 @@ def _component_tree(version, visited=None):
         "child_version__food_item"
     ).order_by("order", "id"):
         child = component.child_version
+        child_nutrients = _effective_nutrients(child, path)
         snapshots.append(
             {
                 "food_item_id": child.food_item_id,
@@ -60,6 +61,16 @@ def _component_tree(version, visited=None):
                 "serving_quantity": str(child.serving_quantity),
                 "serving_unit": child.serving_unit,
                 "serving_label": child.serving_label,
+                "nutrients": [
+                    {
+                        "key": key,
+                        "name": NUTRIENT_METADATA[key]["name"],
+                        "unit": NUTRIENT_METADATA[key]["unit"],
+                        "amount": f"{amount:.4f}",
+                    }
+                    for key, amount in child_nutrients.items()
+                    if amount is not None
+                ],
                 "components": _component_tree(child, path),
             }
         )

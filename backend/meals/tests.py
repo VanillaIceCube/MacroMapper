@@ -228,6 +228,47 @@ class MealEntryApiTests(APITestCase):
         }
         self.assertEqual(nutrients["calories"], "270.0000")
         self.assertEqual(nutrients["protein"], "4.0000")
+        components = {
+            item["food_name"]: {
+                nutrient["key"]: nutrient["amount"]
+                for nutrient in item["nutrients"]
+            }
+            for item in response.data["items"][0]["component_snapshot"]
+        }
+        self.assertEqual(components["Apple"]["calories"], "95.0000")
+        self.assertEqual(components["Toast"]["calories"], "80.0000")
+
+    def test_legacy_component_snapshot_is_returned_with_nutrients(self):
+        composite = create_food_item(
+            name="Apple toast",
+            scope=FoodItem.Scope.PERSONAL,
+            origin_type=FoodItem.OriginType.GENERIC,
+            provider_name="",
+            owner=self.owner,
+            definition=definition(
+                components=[
+                    {"food_item": self.apple, "servings": Decimal("1"), "order": 0},
+                    {"food_item": self.toast, "servings": Decimal("1"), "order": 1},
+                ],
+            ),
+            created_by=self.owner,
+        )
+        created = self.create_meal(
+            item_inputs=[{"food_item": composite.id, "servings": "1", "order": 0}]
+        )
+        saved_item = MealItem.objects.get(pk=created.data["items"][0]["id"])
+        legacy_snapshot = saved_item.component_snapshot
+        for component in legacy_snapshot:
+            component.pop("nutrients", None)
+        saved_item.component_snapshot = legacy_snapshot
+        saved_item.save(update_fields=["component_snapshot"])
+
+        response = self.client.get(f"/api/meals/{created.data['id']}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        returned_components = response.data["items"][0]["component_snapshot"]
+        self.assertTrue(returned_components)
+        self.assertTrue(all(component["nutrients"] for component in returned_components))
 
     def test_composite_reuses_descendant_across_independent_branches(self):
         branch_definition = {

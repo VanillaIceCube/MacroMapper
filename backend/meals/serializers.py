@@ -7,7 +7,15 @@ from foods.models import FoodItem
 from foods.nutrients import NUTRIENT_METADATA
 
 from .models import MealEntry, MealItem
-from .services import replace_meal_items
+from .services import _component_tree, replace_meal_items
+
+
+def _snapshot_has_nutrients(components):
+    return all(
+        "nutrients" in component
+        and _snapshot_has_nutrients(component.get("components", []))
+        for component in components
+    )
 
 
 class MealItemSerializer(serializers.ModelSerializer):
@@ -21,6 +29,7 @@ class MealItemSerializer(serializers.ModelSerializer):
         read_only=True,
     )
     nutrients = serializers.SerializerMethodField()
+    component_snapshot = serializers.SerializerMethodField()
 
     class Meta:
         model = MealItem
@@ -52,6 +61,12 @@ class MealItemSerializer(serializers.ModelSerializer):
             for key, metadata in NUTRIENT_METADATA.items()
             if (value := getattr(instance, key)) is not None
         ]
+
+    def get_component_snapshot(self, instance):
+        snapshot = instance.component_snapshot
+        if _snapshot_has_nutrients(snapshot):
+            return snapshot
+        return _component_tree(instance.food_version)
 
 
 class MealItemInputSerializer(serializers.Serializer):
