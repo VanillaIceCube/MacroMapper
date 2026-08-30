@@ -529,7 +529,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
         onClose={estimating || saving || adjustmentBusy ? undefined : requestClose}
         fullWidth
         maxWidth="md"
-        aria-label={mealHeader.title}
+        aria-labelledby="map-your-meal-header-title"
         aria-describedby="map-your-meal-description"
         sx={{
           '& .MuiDialog-paper': {
@@ -545,6 +545,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
         }}
       >
         <DialogTitle
+          component="div"
           sx={{
             bgcolor: meal ? 'var(--atlas-mineral-soft)' : 'var(--atlas-persimmon-soft)',
             color: 'var(--atlas-ink)',
@@ -572,8 +573,8 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                 </Typography>
               )}
               <Typography
-                id="map-your-meal-title"
-                component="span"
+                id="map-your-meal-header-title"
+                component="h2"
                 variant="h5"
                 sx={{ display: 'block', mt: mealHeader.eyebrow ? 0.25 : 0 }}
               >

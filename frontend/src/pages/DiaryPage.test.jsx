@@ -377,7 +377,7 @@ describe('DiaryPage', () => {
 
     await screen.findByText('Nothing logged yet');
     await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Map Your Meal' });
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
 
     expect(await within(dialog).findByText('Recent food 01')).toBeVisible();
     expect(within(dialog).getAllByRole('button', { name: 'Add' })).toHaveLength(20);
@@ -436,7 +436,7 @@ describe('DiaryPage', () => {
 
     await screen.findByText('Nothing logged yet');
     await user.click(screen.getByRole('button', { name: 'Map your Meal with AI' }));
-    let dialog = await screen.findByRole('dialog', { name: 'Map It With AI' });
+    let dialog = await screen.findByRole('dialog', { name: /Map It With AI/ });
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
     expect(within(dialog).getByRole('textbox', { name: 'Describe what you ate' })).toBeVisible();
     expect(screen.queryByRole('dialog', { name: /Map Your Meal/ })).not.toBeInTheDocument();
@@ -476,12 +476,12 @@ describe('DiaryPage', () => {
 
     await screen.findByText('Nothing logged yet');
     await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Map Your Meal' });
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
     await user.type(
       within(dialog).getByRole('textbox', { name: 'Describe an AI adjustment' }),
       'Add a carne asada taco',
     );
-    const entryDate = within(dialog).getByLabelText('Date').value;
+    const entryDate = within(dialog).getByLabelText(/Date/i).value;
     await user.click(within(dialog).getByRole('button', { name: 'Apply adjustment' }));
 
     await waitFor(() =>
@@ -521,7 +521,7 @@ describe('DiaryPage', () => {
 
     await screen.findByText('Nothing logged yet');
     await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Map Your Meal' });
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
     await user.type(within(dialog).getByRole('textbox', { name: 'Search catalog' }), 'Apple');
     await user.click(within(dialog).getByRole('button', { name: 'search foods' }));
     await user.click(await within(dialog).findByRole('button', { name: 'Add' }));
@@ -544,7 +544,7 @@ describe('DiaryPage', () => {
 
     await screen.findByText('Nothing logged yet');
     await user.click(screen.getByRole('button', { name: 'Map your Meal with AI' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Map It With AI' });
+    const dialog = await screen.findByRole('dialog', { name: /Map It With AI/ });
     await user.click(within(dialog).getByRole('button', { name: 'Create estimate' }));
 
     expect(within(dialog).getByText('Describe the meal you want to estimate.')).toBeVisible();
@@ -561,7 +561,7 @@ describe('DiaryPage', () => {
 
     await screen.findByText('Nothing logged yet');
     await user.click(screen.getByRole('button', { name: 'Map your Meal with AI' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Map It With AI' });
+    const dialog = await screen.findByRole('dialog', { name: /Map It With AI/ });
     await user.type(
       within(dialog).getByRole('textbox', { name: 'Describe what you ate' }),
       'Tacos',
@@ -582,14 +582,14 @@ describe('DiaryPage', () => {
 
     await screen.findByText('Nothing logged yet');
     await user.click(screen.getByRole('button', { name: 'Map your Meal with AI' }));
-    const estimateDialog = await screen.findByRole('dialog', { name: 'Map It With AI' });
+    const estimateDialog = await screen.findByRole('dialog', { name: /Map It With AI/ });
     await user.type(
       within(estimateDialog).getByRole('textbox', { name: 'Describe what you ate' }),
       'Carne asada taco',
     );
     await user.click(within(estimateDialog).getByRole('button', { name: 'Create estimate' }));
 
-    const dialog = await screen.findByRole('dialog', { name: 'Map Your Meal' });
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
     expect(await within(dialog).findByLabelText('Carne Asada Taco macro values')).toBeVisible();
     expect(within(dialog).getByText('AI Adjustments')).toBeVisible();
@@ -632,14 +632,14 @@ describe('DiaryPage', () => {
 
     await screen.findByText('Nothing logged yet');
     await user.click(screen.getByRole('button', { name: 'Map your Meal with AI' }));
-    const estimateDialog = await screen.findByRole('dialog', { name: 'Map It With AI' });
+    const estimateDialog = await screen.findByRole('dialog', { name: /Map It With AI/ });
     await user.type(
       within(estimateDialog).getByRole('textbox', { name: 'Describe what you ate' }),
       'Carne asada taco',
     );
     await user.click(within(estimateDialog).getByRole('button', { name: 'Create estimate' }));
 
-    const addMealDialog = await screen.findByRole('dialog', { name: 'Map Your Meal' });
+    const addMealDialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
     await user.type(
       within(addMealDialog).getByRole('textbox', { name: 'Describe an AI adjustment' }),
       'Add salsa',
