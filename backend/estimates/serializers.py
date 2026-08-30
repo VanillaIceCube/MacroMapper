@@ -16,6 +16,7 @@ from .services import (
     create_proposal,
     create_proposal_revision,
     normalize_items,
+    saved_meal_version_ids,
     secure_review_items,
 )
 
@@ -314,6 +315,23 @@ class MapYourMealItemsField(serializers.JSONField):
         )
 
 
+class MapYourMealDraftSerializer(serializers.Serializer):
+    entry_date = serializers.DateField()
+    name = serializers.CharField(
+        max_length=120,
+        trim_whitespace=True,
+        allow_blank=True,
+        required=False,
+    )
+    notes = serializers.CharField(max_length=2000, allow_blank=True, required=False)
+    items = ProposalItemsField()
+
+    def validate_name(self, value):
+        if self.context.get("meal") is not None and not value:
+            raise serializers.ValidationError("Name the meal before saving changes.")
+        return value
+
+
 class MealProposalFollowUpSerializer(serializers.Serializer):
     follow_up = serializers.CharField(max_length=500, trim_whitespace=True)
     name = serializers.CharField(max_length=120, trim_whitespace=True)
@@ -381,12 +399,14 @@ class MapYourMealAdjustmentSerializer(serializers.Serializer):
         return value
 
     def create_proposal(self):
+        meal = self.context.get("meal")
         return create_builder_proposal(
             owner=self.context["request"].user,
             entry_date=self.validated_data["entry_date"],
             name=self.validated_data.get("name", ""),
             notes=self.validated_data.get("notes", ""),
             items=self.validated_data["items"],
+            allowed_version_ids=(saved_meal_version_ids(meal) if meal else ()),
         )
 
 

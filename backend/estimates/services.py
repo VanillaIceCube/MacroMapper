@@ -21,7 +21,7 @@ from foods.nutrients import NUTRIENT_FIELDS
 from foods.portions import portion_options_for_serving
 from foods.services import create_food_item
 from meals.models import MealEntry
-from meals.services import _effective_nutrients, replace_meal_items
+from meals.services import _effective_nutrients, generate_meal_name, replace_meal_items
 
 from .models import MealProposal, MealProposalRevision
 from .provider import EstimationProviderError, get_estimation_provider
@@ -1514,24 +1514,24 @@ def apply_proposal_follow_up(
     }
 
 
-def _visible_catalog_version(*, owner, item):
+def _visible_catalog_version(*, owner, item, allowed_version_ids=()):
     food_item_id = item.get("food_item_id")
     version_id = item.get("food_version_id")
     if not food_item_id or not version_id:
         return None
-    return (
-        FoodItemVersion.objects.filter(
-            pk=version_id,
-            food_item_id=food_item_id,
-            food_item__archived_at__isnull=True,
-        )
-        .filter(Q(food_item__scope=FoodItem.Scope.SHARED) | Q(food_item__owner=owner))
-        .select_related("food_item")
-        .first()
+    queryset = FoodItemVersion.objects.filter(
+        pk=version_id,
+        food_item_id=food_item_id,
     )
+    visible = Q(food_item__archived_at__isnull=True) & (
+        Q(food_item__scope=FoodItem.Scope.SHARED) | Q(food_item__owner=owner)
+    )
+    if version_id in allowed_version_ids:
+        visible |= Q(pk=version_id)
+    return queryset.filter(visible).select_related("food_item").first()
 
 
-def secure_review_items(*, proposal, owner, items):
+def secure_review_items(*, proposal, owner, items, allowed_version_ids=()):
     """Keep provenance immutable while accepting quantity and nutrient edits."""
 
     existing = _items_by_key(proposal.items)
@@ -1543,7 +1543,11 @@ def secure_review_items(*, proposal, owner, items):
                 raise ValidationError(
                     "New ingredients must be added as top-level catalog foods."
                 )
-            version = _visible_catalog_version(owner=owner, item=item)
+            version = _visible_catalog_version(
+                owner=owner,
+                item=item,
+                allowed_version_ids=allowed_version_ids,
+            )
             if version is None:
                 raise ValidationError(
                     "New proposal foods must come from your visible catalog."
@@ -1553,14 +1557,13 @@ def secure_review_items(*, proposal, owner, items):
                 servings=item["servings"],
                 key=item["key"],
             )
-            selected_portion_key = item["selected_portion_key"]
-            if selected_portion_key not in {
-                option["key"] for option in result["portion_options"]
-            }:
-                raise ValidationError("Choose an available portion option.")
-            result["selected_portion_key"] = selected_portion_key
-            result["nutrients"] = item["nutrients"]
-            return result
+            aligned = _align_builder_item_keys(item, result)
+            return secure_review_items(
+                proposal=SimpleNamespace(items=[result]),
+                owner=owner,
+                items=[aligned],
+                allowed_version_ids=allowed_version_ids,
+            )[0]
 
         result = dict(original)
         result["portion_options"] = _portion_options(original)
@@ -1591,7 +1594,11 @@ def secure_review_items(*, proposal, owner, items):
         return result
 
     reviewed = normalize_items([secure(item) for item in items])
-    return _apply_review_attribution(items=reviewed, owner=owner)
+    return _apply_review_attribution(
+        items=reviewed,
+        owner=owner,
+        allowed_version_ids=allowed_version_ids,
+    )
 
 
 def _align_builder_item_keys(requested, canonical):
@@ -1620,11 +1627,15 @@ def _align_builder_item_keys(requested, canonical):
     return aligned
 
 
-def secure_builder_items(*, owner, items):
+def secure_builder_items(*, owner, items, allowed_version_ids=()):
     canonical_items = []
     aligned_items = []
     for item in items:
-        version = _visible_catalog_version(owner=owner, item=item)
+        version = _visible_catalog_version(
+            owner=owner,
+            item=item,
+            allowed_version_ids=allowed_version_ids,
+        )
         if version is None:
             raise ValidationError("Meal foods must come from your visible catalog.")
         canonical = _catalog_food(
@@ -1638,12 +1649,19 @@ def secure_builder_items(*, owner, items):
         proposal=SimpleNamespace(items=canonical_items),
         owner=owner,
         items=aligned_items,
+        allowed_version_ids=allowed_version_ids,
     )
 
 
 @transaction.atomic
-def create_builder_proposal(*, owner, entry_date, name, notes, items):
-    secured_items = secure_builder_items(owner=owner, items=items)
+def create_builder_proposal(
+    *, owner, entry_date, name, notes, items, allowed_version_ids=()
+):
+    secured_items = secure_builder_items(
+        owner=owner,
+        items=items,
+        allowed_version_ids=allowed_version_ids,
+    )
     default_name = " & ".join(item["name"] for item in secured_items[:3])
     proposal = MealProposal.objects.create(
         owner=owner,
@@ -1780,13 +1798,17 @@ def _matches_catalog_tree(item, version):
     return True
 
 
-def _apply_review_attribution(*, items, owner):
+def _apply_review_attribution(*, items, owner, allowed_version_ids=()):
     def annotate(item):
         item = dict(item)
         item["components"] = [
             annotate(component) for component in item.get("components", [])
         ]
-        version = _visible_catalog_version(owner=owner, item=item)
+        version = _visible_catalog_version(
+            owner=owner,
+            item=item,
+            allowed_version_ids=allowed_version_ids,
+        )
         modified = version is not None and not _matches_catalog_tree(item, version)
         item["is_user_modified"] = modified
         if modified:
@@ -1822,10 +1844,14 @@ def _matches_materialized_components(version, components):
     return True
 
 
-def _materialize_item(*, owner, item):
+def _materialize_item(*, owner, item, allowed_version_ids=()):
     components = []
     for order, component_item in enumerate(item.get("components", [])):
-        child_food, child_version = _materialize_item(owner=owner, item=component_item)
+        child_food, child_version = _materialize_item(
+            owner=owner,
+            item=component_item,
+            allowed_version_ids=allowed_version_ids,
+        )
         components.append(
             {
                 "food_item": child_food,
@@ -1839,7 +1865,11 @@ def _materialize_item(*, owner, item):
             }
         )
 
-    catalog_version = _visible_catalog_version(owner=owner, item=item)
+    catalog_version = _visible_catalog_version(
+        owner=owner,
+        item=item,
+        allowed_version_ids=allowed_version_ids,
+    )
     if (
         catalog_version is not None
         and _matches_catalog_nutrients(item, catalog_version)
@@ -1876,6 +1906,77 @@ def _materialize_item(*, owner, item):
         created_by=owner,
     )
     return food, food.current_version
+
+
+def saved_meal_version_ids(meal):
+    version_ids = set(meal.items.values_list("food_version_id", flat=True))
+
+    def collect(components):
+        for component in components:
+            version_id = component.get("food_version_id")
+            if version_id:
+                version_ids.add(version_id)
+            collect(component.get("components", []))
+
+    for snapshot in meal.items.values_list("component_snapshot", flat=True):
+        collect(snapshot or [])
+    return version_ids
+
+
+@transaction.atomic
+def save_meal_draft(*, owner, meal, entry_date, name, notes, items):
+    if meal is not None:
+        meal = MealEntry.objects.select_for_update().get(pk=meal.pk, owner=owner)
+    allowed_version_ids = saved_meal_version_ids(meal) if meal is not None else set()
+    secured_items = secure_builder_items(
+        owner=owner,
+        items=items,
+        allowed_version_ids=allowed_version_ids,
+    )
+    reviewed_items = _apply_review_attribution(
+        items=secured_items,
+        owner=owner,
+        allowed_version_ids=allowed_version_ids,
+    )
+    item_inputs = []
+    for order, item in enumerate(reviewed_items):
+        food, version = _materialize_item(
+            owner=owner,
+            item=item,
+            allowed_version_ids=allowed_version_ids,
+        )
+        item_inputs.append(
+            {
+                "food_item": food,
+                "food_version": version.pk,
+                "servings": _storage_decimal(
+                    item.get("servings"), decimal_places=4, default="1"
+                ),
+                "order": order,
+            }
+        )
+
+    if meal is None:
+        meal = MealEntry.objects.create(
+            owner=owner,
+            entry_date=entry_date,
+            name=(
+                name
+                or generate_meal_name(
+                    owner=owner,
+                    entry_date=entry_date,
+                    item_inputs=item_inputs,
+                )
+            ),
+            notes=notes,
+        )
+    else:
+        meal.entry_date = entry_date
+        meal.name = name
+        meal.notes = notes
+        meal.save(update_fields=["entry_date", "name", "notes", "updated_at"])
+    replace_meal_items(meal_entry=meal, item_inputs=item_inputs)
+    return meal
 
 
 @transaction.atomic

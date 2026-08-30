@@ -11,14 +11,6 @@ from .models import MealEntry, MealItem
 from .services import _component_tree, replace_meal_items
 
 
-def _snapshot_has_nutrients(components):
-    return all(
-        "nutrients" in component
-        and _snapshot_has_nutrients(component.get("components", []))
-        for component in components
-    )
-
-
 class MealItemSerializer(serializers.ModelSerializer):
     food_item_id = serializers.IntegerField(source="food_version.food_item_id")
     food_version_id = serializers.IntegerField(read_only=True)
@@ -32,6 +24,20 @@ class MealItemSerializer(serializers.ModelSerializer):
     nutrients = serializers.SerializerMethodField()
     component_snapshot = serializers.SerializerMethodField()
     portion_options = serializers.SerializerMethodField()
+    origin_type = serializers.CharField(source="food_version.food_item.origin_type")
+    serving_weight_grams = serializers.DecimalField(
+        source="food_version.serving_weight_grams",
+        max_digits=10,
+        decimal_places=3,
+        allow_null=True,
+    )
+    serving_volume_ml = serializers.DecimalField(
+        source="food_version.serving_volume_ml",
+        max_digits=10,
+        decimal_places=3,
+        allow_null=True,
+    )
+    sources = serializers.SerializerMethodField()
 
     class Meta:
         model = MealItem
@@ -41,16 +47,20 @@ class MealItemSerializer(serializers.ModelSerializer):
             "food_version_id",
             "food_name",
             "provider_name",
+            "origin_type",
             "servings",
             "order",
             "serving_quantity",
             "serving_unit",
             "serving_label",
+            "serving_weight_grams",
+            "serving_volume_ml",
             "portion_options",
             "provenance",
             "confidence_score",
             "component_snapshot",
             "nutrients",
+            "sources",
         )
 
     def get_nutrients(self, instance):
@@ -66,10 +76,20 @@ class MealItemSerializer(serializers.ModelSerializer):
         ]
 
     def get_component_snapshot(self, instance):
-        snapshot = instance.component_snapshot
-        if _snapshot_has_nutrients(snapshot):
-            return snapshot
         return _component_tree(instance.food_version)
+
+    def get_sources(self, instance):
+        return [
+            {
+                "title": source.title,
+                "provider": source.provider,
+                "url": source.url,
+                "accessed_on": source.accessed_on,
+                "is_official": instance.food_version.provenance
+                == instance.food_version.Provenance.OFFICIAL,
+            }
+            for source in instance.food_version.sources.all()
+        ]
 
     def get_portion_options(self, instance):
         version = instance.food_version
