@@ -184,7 +184,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
   const [catalogActionsAnchorEl, setCatalogActionsAnchorEl] = useState(null);
   const [catalogActionsFoodId, setCatalogActionsFoodId] = useState(null);
   const [catalogDetailFoodIds, setCatalogDetailFoodIds] = useState(() => new Set());
-  const baselineRef = useRef('');
+  const [baselineFingerprint, setBaselineFingerprint] = useState('');
   const catalogSearchRef = useRef(null);
   const selectedFoodIds = useMemo(
     () => new Set(items.map((item) => String(item.food_item))),
@@ -249,12 +249,14 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     setAdjustment('');
     setAdjustmentBusy(false);
     setAdjustmentFeedback(null);
-    baselineRef.current = mealDraftFingerprint({
-      name: initialName,
-      notes: initialNotes,
-      entryDate: initialDate,
-      items: initialItems,
-    });
+    setBaselineFingerprint(
+      mealDraftFingerprint({
+        name: initialName,
+        notes: initialNotes,
+        entryDate: initialDate,
+        items: initialItems,
+      }),
+    );
     setQuery('');
     setFoods([]);
     setHasSearched(false);
@@ -306,12 +308,14 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     });
     setCatalogPickerOpen(false);
     setQuery('');
-    baselineRef.current = mealDraftFingerprint({
-      name: proposalName,
-      notes: proposalNotes,
-      entryDate: proposalDate,
-      items: proposalItems,
-    });
+    setBaselineFingerprint(
+      mealDraftFingerprint({
+        name: proposalName,
+        notes: proposalNotes,
+        entryDate: proposalDate,
+        items: proposalItems,
+      }),
+    );
     setEstimating(false);
     loadRecentFoods();
   };
@@ -420,7 +424,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     items,
   });
   const hasUnsavedChanges = Boolean(
-    baselineRef.current && currentFingerprint !== baselineRef.current,
+    baselineFingerprint && currentFingerprint !== baselineFingerprint,
   );
   const requestClose = () => {
     if (hasUnsavedChanges) {
@@ -879,7 +883,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                                       />
                                     )}
                                   </Stack>
-                                  {!!version.sources?.length ? (
+                                  {version.sources?.length ? (
                                     <Stack component="ul" spacing={0.25} sx={{ mb: 0, pl: 2.25 }}>
                                       {version.sources.map((estimateSource) => (
                                         <Typography
@@ -977,8 +981,9 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       Meal Items
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Adjust quantities, units, nutrition, and components, or review each item’s
-                      estimate details and sources.
+                      {proposalId
+                        ? 'Adjust quantities, units, nutrition, and components, or review each item’s estimate details and sources.'
+                        : 'Adjust meal quantities and units, or review each item’s estimate details and sources. AI adjustments unlock nutrition and component editing.'}
                     </Typography>
                   </Box>
                   <Chip
@@ -1018,7 +1023,8 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                         onPortionChange={changePortion}
                         onNutrientChange={changeNutrient}
                         onRemove={removeItem}
-                        allowNutritionEditing={!meal}
+                        allowNutritionEditing={Boolean(proposalId)}
+                        allowComponentEditing={Boolean(proposalId)}
                         renderNutrition={(foodItem, onChange) => (
                           <ItemNutritionCards item={foodItem} compact onNutrientChange={onChange} />
                         )}

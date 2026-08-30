@@ -312,6 +312,8 @@ def _source_kind(provenance):
         return "ai_estimate"
     if provenance == FoodItemVersion.Provenance.USER_MODIFIED_ESTIMATE:
         return "user_modified_estimate"
+    if provenance == FoodItemVersion.Provenance.USER_ENTERED:
+        return "user_entered"
     return "catalog_estimate"
 
 
@@ -1335,7 +1337,9 @@ def _follow_up_search_intent(item):
 
 
 @transaction.atomic
-def apply_proposal_follow_up(*, proposal, owner, follow_up, items, result):
+def apply_proposal_follow_up(
+    *, proposal, owner, follow_up, items, result, entry_date=None
+):
     proposal = (
         MealProposal.objects.select_for_update()
         .prefetch_related("revisions")
@@ -1451,6 +1455,8 @@ def apply_proposal_follow_up(*, proposal, owner, follow_up, items, result):
         }
 
     proposal.name = _brief_generated_meal_name(result["name"])
+    if entry_date is not None:
+        proposal.entry_date = entry_date
     proposal.items = normalize_items([*retained_items, *added_items])
     proposal.generator = MealProposal.Generator.OPENAI
     provider_name = result["provider_name"]
@@ -1472,6 +1478,7 @@ def apply_proposal_follow_up(*, proposal, owner, follow_up, items, result):
     proposal.save(
         update_fields=[
             "name",
+            "entry_date",
             "items",
             "generator",
             "provider_name",
@@ -1580,18 +1587,24 @@ def _align_builder_item_keys(requested, canonical):
         raise ValidationError("Meal foods must come from your visible catalog.")
     requested_components = requested.get("components", [])
     canonical_components = canonical.get("components", [])
-    if len(requested_components) != len(canonical_components):
-        raise ValidationError("Meal components no longer match the catalog.")
     aligned = deepcopy(requested)
     aligned["key"] = canonical["key"]
-    aligned["components"] = [
-        _align_builder_item_keys(requested_component, canonical_component)
-        for requested_component, canonical_component in zip(
-            requested_components,
-            canonical_components,
-            strict=True,
-        )
-    ]
+    aligned_components = []
+    canonical_index = 0
+    for requested_component in requested_components:
+        while canonical_index < len(canonical_components):
+            canonical_component = canonical_components[canonical_index]
+            canonical_index += 1
+            if requested_component.get("food_version_id") == canonical_component.get(
+                "food_version_id"
+            ):
+                aligned_components.append(
+                    _align_builder_item_keys(requested_component, canonical_component)
+                )
+                break
+        else:
+            raise ValidationError("Meal components no longer match the catalog.")
+    aligned["components"] = aligned_components
     return aligned
 
 

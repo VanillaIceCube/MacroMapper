@@ -215,6 +215,41 @@ class MealProposalApiTests(TestCase):
             "https://example.com/double-double",
         )
 
+    def test_personal_catalog_match_retains_user_entered_source(self):
+        personal = create_food_item(
+            name="My overnight oats",
+            scope=FoodItem.Scope.PERSONAL,
+            origin_type=FoodItem.OriginType.GENERIC,
+            provider_name="",
+            owner=self.user,
+            definition={
+                "serving_quantity": Decimal("1"),
+                "serving_unit": FoodItemVersion.ServingUnit.SERVING,
+                "serving_label": "one bowl",
+                "provenance": FoodItemVersion.Provenance.USER_ENTERED,
+                "confidence_score": None,
+                "nutrients": {"calories": Decimal("320")},
+                "sources": [],
+                "components": [],
+            },
+            created_by=self.user,
+        )
+
+        with patch("estimates.services.get_estimation_provider") as provider:
+            response = self.client.post(
+                "/api/meal-proposals/",
+                {
+                    "description": "My overnight oats",
+                    "entry_date": "2026-08-16",
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 201, response.data)
+        provider.assert_not_called()
+        self.assertEqual(response.data["items"][0]["food_item_id"], personal.pk)
+        self.assertEqual(response.data["items"][0]["source_kind"], "user_entered")
+
     def test_catalog_resolver_combines_typoed_composite_and_joined_food_with_quantity(
         self,
     ):
@@ -723,6 +758,58 @@ class MealProposalApiTests(TestCase):
         self.assertEqual(Decimal(adjusted_item["servings"]), Decimal("2"))
         self.assertEqual(response.data["proposal"]["name"], "Two Apples")
 
+    def test_builder_adjustment_accepts_removed_catalog_components(self):
+        tortilla = shared_food(name="Flour tortilla")
+        filling = shared_food(name="Egg and potato filling")
+        burrito = shared_food(
+            name="Breakfast burrito",
+            components=[
+                {"food_item": tortilla, "servings": Decimal("1"), "order": 0},
+                {"food_item": filling, "servings": Decimal("1"), "order": 1},
+            ],
+        )
+        proposal_response = self.client.post(
+            "/api/meal-proposals/",
+            {"description": "Breakfast burrito", "entry_date": "2026-08-16"},
+            format="json",
+        )
+        item = deepcopy(proposal_response.data["items"][0])
+        item["components"] = [item["components"][1]]
+        provider = Mock()
+        provider.follow_up.return_value = {
+            "name": "Double filling bowl",
+            "message": "Removed the tortilla and doubled the remaining filling.",
+            "confidence_score": Decimal("0.9"),
+            "remove_keys": [],
+            "serving_updates": [{"key": item["key"], "servings": 2}],
+            "items_to_add": [],
+            "provider_name": "OpenAI",
+            "provider_model": "gpt-test",
+            "provider_response_id": "resp_removed_component",
+        }
+
+        with patch("estimates.views.get_estimation_provider", return_value=provider):
+            response = self.client.post(
+                "/api/meal-proposals/adjustments/",
+                {
+                    "adjustment": "Remove the tortilla and make it two servings",
+                    "entry_date": "2026-08-16",
+                    "name": "Breakfast burrito",
+                    "notes": "",
+                    "items": [item],
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 200, response.data)
+        adjusted_item = response.data["proposal"]["items"][0]
+        self.assertEqual(adjusted_item["food_item_id"], burrito.pk)
+        self.assertEqual(
+            [component["food_item_id"] for component in adjusted_item["components"]],
+            [filling.pk],
+        )
+        self.assertEqual(adjusted_item["source_kind"], "user_modified_estimate")
+
     def test_follow_up_addition_reuses_a_matching_catalog_food(self):
         shared_food(name="Burger")
         kfc_fries = shared_food(
@@ -822,6 +909,7 @@ class MealProposalApiTests(TestCase):
                 {
                     "follow_up": "I only ate half the apple",
                     "name": proposal_response.data["name"],
+                    "entry_date": "2026-08-18",
                     "items": proposal_response.data["items"],
                 },
                 format="json",
@@ -834,6 +922,7 @@ class MealProposalApiTests(TestCase):
             Decimal("0.5"),
         )
         self.assertEqual(response.data["proposal"]["name"], "Half Apple")
+        self.assertEqual(str(response.data["proposal"]["entry_date"]), "2026-08-18")
         self.assertEqual(
             response.data["proposal"]["revisions"][-1]["message"],
             "Changed the apple to half a serving.",
@@ -876,6 +965,7 @@ class MealProposalApiTests(TestCase):
             f"/api/meal-proposals/{proposal_response.data['id']}/accept/"
         )
         self.assertEqual(accepted.status_code, 201)
+        self.assertEqual(str(accepted.data["entry_date"]), "2026-08-18")
         self.assertEqual(accepted.data["name"], "Quarter Apple")
         self.assertEqual(
             accepted.data["notes"],

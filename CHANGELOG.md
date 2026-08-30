@@ -1,6 +1,15 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 2026-08-30
+
+### Fixed
+
+- Preserve personal-food provenance, validated meal dates, and intentionally
+  removed recipe components throughout AI-adjusted meal drafts.
+- Prevent manual and existing meal editors from offering nutrition or nested
+  component changes that their direct save path cannot persist.
+
 ## 2026-08-29
 
 ### Added

@@ -330,11 +330,13 @@ describe('DiaryPage', () => {
       within(addDialog).queryByRole('button', { name: 'remove Apple' }),
     ).not.toBeInTheDocument();
     await user.click(within(addDialog).getByRole('button', { name: 'More actions for Apple' }));
-    expect(screen.getByRole('menuitem', { name: 'Edit nutrition for Apple' })).toBeVisible();
+    expect(
+      screen.queryByRole('menuitem', { name: 'Edit nutrition for Apple' }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('menuitem', { name: 'Show estimate details for Apple' }),
     ).not.toBeInTheDocument();
-    await user.click(screen.getByRole('menuitem', { name: 'Edit nutrition for Apple' }));
+    await user.click(within(addDialog).getByRole('heading', { name: 'Meal Items' }));
     await user.click(within(addDialog).getByRole('combobox', { name: 'Unit' }));
     await user.click(await screen.findByRole('option', { name: 'half apple' }));
     const quantity = within(addDialog).getByRole('spinbutton', { name: 'Count' });
@@ -593,6 +595,13 @@ describe('DiaryPage', () => {
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
     expect(await within(dialog).findByLabelText('Carne Asada Taco macro values')).toBeVisible();
     expect(within(dialog).getByText('AI Adjustments')).toBeVisible();
+    await user.click(
+      within(dialog).getByRole('button', { name: 'More actions for Carne Asada Taco' }),
+    );
+    expect(
+      screen.getByRole('menuitem', { name: 'Edit nutrition for Carne Asada Taco' }),
+    ).toBeVisible();
+    await user.click(screen.getByRole('menuitem', { name: 'Edit nutrition for Carne Asada Taco' }));
     await user.click(within(dialog).getByRole('button', { name: 'Expand Add from the Catalog' }));
     await user.type(within(dialog).getByRole('textbox', { name: 'Search catalog' }), 'Apple');
     await user.click(within(dialog).getByRole('button', { name: 'search foods' }));
@@ -811,6 +820,19 @@ describe('DiaryPage', () => {
     expect(
       within(within(dialog).getByLabelText('Egg and potato filling macro values')).getByText('450'),
     ).toBeVisible();
+    const quantities = within(dialog).getAllByRole('spinbutton', { name: 'Count' });
+    expect(quantities[0]).toBeEnabled();
+    expect(quantities[1]).toBeDisabled();
+    expect(quantities[2]).toBeDisabled();
+    await user.click(
+      within(dialog).getByRole('button', { name: 'More actions for Flour tortilla' }),
+    );
+    expect(
+      screen.queryByRole('menuitem', { name: 'Edit nutrition for Flour tortilla' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('menuitem', { name: 'remove Flour tortilla' }),
+    ).not.toBeInTheDocument();
   });
 
   test('shows nutrition for a saved composite item and each component', async () => {

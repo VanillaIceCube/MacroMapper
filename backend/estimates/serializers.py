@@ -24,6 +24,7 @@ SOURCE_KINDS = {
     "catalog_estimate",
     "ai_estimate",
     "user_modified_estimate",
+    "user_entered",
 }
 ITEM_FIELDS = {
     "key",
@@ -316,6 +317,7 @@ class MapYourMealItemsField(serializers.JSONField):
 class MealProposalFollowUpSerializer(serializers.Serializer):
     follow_up = serializers.CharField(max_length=500, trim_whitespace=True)
     name = serializers.CharField(max_length=120, trim_whitespace=True)
+    entry_date = serializers.DateField(required=False)
     items = ProposalItemsField()
 
     def validate_follow_up(self, value):
@@ -351,6 +353,9 @@ class MealProposalFollowUpSerializer(serializers.Serializer):
             proposal=self.context["proposal"],
             owner=self.context["request"].user,
             follow_up=self.validated_data["follow_up"],
+            entry_date=self.validated_data.get(
+                "entry_date", self.context["proposal"].entry_date
+            ),
             items=self.validated_data["items"],
             result=result,
         )
