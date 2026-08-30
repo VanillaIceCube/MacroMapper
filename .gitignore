@@ -53,3 +53,6 @@ certs/*.der
 .pytest_cache/
 .ruff_cache/
 coverage/
+
+# Codex
+.codex-ticket-bodies/*
