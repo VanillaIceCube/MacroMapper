@@ -1,6 +1,77 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 2026-08-30
+
+### Fixed
+
+- Preserve personal-food provenance, validated meal dates, and intentionally
+  removed recipe components throughout AI-adjusted meal drafts.
+- Preserve reviewed meal dates and notes even when an AI follow-up produces no
+  applicable food changes, and keep top-level catalog component serialization
+  bulk-loaded.
+- Prevent manual and existing meal editors from offering nutrition or nested
+  component changes that their direct save path cannot persist.
+- Keep AI adjustments unavailable while updating existing diary entries, and
+  guard proposal drafts from falling through to the direct meal update path.
+- Preserve pinned food-version portion options when reopening saved meals.
+- Keep advanced proposal edits disabled for newly added catalog items until they
+  are part of the persisted proposal, and ignore stale catalog responses.
+
+## 2026-08-29
+
+### Added
+
+- Rotate the Map It With AI input placeholder across 100 examples covering
+  everyday meals, restaurants, cuisines, quantities, drinks, substitutions,
+  leftovers, and uncertain descriptions.
+
+### Fixed
+
+- Keep broad catalog searches responsive by rendering at most the first 25
+  matches.
+
+### Changed
+
+- Load the 20 most recently created visible foods when Map Your Meal opens,
+  while keeping broader catalog searches explicitly limited in the interface.
+- Rename the Add meal modal to Map Your Meal.
+- Rename the related backend meal-adjustment serializer and field to Map Your Meal.
+- Generate blank meal names from the selected foods when a meal is saved, with
+  sequential `Meal-00`, `Meal-01`, and `Meal-02` names when the LLM is unavailable.
+- Use Add meal as the single meal-building surface. Estimate meal first gathers a
+  description and creates an initial estimate, then transitions to Add meal in the
+  same dialog; Add manually opens Add meal directly.
+- Make AI Adjustments available for both estimated and manually assembled meals
+  in the unified Add meal builder, with generalized adjustment naming throughout
+  the current interface.
+- Hide catalog foods after they are added to a meal and prevent duplicate
+  additions until the existing item is removed.
+- Extract meal-item editing into one shared component for all Add meal items,
+  including the same responsive layout, nutrition editing,
+  count/unit controls, details menu, removal, and recursive component breakdown.
+- Consolidate meal nutrition definitions, calculations, item adapters, builder
+  tree operations, macro split charts, and calorie-contribution charts into
+  shared modules used by Add meal and the diary dashboard.
+- Render each diary meal's Macro Balance with the shared macro-calorie component
+  and use the same title, typography, number formatting, legend alignment, and
+  bordered container across the meal log, Add meal builder, and daily dashboard.
+- Place the meal-log food table and Macro Balance container in the same aligned
+  grid row and move Foods & servings into the table header to remove the
+  redundant label above them.
+- Include nutrient values and nested details in catalog component payloads and
+  saved component snapshots, and hydrate legacy snapshots so composite foods and
+  their components no longer show blank nutrition.
+- Show catalog provenance, confidence, and company/provider metadata as compact
+  tags above each food result.
+- Add an AI-style estimate-details action to catalog foods for reviewing their
+  metadata and supporting source links.
+
+### Removed
+
+- Remove personal-food creation from Map Your Meal; existing personal foods
+  remain available through catalog search.
+
 ## 2026-08-24
 
 ### Added
@@ -10,9 +81,13 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Redesigned manual meal entry as a responsive meal-building workflow that
+  mirrors estimate review with editable meal details, catalog nutrition and
+  provenance, portion-aware item controls, live meal totals and
+  macro/component charts, personal-food creation, and protected unsaved drafts.
 - Refreshed the concise meal title whenever Adjust with AI successfully changes
   an estimate, so additions and removals are reflected before diary acceptance.
-- Vertically centered the Macro calorie split visualization when the neighboring
+- Vertically centered the Macro Balance visualization when the neighboring
   Calories by meal chart grows taller.
 - Rebalanced the Daily Summary charts around a balanced macro-calorie panel with
   a larger full-card donut layout and a wider Calories by meal chart with
@@ -252,6 +327,7 @@ All notable changes to this project are documented in this file.
 - Kept generated dependency lockfile payloads out of AI reviewer prompts so
   large lockfile migrations do not crowd out source, build, and security review.
 ### Removed
+
 - Removed the reusable application initializer and the remaining starter,
   generated-repository, Lorem Ipsum, and fake-profile placeholders.
 - Removed Create React App, its Jest runtime, the `react-router-dom`

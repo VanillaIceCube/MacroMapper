@@ -23,6 +23,7 @@ class MealProposal(models.Model):
     description = models.TextField(max_length=2000)
     entry_date = models.DateField(db_index=True)
     name = models.CharField(max_length=120)
+    notes = models.TextField(max_length=2000, blank=True)
     status = models.CharField(
         max_length=16,
         choices=Status,
@@ -74,6 +75,7 @@ class MealProposalRevision(models.Model):
     revision_number = models.PositiveIntegerField()
     kind = models.CharField(max_length=24, choices=Kind)
     name = models.CharField(max_length=120)
+    notes = models.TextField(max_length=2000, blank=True)
     items = models.JSONField(default=list)
     follow_up = models.CharField(max_length=500, blank=True)
     message = models.CharField(max_length=300, blank=True)

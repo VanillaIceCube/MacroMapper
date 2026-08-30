@@ -12,6 +12,7 @@ from foods.portions import portion_options_for_serving
 from .models import MealProposal, MealProposalRevision
 from .services import (
     apply_proposal_follow_up,
+    create_builder_proposal,
     create_proposal,
     create_proposal_revision,
     normalize_items,
@@ -23,6 +24,7 @@ SOURCE_KINDS = {
     "catalog_estimate",
     "ai_estimate",
     "user_modified_estimate",
+    "user_entered",
 }
 ITEM_FIELDS = {
     "key",
@@ -300,9 +302,23 @@ class ProposalItemsField(serializers.JSONField):
         )
 
 
+class MapYourMealItemsField(serializers.JSONField):
+    def to_internal_value(self, data):
+        if not isinstance(data, list):
+            raise serializers.ValidationError("Meal items must be a list.")
+        if len(data) > 20:
+            raise serializers.ValidationError("A meal may contain at most 20 foods.")
+        seen_keys = set()
+        return normalize_items(
+            [_validate_item(item, seen_keys=seen_keys) for item in data]
+        )
+
+
 class MealProposalFollowUpSerializer(serializers.Serializer):
     follow_up = serializers.CharField(max_length=500, trim_whitespace=True)
     name = serializers.CharField(max_length=120, trim_whitespace=True)
+    notes = serializers.CharField(max_length=2000, allow_blank=True, required=False)
+    entry_date = serializers.DateField(required=False)
     items = ProposalItemsField()
 
     def validate_follow_up(self, value):
@@ -338,8 +354,39 @@ class MealProposalFollowUpSerializer(serializers.Serializer):
             proposal=self.context["proposal"],
             owner=self.context["request"].user,
             follow_up=self.validated_data["follow_up"],
+            notes=self.validated_data.get("notes", self.context["proposal"].notes),
+            entry_date=self.validated_data.get(
+                "entry_date", self.context["proposal"].entry_date
+            ),
             items=self.validated_data["items"],
             result=result,
+        )
+
+
+class MapYourMealAdjustmentSerializer(serializers.Serializer):
+    adjustment = serializers.CharField(max_length=500, trim_whitespace=True)
+    entry_date = serializers.DateField()
+    name = serializers.CharField(
+        max_length=120,
+        trim_whitespace=True,
+        allow_blank=True,
+        required=False,
+    )
+    notes = serializers.CharField(max_length=2000, allow_blank=True, required=False)
+    items = MapYourMealItemsField()
+
+    def validate_adjustment(self, value):
+        if not value:
+            raise serializers.ValidationError("Describe what should change.")
+        return value
+
+    def create_proposal(self):
+        return create_builder_proposal(
+            owner=self.context["request"].user,
+            entry_date=self.validated_data["entry_date"],
+            name=self.validated_data.get("name", ""),
+            notes=self.validated_data.get("notes", ""),
+            items=self.validated_data["items"],
         )
 
 
@@ -351,6 +398,7 @@ class MealProposalRevisionSerializer(serializers.ModelSerializer):
             "revision_number",
             "kind",
             "name",
+            "notes",
             "items",
             "follow_up",
             "message",
@@ -371,6 +419,7 @@ class MealProposalSerializer(serializers.ModelSerializer):
             "description",
             "entry_date",
             "name",
+            "notes",
             "status",
             "generator",
             "provider_name",
@@ -400,6 +449,7 @@ class MealProposalSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             "name": {"required": False},
             "description": {"max_length": 2000},
+            "notes": {"required": False, "allow_blank": True, "max_length": 2000},
         }
 
     def validate_description(self, value):
@@ -414,6 +464,9 @@ class MealProposalSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Name the proposed meal.")
         return value
 
+    def validate_notes(self, value):
+        return value.strip()
+
     def validate(self, attrs):
         if self.instance is not None:
             if self.instance.status != MealProposal.Status.DRAFT:
@@ -421,7 +474,6 @@ class MealProposalSerializer(serializers.ModelSerializer):
                     "Accepted proposals cannot be edited."
                 )
             attrs.pop("description", None)
-            attrs.pop("entry_date", None)
             if "items" in attrs:
                 try:
                     attrs["items"] = secure_review_items(

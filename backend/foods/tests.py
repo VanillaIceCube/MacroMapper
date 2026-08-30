@@ -3,8 +3,9 @@ from decimal import Decimal
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.test import RequestFactory, TestCase
+from django.test.utils import CaptureQueriesContext
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -468,6 +469,58 @@ class FoodApiTests(APITestCase):
             [self.shared_food.id],
         )
 
+    def test_catalog_limit_applies_after_recent_ordering(self):
+        self.client.force_authenticate(user=self.owner)
+
+        response = self.client.get("/api/foods/?ordering=-created_at&limit=1")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [item["id"] for item in response.data], [self.personal_food.id]
+        )
+
+    def test_catalog_list_uses_bulk_loaded_top_level_components(self):
+        create_food_item(
+            name="Apple plate",
+            scope=FoodItem.Scope.PERSONAL,
+            origin_type=FoodItem.OriginType.GENERIC,
+            provider_name="",
+            owner=self.owner,
+            definition=food_definition(
+                calories="95",
+                confidence=None,
+                components=[
+                    {
+                        "food_item": self.shared_food,
+                        "servings": Decimal("1"),
+                        "order": 0,
+                    }
+                ],
+            ),
+            created_by=self.owner,
+        )
+        self.client.force_authenticate(user=self.owner)
+
+        with CaptureQueriesContext(connection) as captured:
+            response = self.client.get("/api/foods/")
+
+        component_queries = [
+            query
+            for query in captured.captured_queries
+            if "foods_foodcomponent" in query["sql"].lower()
+        ]
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(
+            len(component_queries),
+            1,
+            [query["sql"] for query in component_queries],
+        )
+        plate = next(item for item in response.data if item["name"] == "Apple plate")
+        self.assertEqual(
+            plate["current_version"]["components"][0]["food_item_name"],
+            "Shared apple",
+        )
+
     def test_shared_detail_retains_provenance_confidence_and_sources(self):
         self.client.force_authenticate(user=self.owner)
 
@@ -601,6 +654,48 @@ class FoodApiTests(APITestCase):
         parent_detail = self.client.get(f"/api/foods/{parent_response.data['id']}/")
         component = parent_detail.data["current_version"]["components"][0]
         self.assertEqual(component["food_version_id"], old_child_version.id)
+        self.assertEqual(component["food_item_name"], "Owner smoothie")
+        self.assertEqual(component["provenance"], old_child_version.provenance)
+        self.assertEqual(
+            {item["key"]: item["amount"] for item in component["nutrients"]},
+            {"calories": "210.0000"},
+        )
+        self.assertEqual(component["components"], [])
+
+    def test_catalog_serializes_nested_component_nutrition(self):
+        self.client.force_authenticate(user=self.owner)
+        child_definition = self.personal_food_payload()["definition"]
+        child_definition["components"] = [
+            {"food_item": self.personal_food.id, "servings": "0.5", "order": 0}
+        ]
+        child_response = self.client.post(
+            "/api/foods/",
+            self.personal_food_payload(
+                name="Smoothie cup", definition=child_definition
+            ),
+            format="json",
+        )
+        self.assertEqual(child_response.status_code, status.HTTP_201_CREATED)
+
+        parent_definition = self.personal_food_payload()["definition"]
+        parent_definition["components"] = [
+            {"food_item": child_response.data["id"], "servings": "1", "order": 0}
+        ]
+        parent_response = self.client.post(
+            "/api/foods/",
+            self.personal_food_payload(
+                name="Breakfast combo", definition=parent_definition
+            ),
+            format="json",
+        )
+        self.assertEqual(parent_response.status_code, status.HTTP_201_CREATED)
+
+        component = parent_response.data["current_version"]["components"][0]
+        nested_component = component["components"][0]
+        self.assertEqual(component["food_item_name"], "Smoothie cup")
+        self.assertEqual(component["nutrients"][0]["amount"], "80.0000")
+        self.assertEqual(nested_component["food_item_name"], "Owner smoothie")
+        self.assertEqual(nested_component["nutrients"][0]["amount"], "210.0000")
 
     def test_delete_archives_an_owned_personal_food(self):
         self.client.force_authenticate(user=self.owner)

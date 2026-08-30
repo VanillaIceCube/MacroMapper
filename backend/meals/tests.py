@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from unittest.mock import Mock, patch
 
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
@@ -7,6 +8,7 @@ from django.test import RequestFactory, TestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from estimates.provider import EstimationProviderError
 from foods.models import FoodItem, FoodItemVersion
 from foods.services import create_food_item, create_food_version
 
@@ -105,6 +107,8 @@ class MealEntryApiTests(APITestCase):
         self.assertEqual(create_response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_create_copies_food_and_nutrient_values(self):
+        self.apple.current_version.serving_weight_grams = Decimal("182")
+        self.apple.current_version.save(update_fields=["serving_weight_grams"])
         response = self.create_meal()
 
         self.assertEqual(response.data["name"], "Breakfast")
@@ -115,12 +119,46 @@ class MealEntryApiTests(APITestCase):
         self.assertEqual(apple["food_version_id"], self.apple.current_version_id)
         self.assertEqual(apple["provenance"], "user_entered")
         self.assertIsNone(apple["confidence_score"])
+        self.assertEqual(
+            {option["key"] for option in apple["portion_options"]},
+            {"base", "g", "oz"},
+        )
         toast = response.data["items"][1]
         self.assertEqual(toast["provenance"], "official")
         self.assertEqual(toast["confidence_score"], "0.990")
         nutrients = {item["key"]: item["amount"] for item in apple["nutrients"]}
         self.assertEqual(nutrients["calories"], "190.0000")
         self.assertEqual(nutrients["protein"], "1.0000")
+
+    @patch("meals.services.get_estimation_provider")
+    def test_create_generates_a_name_when_it_is_left_blank(self, get_provider):
+        provider = Mock()
+        provider.generate_name.return_value = "Example Bakery Toast & Apple"
+        get_provider.return_value = provider
+
+        response = self.create_meal(name="")
+
+        self.assertEqual(response.data["name"], "Example Bakery Toast & Apple")
+        provider.generate_name.assert_called_once_with(
+            [
+                {"name": "Apple", "provider_name": "", "servings": "2.0000"},
+                {
+                    "name": "Toast",
+                    "provider_name": "Example Bakery",
+                    "servings": "1.0000",
+                },
+            ]
+        )
+
+    @patch("meals.services.get_estimation_provider")
+    def test_create_uses_numbered_names_when_generation_fails(self, get_provider):
+        get_provider.side_effect = EstimationProviderError("Provider unavailable")
+
+        first = self.create_meal(name="")
+        second = self.create_meal(name="")
+
+        self.assertEqual(first.data["name"], "Meal-00")
+        self.assertEqual(second.data["name"], "Meal-01")
 
     def test_saved_meal_item_does_not_change_after_catalog_update(self):
         response = self.create_meal(
@@ -228,6 +266,48 @@ class MealEntryApiTests(APITestCase):
         }
         self.assertEqual(nutrients["calories"], "270.0000")
         self.assertEqual(nutrients["protein"], "4.0000")
+        components = {
+            item["food_name"]: {
+                nutrient["key"]: nutrient["amount"] for nutrient in item["nutrients"]
+            }
+            for item in response.data["items"][0]["component_snapshot"]
+        }
+        self.assertEqual(components["Apple"]["calories"], "95.0000")
+        self.assertEqual(components["Toast"]["calories"], "80.0000")
+
+    def test_legacy_component_snapshot_is_returned_with_nutrients(self):
+        composite = create_food_item(
+            name="Apple toast",
+            scope=FoodItem.Scope.PERSONAL,
+            origin_type=FoodItem.OriginType.GENERIC,
+            provider_name="",
+            owner=self.owner,
+            definition=definition(
+                components=[
+                    {"food_item": self.apple, "servings": Decimal("1"), "order": 0},
+                    {"food_item": self.toast, "servings": Decimal("1"), "order": 1},
+                ],
+            ),
+            created_by=self.owner,
+        )
+        created = self.create_meal(
+            item_inputs=[{"food_item": composite.id, "servings": "1", "order": 0}]
+        )
+        saved_item = MealItem.objects.get(pk=created.data["items"][0]["id"])
+        legacy_snapshot = saved_item.component_snapshot
+        for component in legacy_snapshot:
+            component.pop("nutrients", None)
+        saved_item.component_snapshot = legacy_snapshot
+        saved_item.save(update_fields=["component_snapshot"])
+
+        response = self.client.get(f"/api/meals/{created.data['id']}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        returned_components = response.data["items"][0]["component_snapshot"]
+        self.assertTrue(returned_components)
+        self.assertTrue(
+            all(component["nutrients"] for component in returned_components)
+        )
 
     def test_composite_reuses_descendant_across_independent_branches(self):
         branch_definition = {

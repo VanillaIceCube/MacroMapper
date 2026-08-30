@@ -2,10 +2,33 @@ from decimal import Decimal
 
 from django.db import transaction
 
+from estimates.provider import EstimationProviderError, get_estimation_provider
 from foods.models import FoodItemVersion
 from foods.nutrients import NUTRIENT_FIELDS, NUTRIENT_METADATA
 
-from .models import MealItem
+from .models import MealEntry, MealItem
+
+
+def generate_meal_name(*, owner, entry_date, item_inputs):
+    meal_number = MealEntry.objects.filter(
+        owner=owner,
+        entry_date=entry_date,
+    ).count()
+    fallback_name = f"Meal-{meal_number:02d}"
+    selected_foods = [
+        {
+            "name": item["food_item"].name,
+            "provider_name": item["food_item"].provider_name,
+            "servings": str(item["servings"]),
+        }
+        for item in sorted(item_inputs, key=lambda item: item["order"])
+    ]
+    try:
+        generated_name = get_estimation_provider().generate_name(selected_foods)
+    except EstimationProviderError:
+        return fallback_name
+    normalized_name = " ".join(str(generated_name or "").split()).strip()
+    return normalized_name[:120] or fallback_name
 
 
 def _effective_nutrients(version, visited=None):
@@ -50,6 +73,7 @@ def _component_tree(version, visited=None):
         "child_version__food_item"
     ).order_by("order", "id"):
         child = component.child_version
+        child_nutrients = _effective_nutrients(child, path)
         snapshots.append(
             {
                 "food_item_id": child.food_item_id,
@@ -60,6 +84,16 @@ def _component_tree(version, visited=None):
                 "serving_quantity": str(child.serving_quantity),
                 "serving_unit": child.serving_unit,
                 "serving_label": child.serving_label,
+                "nutrients": [
+                    {
+                        "key": key,
+                        "name": NUTRIENT_METADATA[key]["name"],
+                        "unit": NUTRIENT_METADATA[key]["unit"],
+                        "amount": f"{amount:.4f}",
+                    }
+                    for key, amount in child_nutrients.items()
+                    if amount is not None
+                ],
                 "components": _component_tree(child, path),
             }
         )

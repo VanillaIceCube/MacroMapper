@@ -21,10 +21,44 @@ class SourceReferenceSerializer(serializers.ModelSerializer):
         fields = ("id", "title", "provider", "url", "accessed_on")
 
 
+def _serialized_nutrients(version):
+    return [
+        {
+            "key": key,
+            "name": metadata["name"],
+            "unit": metadata["unit"],
+            "amount": f"{value:.4f}",
+        }
+        for key, metadata in NUTRIENT_METADATA.items()
+        if (value := getattr(version, key)) is not None
+    ]
+
+
+def _portion_options(version):
+    return portion_options_for_serving(
+        quantity=version.serving_quantity,
+        unit=version.serving_unit,
+        label=version.serving_label,
+        weight_grams=version.serving_weight_grams,
+        volume_milliliters=version.serving_volume_ml,
+    )
+
+
+def _components_for_version(version, context):
+    component_map = context.get("component_map")
+    if component_map is None:
+        return version.components.all()
+    return component_map.get(version.pk, ())
+
+
 class FoodComponentSerializer(serializers.ModelSerializer):
     food_item_id = serializers.IntegerField(source="child_version.food_item_id")
     food_item_name = serializers.CharField(source="child_version.food_item.name")
     food_version_id = serializers.IntegerField(source="child_version_id")
+    provider_name = serializers.CharField(
+        source="child_version.food_item.provider_name"
+    )
+    origin_type = serializers.CharField(source="child_version.food_item.origin_type")
     serving_quantity = serializers.DecimalField(
         source="child_version.serving_quantity",
         max_digits=10,
@@ -32,6 +66,17 @@ class FoodComponentSerializer(serializers.ModelSerializer):
     )
     serving_unit = serializers.CharField(source="child_version.serving_unit")
     serving_label = serializers.CharField(source="child_version.serving_label")
+    provenance = serializers.CharField(source="child_version.provenance")
+    confidence_score = serializers.DecimalField(
+        source="child_version.confidence_score",
+        max_digits=4,
+        decimal_places=3,
+        allow_null=True,
+    )
+    nutrients = serializers.SerializerMethodField()
+    sources = serializers.SerializerMethodField()
+    components = serializers.SerializerMethodField()
+    portion_options = serializers.SerializerMethodField()
 
     class Meta:
         model = FoodComponent
@@ -40,18 +85,46 @@ class FoodComponentSerializer(serializers.ModelSerializer):
             "food_item_id",
             "food_item_name",
             "food_version_id",
+            "provider_name",
+            "origin_type",
             "servings",
             "order",
             "serving_quantity",
             "serving_unit",
             "serving_label",
+            "portion_options",
+            "provenance",
+            "confidence_score",
+            "nutrients",
+            "sources",
+            "components",
         )
+
+    def get_nutrients(self, instance):
+        return _serialized_nutrients(instance.child_version)
+
+    def get_sources(self, instance):
+        return SourceReferenceSerializer(
+            instance.child_version.sources.all(),
+            many=True,
+            context=self.context,
+        ).data
+
+    def get_components(self, instance):
+        return FoodComponentSerializer(
+            _components_for_version(instance.child_version, self.context),
+            many=True,
+            context=self.context,
+        ).data
+
+    def get_portion_options(self, instance):
+        return _portion_options(instance.child_version)
 
 
 class FoodItemVersionSerializer(serializers.ModelSerializer):
     nutrients = serializers.SerializerMethodField()
     sources = SourceReferenceSerializer(many=True, read_only=True)
-    components = FoodComponentSerializer(many=True, read_only=True)
+    components = serializers.SerializerMethodField()
     portion_options = serializers.SerializerMethodField()
 
     class Meta:
@@ -77,25 +150,17 @@ class FoodItemVersionSerializer(serializers.ModelSerializer):
         )
 
     def get_nutrients(self, instance):
-        return [
-            {
-                "key": key,
-                "name": metadata["name"],
-                "unit": metadata["unit"],
-                "amount": f"{value:.4f}",
-            }
-            for key, metadata in NUTRIENT_METADATA.items()
-            if (value := getattr(instance, key)) is not None
-        ]
+        return _serialized_nutrients(instance)
+
+    def get_components(self, instance):
+        return FoodComponentSerializer(
+            _components_for_version(instance, self.context),
+            many=True,
+            context=self.context,
+        ).data
 
     def get_portion_options(self, instance):
-        return portion_options_for_serving(
-            quantity=instance.serving_quantity,
-            unit=instance.serving_unit,
-            label=instance.serving_label,
-            weight_grams=instance.serving_weight_grams,
-            volume_milliliters=instance.serving_volume_ml,
-        )
+        return _portion_options(instance)
 
 
 class NutrientValuesInputSerializer(serializers.Serializer):

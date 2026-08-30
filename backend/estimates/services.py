@@ -8,6 +8,7 @@ import unicodedata
 from copy import deepcopy
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from difflib import SequenceMatcher
+from types import SimpleNamespace
 from urllib.parse import urlsplit
 
 from django.core.exceptions import ValidationError
@@ -311,6 +312,8 @@ def _source_kind(provenance):
         return "ai_estimate"
     if provenance == FoodItemVersion.Provenance.USER_MODIFIED_ESTIMATE:
         return "user_modified_estimate"
+    if provenance == FoodItemVersion.Provenance.USER_ENTERED:
+        return "user_entered"
     return "catalog_estimate"
 
 
@@ -840,6 +843,7 @@ def create_proposal_revision(*, proposal, kind, created_by, follow_up="", messag
         revision_number=(parent.revision_number + 1 if parent else 1),
         kind=kind,
         name=locked_proposal.name,
+        notes=locked_proposal.notes,
         items=deepcopy(locked_proposal.items),
         follow_up=follow_up,
         message=message,
@@ -1333,7 +1337,9 @@ def _follow_up_search_intent(item):
 
 
 @transaction.atomic
-def apply_proposal_follow_up(*, proposal, owner, follow_up, items, result):
+def apply_proposal_follow_up(
+    *, proposal, owner, follow_up, items, result, entry_date=None, notes=None
+):
     proposal = (
         MealProposal.objects.select_for_update()
         .prefetch_related("revisions")
@@ -1442,6 +1448,15 @@ def apply_proposal_follow_up(*, proposal, owner, follow_up, items, result):
         and not added_items
         and not merged_addition
     ):
+        reviewed_fields = []
+        if entry_date is not None and proposal.entry_date != entry_date:
+            proposal.entry_date = entry_date
+            reviewed_fields.append("entry_date")
+        if notes is not None and proposal.notes != notes:
+            proposal.notes = notes
+            reviewed_fields.append("notes")
+        if reviewed_fields:
+            proposal.save(update_fields=[*reviewed_fields, "updated_at"])
         return {
             "applied": False,
             "message": "AI could not produce an applicable meal change from that request.",
@@ -1449,6 +1464,10 @@ def apply_proposal_follow_up(*, proposal, owner, follow_up, items, result):
         }
 
     proposal.name = _brief_generated_meal_name(result["name"])
+    if entry_date is not None:
+        proposal.entry_date = entry_date
+    if notes is not None:
+        proposal.notes = notes
     proposal.items = normalize_items([*retained_items, *added_items])
     proposal.generator = MealProposal.Generator.OPENAI
     provider_name = result["provider_name"]
@@ -1470,6 +1489,8 @@ def apply_proposal_follow_up(*, proposal, owner, follow_up, items, result):
     proposal.save(
         update_fields=[
             "name",
+            "entry_date",
+            "notes",
             "items",
             "generator",
             "provider_name",
@@ -1571,6 +1592,76 @@ def secure_review_items(*, proposal, owner, items):
 
     reviewed = normalize_items([secure(item) for item in items])
     return _apply_review_attribution(items=reviewed, owner=owner)
+
+
+def _align_builder_item_keys(requested, canonical):
+    if requested.get("food_version_id") != canonical.get("food_version_id"):
+        raise ValidationError("Meal foods must come from your visible catalog.")
+    requested_components = requested.get("components", [])
+    canonical_components = canonical.get("components", [])
+    aligned = deepcopy(requested)
+    aligned["key"] = canonical["key"]
+    aligned_components = []
+    canonical_index = 0
+    for requested_component in requested_components:
+        while canonical_index < len(canonical_components):
+            canonical_component = canonical_components[canonical_index]
+            canonical_index += 1
+            if requested_component.get("food_version_id") == canonical_component.get(
+                "food_version_id"
+            ):
+                aligned_components.append(
+                    _align_builder_item_keys(requested_component, canonical_component)
+                )
+                break
+        else:
+            raise ValidationError("Meal components no longer match the catalog.")
+    aligned["components"] = aligned_components
+    return aligned
+
+
+def secure_builder_items(*, owner, items):
+    canonical_items = []
+    aligned_items = []
+    for item in items:
+        version = _visible_catalog_version(owner=owner, item=item)
+        if version is None:
+            raise ValidationError("Meal foods must come from your visible catalog.")
+        canonical = _catalog_food(
+            version,
+            servings=item["servings"],
+            key=item["key"],
+        )
+        canonical_items.append(canonical)
+        aligned_items.append(_align_builder_item_keys(item, canonical))
+    return secure_review_items(
+        proposal=SimpleNamespace(items=canonical_items),
+        owner=owner,
+        items=aligned_items,
+    )
+
+
+@transaction.atomic
+def create_builder_proposal(*, owner, entry_date, name, notes, items):
+    secured_items = secure_builder_items(owner=owner, items=items)
+    default_name = " & ".join(item["name"] for item in secured_items[:3])
+    proposal = MealProposal.objects.create(
+        owner=owner,
+        description="",
+        entry_date=entry_date,
+        name=_brief_generated_meal_name(name or default_name or "Meal"),
+        notes=notes,
+        generator=MealProposal.Generator.CATALOG,
+        provider_name="MacroMapper catalog",
+        items=secured_items,
+    )
+    if secured_items:
+        create_proposal_revision(
+            proposal=proposal,
+            kind=MealProposalRevision.Kind.GENERATED,
+            created_by=owner,
+        )
+    return proposal
 
 
 def _definition(item, components):
@@ -1798,17 +1889,24 @@ def accept_proposal(*, proposal):
     if not items:
         raise ValidationError("Add at least one food before saving this meal.")
 
-    follow_up_requests = list(
+    adjustment_requests = list(
         proposal.revisions.filter(kind=MealProposalRevision.Kind.AI_FOLLOW_UP)
         .exclude(follow_up="")
         .order_by("revision_number", "id")
         .values_list("follow_up", flat=True)
     )
-    notes = f"Estimated from: {proposal.description}"
-    if follow_up_requests:
-        notes += "\n\nAI follow-ups:\n" + "\n".join(
-            f"- {request}" for request in follow_up_requests
+    context_sections = []
+    if proposal.description.strip():
+        context_sections.append(f"Estimated from: {proposal.description}")
+    if adjustment_requests:
+        context_sections.append(
+            "AI adjustments:\n"
+            + "\n".join(f"- {request}" for request in adjustment_requests)
         )
+    saved_context = "\n\n".join(context_sections)
+    notes = "\n\n".join(
+        section for section in (proposal.notes.strip(), saved_context) if section
+    )
 
     meal = MealEntry.objects.create(
         owner=proposal.owner,

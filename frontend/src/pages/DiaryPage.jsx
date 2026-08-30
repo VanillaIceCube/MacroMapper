@@ -5,9 +5,14 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import RestaurantMenuOutlinedIcon from '@mui/icons-material/RestaurantMenuOutlined';
 import SearchIcon from '@mui/icons-material/Search';
+import SendIcon from '@mui/icons-material/Send';
 import TodayOutlinedIcon from '@mui/icons-material/TodayOutlined';
 import {
   Alert,
@@ -15,15 +20,17 @@ import {
   Button,
   Chip,
   CircularProgress,
+  Collapse,
   Container,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   IconButton,
+  Link,
   List,
-  ListItem,
-  ListItemText,
+  Menu,
+  MenuItem,
   Paper,
   Skeleton,
   Stack,
@@ -32,84 +39,44 @@ import {
 } from '@mui/material';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  acceptMealProposal,
+  adjustMealProposal,
   createMeal,
-  createPersonalFood,
+  createMealProposal,
   deleteMeal,
   fetchDailyDiary,
   searchFoods,
+  updateMealProposal,
   updateMeal,
 } from '../services/mealApiClient';
-import MealEstimateDialog from '../components/MealEstimateDialog';
-
-const launchNutrients = [
-  {
-    key: 'calories',
-    label: 'Calories',
-    unit: 'kcal',
-    color: 'var(--calorie-color)',
-    background: 'var(--atlas-paper)',
-  },
-  {
-    key: 'protein',
-    label: 'Protein',
-    unit: 'g',
-    color: 'var(--protein-color)',
-    background: 'var(--atlas-forest-soft)',
-  },
-  {
-    key: 'carbohydrates',
-    label: 'Carbs',
-    unit: 'g',
-    color: 'var(--carbohydrate-color)',
-    background: 'var(--atlas-mineral-soft)',
-  },
-  {
-    key: 'fat',
-    label: 'Fat',
-    unit: 'g',
-    color: 'var(--fat-color)',
-    background: 'var(--atlas-persimmon-soft)',
-  },
-  {
-    key: 'fiber',
-    label: 'Fiber',
-    unit: 'g',
-    color: 'var(--fiber-color)',
-    background: 'var(--atlas-paper)',
-  },
-  {
-    key: 'sugar',
-    label: 'Sugar',
-    unit: 'g',
-    color: 'var(--sugar-color)',
-    background: 'var(--atlas-paper)',
-  },
-  {
-    key: 'sodium',
-    label: 'Sodium',
-    unit: 'mg',
-    color: 'var(--sodium-color)',
-    background: 'var(--atlas-paper)',
-  },
-  {
-    key: 'cholesterol',
-    label: 'Cholesterol',
-    unit: 'mg',
-    color: 'var(--cholesterol-color)',
-    background: 'var(--atlas-paper)',
-  },
-];
-
-const macroCalorieFields = [
-  { key: 'protein', label: 'protein', caloriesPerGram: 4, color: 'var(--protein-color)' },
-  {
-    key: 'carbohydrates',
-    label: 'carbs',
-    caloriesPerGram: 4,
-    color: 'var(--carbohydrate-color)',
-  },
-  { key: 'fat', label: 'fat', caloriesPerGram: 9, color: 'var(--fat-color)' },
-];
+import MealItemEditorRow from '../components/MealItemEditorRow';
+import {
+  catalogFoodToMealItem,
+  mealItemToProposalItem,
+  proposalItemToMealItem,
+  savedMealItemToEditableMealItem,
+} from '../components/mealItemAdapters';
+import {
+  changeMealItemNutrient,
+  changeMealItemPortion,
+  changeMealItemServings,
+  removeMealItemFromTree,
+} from '../components/mealItemTree';
+import CalorieContributionChart from '../components/nutrition/CalorieContributionChart';
+import MacroCalorieBar from '../components/nutrition/MacroCalorieBar';
+import MacroCalorieSplit from '../components/nutrition/MacroCalorieSplit';
+import MealNutritionSummary from '../components/nutrition/MealNutritionSummary';
+import { ItemNutritionCards, NutritionCards } from '../components/nutrition/NutritionCards';
+import {
+  MACRO_CALORIE_FIELDS as macroCalorieFields,
+  NUTRIENT_FIELDS as launchNutrients,
+} from '../components/nutrition/nutritionDefinitions';
+import {
+  formatNutritionAmount as formatAmount,
+  formatWholeNutritionAmount as formatWholeAmount,
+  nutrientArrayToValues as nutrientValues,
+} from '../components/nutrition/nutritionMath';
+import { randomMealEstimateExample } from '../mealEstimateExamples';
 
 const provenanceLabels = {
   official: 'Official',
@@ -119,10 +86,8 @@ const provenanceLabels = {
   user_entered: 'User entered',
 };
 
-const emptyPersonalFood = () => ({
-  name: '',
-  ...Object.fromEntries(launchNutrients.map((nutrient) => [nutrient.key, ''])),
-});
+const maxVisibleCatalogResults = 25;
+const mealBuilderSurfaceRadius = 1.5;
 
 const localDate = () => {
   const now = new Date();
@@ -134,19 +99,6 @@ const shiftDate = (date, days) => {
   const value = new Date(`${date}T12:00:00`);
   value.setDate(value.getDate() + days);
   return value.toISOString().slice(0, 10);
-};
-
-const formatAmount = (amount) => {
-  if (amount === null || amount === undefined || amount === '') return '—';
-  const numeric = Number(amount);
-  return Number.isFinite(numeric)
-    ? numeric.toLocaleString(undefined, { maximumFractionDigits: 2 })
-    : '—';
-};
-
-const formatWholeAmount = (amount) => {
-  const numeric = Number(amount);
-  return Number.isFinite(numeric) ? Math.round(numeric).toLocaleString() : '—';
 };
 
 const mealContextText = (notes) => notes.replace(/^Estimated from:\s*/i, '').trim() || notes;
@@ -187,48 +139,13 @@ const mealItemNutrientAmount = (item, nutrientKey) => {
   return Number.isFinite(amount) ? amount : null;
 };
 
-const mealItemMacroSegments = (item) => {
-  const segments = macroCalorieFields.flatMap((field) => {
-    const grams = mealItemNutrientAmount(item, field.key);
-    if (grams === null) return [];
-    return [{ ...field, calories: Math.max(grams, 0) * field.caloriesPerGram }];
+const mealDraftFingerprint = ({ name, notes, entryDate, items }) =>
+  JSON.stringify({
+    name,
+    notes,
+    entryDate,
+    items,
   });
-  const totalCalories = segments.reduce((total, segment) => total + segment.calories, 0);
-
-  return totalCalories
-    ? segments.map((segment) => ({
-        ...segment,
-        percentage: (segment.calories / totalCalories) * 100,
-      }))
-    : [];
-};
-
-const mealMacroSegments = (meal) => {
-  const segments = macroCalorieFields.flatMap((field) => {
-    const grams = mealNutrientAmount(meal, field.key);
-    if (grams === null) return [];
-    return [{ ...field, calories: Math.max(grams, 0) * field.caloriesPerGram }];
-  });
-  const totalCalories = segments.reduce((total, segment) => total + segment.calories, 0);
-
-  return totalCalories
-    ? segments.map((segment) => ({
-        ...segment,
-        percentage: (segment.calories / totalCalories) * 100,
-      }))
-    : [];
-};
-
-const macroDonutBackground = (segments) => {
-  if (!segments.length) return 'var(--atlas-border)';
-  let cursor = 0;
-  const stops = segments.map((segment) => {
-    const start = cursor;
-    cursor += segment.percentage;
-    return `${segment.color} ${start}% ${cursor}%`;
-  });
-  return `conic-gradient(${stops.join(', ')})`;
-};
 
 async function responseError(response, fallback) {
   try {
@@ -242,37 +159,77 @@ async function responseError(response, fallback) {
   return fallback;
 }
 
-function MealItemBreakdown({ components }) {
-  if (!components?.length) return null;
-  return (
-    <Box component="ul" sx={{ mt: 0.75, mb: 0, pl: 2.5 }}>
-      {components.map((component) => (
-        <Box component="li" key={`${component.food_version_id}-${component.food_name}`}>
-          <Typography variant="caption">
-            {formatAmount(component.servings)} × {component.food_name}
-          </Typography>
-          <MealItemBreakdown components={component.components} />
-        </Box>
-      ))}
-    </Box>
-  );
-}
-
-function MealEditor({ date, meal, open, token, onClose, onSaved }) {
+function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSaved }) {
+  const [estimateDescription, setEstimateDescription] = useState('');
+  const [estimatePlaceholder, setEstimatePlaceholder] = useState(randomMealEstimateExample);
+  const [estimating, setEstimating] = useState(false);
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
+  const [entryDate, setEntryDate] = useState(date);
   const [items, setItems] = useState([]);
+  const [proposalId, setProposalId] = useState(null);
+  const [proposalItemKeys, setProposalItemKeys] = useState(() => new Set());
+  const [proposalContext, setProposalContext] = useState(null);
+  const [catalogPickerOpen, setCatalogPickerOpen] = useState(true);
+  const [adjustment, setAdjustment] = useState('');
+  const [adjustmentBusy, setAdjustmentBusy] = useState(false);
+  const [adjustmentFeedback, setAdjustmentFeedback] = useState(null);
   const [query, setQuery] = useState('');
   const [foods, setFoods] = useState([]);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [showingRecentFoods, setShowingRecentFoods] = useState(false);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [newFood, setNewFood] = useState(emptyPersonalFood);
+  const [discardOpen, setDiscardOpen] = useState(false);
+  const [catalogActionsAnchorEl, setCatalogActionsAnchorEl] = useState(null);
+  const [catalogActionsFoodId, setCatalogActionsFoodId] = useState(null);
+  const [catalogDetailFoodIds, setCatalogDetailFoodIds] = useState(() => new Set());
+  const [baselineFingerprint, setBaselineFingerprint] = useState('');
+  const catalogSearchRef = useRef(null);
+  const catalogRequestIdRef = useRef(0);
+  const aiAdjustmentsAvailable = !meal;
+  const selectedFoodIds = useMemo(
+    () => new Set(items.map((item) => String(item.food_item))),
+    [items],
+  );
+  const availableFoods = useMemo(
+    () => foods.filter((food) => !selectedFoodIds.has(String(food.id))),
+    [foods, selectedFoodIds],
+  );
+  const visibleFoods = availableFoods.slice(0, maxVisibleCatalogResults);
+  const activeCatalogFood = visibleFoods.find((food) => food.id === catalogActionsFoodId);
+
+  const loadRecentFoods = useCallback(async () => {
+    const requestId = ++catalogRequestIdRef.current;
+    setSearching(true);
+    setHasSearched(false);
+    setShowingRecentFoods(true);
+    setError('');
+    const response = await searchFoods('', token, { ordering: '-created_at', limit: 20 });
+    if (requestId !== catalogRequestIdRef.current) return;
+    if (response.ok) {
+      setFoods(await response.json());
+    } else {
+      setFoods([]);
+      setError(await responseError(response, 'Could not load recent catalog foods.'));
+    }
+    setSearching(false);
+  }, [token]);
 
   const runSearch = useCallback(async () => {
+    const normalizedQuery = query.trim();
+    if (!normalizedQuery) return;
+    const requestId = ++catalogRequestIdRef.current;
     setSearching(true);
+    setHasSearched(true);
+    setShowingRecentFoods(false);
+    setFoods([]);
     setError('');
-    const response = await searchFoods(query, token);
+    const response = await searchFoods(normalizedQuery, token, {
+      limit: maxVisibleCatalogResults + 1,
+    });
+    if (requestId !== catalogRequestIdRef.current) return;
     if (response.ok) {
       setFoods(await response.json());
     } else {
@@ -282,59 +239,266 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
   }, [query, token]);
 
   useEffect(() => {
-    if (!open) return;
-    let active = true;
-    setName(meal?.name ?? '');
-    setNotes(meal?.notes ?? '');
-    setItems(
-      meal?.items?.map((item) => ({
-        food_item: item.food_item_id,
-        food_version: item.food_version_id,
-        name: item.food_name,
-        provider: item.provider_name,
-        servings: String(Number(item.servings)),
-      })) ?? [],
+    if (!open) {
+      catalogRequestIdRef.current += 1;
+      return;
+    }
+    const initialName = meal?.name ?? '';
+    const initialNotes = meal?.notes ?? '';
+    const initialDate = meal?.entry_date ?? date;
+    const initialItems = meal ? meal.items.map(savedMealItemToEditableMealItem) : [];
+    setEstimateDescription('');
+    setEstimating(false);
+    setName(initialName);
+    setNotes(initialNotes);
+    setEntryDate(initialDate);
+    setItems(initialItems);
+    setProposalId(null);
+    setProposalItemKeys(new Set());
+    setProposalContext(null);
+    setCatalogPickerOpen(launchMode !== 'estimate');
+    setAdjustment('');
+    setAdjustmentBusy(false);
+    setAdjustmentFeedback(null);
+    setBaselineFingerprint(
+      mealDraftFingerprint({
+        name: initialName,
+        notes: initialNotes,
+        entryDate: initialDate,
+        items: initialItems,
+      }),
     );
     setQuery('');
+    setFoods([]);
+    setHasSearched(false);
+    setShowingRecentFoods(false);
+    setSearching(false);
     setError('');
-    setNewFood(emptyPersonalFood());
-    setSearching(true);
-    searchFoods('', token).then(async (response) => {
-      if (!active) return;
-      if (response.ok) {
-        setFoods(await response.json());
-      } else {
-        setError(await responseError(response, 'Could not search the food catalog.'));
-      }
-      setSearching(false);
+    setDiscardOpen(false);
+    setCatalogActionsAnchorEl(null);
+    setCatalogActionsFoodId(null);
+    setCatalogDetailFoodIds(new Set());
+    if (launchMode === 'estimate' && !meal) {
+      setEstimatePlaceholder(randomMealEstimateExample());
+    }
+    window.requestAnimationFrame(() => {
+      if (!meal && launchMode === 'add') catalogSearchRef.current?.focus();
     });
-    return () => {
-      active = false;
-    };
-  }, [meal, open, token]);
+    if (meal || launchMode !== 'estimate') loadRecentFoods();
+  }, [date, launchMode, loadRecentFoods, meal, open]);
+
+  const createEstimate = async () => {
+    const request = estimateDescription.trim();
+    if (!request) {
+      setError('Describe the meal you want to estimate.');
+      return;
+    }
+    setEstimating(true);
+    setError('');
+    const response = await createMealProposal({ description: request, entry_date: date }, token);
+    if (!response.ok) {
+      setError(await responseError(response, 'Could not estimate this meal.'));
+      setEstimating(false);
+      return;
+    }
+
+    const proposal = await response.json();
+    const proposalName = proposal.name ?? '';
+    const proposalNotes = proposal.notes ?? '';
+    const proposalDate = proposal.entry_date ?? date;
+    const proposalItems = proposal.items?.map(proposalItemToMealItem) ?? [];
+    setName(proposalName);
+    setNotes(proposalNotes);
+    setEntryDate(proposalDate);
+    setItems(proposalItems);
+    setProposalId(proposal.id);
+    setProposalItemKeys(new Set(proposal.items?.map((item) => item.key) ?? []));
+    setProposalContext({
+      provider_name: proposal.provider_name,
+      provider_model: proposal.provider_model,
+      confidence_score: proposal.confidence_score,
+    });
+    setCatalogPickerOpen(false);
+    setQuery('');
+    setBaselineFingerprint(
+      mealDraftFingerprint({
+        name: proposalName,
+        notes: proposalNotes,
+        entryDate: proposalDate,
+        items: proposalItems,
+      }),
+    );
+    setEstimating(false);
+    loadRecentFoods();
+  };
 
   const addFood = (food) => {
-    setItems((current) => [
-      ...current,
-      {
-        food_item: food.id,
-        food_version: null,
-        name: food.name,
-        provider: food.provider_name,
-        servings: '1',
-      },
-    ]);
+    setItems((current) => {
+      if (current.some((item) => String(item.food_item) === String(food.id))) return current;
+      return [...current, catalogFoodToMealItem(food)];
+    });
+  };
+
+  const closeCatalogActions = () => {
+    setCatalogActionsAnchorEl(null);
+    setCatalogActionsFoodId(null);
+  };
+
+  const toggleCatalogDetails = (foodId) => {
+    setCatalogDetailFoodIds((current) => {
+      const next = new Set(current);
+      if (next.has(foodId)) next.delete(foodId);
+      else next.add(foodId);
+      return next;
+    });
+  };
+
+  const changeServings = (key, amount, item) => {
+    setItems((current) => changeMealItemServings(current, key, amount, item));
+  };
+
+  const changePortion = (key, selectedPortionKey) => {
+    setItems((current) => changeMealItemPortion(current, key, selectedPortionKey));
+  };
+
+  const changeNutrient = (key, nutrient, totalValue) => {
+    setItems((current) => changeMealItemNutrient(current, key, nutrient, totalValue));
+  };
+
+  const removeItem = (key) => {
+    setItems((current) => removeMealItemFromTree(current, key));
+  };
+
+  const applyAdjustment = async () => {
+    if (!aiAdjustmentsAvailable) {
+      setError('AI adjustments are available only while mapping a new meal.');
+      return;
+    }
+    const request = adjustment.trim();
+    if (!request) {
+      setAdjustmentFeedback({
+        severity: 'warning',
+        message: 'Describe what you want to add, remove, or correct.',
+      });
+      return;
+    }
+    setAdjustmentBusy(true);
+    setError('');
+    setAdjustmentFeedback(null);
+    try {
+      const response = await adjustMealProposal(
+        proposalId,
+        {
+          adjustment: request,
+          entry_date: entryDate,
+          name: name.trim(),
+          notes: notes.trim(),
+          items: items.map(mealItemToProposalItem),
+        },
+        token,
+      );
+      if (response.ok) {
+        const result = await response.json();
+        const updatedProposal = result.proposal;
+        setProposalId(updatedProposal.id);
+        setProposalItemKeys(new Set(updatedProposal.items?.map((item) => item.key) ?? []));
+        if (result.applied) {
+          setName(updatedProposal.name);
+          setItems(updatedProposal.items.map(proposalItemToMealItem));
+          setProposalContext({
+            provider_name: updatedProposal.provider_name,
+            provider_model: updatedProposal.provider_model,
+            confidence_score: updatedProposal.confidence_score,
+          });
+          setAdjustment('');
+          setAdjustmentFeedback({ severity: 'success', message: result.message });
+        } else {
+          setAdjustmentFeedback({ severity: 'warning', message: result.message });
+        }
+      } else {
+        setAdjustmentFeedback({
+          severity: 'error',
+          message: await responseError(
+            response,
+            'Could not apply that adjustment. Your current meal is still here.',
+          ),
+        });
+      }
+    } catch (_error) {
+      setAdjustmentFeedback({
+        severity: 'error',
+        message: 'Could not reach AI. Your current meal and adjustment are still here.',
+      });
+    } finally {
+      setAdjustmentBusy(false);
+    }
+  };
+
+  const currentFingerprint = mealDraftFingerprint({
+    name,
+    notes,
+    entryDate,
+    items,
+  });
+  const hasUnsavedChanges = Boolean(
+    baselineFingerprint && currentFingerprint !== baselineFingerprint,
+  );
+  const requestClose = () => {
+    if (hasUnsavedChanges) {
+      setDiscardOpen(true);
+    } else {
+      onClose();
+    }
   };
 
   const save = async () => {
-    if (!name.trim() || !items.length) {
-      setError('Name the meal and add at least one food.');
+    if (!entryDate || !items.length) {
+      setError('Choose a date and add at least one food.');
+      return;
+    }
+    if ((meal || proposalId) && !name.trim()) {
+      setError('Enter a meal name before saving.');
+      return;
+    }
+    if (
+      items.some((item) => !Number.isFinite(Number(item.servings)) || Number(item.servings) <= 0)
+    ) {
+      setError('Each meal item needs a quantity greater than zero.');
+      return;
+    }
+    if (proposalId && meal) {
+      setError('An AI proposal cannot overwrite an existing diary entry.');
       return;
     }
     setSaving(true);
     setError('');
+    if (proposalId) {
+      const updateResponse = await updateMealProposal(
+        proposalId,
+        {
+          name: name.trim(),
+          notes: notes.trim(),
+          entry_date: entryDate,
+          items: items.map(mealItemToProposalItem),
+        },
+        token,
+      );
+      if (!updateResponse.ok) {
+        setError(await responseError(updateResponse, 'Could not save your meal draft.'));
+        setSaving(false);
+        return;
+      }
+      const acceptResponse = await acceptMealProposal(proposalId, token);
+      if (acceptResponse.ok) {
+        onSaved('Meal added.');
+      } else {
+        setError(await responseError(acceptResponse, 'Could not add this meal to your diary.'));
+      }
+      setSaving(false);
+      return;
+    }
     const payload = {
-      entry_date: date,
+      entry_date: entryDate,
       name: name.trim(),
       notes: notes.trim(),
       item_inputs: items.map((item, order) => ({
@@ -355,266 +519,686 @@ function MealEditor({ date, meal, open, token, onClose, onSaved }) {
     setSaving(false);
   };
 
-  const createFood = async () => {
-    if (!newFood.name.trim() || !newFood.calories) {
-      setError('A food name and calories are required.');
-      return;
-    }
-    const nutrients = Object.fromEntries(
-      Object.entries(newFood).filter(([key, value]) => key !== 'name' && value !== ''),
-    );
-    setSaving(true);
-    setError('');
-    const response = await createPersonalFood(
-      {
-        name: newFood.name.trim(),
-        origin_type: 'generic',
-        provider_name: '',
-        definition: {
-          serving_quantity: '1',
-          serving_unit: 'serving',
-          serving_label: 'one serving',
-          provenance: 'user_entered',
-          confidence_score: null,
-          nutrients,
-          sources: [],
-          components: [],
-        },
-      },
-      token,
-    );
-    if (response.ok) {
-      const food = await response.json();
-      addFood(food);
-      setFoods((current) => [food, ...current.filter((value) => value.id !== food.id)]);
-      setNewFood(emptyPersonalFood());
-    } else {
-      setError(await responseError(response, 'Could not create this personal food.'));
-    }
-    setSaving(false);
-  };
+  const isEstimateStep = launchMode === 'estimate' && !meal && !proposalId;
+  const mealHeader = isEstimateStep
+    ? {
+        eyebrow: null,
+        title: 'Map It With AI',
+        description: 'Tell us what you ate and we’ll create a meal estimate for you to fine-tune.',
+      }
+    : meal
+      ? {
+          eyebrow: 'Diary entry',
+          title: 'Edit meal',
+          description: 'Update the meal details, catalog foods, and quantities in one place.',
+        }
+      : proposalContext
+        ? {
+            eyebrow: 'Review estimate',
+            title: 'Map Your Meal',
+            description: 'Your estimate is ready. Adjust anything you need before saving.',
+          }
+        : {
+            eyebrow: null,
+            title: 'Map Your Meal',
+            description:
+              'Chart today’s journey with catalog foods, personal foods, or AI guidance.',
+          };
+  const MealHeaderIcon =
+    isEstimateStep || proposalContext ? AutoAwesomeIcon : RestaurantMenuOutlinedIcon;
 
   return (
-    <Dialog
-      open={open}
-      onClose={saving ? undefined : onClose}
-      fullWidth
-      maxWidth="md"
-      fullScreen={false}
-      sx={{
-        '& .MuiDialog-paper': {
-          bgcolor: 'var(--atlas-paper)',
-          border: '1px solid var(--atlas-border-strong)',
-          boxShadow: '0 24px 64px rgba(23, 50, 77, 0.16)',
-        },
-      }}
-    >
-      <DialogTitle
+    <>
+      <Dialog
+        open={open}
+        onClose={estimating || saving || adjustmentBusy ? undefined : requestClose}
+        fullWidth
+        maxWidth="md"
+        aria-labelledby="map-your-meal-header-title"
+        aria-describedby="map-your-meal-description"
         sx={{
-          bgcolor: 'var(--atlas-mineral-soft)',
-          color: 'var(--atlas-ink)',
-          borderBottom: '1px solid var(--atlas-border)',
+          '& .MuiDialog-paper': {
+            m: { xs: 0, sm: 2 },
+            width: { xs: '100%', sm: 'calc(100% - 32px)' },
+            height: { xs: '100%', sm: 'auto' },
+            maxHeight: { xs: '100%', sm: 'calc(100% - 32px)' },
+            borderRadius: { xs: 0, sm: mealBuilderSurfaceRadius },
+            bgcolor: 'var(--atlas-paper)',
+            border: '1px solid var(--atlas-border-strong)',
+            boxShadow: '0 24px 64px rgba(23, 50, 77, 0.16)',
+          },
         }}
       >
-        <Typography component="span" variant="overline" sx={{ display: 'block' }}>
-          {meal ? 'Saved meal' : 'Manual entry'}
-        </Typography>
-        <Typography component="span" variant="h5">
-          {meal ? 'Edit meal' : 'Add meal manually'}
-        </Typography>
-      </DialogTitle>
-      <DialogContent dividers sx={{ bgcolor: 'var(--atlas-paper)', borderColor: 'transparent' }}>
-        <Stack spacing={2.5}>
-          {error && <Alert severity="error">{error}</Alert>}
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-            <TextField
-              label="Meal name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              required
-              fullWidth
+        <DialogTitle
+          component="div"
+          sx={{
+            bgcolor: meal ? 'var(--atlas-mineral-soft)' : 'var(--atlas-persimmon-soft)',
+            color: 'var(--atlas-ink)',
+            borderBottom: '1px solid var(--atlas-border)',
+            px: { xs: 2, sm: 3 },
+            py: { xs: 2, sm: 2.5 },
+          }}
+        >
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <MealHeaderIcon
+              sx={{
+                flex: '0 0 auto',
+                fontSize: { xs: 48, sm: 52 },
+                color: meal ? 'var(--atlas-mineral)' : 'var(--atlas-persimmon-dark)',
+              }}
             />
-            <TextField label="Date" type="date" value={date} disabled sx={{ minWidth: 170 }} />
-          </Stack>
-          <TextField
-            label="Notes (optional)"
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            multiline
-            minRows={2}
-          />
-
-          <Box
-            sx={{
-              p: { xs: 2, sm: 2.5 },
-              bgcolor: 'var(--atlas-mineral-soft)',
-              border: '1px solid rgba(71, 121, 138, 0.24)',
-              borderRadius: 2,
-            }}
-          >
-            <Typography component="h3" variant="h6">
-              Meal items
-            </Typography>
-            {!items.length && (
-              <Typography color="text.secondary" sx={{ mt: 1 }}>
-                Search below to add foods.
-              </Typography>
-            )}
-            <List disablePadding>
-              {items.map((item, index) => (
-                <ListItem
-                  key={`${item.food_item}-${index}`}
-                  disableGutters
-                  sx={{ borderBottom: '1px solid var(--atlas-border)' }}
-                  secondaryAction={
-                    <IconButton
-                      aria-label={`remove ${item.name}`}
-                      onClick={() =>
-                        setItems((current) =>
-                          current.filter((_value, itemIndex) => itemIndex !== index),
-                        )
-                      }
-                    >
-                      <DeleteOutlineIcon />
-                    </IconButton>
-                  }
+            <Box sx={{ minWidth: 0 }}>
+              {mealHeader.eyebrow && (
+                <Typography
+                  component="p"
+                  variant="overline"
+                  sx={{ color: 'var(--atlas-ink-muted)', fontWeight: 800, lineHeight: 1.2 }}
                 >
-                  <ListItemText
-                    primary={item.name}
-                    secondary={item.provider || 'Personal or generic food'}
-                  />
-                  <TextField
-                    label="Servings"
-                    type="number"
-                    value={item.servings}
-                    onChange={(event) =>
-                      setItems((current) =>
-                        current.map((value, itemIndex) =>
-                          itemIndex === index ? { ...value, servings: event.target.value } : value,
-                        ),
-                      )
-                    }
-                    inputProps={{ min: 0.0001, step: 0.25 }}
-                    sx={{ width: 120, mr: 6 }}
-                  />
-                </ListItem>
-              ))}
-            </List>
-          </Box>
-
-          <Box>
-            <Typography component="h3" variant="h6">
-              Find a food
-            </Typography>
-            <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                  {mealHeader.eyebrow}
+                </Typography>
+              )}
+              <Typography
+                id="map-your-meal-header-title"
+                component="h2"
+                variant="h5"
+                sx={{ display: 'block', mt: mealHeader.eyebrow ? 0.25 : 0 }}
+              >
+                {mealHeader.title}
+              </Typography>
+              <Typography
+                id="map-your-meal-description"
+                component="p"
+                variant="body2"
+                sx={{ color: 'var(--atlas-ink-muted)', mt: 0.5, maxWidth: 620 }}
+              >
+                {mealHeader.description}
+              </Typography>
+            </Box>
+          </Stack>
+        </DialogTitle>
+        <DialogContent
+          sx={{
+            bgcolor: 'var(--atlas-paper)',
+            borderColor: 'transparent',
+            px: { xs: 2, sm: 3 },
+            pt: '0 !important',
+            '& > .MuiStack-root': {
+              mt: { xs: 2.5, sm: 3 },
+            },
+          }}
+        >
+          {isEstimateStep ? (
+            <Stack spacing={2.5}>
+              {error && <Alert severity="error">{error}</Alert>}
               <TextField
-                label="Search catalog"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') runSearch();
-                }}
-                fullWidth
+                label="Describe what you ate"
+                value={estimateDescription}
+                onChange={(event) => setEstimateDescription(event.target.value)}
+                placeholder={estimatePlaceholder}
+                multiline
+                minRows={3}
+                autoFocus
               />
-              <Button
-                variant="outlined"
-                onClick={runSearch}
-                disabled={searching}
-                aria-label="search foods"
-              >
-                <SearchIcon />
-              </Button>
+              <Typography variant="body2" sx={{ color: 'var(--atlas-ink-muted)' }}>
+                MacroMapper checks your visible food catalog first. Matched foods use their existing
+                nutrition data, while unmatched foods are estimated by GPT with web sources and
+                remain editable before saving.
+              </Typography>
             </Stack>
-            {searching ? (
-              <CircularProgress size={24} sx={{ mt: 2 }} />
-            ) : (
-              <List
+          ) : (
+            <Stack spacing={1.25}>
+              {error && <Alert severity="error">{error}</Alert>}
+              {proposalContext && (
+                <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                  <Chip size="small" label="AI estimate" color="secondary" variant="outlined" />
+                  {proposalContext.provider_name && (
+                    <Chip size="small" label={proposalContext.provider_name} variant="outlined" />
+                  )}
+                  {proposalContext.confidence_score != null && (
+                    <Chip
+                      size="small"
+                      label={`${Math.round(Number(proposalContext.confidence_score) * 100)}% confidence`}
+                      variant="outlined"
+                    />
+                  )}
+                </Stack>
+              )}
+
+              <Paper
+                component="section"
+                aria-labelledby="meal-identity-heading"
+                elevation={0}
                 sx={{
-                  maxHeight: 230,
-                  mt: 1,
-                  overflow: 'auto',
-                  borderBlock: '1px solid var(--atlas-border)',
+                  order: 1,
+                  p: { xs: 1.5, sm: 2 },
+                  border: '1px solid var(--atlas-border)',
                 }}
               >
-                {foods.map((food) => (
-                  <ListItem
-                    key={food.id}
-                    disableGutters
-                    sx={{ borderBottom: '1px solid var(--atlas-border)' }}
-                    secondaryAction={<Button onClick={() => addFood(food)}>Add</Button>}
-                  >
-                    <ListItemText
-                      primary={food.name}
-                      secondary={`${food.provider_name || (food.scope === 'personal' ? 'Personal' : 'Shared')} · ${food.current_version?.serving_label || `${food.current_version?.serving_quantity} ${food.current_version?.serving_unit}`}`}
+                <Typography id="meal-identity-heading" component="h3" variant="h6">
+                  Meal Details
+                </Typography>
+                <Stack spacing={1.5} sx={{ mt: 1.5 }}>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                    <TextField
+                      label="Meal name"
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                      helperText={
+                        meal || proposalId
+                          ? 'A name is required when updating an existing meal or proposal.'
+                          : 'Optional. Leave blank to generate a name when you save.'
+                      }
+                      required={Boolean(meal || proposalId)}
+                      fullWidth
                     />
-                  </ListItem>
-                ))}
-              </List>
-            )}
-          </Box>
+                    <TextField
+                      label="Date"
+                      type="date"
+                      value={entryDate}
+                      onChange={(event) => setEntryDate(event.target.value)}
+                      InputLabelProps={{ shrink: true }}
+                      required
+                      sx={{ minWidth: { sm: 180 } }}
+                    />
+                  </Stack>
+                  <TextField
+                    label="Notes (optional)"
+                    value={notes}
+                    onChange={(event) => setNotes(event.target.value)}
+                    multiline
+                    minRows={2}
+                    helperText="Add preparation details or context you want saved with this meal."
+                  />
+                </Stack>
+              </Paper>
 
-          <Box
-            component="details"
-            sx={{
-              p: { xs: 2, sm: 2.5 },
-              bgcolor: 'var(--atlas-persimmon-soft)',
-              border: '1px solid rgba(169, 68, 32, 0.24)',
-              borderRadius: 2,
+              <Paper
+                component="section"
+                aria-labelledby="food-search-heading"
+                elevation={0}
+                sx={{
+                  order: 5,
+                  p: { xs: 1.5, sm: 2 },
+                  bgcolor: 'var(--atlas-mineral-soft)',
+                  border: '1px solid rgba(71, 121, 138, 0.32)',
+                }}
+              >
+                <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
+                  <Box>
+                    <Typography id="food-search-heading" component="h3" variant="h6">
+                      Add from the Catalog
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Search through the shared and personal catalog.
+                    </Typography>
+                  </Box>
+                  <Stack direction="row" spacing={0.5} alignItems="center">
+                    {catalogPickerOpen && (hasSearched || showingRecentFoods) && (
+                      <Chip
+                        label={
+                          showingRecentFoods
+                            ? `${availableFoods.length} recent`
+                            : `${availableFoods.length} results`
+                        }
+                        size="small"
+                        variant="outlined"
+                      />
+                    )}
+                    <IconButton
+                      size="small"
+                      aria-label={`${catalogPickerOpen ? 'Collapse' : 'Expand'} Add from the Catalog`}
+                      aria-expanded={catalogPickerOpen}
+                      onClick={() => setCatalogPickerOpen((current) => !current)}
+                    >
+                      {catalogPickerOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                    </IconButton>
+                  </Stack>
+                </Stack>
+                <Collapse in={catalogPickerOpen} unmountOnExit>
+                  <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
+                    <TextField
+                      inputRef={catalogSearchRef}
+                      label="Search catalog"
+                      value={query}
+                      onChange={(event) => {
+                        const nextQuery = event.target.value;
+                        setQuery(nextQuery);
+                        if (!nextQuery.trim()) {
+                          loadRecentFoods();
+                        }
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          runSearch();
+                        }
+                      }}
+                      fullWidth
+                    />
+                    <Button
+                      variant="outlined"
+                      onClick={runSearch}
+                      disabled={searching || !query.trim()}
+                      startIcon={searching ? <CircularProgress size={18} /> : <SearchIcon />}
+                      aria-label="search foods"
+                      sx={{ minWidth: { xs: 52, sm: 116 }, px: { xs: 1.5, sm: 2.5 } }}
+                    >
+                      <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                        Search
+                      </Box>
+                    </Button>
+                  </Stack>
+                  {searching ? (
+                    <Stack spacing={1} sx={{ mt: 1.5 }} aria-label="Loading food results">
+                      {[0, 1].map((value) => (
+                        <Skeleton key={value} variant="rounded" height={92} />
+                      ))}
+                    </Stack>
+                  ) : availableFoods.length ? (
+                    <>
+                      <List
+                        disablePadding
+                        aria-label="Food search results"
+                        sx={{ maxHeight: 360, mt: 1.5, overflow: 'auto' }}
+                      >
+                        {visibleFoods.map((food) => {
+                          const version = food.current_version || {};
+                          const source =
+                            provenanceLabels[version.provenance] ||
+                            (food.scope === 'personal' ? 'Personal' : 'Catalog');
+                          return (
+                            <Paper
+                              component="li"
+                              key={food.id}
+                              elevation={0}
+                              sx={{
+                                listStyle: 'none',
+                                mb: 1,
+                                p: 1.25,
+                                bgcolor: 'var(--atlas-paper)',
+                                border: '1px solid var(--atlas-border)',
+                                borderLeft: `4px solid ${food.scope === 'personal' ? 'var(--atlas-persimmon)' : 'var(--atlas-forest)'}`,
+                              }}
+                            >
+                              <Stack
+                                direction={{ xs: 'column', sm: 'row' }}
+                                justifyContent="space-between"
+                                gap={1}
+                              >
+                                <Box sx={{ minWidth: 0 }}>
+                                  <Stack
+                                    direction="row"
+                                    spacing={0.75}
+                                    useFlexGap
+                                    flexWrap="wrap"
+                                    sx={{ mb: 0.5 }}
+                                  >
+                                    <Chip size="small" label={source} variant="outlined" />
+                                    {version.confidence_score != null && (
+                                      <Chip
+                                        size="small"
+                                        label={`${Math.round(Number(version.confidence_score) * 100)}% confidence`}
+                                        variant="outlined"
+                                      />
+                                    )}
+                                    {food.provider_name && (
+                                      <Chip
+                                        size="small"
+                                        label={food.provider_name}
+                                        variant="outlined"
+                                      />
+                                    )}
+                                  </Stack>
+                                  <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                                    {food.name}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {version.serving_label ||
+                                      `${formatAmount(version.serving_quantity)} ${version.serving_unit || 'serving'}`}
+                                  </Typography>
+                                </Box>
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                  <Button onClick={() => addFood(food)} startIcon={<AddIcon />}>
+                                    Add
+                                  </Button>
+                                  <IconButton
+                                    size="small"
+                                    aria-label={`More actions for ${food.name}`}
+                                    aria-haspopup="menu"
+                                    aria-expanded={
+                                      catalogActionsFoodId === food.id &&
+                                      Boolean(catalogActionsAnchorEl)
+                                    }
+                                    onClick={(event) => {
+                                      setCatalogActionsAnchorEl(event.currentTarget);
+                                      setCatalogActionsFoodId(food.id);
+                                    }}
+                                  >
+                                    <MoreVertIcon fontSize="small" />
+                                  </IconButton>
+                                </Stack>
+                              </Stack>
+                              <Collapse in={catalogDetailFoodIds.has(food.id)} unmountOnExit>
+                                <Paper
+                                  elevation={0}
+                                  sx={{
+                                    mt: 0.75,
+                                    p: 0.75,
+                                    border: '1px solid var(--atlas-border)',
+                                  }}
+                                >
+                                  <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                                    <Chip size="small" label={source} variant="outlined" />
+                                    {version.confidence_score != null && (
+                                      <Chip
+                                        size="small"
+                                        label={`${Math.round(Number(version.confidence_score) * 100)}% confidence`}
+                                        variant="outlined"
+                                      />
+                                    )}
+                                    {food.provider_name && (
+                                      <Chip
+                                        size="small"
+                                        label={food.provider_name}
+                                        variant="outlined"
+                                      />
+                                    )}
+                                  </Stack>
+                                  {version.sources?.length ? (
+                                    <Stack component="ul" spacing={0.25} sx={{ mb: 0, pl: 2.25 }}>
+                                      {version.sources.map((estimateSource) => (
+                                        <Typography
+                                          component="li"
+                                          variant="caption"
+                                          key={estimateSource.url || estimateSource.title}
+                                        >
+                                          {estimateSource.url ? (
+                                            <Link
+                                              href={estimateSource.url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                            >
+                                              {estimateSource.title || estimateSource.url}
+                                            </Link>
+                                          ) : (
+                                            estimateSource.title
+                                          )}
+                                        </Typography>
+                                      ))}
+                                    </Stack>
+                                  ) : (
+                                    <Typography variant="caption" color="text.secondary">
+                                      No source links were provided for this estimate.
+                                    </Typography>
+                                  )}
+                                </Paper>
+                              </Collapse>
+                              <Box sx={{ mt: 1 }}>
+                                <NutritionCards
+                                  values={nutrientValues(version.nutrients)}
+                                  ariaLabel={`${food.name} catalog nutrition`}
+                                  compact
+                                />
+                              </Box>
+                            </Paper>
+                          );
+                        })}
+                      </List>
+                      {availableFoods.length > maxVisibleCatalogResults && (
+                        <Typography variant="caption" color="text.secondary">
+                          Showing the first {maxVisibleCatalogResults} results. Refine your search
+                          to find a specific food.
+                        </Typography>
+                      )}
+                      <Menu
+                        anchorEl={catalogActionsAnchorEl}
+                        open={Boolean(catalogActionsAnchorEl && activeCatalogFood)}
+                        onClose={closeCatalogActions}
+                        MenuListProps={{
+                          'aria-label': `Actions for ${activeCatalogFood?.name || 'catalog food'}`,
+                        }}
+                      >
+                        <MenuItem
+                          aria-label={`${catalogDetailFoodIds.has(catalogActionsFoodId) ? 'Hide' : 'Show'} estimate details for ${activeCatalogFood?.name || 'catalog food'}`}
+                          onClick={() => {
+                            toggleCatalogDetails(catalogActionsFoodId);
+                            closeCatalogActions();
+                          }}
+                        >
+                          <InfoOutlinedIcon fontSize="small" sx={{ mr: 1.25 }} />
+                          {catalogDetailFoodIds.has(catalogActionsFoodId)
+                            ? 'Hide details'
+                            : 'Estimate details'}
+                        </MenuItem>
+                      </Menu>
+                    </>
+                  ) : (
+                    <Typography sx={{ mt: 1.5 }} color="text.secondary">
+                      {showingRecentFoods
+                        ? 'No recent foods are available yet. Search the catalog or create a personal food.'
+                        : !hasSearched
+                          ? 'Search by food or provider to see matching foods.'
+                          : foods.length
+                            ? 'All matching foods are already in this meal.'
+                            : 'No foods matched this search. Try another term or use AI estimation to add a meal.'}
+                    </Typography>
+                  )}
+                </Collapse>
+              </Paper>
+
+              <Paper
+                component="section"
+                aria-labelledby="meal-items-heading"
+                elevation={0}
+                sx={{
+                  order: 3,
+                  p: { xs: 1.5, sm: 2 },
+                  border: '1px solid var(--atlas-border-strong)',
+                }}
+              >
+                <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
+                  <Box>
+                    <Typography id="meal-items-heading" component="h3" variant="h6">
+                      Meal Items
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {proposalId
+                        ? 'Adjust quantities, units, nutrition, and components, or review each item’s estimate details and sources.'
+                        : meal
+                          ? 'Adjust meal quantities and units, or review each item’s estimate details and sources.'
+                          : 'Adjust meal quantities and units, or review each item’s estimate details and sources. AI adjustments unlock nutrition and component editing.'}
+                    </Typography>
+                  </Box>
+                  <Chip
+                    size="small"
+                    label={`${items.length} ${items.length === 1 ? 'item' : 'items'}`}
+                    color={items.length ? 'success' : 'default'}
+                    variant="outlined"
+                  />
+                </Stack>
+                {!items.length ? (
+                  <Box
+                    sx={{
+                      mt: 1.5,
+                      p: 2.5,
+                      textAlign: 'center',
+                      bgcolor: 'var(--atlas-bone)',
+                      border: '1px dashed var(--atlas-border-strong)',
+                      borderRadius: mealBuilderSurfaceRadius,
+                    }}
+                  >
+                    <RestaurantMenuOutlinedIcon sx={{ color: 'var(--atlas-mineral-dark)' }} />
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                      No meal items yet
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {meal
+                        ? 'Choose a recent or searched catalog food below.'
+                        : 'Choose a recent or searched catalog food below, or use AI Adjustments to get started.'}
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Stack spacing={1.5} sx={{ mt: 1.5 }} aria-label="Selected meal items">
+                    {items.map((item) => (
+                      <MealItemEditorRow
+                        key={item.key}
+                        item={item}
+                        onServings={changeServings}
+                        onPortionChange={changePortion}
+                        onNutrientChange={changeNutrient}
+                        onRemove={removeItem}
+                        allowNutritionEditing={Boolean(
+                          proposalId && aiAdjustmentsAvailable && proposalItemKeys.has(item.key),
+                        )}
+                        allowComponentEditing={Boolean(
+                          proposalId && aiAdjustmentsAvailable && proposalItemKeys.has(item.key),
+                        )}
+                        renderNutrition={(foodItem, onChange) => (
+                          <ItemNutritionCards item={foodItem} compact onNutrientChange={onChange} />
+                        )}
+                      />
+                    ))}
+                  </Stack>
+                )}
+              </Paper>
+
+              <Box sx={{ order: 2 }}>
+                <MealNutritionSummary items={items} />
+              </Box>
+
+              {aiAdjustmentsAvailable && (
+                <Paper
+                  component="section"
+                  aria-labelledby="ai-adjustments-heading"
+                  elevation={0}
+                  sx={{ order: 6, p: 1.25, border: '1px solid var(--atlas-border)' }}
+                >
+                  <Stack spacing={0.75}>
+                    <Stack direction="row" spacing={0.75} alignItems="center">
+                      <AutoAwesomeIcon
+                        fontSize="small"
+                        sx={{ color: 'var(--atlas-persimmon-dark)' }}
+                      />
+                      <Typography
+                        id="ai-adjustments-heading"
+                        variant="subtitle2"
+                        sx={{ fontWeight: 800 }}
+                      >
+                        AI Adjustments
+                      </Typography>
+                    </Stack>
+                    <Stack
+                      direction={{ xs: 'column', sm: 'row' }}
+                      spacing={0.75}
+                      alignItems={{ sm: 'flex-end' }}
+                    >
+                      <TextField
+                        label="Describe an AI adjustment"
+                        value={adjustment}
+                        onChange={(event) => {
+                          setAdjustment(event.target.value);
+                          setAdjustmentFeedback(null);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                            event.preventDefault();
+                            applyAdjustment();
+                          }
+                        }}
+                        placeholder="Add a medium chocolate milkshake"
+                        multiline
+                        minRows={1}
+                        maxRows={3}
+                        size="small"
+                        inputProps={{ maxLength: 500 }}
+                        disabled={adjustmentBusy}
+                        fullWidth
+                      />
+                      <Button
+                        variant="outlined"
+                        color="secondary"
+                        startIcon={
+                          adjustmentBusy ? (
+                            <CircularProgress size={16} color="inherit" />
+                          ) : (
+                            <SendIcon />
+                          )
+                        }
+                        onClick={applyAdjustment}
+                        disabled={adjustmentBusy || !adjustment.trim()}
+                        sx={{ whiteSpace: 'nowrap', width: { xs: '100%', sm: 'auto' } }}
+                      >
+                        {adjustmentBusy ? 'Adjusting…' : 'Apply adjustment'}
+                      </Button>
+                    </Stack>
+                    {adjustmentFeedback && (
+                      <Alert severity={adjustmentFeedback.severity} sx={{ py: 0 }}>
+                        {adjustmentFeedback.message}
+                      </Alert>
+                    )}
+                  </Stack>
+                </Paper>
+              )}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions
+          sx={{
+            bgcolor: 'var(--atlas-paper)',
+            borderTop: '1px solid var(--atlas-border)',
+            px: { xs: 1.5, sm: 3 },
+            py: 1.25,
+          }}
+        >
+          {isEstimateStep ? (
+            <>
+              <Button onClick={requestClose} disabled={estimating}>
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                color="secondary"
+                onClick={createEstimate}
+                disabled={estimating}
+              >
+                {estimating ? 'Estimating…' : 'Create estimate'}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button onClick={requestClose} disabled={saving || adjustmentBusy}>
+                Cancel
+              </Button>
+              <Button variant="contained" onClick={save} disabled={saving || adjustmentBusy}>
+                {saving ? 'Saving…' : meal ? 'Save changes' : 'Save meal'}
+              </Button>
+            </>
+          )}
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={discardOpen}
+        onClose={() => setDiscardOpen(false)}
+        aria-labelledby="discard-meal-title"
+      >
+        <DialogTitle id="discard-meal-title">Discard meal changes?</DialogTitle>
+        <DialogContent>
+          <Typography>Your meal draft will be lost if you close the builder.</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDiscardOpen(false)}>Keep editing</Button>
+          <Button
+            color="secondary"
+            onClick={() => {
+              setDiscardOpen(false);
+              onClose();
             }}
           >
-            <Typography
-              component="summary"
-              variant="h6"
-              sx={{ color: 'var(--atlas-persimmon-dark)', cursor: 'pointer' }}
-            >
-              Create a personal food
-            </Typography>
-            <Stack spacing={1.5} sx={{ mt: 2 }}>
-              <TextField
-                label="Food name"
-                value={newFood.name}
-                onChange={(event) =>
-                  setNewFood((current) => ({ ...current, name: event.target.value }))
-                }
-              />
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, 1fr)' },
-                  gap: 1.5,
-                }}
-              >
-                {launchNutrients.map(({ key, label, unit }) => (
-                  <TextField
-                    key={key}
-                    label={`${label} (${unit})`}
-                    type="number"
-                    value={newFood[key]}
-                    onChange={(event) =>
-                      setNewFood((current) => ({ ...current, [key]: event.target.value }))
-                    }
-                    inputProps={{ min: 0, step: 0.1 }}
-                  />
-                ))}
-              </Box>
-              <Button variant="outlined" color="secondary" onClick={createFood} disabled={saving}>
-                Create and add food
-              </Button>
-            </Stack>
-          </Box>
-        </Stack>
-      </DialogContent>
-      <DialogActions
-        sx={{ bgcolor: 'var(--atlas-paper)', borderTop: '1px solid var(--atlas-border)' }}
-      >
-        <Button onClick={onClose} disabled={saving}>
-          Cancel
-        </Button>
-        <Button variant="contained" onClick={save} disabled={saving}>
-          {saving ? 'Saving…' : 'Save meal'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+            Discard changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }
 
@@ -623,8 +1207,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
   const [data, setData] = useState({ meals: [], totals: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [editor, setEditor] = useState({ open: false, meal: null });
-  const [estimateOpen, setEstimateOpen] = useState(false);
+  const [mapYourMeal, setMapYourMeal] = useState({ open: false, meal: null, launchMode: 'add' });
   const [pendingDelete, setPendingDelete] = useState(null);
   const dateInputRef = useRef(null);
   const token = sessionStorage.getItem('accessToken');
@@ -650,43 +1233,15 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
     [data.totals],
   );
 
-  const dailyMacroSummary = useMemo(() => {
-    const macros = macroCalorieFields.map((field) => {
-      const amount = Number(totalsByKey[field.key]?.amount);
-      const grams = Number.isFinite(amount) ? amount : 0;
+  const dailyNutrientValues = useMemo(
+    () =>
+      Object.fromEntries(launchNutrients.map(({ key }) => [key, totalsByKey[key]?.amount ?? null])),
+    [totalsByKey],
+  );
 
-      return {
-        ...field,
-        grams,
-        calories: grams * field.caloriesPerGram,
-      };
-    });
-    const totalCalories = macros.reduce((total, macro) => total + macro.calories, 0);
-    let chartPosition = 0;
-    const chartSegments = macros.map((macro) => {
-      const percentage = totalCalories ? (macro.calories / totalCalories) * 100 : 0;
-      const start = chartPosition;
-      chartPosition += percentage;
-
-      return {
-        ...macro,
-        percentage,
-        gradientStop: `${macro.color} ${start}% ${chartPosition}%`,
-      };
-    });
-
-    return {
-      macros: chartSegments,
-      totalCalories,
-      background: totalCalories
-        ? `conic-gradient(${chartSegments.map((macro) => macro.gradientStop).join(', ')})`
-        : 'var(--atlas-border)',
-    };
-  }, [totalsByKey]);
-
-  const mealCalorieSummary = useMemo(() => {
-    const contributions = data.meals
-      .flatMap((meal) => {
+  const mealCalorieContributions = useMemo(
+    () =>
+      data.meals.flatMap((meal) => {
         const calories = mealNutrientAmount(meal, 'calories');
         return calories === null
           ? []
@@ -700,64 +1255,9 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                 ),
               },
             ];
-      })
-      .sort((first, second) => second.calories - first.calories);
-    const displayedContributions =
-      contributions.length > 5
-        ? [
-            ...contributions.slice(0, 4),
-            {
-              key: 'other-meals',
-              name: `Other meals (${contributions.length - 4})`,
-              calories: contributions
-                .slice(4)
-                .reduce((total, contribution) => total + contribution.calories, 0),
-              ...Object.fromEntries(
-                macroCalorieFields.map(({ key }) => [
-                  key,
-                  contributions.slice(4).some((contribution) => contribution[key] !== null)
-                    ? contributions
-                        .slice(4)
-                        .reduce((total, contribution) => total + (contribution[key] || 0), 0)
-                    : null,
-                ]),
-              ),
-            },
-          ]
-        : contributions;
-    const totalCalories = displayedContributions.reduce(
-      (total, contribution) => total + contribution.calories,
-      0,
-    );
-    const highestCalories = Math.max(
-      ...displayedContributions.map((contribution) => contribution.calories),
-      0,
-    );
-    return {
-      totalCalories,
-      meals: displayedContributions.map((contribution) => {
-        const macroSegments = macroCalorieFields
-          .filter(({ key }) => contribution[key] !== null)
-          .map((field) => ({
-            ...field,
-            calories: Math.max(Number(contribution[field.key]) || 0, 0) * field.caloriesPerGram,
-          }));
-        const macroCalories = macroSegments.reduce((total, segment) => total + segment.calories, 0);
-
-        return {
-          ...contribution,
-          percentage: totalCalories ? (contribution.calories / totalCalories) * 100 : 0,
-          relativeBarWidth: highestCalories ? (contribution.calories / highestCalories) * 100 : 0,
-          macroSegments: macroCalories
-            ? macroSegments.map((segment) => ({
-                ...segment,
-                percentage: (segment.calories / macroCalories) * 100,
-              }))
-            : [],
-        };
       }),
-    };
-  }, [data.meals]);
+    [data.meals],
+  );
 
   const removeMeal = async () => {
     const response = await deleteMeal(pendingDelete.id, token);
@@ -1007,255 +1507,21 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                 mt: 1,
               }}
             >
-              <Paper
-                component="figure"
-                aria-label="Macro calorie split"
-                elevation={0}
-                sx={{
-                  m: 0,
-                  p: { xs: 1.25, sm: 1.5 },
-                  bgcolor: 'var(--atlas-paper)',
-                  border: '1px solid var(--atlas-border)',
-                  borderRadius: 1.5,
-                  display: 'flex',
-                  flexDirection: 'column',
-                }}
-              >
-                <Typography
-                  component="figcaption"
-                  variant="subtitle2"
-                  sx={{ fontWeight: 800, mb: 0.75 }}
-                >
-                  Macro calorie split
-                </Typography>
-                {loading ? (
-                  <Stack
-                    direction="row"
-                    spacing={1.5}
-                    alignItems="center"
-                    justifyContent="center"
-                    sx={{ flex: 1 }}
-                  >
-                    <Skeleton variant="circular" width={152} height={152} />
-                    <Stack spacing={0.5} sx={{ width: 120 }}>
-                      {[0, 1, 2].map((row) => (
-                        <Skeleton key={row} />
-                      ))}
-                    </Stack>
-                  </Stack>
-                ) : (
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    alignItems="center"
-                    justifyContent="space-evenly"
-                    sx={{ width: '100%', flex: 1, px: 0.5 }}
-                  >
-                    <Box
-                      role="img"
-                      aria-label={`Macro calorie split: ${dailyMacroSummary.macros
-                        .map((macro) => `${macro.label} ${Math.round(macro.percentage)} percent`)
-                        .join(', ')}`}
-                      sx={{
-                        position: 'relative',
-                        width: 'clamp(136px, 48%, 190px)',
-                        aspectRatio: '1 / 1',
-                        flex: '0 0 auto',
-                        borderRadius: '50%',
-                        background: dailyMacroSummary.background,
-                        display: 'grid',
-                        placeItems: 'center',
-                        '&::after': {
-                          content: '""',
-                          position: 'absolute',
-                          width: '58%',
-                          aspectRatio: '1 / 1',
-                          borderRadius: '50%',
-                          bgcolor: 'var(--atlas-paper)',
-                        },
-                      }}
-                    >
-                      <Box sx={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
-                        <Typography
-                          variant="subtitle1"
-                          className="numeric-data"
-                          sx={{ fontWeight: 800, lineHeight: 1.1 }}
-                        >
-                          {totalsByKey.calories
-                            ? formatWholeAmount(totalsByKey.calories.amount)
-                            : '—'}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: 'var(--atlas-ink-muted)' }}>
-                          kcal
-                        </Typography>
-                      </Box>
-                    </Box>
-                    <Stack spacing={0.5} sx={{ minWidth: 0, flex: '0 0 auto' }}>
-                      {dailyMacroSummary.macros.map((macro) => (
-                        <Stack key={macro.key} direction="row" alignItems="center" spacing={0.75}>
-                          <Box
-                            aria-hidden="true"
-                            sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: macro.color }}
-                          />
-                          <Typography variant="caption" sx={{ flex: '0 0 48px' }}>
-                            {macro.label === 'carbs'
-                              ? 'Carbs'
-                              : `${macro.label.charAt(0).toUpperCase()}${macro.label.slice(1)}`}
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            className="numeric-data"
-                            sx={{ fontWeight: 800, whiteSpace: 'nowrap' }}
-                          >
-                            {formatWholeAmount(macro.grams)} g ({Math.round(macro.percentage)}%)
-                          </Typography>
-                        </Stack>
-                      ))}
-                    </Stack>
-                  </Stack>
-                )}
-              </Paper>
-
-              <Paper
-                component="figure"
-                aria-label="Calories by meal"
-                elevation={0}
-                sx={{
-                  m: 0,
-                  p: { xs: 1.25, sm: 1.5 },
-                  bgcolor: 'var(--atlas-paper)',
-                  border: '1px solid var(--atlas-border)',
-                  borderRadius: 1.5,
-                }}
-              >
-                <Typography
-                  component="figcaption"
-                  variant="subtitle2"
-                  sx={{ fontWeight: 800, mb: 1 }}
-                >
-                  Calories by meal
-                </Typography>
-
-                {loading ? (
-                  <Stack spacing={0.75}>
-                    {[0, 1, 2].map((row) => (
-                      <Skeleton key={row} variant="rounded" height={20} />
-                    ))}
-                  </Stack>
-                ) : mealCalorieSummary.meals.length ? (
-                  <Stack spacing={0.8} aria-label="Meal calorie chart">
-                    {mealCalorieSummary.meals.map((meal) => {
-                      const stackLabel = meal.macroSegments.length
-                        ? `${meal.name} macro calorie stack: ${meal.macroSegments
-                            .map(
-                              (segment) =>
-                                `${segment.label} ${formatWholeAmount(
-                                  segment.calories,
-                                )} kilocalories`,
-                            )
-                            .join(', ')}`
-                        : `${meal.name} macro calorie stack unavailable`;
-
-                      return (
-                        <Box
-                          key={meal.key}
-                          aria-label={`${meal.name} ${formatWholeAmount(
-                            meal.calories,
-                          )} kilocalories (${Math.round(meal.percentage)} percent)`}
-                        >
-                          <Stack
-                            direction="row"
-                            spacing={0.75}
-                            alignItems="center"
-                            sx={{ minWidth: 0 }}
-                          >
-                            <Box
-                              sx={{
-                                width: { xs: 104, sm: 180, lg: 240 },
-                                flex: '0 0 auto',
-                                height: '2rem',
-                                display: 'flex',
-                                alignItems: 'center',
-                              }}
-                            >
-                              <Typography
-                                variant="caption"
-                                title={meal.name}
-                                sx={{
-                                  display: '-webkit-box',
-                                  WebkitBoxOrient: 'vertical',
-                                  WebkitLineClamp: 2,
-                                  overflow: 'hidden',
-                                  lineHeight: 1.2,
-                                }}
-                              >
-                                {meal.name}
-                              </Typography>
-                            </Box>
-                            <Box
-                              role="img"
-                              aria-label={stackLabel}
-                              sx={{
-                                height: 20,
-                                minWidth: 0,
-                                flex: 1,
-                                borderRadius: 10,
-                                bgcolor: 'var(--atlas-border)',
-                                overflow: 'hidden',
-                              }}
-                            >
-                              <Box
-                                sx={{
-                                  display: 'flex',
-                                  width: `${Math.max(
-                                    meal.relativeBarWidth,
-                                    meal.calories > 0 ? 2 : 0,
-                                  )}%`,
-                                  height: '100%',
-                                  bgcolor: meal.macroSegments.length
-                                    ? 'transparent'
-                                    : 'var(--calorie-color)',
-                                  borderRadius: 10,
-                                  overflow: 'hidden',
-                                }}
-                              >
-                                {meal.macroSegments.map((segment) => (
-                                  <Box
-                                    key={segment.key}
-                                    sx={{
-                                      width: `${segment.percentage}%`,
-                                      bgcolor: segment.color,
-                                    }}
-                                  />
-                                ))}
-                              </Box>
-                            </Box>
-                            <Typography
-                              variant="caption"
-                              className="numeric-data"
-                              sx={{
-                                width: { xs: 92, sm: 106 },
-                                flex: '0 0 auto',
-                                color: 'var(--atlas-ink-muted)',
-                                fontSize: { xs: '0.68rem', sm: '0.75rem' },
-                                textAlign: 'right',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {formatWholeAmount(meal.calories)} kcal ({Math.round(meal.percentage)}
-                              %)
-                            </Typography>
-                          </Stack>
-                        </Box>
-                      );
-                    })}
-                  </Stack>
-                ) : (
-                  <Typography variant="body2" sx={{ color: 'var(--atlas-ink-muted)' }}>
-                    Add a meal to see its calorie contribution.
-                  </Typography>
-                )}
-              </Paper>
+              <MacroCalorieSplit
+                values={dailyNutrientValues}
+                loading={loading}
+                variant="dashboard"
+              />
+              <CalorieContributionChart
+                contributions={mealCalorieContributions}
+                title="Calories by meal"
+                chartAriaLabel="Meal calorie chart"
+                emptyText="Add a meal to see its calorie contribution."
+                loading={loading}
+                variant="dashboard"
+                otherKey="other-meals"
+                otherLabel={(count) => `Other meals (${count})`}
+              />
             </Box>
           </Paper>
 
@@ -1303,18 +1569,18 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   variant="contained"
                   color="secondary"
                   startIcon={<AutoAwesomeIcon />}
-                  onClick={() => setEstimateOpen(true)}
+                  onClick={() => setMapYourMeal({ open: true, meal: null, launchMode: 'estimate' })}
                   sx={{ minHeight: 44 }}
                 >
-                  Estimate meal
+                  Map your Meal with AI
                 </Button>
                 <Button
                   variant="contained"
                   startIcon={<AddIcon />}
-                  onClick={() => setEditor({ open: true, meal: null })}
+                  onClick={() => setMapYourMeal({ open: true, meal: null, launchMode: 'add' })}
                   sx={{ minHeight: 44 }}
                 >
-                  Add manually
+                  Chart your Course Manually
                 </Button>
               </Stack>
             </Stack>
@@ -1357,7 +1623,12 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                     const mealConfidence = Number(meal.confidence_score);
                     const hasMealConfidence =
                       meal.confidence_score !== null && Number.isFinite(mealConfidence);
-                    const macroSegments = mealMacroSegments(meal);
+                    const mealMacroValues = {
+                      calories,
+                      ...Object.fromEntries(
+                        macroCalorieFields.map(({ key }) => [key, mealNutrientAmount(meal, key)]),
+                      ),
+                    };
                     const highestFoodCalories = Math.max(
                       ...meal.items.map((item) => mealItemNutrientAmount(item, 'calories') ?? 0),
                     );
@@ -1444,7 +1715,9 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                           >
                             <IconButton
                               aria-label={`edit ${meal.name}`}
-                              onClick={() => setEditor({ open: true, meal })}
+                              onClick={() =>
+                                setMapYourMeal({ open: true, meal, launchMode: 'edit' })
+                              }
                               sx={{ width: 44, height: 44, color: 'var(--atlas-forest-dark)' }}
                             >
                               <EditOutlinedIcon />
@@ -1461,403 +1734,257 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
 
                         <Box
                           sx={{
-                            display: 'grid',
-                            gridTemplateColumns: {
-                              xs: '1fr',
-                              md: 'minmax(0, 1.35fr) minmax(320px, 0.65fr)',
-                            },
-                            gap: { xs: 1.5, md: 2.5 },
                             mt: 2,
                             pt: 2,
                             borderTop: '1px solid var(--atlas-border)',
                           }}
                         >
-                          <Box sx={{ minWidth: 0 }}>
-                            <Typography
-                              variant="overline"
-                              sx={{
-                                color: 'var(--atlas-ink-muted)',
-                                fontWeight: 800,
-                                lineHeight: 1,
-                              }}
-                            >
-                              Foods &amp; servings
-                            </Typography>
-                            <Box
-                              role="table"
-                              aria-label={`${meal.name} food breakdown`}
-                              sx={{
-                                mt: 0.75,
-                                border: '1px solid var(--atlas-border)',
-                                borderRadius: 0.75,
-                                overflow: 'hidden',
-                              }}
-                            >
+                          <Box
+                            data-testid={`meal-${meal.id}-nutrition-columns`}
+                            sx={{
+                              display: 'grid',
+                              gridTemplateColumns: {
+                                xs: '1fr',
+                                md: 'minmax(0, 1.35fr) minmax(320px, 0.65fr)',
+                              },
+                              alignItems: 'start',
+                              gap: { xs: 1.5, md: 2.5 },
+                            }}
+                          >
+                            <Box sx={{ minWidth: 0 }}>
                               <Box
-                                role="row"
+                                role="table"
+                                aria-label={`${meal.name} food breakdown`}
                                 sx={{
-                                  display: { xs: 'none', sm: 'grid' },
-                                  gridTemplateColumns: 'minmax(0, 1fr) 104px 92px 122px',
-                                  gap: 1,
-                                  px: 1.25,
-                                  py: 0.65,
-                                  bgcolor: 'var(--atlas-bone)',
-                                  borderBottom: '1px solid var(--atlas-border)',
+                                  border: '1px solid var(--atlas-border)',
+                                  borderRadius: 0.75,
+                                  overflow: 'hidden',
                                 }}
                               >
-                                {['Food', 'Calories', 'Confidence', 'Provenance'].map((label) => (
-                                  <Typography
-                                    key={label}
-                                    role="columnheader"
-                                    variant="caption"
-                                    sx={{ color: 'var(--atlas-ink-muted)', fontWeight: 800 }}
-                                  >
-                                    {label}
-                                  </Typography>
-                                ))}
-                              </Box>
-                              {meal.items.map((item, itemIndex) => {
-                                const itemCalories = mealItemNutrientAmount(item, 'calories');
-                                const itemMacroSegments = mealItemMacroSegments(item);
-                                const confidence = Number(item.confidence_score);
-                                const hasConfidence =
-                                  item.confidence_score !== null && Number.isFinite(confidence);
-                                const itemContext = [item.provider_name, item.serving_label]
-                                  .filter(Boolean)
-                                  .join(' · ');
+                                <Box
+                                  role="row"
+                                  sx={{
+                                    display: { xs: 'none', sm: 'grid' },
+                                    gridTemplateColumns: 'minmax(0, 1fr) 104px 92px 122px',
+                                    gap: 1,
+                                    px: 1.25,
+                                    py: 0.65,
+                                    bgcolor: 'var(--atlas-bone)',
+                                    borderBottom: '1px solid var(--atlas-border)',
+                                  }}
+                                >
+                                  {['Foods & servings', 'Calories', 'Confidence', 'Provenance'].map(
+                                    (label) => (
+                                      <Typography
+                                        key={label}
+                                        role="columnheader"
+                                        variant="caption"
+                                        sx={{ color: 'var(--atlas-ink-muted)', fontWeight: 800 }}
+                                      >
+                                        {label}
+                                      </Typography>
+                                    ),
+                                  )}
+                                </Box>
+                                {meal.items.map((item, itemIndex) => {
+                                  const itemCalories = mealItemNutrientAmount(item, 'calories');
+                                  const confidence = Number(item.confidence_score);
+                                  const hasConfidence =
+                                    item.confidence_score !== null && Number.isFinite(confidence);
+                                  const itemContext = [item.provider_name, item.serving_label]
+                                    .filter(Boolean)
+                                    .join(' · ');
 
-                                return (
-                                  <Box
-                                    key={item.id}
-                                    role="row"
-                                    sx={{
-                                      display: 'grid',
-                                      gridTemplateColumns: {
-                                        xs: 'repeat(3, minmax(0, 1fr))',
-                                        sm: 'minmax(0, 1fr) 104px 92px 122px',
-                                      },
-                                      gap: { xs: 0.75, sm: 1 },
-                                      px: 1.25,
-                                      py: 1,
-                                      borderBottom:
-                                        itemIndex < meal.items.length - 1
-                                          ? '1px solid var(--atlas-border)'
-                                          : 'none',
-                                    }}
-                                  >
+                                  return (
                                     <Box
-                                      role="cell"
+                                      key={item.id}
+                                      role="row"
                                       sx={{
-                                        minWidth: 0,
-                                        gridColumn: { xs: '1 / -1', sm: 'auto' },
+                                        display: 'grid',
+                                        gridTemplateColumns: {
+                                          xs: 'repeat(3, minmax(0, 1fr))',
+                                          sm: 'minmax(0, 1fr) 104px 92px 122px',
+                                        },
+                                        gap: { xs: 0.75, sm: 1 },
+                                        px: 1.25,
+                                        py: 1,
+                                        borderBottom:
+                                          itemIndex < meal.items.length - 1
+                                            ? '1px solid var(--atlas-border)'
+                                            : 'none',
                                       }}
                                     >
-                                      <Typography
-                                        variant="body2"
-                                        sx={{ fontWeight: 800, lineHeight: 1.25 }}
+                                      <Box
+                                        role="cell"
+                                        sx={{
+                                          minWidth: 0,
+                                          gridColumn: { xs: '1 / -1', sm: 'auto' },
+                                        }}
                                       >
-                                        {formatAmount(item.servings)} × {item.food_name}
-                                      </Typography>
-                                      {itemContext && (
+                                        <Typography
+                                          variant="body2"
+                                          sx={{ fontWeight: 800, lineHeight: 1.25 }}
+                                        >
+                                          {formatAmount(item.servings)} × {item.food_name}
+                                        </Typography>
+                                        {itemContext && (
+                                          <Typography
+                                            variant="caption"
+                                            sx={{
+                                              display: 'block',
+                                              mt: 0.2,
+                                              color: 'var(--atlas-ink-muted)',
+                                            }}
+                                          >
+                                            {itemContext}
+                                          </Typography>
+                                        )}
+                                      </Box>
+                                      <Box role="cell" sx={{ minWidth: 0 }}>
                                         <Typography
                                           variant="caption"
                                           sx={{
-                                            display: 'block',
-                                            mt: 0.2,
+                                            display: { sm: 'none' },
                                             color: 'var(--atlas-ink-muted)',
                                           }}
                                         >
-                                          {itemContext}
+                                          Calories
                                         </Typography>
-                                      )}
-                                    </Box>
-                                    <Box role="cell" sx={{ minWidth: 0 }}>
-                                      <Typography
-                                        variant="caption"
-                                        sx={{
-                                          display: { sm: 'none' },
-                                          color: 'var(--atlas-ink-muted)',
-                                        }}
-                                      >
-                                        Calories
-                                      </Typography>
-                                      <Typography
-                                        variant="body2"
-                                        className="numeric-data"
-                                        sx={{ fontWeight: 800, color: 'var(--calorie-color)' }}
-                                      >
-                                        {formatWholeAmount(itemCalories)} kcal
-                                      </Typography>
-                                      <Box
-                                        sx={{
-                                          mt: 0.35,
-                                          width: '100%',
-                                          height: 4,
-                                          bgcolor: 'var(--atlas-border)',
-                                          borderRadius: 999,
-                                          overflow: 'hidden',
-                                        }}
-                                      >
-                                        <Box
-                                          role="img"
-                                          aria-label={
-                                            itemMacroSegments.length
-                                              ? `${item.food_name} macro calorie stack: ${itemMacroSegments
-                                                  .map(
-                                                    (segment) =>
-                                                      `${segment.label} ${formatWholeAmount(
-                                                        segment.calories,
-                                                      )} kilocalories`,
-                                                  )
-                                                  .join(', ')}`
-                                              : `${item.food_name} macro calorie stack unavailable`
-                                          }
-                                          sx={{
-                                            display: 'flex',
-                                            width: `${
+                                        <Typography
+                                          variant="body2"
+                                          className="numeric-data"
+                                          sx={{ fontWeight: 800, color: 'var(--calorie-color)' }}
+                                        >
+                                          {formatWholeAmount(itemCalories)} kcal
+                                        </Typography>
+                                        <Box sx={{ mt: 0.35 }}>
+                                          <MacroCalorieBar
+                                            name={item.food_name}
+                                            values={nutrientValues(item.nutrients)}
+                                            widthPercentage={
                                               itemCalories !== null && highestFoodCalories > 0
                                                 ? (itemCalories / highestFoodCalories) * 100
                                                 : 0
-                                            }%`,
-                                            height: '100%',
-                                            bgcolor: itemMacroSegments.length
-                                              ? 'transparent'
-                                              : 'var(--calorie-color)',
-                                            borderRadius: 999,
-                                            overflow: 'hidden',
-                                          }}
-                                        >
-                                          {itemMacroSegments.map((segment) => (
-                                            <Box
-                                              key={segment.key}
-                                              sx={{
-                                                width: `${segment.percentage}%`,
-                                                bgcolor: segment.color,
-                                              }}
-                                            />
-                                          ))}
+                                            }
+                                            height={4}
+                                            borderRadius={999}
+                                            wholeNumbers
+                                          />
                                         </Box>
                                       </Box>
+                                      <Box role="cell" sx={{ minWidth: 0 }}>
+                                        <Typography
+                                          variant="caption"
+                                          sx={{
+                                            display: { sm: 'none' },
+                                            color: 'var(--atlas-ink-muted)',
+                                          }}
+                                        >
+                                          Confidence
+                                        </Typography>
+                                        <Typography
+                                          variant="body2"
+                                          className="numeric-data"
+                                          sx={{ fontWeight: 750 }}
+                                        >
+                                          {hasConfidence
+                                            ? `${Math.round(confidence * 100)}%`
+                                            : 'Not scored'}
+                                        </Typography>
+                                      </Box>
+                                      <Box role="cell" sx={{ minWidth: 0 }}>
+                                        <Typography
+                                          variant="caption"
+                                          sx={{
+                                            display: { sm: 'none' },
+                                            color: 'var(--atlas-ink-muted)',
+                                          }}
+                                        >
+                                          Provenance
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ fontWeight: 750 }}>
+                                          {provenanceLabels[item.provenance] || 'Unknown'}
+                                        </Typography>
+                                      </Box>
                                     </Box>
-                                    <Box role="cell" sx={{ minWidth: 0 }}>
-                                      <Typography
-                                        variant="caption"
-                                        sx={{
-                                          display: { sm: 'none' },
-                                          color: 'var(--atlas-ink-muted)',
-                                        }}
-                                      >
-                                        Confidence
-                                      </Typography>
-                                      <Typography
-                                        variant="body2"
-                                        className="numeric-data"
-                                        sx={{ fontWeight: 750 }}
-                                      >
-                                        {hasConfidence
-                                          ? `${Math.round(confidence * 100)}%`
-                                          : 'Not scored'}
-                                      </Typography>
-                                    </Box>
-                                    <Box role="cell" sx={{ minWidth: 0 }}>
-                                      <Typography
-                                        variant="caption"
-                                        sx={{
-                                          display: { sm: 'none' },
-                                          color: 'var(--atlas-ink-muted)',
-                                        }}
-                                      >
-                                        Provenance
-                                      </Typography>
-                                      <Typography variant="body2" sx={{ fontWeight: 750 }}>
-                                        {provenanceLabels[item.provenance] || 'Unknown'}
-                                      </Typography>
-                                    </Box>
-                                  </Box>
-                                );
-                              })}
-                            </Box>
-                            {meal.notes && (
-                              <Box
-                                sx={{
-                                  mt: 1.25,
-                                  px: 1.25,
-                                  py: 1,
-                                  bgcolor: 'var(--atlas-bone)',
-                                  borderLeft: '3px solid var(--atlas-mineral)',
-                                  borderRadius: 1,
-                                }}
-                              >
-                                <Typography
-                                  variant="caption"
-                                  sx={{
-                                    display: 'block',
-                                    color: 'var(--atlas-ink-muted)',
-                                    fontWeight: 800,
-                                  }}
-                                >
-                                  Context
-                                </Typography>
-                                <Typography
-                                  variant="body2"
-                                  sx={{
-                                    mt: 0.15,
-                                    color: 'var(--atlas-ink-muted)',
-                                    whiteSpace: 'pre-line',
-                                  }}
-                                >
-                                  {mealContextText(meal.notes)}
-                                </Typography>
+                                  );
+                                })}
                               </Box>
-                            )}
-                          </Box>
-
-                          <Box sx={{ minWidth: 0 }}>
-                            <Stack
-                              direction="row"
-                              justifyContent="space-between"
-                              alignItems="baseline"
-                            >
-                              <Typography
-                                variant="overline"
-                                sx={{
-                                  color: 'var(--atlas-ink-muted)',
-                                  fontWeight: 800,
-                                  lineHeight: 1,
-                                }}
-                              >
-                                Macro balance
-                              </Typography>
-                              <Typography
-                                variant="caption"
-                                sx={{ color: 'var(--atlas-ink-muted)' }}
-                              >
-                                calorie share
-                              </Typography>
-                            </Stack>
-                            <Stack
-                              direction="row"
-                              alignItems="center"
-                              spacing={{ xs: 1.5, sm: 2 }}
-                              sx={{ mt: 1 }}
-                            >
-                              <Box
-                                role="img"
-                                aria-label={
-                                  macroSegments.length
-                                    ? `${meal.name} macro balance: ${macroSegments
-                                        .map(
-                                          (segment) =>
-                                            `${segment.label} ${Math.round(segment.percentage)} percent`,
-                                        )
-                                        .join(', ')}`
-                                    : `${meal.name} macro balance unavailable`
-                                }
-                                sx={{
-                                  position: 'relative',
-                                  display: 'grid',
-                                  placeItems: 'center',
-                                  flexShrink: 0,
-                                  width: { xs: 120, sm: 140 },
-                                  aspectRatio: '1 / 1',
-                                  borderRadius: '50%',
-                                  background: macroDonutBackground(macroSegments),
-                                  '&::after': {
-                                    content: '""',
-                                    position: 'absolute',
-                                    width: '58%',
-                                    aspectRatio: '1 / 1',
-                                    borderRadius: '50%',
-                                    bgcolor: 'var(--atlas-paper)',
-                                  },
-                                }}
-                              >
-                                <Box sx={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
-                                  <Typography
-                                    className="numeric-data"
-                                    sx={{ fontWeight: 800, lineHeight: 1.05 }}
-                                  >
-                                    {formatWholeAmount(calories)}
-                                  </Typography>
+                              {meal.notes && (
+                                <Box
+                                  sx={{
+                                    mt: 1.25,
+                                    px: 1.25,
+                                    py: 1,
+                                    bgcolor: 'var(--atlas-bone)',
+                                    borderLeft: '3px solid var(--atlas-mineral)',
+                                    borderRadius: 1,
+                                  }}
+                                >
                                   <Typography
                                     variant="caption"
-                                    sx={{ color: 'var(--atlas-ink-muted)' }}
+                                    sx={{
+                                      display: 'block',
+                                      color: 'var(--atlas-ink-muted)',
+                                      fontWeight: 800,
+                                    }}
                                   >
-                                    kcal
+                                    Context
+                                  </Typography>
+                                  <Typography
+                                    variant="body2"
+                                    sx={{
+                                      mt: 0.15,
+                                      color: 'var(--atlas-ink-muted)',
+                                      whiteSpace: 'pre-line',
+                                    }}
+                                  >
+                                    {mealContextText(meal.notes)}
                                   </Typography>
                                 </Box>
-                              </Box>
-                              <Stack spacing={0.65} sx={{ minWidth: 0, flex: 1 }}>
-                                {macroSegments.map((segment) => (
-                                  <Stack
-                                    key={segment.key}
-                                    direction="row"
-                                    justifyContent="space-between"
-                                    alignItems="baseline"
-                                    spacing={1}
+                              )}
+                            </Box>
+
+                            <Box sx={{ minWidth: 0 }}>
+                              <MacroCalorieSplit
+                                values={mealMacroValues}
+                                variant="meal-card"
+                                chartAriaLabel={`${meal.name} Macro Balance`}
+                              />
+                              <Box
+                                sx={{
+                                  display: 'grid',
+                                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                                  gap: 0.75,
+                                  mt: 1.25,
+                                }}
+                              >
+                                {[
+                                  ['fiber', 'Fiber', 'g', 'var(--fiber-color)'],
+                                  ['sugar', 'Sugar', 'g', 'var(--sugar-color)'],
+                                  ['sodium', 'Sodium', 'mg', 'var(--sodium-color)'],
+                                  ['cholesterol', 'Cholesterol', 'mg', 'var(--cholesterol-color)'],
+                                ].map(([key, label, unit, color]) => (
+                                  <Box
+                                    key={key}
+                                    sx={{
+                                      px: 1,
+                                      py: 0.75,
+                                      bgcolor: 'var(--atlas-paper)',
+                                      border: '1px solid var(--atlas-border-strong)',
+                                      borderTop: `2px solid ${color}`,
+                                      borderRadius: 1.25,
+                                    }}
                                   >
-                                    <Stack direction="row" alignItems="center" spacing={0.6}>
-                                      <Box
-                                        sx={{
-                                          width: 8,
-                                          height: 8,
-                                          flexShrink: 0,
-                                          bgcolor: segment.color,
-                                          borderRadius: '50%',
-                                        }}
-                                      />
-                                      <Typography
-                                        variant="caption"
-                                        sx={{ fontWeight: 800, textTransform: 'capitalize' }}
-                                      >
-                                        {segment.label}
-                                      </Typography>
-                                    </Stack>
-                                    <Typography
-                                      variant="caption"
-                                      className="numeric-data"
-                                      sx={{ fontWeight: 750, whiteSpace: 'nowrap' }}
-                                    >
-                                      {mealNutrientText(meal, segment.key)} g (
-                                      {Math.round(segment.percentage)}%)
+                                    <Typography variant="caption" sx={{ color, fontWeight: 800 }}>
+                                      {label}
                                     </Typography>
-                                  </Stack>
+                                    <Typography className="numeric-data" sx={{ fontWeight: 800 }}>
+                                      {mealNutrientText(meal, key)} {unit}
+                                    </Typography>
+                                  </Box>
                                 ))}
-                              </Stack>
-                            </Stack>
-                            <Box
-                              sx={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                                gap: 0.75,
-                                mt: 1.25,
-                              }}
-                            >
-                              {[
-                                ['fiber', 'Fiber', 'g', 'var(--fiber-color)'],
-                                ['sugar', 'Sugar', 'g', 'var(--sugar-color)'],
-                                ['sodium', 'Sodium', 'mg', 'var(--sodium-color)'],
-                                ['cholesterol', 'Cholesterol', 'mg', 'var(--cholesterol-color)'],
-                              ].map(([key, label, unit, color]) => (
-                                <Box
-                                  key={key}
-                                  sx={{
-                                    px: 1,
-                                    py: 0.75,
-                                    bgcolor: 'var(--atlas-paper)',
-                                    border: '1px solid var(--atlas-border-strong)',
-                                    borderTop: `2px solid ${color}`,
-                                    borderRadius: 1.25,
-                                  }}
-                                >
-                                  <Typography variant="caption" sx={{ color, fontWeight: 800 }}>
-                                    {label}
-                                  </Typography>
-                                  <Typography className="numeric-data" sx={{ fontWeight: 800 }}>
-                                    {mealNutrientText(meal, key)} {unit}
-                                  </Typography>
-                                </Box>
-                              ))}
+                              </Box>
                             </Box>
                           </Box>
                         </Box>
@@ -1870,26 +1997,15 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
           </Box>
         </Stack>
 
-        <MealEditor
+        <MapYourMealDialog
           date={date}
-          meal={editor.meal}
-          open={editor.open}
+          meal={mapYourMeal.meal}
+          open={mapYourMeal.open}
           token={token}
-          onClose={() => setEditor({ open: false, meal: null })}
+          launchMode={mapYourMeal.launchMode}
+          onClose={() => setMapYourMeal({ open: false, meal: null, launchMode: 'add' })}
           onSaved={async (message) => {
-            setEditor({ open: false, meal: null });
-            showSnackbar('success', message);
-            await loadDiary();
-          }}
-        />
-
-        <MealEstimateDialog
-          date={date}
-          open={estimateOpen}
-          token={token}
-          onClose={() => setEstimateOpen(false)}
-          onSaved={async (message) => {
-            setEstimateOpen(false);
+            setMapYourMeal({ open: false, meal: null, launchMode: 'add' });
             showSnackbar('success', message);
             await loadDiary();
           }}

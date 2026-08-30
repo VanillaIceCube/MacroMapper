@@ -5,9 +5,18 @@ from rest_framework import serializers
 
 from foods.models import FoodItem
 from foods.nutrients import NUTRIENT_METADATA
+from foods.portions import portion_options_for_serving
 
 from .models import MealEntry, MealItem
-from .services import replace_meal_items
+from .services import _component_tree, replace_meal_items
+
+
+def _snapshot_has_nutrients(components):
+    return all(
+        "nutrients" in component
+        and _snapshot_has_nutrients(component.get("components", []))
+        for component in components
+    )
 
 
 class MealItemSerializer(serializers.ModelSerializer):
@@ -21,6 +30,8 @@ class MealItemSerializer(serializers.ModelSerializer):
         read_only=True,
     )
     nutrients = serializers.SerializerMethodField()
+    component_snapshot = serializers.SerializerMethodField()
+    portion_options = serializers.SerializerMethodField()
 
     class Meta:
         model = MealItem
@@ -35,6 +46,7 @@ class MealItemSerializer(serializers.ModelSerializer):
             "serving_quantity",
             "serving_unit",
             "serving_label",
+            "portion_options",
             "provenance",
             "confidence_score",
             "component_snapshot",
@@ -52,6 +64,22 @@ class MealItemSerializer(serializers.ModelSerializer):
             for key, metadata in NUTRIENT_METADATA.items()
             if (value := getattr(instance, key)) is not None
         ]
+
+    def get_component_snapshot(self, instance):
+        snapshot = instance.component_snapshot
+        if _snapshot_has_nutrients(snapshot):
+            return snapshot
+        return _component_tree(instance.food_version)
+
+    def get_portion_options(self, instance):
+        version = instance.food_version
+        return portion_options_for_serving(
+            quantity=version.serving_quantity,
+            unit=version.serving_unit,
+            label=version.serving_label,
+            weight_grams=version.serving_weight_grams,
+            volume_milliliters=version.serving_volume_ml,
+        )
 
 
 class MealItemInputSerializer(serializers.Serializer):
@@ -91,10 +119,11 @@ class MealEntrySerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = ("id", "created_at", "updated_at")
+        extra_kwargs = {"name": {"allow_blank": True, "required": False}}
 
     def validate(self, attrs):
         name = attrs.get("name", getattr(self.instance, "name", "")).strip()
-        if not name:
+        if not name and self.instance is not None:
             raise serializers.ValidationError({"name": "This field may not be blank."})
         attrs["name"] = name
 
