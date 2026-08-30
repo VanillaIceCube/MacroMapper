@@ -151,7 +151,7 @@ user's proposals.
 - `PATCH /api/meal-proposals/{id}/` with edited `name`, `entry_date`, and/or
   `items`
 - `POST /api/meal-proposals/{id}/follow-up/` with `follow_up`, the current
-  `name`, `entry_date`, and current `items`
+  `name`, `notes`, `entry_date`, and current `items`
   - Sends the original description and current reviewed draft to the estimation
     provider, then applies only constrained top-level additions, explicit
     removals, or absolute serving corrections.

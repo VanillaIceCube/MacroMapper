@@ -317,6 +317,7 @@ class MapYourMealItemsField(serializers.JSONField):
 class MealProposalFollowUpSerializer(serializers.Serializer):
     follow_up = serializers.CharField(max_length=500, trim_whitespace=True)
     name = serializers.CharField(max_length=120, trim_whitespace=True)
+    notes = serializers.CharField(max_length=2000, allow_blank=True, required=False)
     entry_date = serializers.DateField(required=False)
     items = ProposalItemsField()
 
@@ -353,6 +354,7 @@ class MealProposalFollowUpSerializer(serializers.Serializer):
             proposal=self.context["proposal"],
             owner=self.context["request"].user,
             follow_up=self.validated_data["follow_up"],
+            notes=self.validated_data.get("notes", self.context["proposal"].notes),
             entry_date=self.validated_data.get(
                 "entry_date", self.context["proposal"].entry_date
             ),

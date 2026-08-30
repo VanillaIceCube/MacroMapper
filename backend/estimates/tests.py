@@ -909,6 +909,7 @@ class MealProposalApiTests(TestCase):
                 {
                     "follow_up": "I only ate half the apple",
                     "name": proposal_response.data["name"],
+                    "notes": "Use the homemade version.",
                     "entry_date": "2026-08-18",
                     "items": proposal_response.data["items"],
                 },
@@ -922,6 +923,9 @@ class MealProposalApiTests(TestCase):
             Decimal("0.5"),
         )
         self.assertEqual(response.data["proposal"]["name"], "Half Apple")
+        self.assertEqual(
+            response.data["proposal"]["notes"], "Use the homemade version."
+        )
         self.assertEqual(str(response.data["proposal"]["entry_date"]), "2026-08-18")
         self.assertEqual(
             response.data["proposal"]["revisions"][-1]["message"],
@@ -930,6 +934,10 @@ class MealProposalApiTests(TestCase):
         self.assertEqual(
             response.data["proposal"]["revisions"][-1]["follow_up"],
             "I only ate half the apple",
+        )
+        self.assertEqual(
+            response.data["proposal"]["revisions"][-1]["notes"],
+            "Use the homemade version.",
         )
 
         provider.follow_up.return_value = {
@@ -969,13 +977,14 @@ class MealProposalApiTests(TestCase):
         self.assertEqual(accepted.data["name"], "Quarter Apple")
         self.assertEqual(
             accepted.data["notes"],
+            "Use the homemade version.\n\n"
             "Estimated from: A single apple\n\n"
             "AI adjustments:\n"
             "- I only ate half the apple\n"
             "- Actually, I only ate a quarter",
         )
 
-    def test_follow_up_persists_date_when_no_food_change_applies(self):
+    def test_follow_up_persists_reviewed_fields_when_no_food_change_applies(self):
         shared_food(name="Apple")
         proposal_response = self.client.post(
             "/api/meal-proposals/",
@@ -1001,6 +1010,7 @@ class MealProposalApiTests(TestCase):
                 {
                     "follow_up": "Move this meal to Monday",
                     "name": proposal_response.data["name"],
+                    "notes": "Move this entry, but keep my note.",
                     "entry_date": "2026-08-17",
                     "items": proposal_response.data["items"],
                 },
@@ -1009,11 +1019,14 @@ class MealProposalApiTests(TestCase):
 
         self.assertEqual(response.status_code, 200, response.data)
         self.assertFalse(response.data["applied"])
-        self.assertEqual(str(response.data["proposal"]["entry_date"]), "2026-08-17")
         self.assertEqual(
-            MealProposal.objects.get(pk=proposal_response.data["id"]).entry_date,
-            date(2026, 8, 17),
+            response.data["proposal"]["notes"],
+            "Move this entry, but keep my note.",
         )
+        self.assertEqual(str(response.data["proposal"]["entry_date"]), "2026-08-17")
+        proposal = MealProposal.objects.get(pk=proposal_response.data["id"])
+        self.assertEqual(proposal.entry_date, date(2026, 8, 17))
+        self.assertEqual(proposal.notes, "Move this entry, but keep my note.")
 
     def test_unsafe_provider_catalog_metadata_is_rejected_before_publication(self):
         provider = Mock()

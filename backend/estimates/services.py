@@ -1338,7 +1338,7 @@ def _follow_up_search_intent(item):
 
 @transaction.atomic
 def apply_proposal_follow_up(
-    *, proposal, owner, follow_up, items, result, entry_date=None
+    *, proposal, owner, follow_up, items, result, entry_date=None, notes=None
 ):
     proposal = (
         MealProposal.objects.select_for_update()
@@ -1448,9 +1448,15 @@ def apply_proposal_follow_up(
         and not added_items
         and not merged_addition
     ):
+        reviewed_fields = []
         if entry_date is not None and proposal.entry_date != entry_date:
             proposal.entry_date = entry_date
-            proposal.save(update_fields=["entry_date", "updated_at"])
+            reviewed_fields.append("entry_date")
+        if notes is not None and proposal.notes != notes:
+            proposal.notes = notes
+            reviewed_fields.append("notes")
+        if reviewed_fields:
+            proposal.save(update_fields=[*reviewed_fields, "updated_at"])
         return {
             "applied": False,
             "message": "AI could not produce an applicable meal change from that request.",
@@ -1460,6 +1466,8 @@ def apply_proposal_follow_up(
     proposal.name = _brief_generated_meal_name(result["name"])
     if entry_date is not None:
         proposal.entry_date = entry_date
+    if notes is not None:
+        proposal.notes = notes
     proposal.items = normalize_items([*retained_items, *added_items])
     proposal.generator = MealProposal.Generator.OPENAI
     provider_name = result["provider_name"]
@@ -1482,6 +1490,7 @@ def apply_proposal_follow_up(
         update_fields=[
             "name",
             "entry_date",
+            "notes",
             "items",
             "generator",
             "provider_name",

@@ -62,6 +62,7 @@ export const adjustMealProposal = (proposalId, payload, token) => {
     ? {
         follow_up: payload.adjustment,
         name: payload.name,
+        notes: payload.notes,
         entry_date: payload.entry_date,
         items: payload.items,
       }
