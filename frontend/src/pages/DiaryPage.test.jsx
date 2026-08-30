@@ -763,6 +763,29 @@ describe('DiaryPage', () => {
     await waitFor(() => expect(resumedBuilder).not.toBeInTheDocument());
   });
 
+  test('keeps AI proposal editing unavailable for an existing diary entry', async () => {
+    const user = userEvent.setup();
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [meal], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await user.click(await screen.findByRole('button', { name: 'edit Breakfast' }));
+    const dialog = screen.getByRole('dialog', { name: /Edit meal/ });
+    expect(within(dialog).queryByText('AI Adjustments')).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole('textbox', { name: 'Describe an AI adjustment' }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        'Adjust meal quantities and units, or review each item’s estimate details and sources.',
+      ),
+    ).toBeVisible();
+    await user.click(within(dialog).getByRole('button', { name: 'More actions for Apple' }));
+    expect(
+      screen.queryByRole('menuitem', { name: 'Edit nutrition for Apple' }),
+    ).not.toBeInTheDocument();
+    expect(adjustMealProposal).not.toHaveBeenCalled();
+  });
+
   test('edits a meal and replaces its component quantity', async () => {
     const user = userEvent.setup();
     fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [meal], totals: [] }));
@@ -789,6 +812,9 @@ describe('DiaryPage', () => {
         'access-token',
       );
     });
+    expect(adjustMealProposal).not.toHaveBeenCalled();
+    expect(updateMealProposal).not.toHaveBeenCalled();
+    expect(acceptMealProposal).not.toHaveBeenCalled();
   });
 
   test('shows catalog composite nutrition in Map Your Meal and expanded components', async () => {

@@ -186,6 +186,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
   const [catalogDetailFoodIds, setCatalogDetailFoodIds] = useState(() => new Set());
   const [baselineFingerprint, setBaselineFingerprint] = useState('');
   const catalogSearchRef = useRef(null);
+  const aiAdjustmentsAvailable = !meal;
   const selectedFoodIds = useMemo(
     () => new Set(items.map((item) => String(item.food_item))),
     [items],
@@ -358,6 +359,10 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
   };
 
   const applyAdjustment = async () => {
+    if (!aiAdjustmentsAvailable) {
+      setError('AI adjustments are available only while mapping a new meal.');
+      return;
+    }
     const request = adjustment.trim();
     if (!request) {
       setAdjustmentFeedback({
@@ -449,9 +454,13 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
       setError('Each meal item needs a quantity greater than zero.');
       return;
     }
+    if (proposalId && meal) {
+      setError('An AI proposal cannot overwrite an existing diary entry.');
+      return;
+    }
     setSaving(true);
     setError('');
-    if (proposalId && !meal) {
+    if (proposalId) {
       const updateResponse = await updateMealProposal(
         proposalId,
         {
@@ -509,7 +518,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
       ? {
           eyebrow: 'Diary entry',
           title: 'Edit meal',
-          description: 'Update the meal details, foods, and nutrition in one place.',
+          description: 'Update the meal details, catalog foods, and quantities in one place.',
         }
       : proposalContext
         ? {
@@ -983,7 +992,9 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                     <Typography variant="body2" color="text.secondary">
                       {proposalId
                         ? 'Adjust quantities, units, nutrition, and components, or review each item’s estimate details and sources.'
-                        : 'Adjust meal quantities and units, or review each item’s estimate details and sources. AI adjustments unlock nutrition and component editing.'}
+                        : meal
+                          ? 'Adjust meal quantities and units, or review each item’s estimate details and sources.'
+                          : 'Adjust meal quantities and units, or review each item’s estimate details and sources. AI adjustments unlock nutrition and component editing.'}
                     </Typography>
                   </Box>
                   <Chip
@@ -1009,8 +1020,9 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       No meal items yet
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Choose a recent or searched catalog food below, or use AI Adjustments to get
-                      started.
+                      {meal
+                        ? 'Choose a recent or searched catalog food below.'
+                        : 'Choose a recent or searched catalog food below, or use AI Adjustments to get started.'}
                     </Typography>
                   </Box>
                 ) : (
@@ -1023,8 +1035,8 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                         onPortionChange={changePortion}
                         onNutrientChange={changeNutrient}
                         onRemove={removeItem}
-                        allowNutritionEditing={Boolean(proposalId)}
-                        allowComponentEditing={Boolean(proposalId)}
+                        allowNutritionEditing={Boolean(proposalId && aiAdjustmentsAvailable)}
+                        allowComponentEditing={Boolean(proposalId && aiAdjustmentsAvailable)}
                         renderNutrition={(foodItem, onChange) => (
                           <ItemNutritionCards item={foodItem} compact onNutrientChange={onChange} />
                         )}
@@ -1038,7 +1050,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                 <MealNutritionSummary items={items} />
               </Box>
 
-              {!meal && (
+              {aiAdjustmentsAvailable && (
                 <Paper
                   component="section"
                   aria-labelledby="ai-adjustments-heading"

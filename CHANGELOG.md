@@ -12,6 +12,8 @@ All notable changes to this project are documented in this file.
   bulk-loaded.
 - Prevent manual and existing meal editors from offering nutrition or nested
   component changes that their direct save path cannot persist.
+- Keep AI adjustments unavailable while updating existing diary entries, and
+  guard proposal drafts from falling through to the direct meal update path.
 
 ## 2026-08-29
 
