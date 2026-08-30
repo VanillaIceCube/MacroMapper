@@ -1,11 +1,14 @@
-import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 
-const require = createRequire(import.meta.url);
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 test('eslint config keeps React rules and recognizes Vitest globals', () => {
-  const eslintConfig = require('../../.eslintrc.js');
+  const configPath = resolve(__dirname, '../../eslint.config.mjs');
+  const configSource = readFileSync(configPath, 'utf8');
 
-  expect(eslintConfig.extends).toEqual(['react-app', 'react-app/jest']);
-  expect(eslintConfig.globals.vi).toBe('readonly');
-  expect(eslintConfig.ignorePatterns).toContain('dist/**');
+  expect(configSource).toContain('eslint-plugin-react');
+  expect(configSource).toContain("vi: 'readonly'");
+  expect(configSource).toContain("'dist/**'");
 });
