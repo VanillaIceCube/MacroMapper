@@ -107,6 +107,8 @@ class MealEntryApiTests(APITestCase):
         self.assertEqual(create_response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_create_copies_food_and_nutrient_values(self):
+        self.apple.current_version.serving_weight_grams = Decimal("182")
+        self.apple.current_version.save(update_fields=["serving_weight_grams"])
         response = self.create_meal()
 
         self.assertEqual(response.data["name"], "Breakfast")
@@ -117,6 +119,10 @@ class MealEntryApiTests(APITestCase):
         self.assertEqual(apple["food_version_id"], self.apple.current_version_id)
         self.assertEqual(apple["provenance"], "user_entered")
         self.assertIsNone(apple["confidence_score"])
+        self.assertEqual(
+            {option["key"] for option in apple["portion_options"]},
+            {"base", "g", "oz"},
+        )
         toast = response.data["items"][1]
         self.assertEqual(toast["provenance"], "official")
         self.assertEqual(toast["confidence_score"], "0.990")

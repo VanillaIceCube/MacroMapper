@@ -14,6 +14,7 @@ All notable changes to this project are documented in this file.
   component changes that their direct save path cannot persist.
 - Keep AI adjustments unavailable while updating existing diary entries, and
   guard proposal drafts from falling through to the direct meal update path.
+- Preserve pinned food-version portion options when reopening saved meals.
 
 ## 2026-08-29
 

@@ -5,6 +5,7 @@ from rest_framework import serializers
 
 from foods.models import FoodItem
 from foods.nutrients import NUTRIENT_METADATA
+from foods.portions import portion_options_for_serving
 
 from .models import MealEntry, MealItem
 from .services import _component_tree, replace_meal_items
@@ -30,6 +31,7 @@ class MealItemSerializer(serializers.ModelSerializer):
     )
     nutrients = serializers.SerializerMethodField()
     component_snapshot = serializers.SerializerMethodField()
+    portion_options = serializers.SerializerMethodField()
 
     class Meta:
         model = MealItem
@@ -44,6 +46,7 @@ class MealItemSerializer(serializers.ModelSerializer):
             "serving_quantity",
             "serving_unit",
             "serving_label",
+            "portion_options",
             "provenance",
             "confidence_score",
             "component_snapshot",
@@ -67,6 +70,16 @@ class MealItemSerializer(serializers.ModelSerializer):
         if _snapshot_has_nutrients(snapshot):
             return snapshot
         return _component_tree(instance.food_version)
+
+    def get_portion_options(self, instance):
+        version = instance.food_version
+        return portion_options_for_serving(
+            quantity=version.serving_quantity,
+            unit=version.serving_unit,
+            label=version.serving_label,
+            weight_grams=version.serving_weight_grams,
+            volume_milliliters=version.serving_volume_ml,
+        )
 
 
 class MealItemInputSerializer(serializers.Serializer):
