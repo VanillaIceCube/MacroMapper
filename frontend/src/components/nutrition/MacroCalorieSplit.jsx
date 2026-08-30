@@ -32,11 +32,7 @@ export default function MacroCalorieSplit({
         flexDirection: 'column',
       }}
     >
-      <Typography
-        component="figcaption"
-        variant="subtitle2"
-        sx={{ fontWeight: 800, mb: 0.75 }}
-      >
+      <Typography component="figcaption" variant="subtitle2" sx={{ fontWeight: 800, mb: 0.75 }}>
         {title}
       </Typography>
       {loading ? (
@@ -76,10 +72,7 @@ export default function MacroCalorieSplit({
             aria-label={
               macros.length
                 ? `${chartAriaLabel || 'Macro Balance'}: ${macros
-                    .map(
-                      (macro) =>
-                        `${macro.label} ${Math.round(macro.percentage)} percent`,
-                    )
+                    .map((macro) => `${macro.label} ${Math.round(macro.percentage)} percent`)
                     .join(', ')}`
                 : `${chartAriaLabel || 'Macro Balance'} unavailable`
             }
@@ -118,10 +111,7 @@ export default function MacroCalorieSplit({
               </Typography>
             </Box>
           </Box>
-          <Stack
-            spacing={0.5}
-            sx={{ minWidth: 0, flex: '0 0 auto' }}
-          >
+          <Stack spacing={0.5} sx={{ minWidth: 0, flex: '0 0 auto' }}>
             {macros.map((macro) => (
               <Box
                 key={macro.key}

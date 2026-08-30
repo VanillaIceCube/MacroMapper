@@ -514,9 +514,8 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
             description:
               'Chart today’s journey with catalog foods, personal foods, or AI guidance.',
           };
-  const MealHeaderIcon = isEstimateStep || proposalContext
-    ? AutoAwesomeIcon
-    : RestaurantMenuOutlinedIcon;
+  const MealHeaderIcon =
+    isEstimateStep || proposalContext ? AutoAwesomeIcon : RestaurantMenuOutlinedIcon;
 
   return (
     <>
@@ -610,9 +609,9 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                 autoFocus
               />
               <Typography variant="body2" sx={{ color: 'var(--atlas-ink-muted)' }}>
-                MacroMapper checks your visible food catalog first. Matched foods use their
-                existing nutrition data, while unmatched foods are estimated by GPT with web
-                sources and remain editable before saving.
+                MacroMapper checks your visible food catalog first. Matched foods use their existing
+                nutrition data, while unmatched foods are estimated by GPT with web sources and
+                remain editable before saving.
               </Typography>
             </Stack>
           ) : (
@@ -948,9 +947,9 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                         ? 'No recent foods are available yet. Search the catalog or create a personal food.'
                         : !hasSearched
                           ? 'Search by food or provider to see matching foods.'
-                        : foods.length
-                          ? 'All matching foods are already in this meal.'
-                          : 'No foods matched this search. Try another term or use AI estimation to add a meal.'}
+                          : foods.length
+                            ? 'All matching foods are already in this meal.'
+                            : 'No foods matched this search. Try another term or use AI estimation to add a meal.'}
                     </Typography>
                   )}
                 </Collapse>
@@ -1129,11 +1128,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
               <Button onClick={requestClose} disabled={saving || adjustmentBusy}>
                 Cancel
               </Button>
-              <Button
-                variant="contained"
-                onClick={save}
-                disabled={saving || adjustmentBusy}
-              >
+              <Button variant="contained" onClick={save} disabled={saving || adjustmentBusy}>
                 {saving ? 'Saving…' : meal ? 'Save changes' : 'Save meal'}
               </Button>
             </>
