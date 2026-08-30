@@ -64,7 +64,7 @@ export default function MealNutritionSummary({ items }) {
             <MacroCalorieSplit values={values} />
             <CalorieContributionChart
               contributions={contributions}
-              title="Calories by component"
+              title="Calories by Component"
               chartAriaLabel="Component calorie chart"
               emptyText="Component calories are unavailable."
               otherKey="other-components"

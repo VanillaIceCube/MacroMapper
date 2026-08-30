@@ -26,6 +26,7 @@ from .provider import (
     EstimatedSource,
     EstimationProviderError,
     FoodSearchIntent,
+    GeneratedMealName,
     MealSearchPlan,
     OpenAIMealEstimationProvider,
 )
@@ -1555,6 +1556,31 @@ class OpenAIProviderTests(TestCase):
         )
         self.assertEqual(result["name"], "KFC & McDonald's Fries")
         self.assertEqual(result["provider_response_id"], "resp_intents")
+
+    def test_provider_generates_a_meal_name_without_web_search(self):
+        client = Mock()
+        client.responses.parse.return_value = SimpleNamespace(
+            id="resp_meal_name",
+            output_parsed=GeneratedMealName(name="Example Bakery Toast & Apple"),
+        )
+
+        result = OpenAIMealEstimationProvider(client=client).generate_name(
+            [
+                {"name": "Apple", "provider_name": "", "servings": "2.0000"},
+                {
+                    "name": "Toast",
+                    "provider_name": "Example Bakery",
+                    "servings": "1.0000",
+                },
+            ]
+        )
+
+        request = client.responses.parse.call_args.kwargs
+        self.assertNotIn("tools", request)
+        self.assertEqual(request["text_format"], GeneratedMealName)
+        self.assertFalse(request["store"])
+        self.assertIn('"selected_foods"', request["input"][1]["content"])
+        self.assertEqual(result, "Example Bakery Toast & Apple")
 
     def test_provider_uses_web_search_structured_output_and_retains_metadata(self):
         parsed = EstimatedMeal(

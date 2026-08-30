@@ -9,8 +9,12 @@ from meals.serializers import MealEntrySerializer
 
 from .models import MealProposal
 from .provider import EstimationProviderError, get_estimation_provider
-from .serializers import MealProposalFollowUpSerializer, MealProposalSerializer
-from .services import accept_proposal
+from .serializers import (
+    MealBuilderAdjustmentSerializer,
+    MealProposalFollowUpSerializer,
+    MealProposalSerializer,
+)
+from .services import accept_proposal, apply_proposal_follow_up
 
 PROVIDER_UNAVAILABLE_DETAIL = (
     "The meal estimation service is temporarily unavailable. "
@@ -78,6 +82,54 @@ class MealProposalViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         except DjangoValidationError as error:
+            raise ValidationError(error.messages) from error
+
+        updated_proposal = outcome["proposal"]
+        updated_proposal.refresh_from_db()
+        return Response(
+            {
+                "applied": outcome["applied"],
+                "message": outcome["message"],
+                "proposal": MealProposalSerializer(
+                    updated_proposal,
+                    context={"request": request},
+                ).data,
+            }
+        )
+
+    @action(detail=False, methods=["post"], url_path="adjustments")
+    def create_adjustment(self, request):
+        serializer = MealBuilderAdjustmentSerializer(
+            data=request.data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        proposal = None
+        try:
+            proposal = serializer.create_proposal()
+            result = get_estimation_provider().follow_up(
+                original_description="",
+                meal_name=proposal.name,
+                items=proposal.items,
+                follow_up=serializer.validated_data["adjustment"],
+            )
+            outcome = apply_proposal_follow_up(
+                proposal=proposal,
+                owner=request.user,
+                follow_up=serializer.validated_data["adjustment"],
+                items=proposal.items,
+                result=result,
+            )
+        except EstimationProviderError:
+            if proposal is not None:
+                proposal.delete()
+            return Response(
+                {"detail": PROVIDER_UNAVAILABLE_DETAIL},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except DjangoValidationError as error:
+            if proposal is not None:
+                proposal.delete()
             raise ValidationError(error.messages) from error
 
         updated_proposal = outcome["proposal"]

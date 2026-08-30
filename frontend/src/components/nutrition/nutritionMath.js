@@ -105,6 +105,7 @@ export function summarizeCalorieContributions(
     {
       key: otherKey,
       name: otherLabel(remaining.length),
+      componentNames: remaining.map((item) => item.name),
       calories: remaining.reduce((total, item) => total + item.calories, 0),
       ...Object.fromEntries(
         MACRO_CALORIE_FIELDS.map(({ key }) => [

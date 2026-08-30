@@ -106,10 +106,11 @@ class MealEntrySerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = ("id", "created_at", "updated_at")
+        extra_kwargs = {"name": {"allow_blank": True, "required": False}}
 
     def validate(self, attrs):
         name = attrs.get("name", getattr(self.instance, "name", "")).strip()
-        if not name:
+        if not name and self.instance is not None:
             raise serializers.ValidationError({"name": "This field may not be blank."})
         attrs["name"] = name
 

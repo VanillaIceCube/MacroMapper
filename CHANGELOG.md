@@ -5,11 +5,14 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Generate blank meal names from the selected foods when a meal is saved, with
+  sequential `Meal-00`, `Meal-01`, and `Meal-02` names when the LLM is unavailable.
 - Use Add meal as the single meal-building surface. Estimate meal first gathers a
   description and creates an initial estimate, then transitions to Add meal in the
   same dialog; Add manually opens Add meal directly.
-- Keep AI follow-up, catalog and personal foods, notes, editable nutrition, and
-  one shared draft in the unified Add meal builder.
+- Make AI Adjustments available for both estimated and manually assembled meals
+  in the unified Add meal builder, with generalized adjustment naming throughout
+  the current interface.
 - Hide catalog foods after they are added to a meal and prevent duplicate
   additions until the existing item is removed.
 - Extract meal-item editing into one shared component for all Add meal items,

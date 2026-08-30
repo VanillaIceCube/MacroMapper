@@ -40,12 +40,12 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   acceptMealProposal,
+  adjustMealProposal,
   createMeal,
   createMealProposal,
   createPersonalFood,
   deleteMeal,
   fetchDailyDiary,
-  followUpMealProposal,
   searchFoods,
   updateMealProposal,
   updateMeal,
@@ -176,9 +176,9 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
   const [proposalId, setProposalId] = useState(null);
   const [proposalContext, setProposalContext] = useState(null);
   const [catalogPickerOpen, setCatalogPickerOpen] = useState(true);
-  const [followUp, setFollowUp] = useState('');
-  const [followUpBusy, setFollowUpBusy] = useState(false);
-  const [followUpFeedback, setFollowUpFeedback] = useState(null);
+  const [adjustment, setAdjustment] = useState('');
+  const [adjustmentBusy, setAdjustmentBusy] = useState(false);
+  const [adjustmentFeedback, setAdjustmentFeedback] = useState(null);
   const [query, setQuery] = useState('');
   const [foods, setFoods] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -230,9 +230,9 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
     setProposalId(null);
     setProposalContext(null);
     setCatalogPickerOpen(launchMode !== 'estimate');
-    setFollowUp('');
-    setFollowUpBusy(false);
-    setFollowUpFeedback(null);
+    setAdjustment('');
+    setAdjustmentBusy(false);
+    setAdjustmentFeedback(null);
     const initialNewFood = emptyPersonalFood();
     baselineRef.current = mealDraftFingerprint({
       name: initialName,
@@ -363,68 +363,63 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
     setItems((current) => removeMealItemFromTree(current, key));
   };
 
-  const applyFollowUp = async () => {
-    const request = followUp.trim();
+  const applyAdjustment = async () => {
+    const request = adjustment.trim();
     if (!request) {
-      setFollowUpFeedback({
+      setAdjustmentFeedback({
         severity: 'warning',
         message: 'Describe what you want to add, remove, or correct.',
       });
       return;
     }
-    if (!proposalId || !name.trim() || !items.length) {
-      setFollowUpFeedback({
-        severity: 'warning',
-        message: 'Name the meal and keep at least one food before asking for a change.',
-      });
-      return;
-    }
-
-    setFollowUpBusy(true);
+    setAdjustmentBusy(true);
     setError('');
-    setFollowUpFeedback(null);
+    setAdjustmentFeedback(null);
     try {
-      const response = await followUpMealProposal(
+      const response = await adjustMealProposal(
         proposalId,
         {
-          follow_up: request,
+          adjustment: request,
+          entry_date: entryDate,
           name: name.trim(),
+          notes: notes.trim(),
           items: items.map(mealItemToProposalItem),
         },
         token,
       );
       if (response.ok) {
         const result = await response.json();
+        const updatedProposal = result.proposal;
+        setProposalId(updatedProposal.id);
+        setName(updatedProposal.name);
+        setItems(updatedProposal.items.map(proposalItemToMealItem));
+        setProposalContext({
+          provider_name: updatedProposal.provider_name,
+          provider_model: updatedProposal.provider_model,
+          confidence_score: updatedProposal.confidence_score,
+        });
         if (result.applied) {
-          const updatedProposal = result.proposal;
-          setName(updatedProposal.name);
-          setItems(updatedProposal.items.map(proposalItemToMealItem));
-          setProposalContext({
-            provider_name: updatedProposal.provider_name,
-            provider_model: updatedProposal.provider_model,
-            confidence_score: updatedProposal.confidence_score,
-          });
-          setFollowUp('');
-          setFollowUpFeedback({ severity: 'success', message: result.message });
+          setAdjustment('');
+          setAdjustmentFeedback({ severity: 'success', message: result.message });
         } else {
-          setFollowUpFeedback({ severity: 'warning', message: result.message });
+          setAdjustmentFeedback({ severity: 'warning', message: result.message });
         }
       } else {
-        setFollowUpFeedback({
+        setAdjustmentFeedback({
           severity: 'error',
           message: await responseError(
             response,
-            'Could not apply that change. Your current draft is still here.',
+            'Could not apply that adjustment. Your current meal is still here.',
           ),
         });
       }
     } catch (_error) {
-      setFollowUpFeedback({
+      setAdjustmentFeedback({
         severity: 'error',
-        message: 'Could not reach AI. Try again—your current draft and request are still here.',
+        message: 'Could not reach AI. Your current meal and adjustment are still here.',
       });
     } finally {
-      setFollowUpBusy(false);
+      setAdjustmentBusy(false);
     }
   };
 
@@ -447,8 +442,8 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
   };
 
   const save = async () => {
-    if (!name.trim() || !entryDate || !items.length) {
-      setError('Name the meal and add at least one food.');
+    if (!entryDate || !items.length) {
+      setError('Choose a date and add at least one food.');
       return;
     }
     if (
@@ -550,7 +545,7 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
     <>
       <Dialog
         open={open}
-        onClose={estimating || saving || creatingFood || followUpBusy ? undefined : requestClose}
+        onClose={estimating || saving || creatingFood || adjustmentBusy ? undefined : requestClose}
         fullWidth
         maxWidth="md"
         aria-labelledby="meal-builder-title"
@@ -653,7 +648,7 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
                       label="Meal name"
                       value={name}
                       onChange={(event) => setName(event.target.value)}
-                      required
+                      helperText="Optional. Leave blank to generate a name when you save."
                       fullWidth
                     />
                     <TextField
@@ -682,7 +677,7 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
                 aria-labelledby="food-search-heading"
                 elevation={0}
                 sx={{
-                  order: 4,
+                  order: 5,
                   p: { xs: 1.5, sm: 2 },
                   bgcolor: 'var(--atlas-mineral-soft)',
                   border: '1px solid rgba(71, 121, 138, 0.32)',
@@ -1005,7 +1000,7 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
               <Box
                 component="details"
                 sx={{
-                  order: 5,
+                  order: 6,
                   p: { xs: 1.5, sm: 2 },
                   bgcolor: 'var(--atlas-persimmon-soft)',
                   border: '1px solid rgba(169, 68, 32, 0.28)',
@@ -1069,12 +1064,12 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
                 </Stack>
               </Box>
 
-              {proposalId && !meal && (
+              {!meal && (
                 <Paper
                   component="section"
-                  aria-labelledby="adjust-meal-with-ai-heading"
+                  aria-labelledby="ai-adjustments-heading"
                   elevation={0}
-                  sx={{ order: 6, p: 1.25, border: '1px solid var(--atlas-border)' }}
+                  sx={{ order: 4, p: 1.25, border: '1px solid var(--atlas-border)' }}
                 >
                   <Stack spacing={0.75}>
                     <Stack direction="row" spacing={0.75} alignItems="center">
@@ -1083,11 +1078,11 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
                         sx={{ color: 'var(--atlas-persimmon-dark)' }}
                       />
                       <Typography
-                        id="adjust-meal-with-ai-heading"
+                        id="ai-adjustments-heading"
                         variant="subtitle2"
                         sx={{ fontWeight: 800 }}
                       >
-                        Adjust with AI
+                        AI Adjustments
                       </Typography>
                     </Stack>
                     <Stack
@@ -1096,47 +1091,47 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
                       alignItems={{ sm: 'flex-end' }}
                     >
                       <TextField
-                        label="Ask AI to make changes"
-                        value={followUp}
+                        label="Describe an AI adjustment"
+                        value={adjustment}
                         onChange={(event) => {
-                          setFollowUp(event.target.value);
-                          setFollowUpFeedback(null);
+                          setAdjustment(event.target.value);
+                          setAdjustmentFeedback(null);
                         }}
                         onKeyDown={(event) => {
                           if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
                             event.preventDefault();
-                            applyFollowUp();
+                            applyAdjustment();
                           }
                         }}
-                        placeholder="I also had a medium chocolate milkshake"
+                        placeholder="Add a medium chocolate milkshake"
                         multiline
                         minRows={1}
                         maxRows={3}
                         size="small"
                         inputProps={{ maxLength: 500 }}
-                        disabled={followUpBusy}
+                        disabled={adjustmentBusy}
                         fullWidth
                       />
                       <Button
                         variant="outlined"
                         color="secondary"
                         startIcon={
-                          followUpBusy ? (
+                          adjustmentBusy ? (
                             <CircularProgress size={16} color="inherit" />
                           ) : (
                             <SendIcon />
                           )
                         }
-                        onClick={applyFollowUp}
-                        disabled={followUpBusy || !followUp.trim()}
+                        onClick={applyAdjustment}
+                        disabled={adjustmentBusy || !adjustment.trim()}
                         sx={{ whiteSpace: 'nowrap', width: { xs: '100%', sm: 'auto' } }}
                       >
-                        {followUpBusy ? 'Applying…' : 'Apply'}
+                        {adjustmentBusy ? 'Adjusting…' : 'Apply adjustment'}
                       </Button>
                     </Stack>
-                    {followUpFeedback && (
-                      <Alert severity={followUpFeedback.severity} sx={{ py: 0 }}>
-                        {followUpFeedback.message}
+                    {adjustmentFeedback && (
+                      <Alert severity={adjustmentFeedback.severity} sx={{ py: 0 }}>
+                        {adjustmentFeedback.message}
                       </Alert>
                     )}
                   </Stack>
@@ -1169,13 +1164,13 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
             </>
           ) : (
             <>
-              <Button onClick={requestClose} disabled={saving || creatingFood || followUpBusy}>
+              <Button onClick={requestClose} disabled={saving || creatingFood || adjustmentBusy}>
                 Cancel
               </Button>
               <Button
                 variant="contained"
                 onClick={save}
-                disabled={saving || creatingFood || followUpBusy}
+                disabled={saving || creatingFood || adjustmentBusy}
               >
                 {saving ? 'Saving…' : meal ? 'Save changes' : 'Save meal'}
               </Button>

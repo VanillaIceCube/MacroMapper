@@ -8,7 +8,7 @@ from rest_framework.response import Response
 
 from .models import MealEntry, MealItem
 from .serializers import MealEntrySerializer
-from .services import daily_totals
+from .services import daily_totals, generate_meal_name
 
 
 class MealEntryViewSet(viewsets.ModelViewSet):
@@ -36,6 +36,18 @@ class MealEntryViewSet(viewsets.ModelViewSet):
                 )
             queryset = queryset.filter(entry_date=parsed_date)
         return queryset
+
+    def perform_create(self, serializer):
+        if serializer.validated_data.get("name"):
+            serializer.save()
+            return
+        serializer.save(
+            name=generate_meal_name(
+                owner=self.request.user,
+                entry_date=serializer.validated_data["entry_date"],
+                item_inputs=serializer.validated_data["items"],
+            )
+        )
 
     @action(detail=False, methods=["get"], url_path="daily")
     def daily(self, request):

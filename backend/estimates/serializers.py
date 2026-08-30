@@ -12,6 +12,7 @@ from foods.portions import portion_options_for_serving
 from .models import MealProposal, MealProposalRevision
 from .services import (
     apply_proposal_follow_up,
+    create_builder_proposal,
     create_proposal,
     create_proposal_revision,
     normalize_items,
@@ -300,6 +301,18 @@ class ProposalItemsField(serializers.JSONField):
         )
 
 
+class MealBuilderItemsField(serializers.JSONField):
+    def to_internal_value(self, data):
+        if not isinstance(data, list):
+            raise serializers.ValidationError("Meal items must be a list.")
+        if len(data) > 20:
+            raise serializers.ValidationError("A meal may contain at most 20 foods.")
+        seen_keys = set()
+        return normalize_items(
+            [_validate_item(item, seen_keys=seen_keys) for item in data]
+        )
+
+
 class MealProposalFollowUpSerializer(serializers.Serializer):
     follow_up = serializers.CharField(max_length=500, trim_whitespace=True)
     name = serializers.CharField(max_length=120, trim_whitespace=True)
@@ -340,6 +353,33 @@ class MealProposalFollowUpSerializer(serializers.Serializer):
             follow_up=self.validated_data["follow_up"],
             items=self.validated_data["items"],
             result=result,
+        )
+
+
+class MealBuilderAdjustmentSerializer(serializers.Serializer):
+    adjustment = serializers.CharField(max_length=500, trim_whitespace=True)
+    entry_date = serializers.DateField()
+    name = serializers.CharField(
+        max_length=120,
+        trim_whitespace=True,
+        allow_blank=True,
+        required=False,
+    )
+    notes = serializers.CharField(max_length=2000, allow_blank=True, required=False)
+    items = MealBuilderItemsField()
+
+    def validate_adjustment(self, value):
+        if not value:
+            raise serializers.ValidationError("Describe what should change.")
+        return value
+
+    def create_proposal(self):
+        return create_builder_proposal(
+            owner=self.context["request"].user,
+            entry_date=self.validated_data["entry_date"],
+            name=self.validated_data.get("name", ""),
+            notes=self.validated_data.get("notes", ""),
+            items=self.validated_data["items"],
         )
 
 

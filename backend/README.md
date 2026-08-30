@@ -230,7 +230,9 @@ OPENAI_MEAL_ESTIMATION_TIMEOUT=45
 
 The OpenAI key is optional for local catalog/manual workflows. An unmatched
 description returns `503 Service Unavailable` with a safe explanation when the
-key is absent or the provider cannot respond.
+key is absent or the provider cannot respond. Saving a meal with a blank name
+asks the configured model for a concise name based on its selected foods; if
+that request fails, the meal is saved with a sequential name such as `Meal-00`.
 
 The default database is `backend/db.sqlite3`. Override it with
 `DJANGO_SQLITE_PATH`. The `macromapper.localhost` host is accepted by

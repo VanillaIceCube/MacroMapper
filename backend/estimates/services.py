@@ -8,6 +8,7 @@ import unicodedata
 from copy import deepcopy
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from difflib import SequenceMatcher
+from types import SimpleNamespace
 from urllib.parse import urlsplit
 
 from django.core.exceptions import ValidationError
@@ -1574,6 +1575,70 @@ def secure_review_items(*, proposal, owner, items):
     return _apply_review_attribution(items=reviewed, owner=owner)
 
 
+def _align_builder_item_keys(requested, canonical):
+    if requested.get("food_version_id") != canonical.get("food_version_id"):
+        raise ValidationError("Meal foods must come from your visible catalog.")
+    requested_components = requested.get("components", [])
+    canonical_components = canonical.get("components", [])
+    if len(requested_components) != len(canonical_components):
+        raise ValidationError("Meal components no longer match the catalog.")
+    aligned = deepcopy(requested)
+    aligned["key"] = canonical["key"]
+    aligned["components"] = [
+        _align_builder_item_keys(requested_component, canonical_component)
+        for requested_component, canonical_component in zip(
+            requested_components,
+            canonical_components,
+            strict=True,
+        )
+    ]
+    return aligned
+
+
+def secure_builder_items(*, owner, items):
+    canonical_items = []
+    aligned_items = []
+    for item in items:
+        version = _visible_catalog_version(owner=owner, item=item)
+        if version is None:
+            raise ValidationError("Meal foods must come from your visible catalog.")
+        canonical = _catalog_food(
+            version,
+            servings=item["servings"],
+            key=item["key"],
+        )
+        canonical_items.append(canonical)
+        aligned_items.append(_align_builder_item_keys(item, canonical))
+    return secure_review_items(
+        proposal=SimpleNamespace(items=canonical_items),
+        owner=owner,
+        items=aligned_items,
+    )
+
+
+@transaction.atomic
+def create_builder_proposal(*, owner, entry_date, name, notes, items):
+    secured_items = secure_builder_items(owner=owner, items=items)
+    default_name = " & ".join(item["name"] for item in secured_items[:3])
+    proposal = MealProposal.objects.create(
+        owner=owner,
+        description="",
+        entry_date=entry_date,
+        name=_brief_generated_meal_name(name or default_name or "Meal"),
+        notes=notes,
+        generator=MealProposal.Generator.CATALOG,
+        provider_name="MacroMapper catalog",
+        items=secured_items,
+    )
+    if secured_items:
+        create_proposal_revision(
+            proposal=proposal,
+            kind=MealProposalRevision.Kind.GENERATED,
+            created_by=owner,
+        )
+    return proposal
+
+
 def _definition(item, components):
     nutrients = {
         field: _storage_decimal(value, decimal_places=4)
@@ -1799,21 +1864,23 @@ def accept_proposal(*, proposal):
     if not items:
         raise ValidationError("Add at least one food before saving this meal.")
 
-    follow_up_requests = list(
+    adjustment_requests = list(
         proposal.revisions.filter(kind=MealProposalRevision.Kind.AI_FOLLOW_UP)
         .exclude(follow_up="")
         .order_by("revision_number", "id")
         .values_list("follow_up", flat=True)
     )
-    estimate_context = f"Estimated from: {proposal.description}"
-    if follow_up_requests:
-        estimate_context += "\n\nAI follow-ups:\n" + "\n".join(
-            f"- {request}" for request in follow_up_requests
+    context_sections = []
+    if proposal.description.strip():
+        context_sections.append(f"Estimated from: {proposal.description}")
+    if adjustment_requests:
+        context_sections.append(
+            "AI adjustments:\n"
+            + "\n".join(f"- {request}" for request in adjustment_requests)
         )
-    notes = (
-        f"{proposal.notes.strip()}\n\n{estimate_context}"
-        if proposal.notes.strip()
-        else estimate_context
+    saved_context = "\n\n".join(context_sections)
+    notes = "\n\n".join(
+        section for section in (proposal.notes.strip(), saved_context) if section
     )
 
     meal = MealEntry.objects.create(

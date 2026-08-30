@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from unittest.mock import Mock, patch
 
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
@@ -7,6 +8,7 @@ from django.test import RequestFactory, TestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from estimates.provider import EstimationProviderError
 from foods.models import FoodItem, FoodItemVersion
 from foods.services import create_food_item, create_food_version
 
@@ -121,6 +123,36 @@ class MealEntryApiTests(APITestCase):
         nutrients = {item["key"]: item["amount"] for item in apple["nutrients"]}
         self.assertEqual(nutrients["calories"], "190.0000")
         self.assertEqual(nutrients["protein"], "1.0000")
+
+    @patch("meals.services.get_estimation_provider")
+    def test_create_generates_a_name_when_it_is_left_blank(self, get_provider):
+        provider = Mock()
+        provider.generate_name.return_value = "Example Bakery Toast & Apple"
+        get_provider.return_value = provider
+
+        response = self.create_meal(name="")
+
+        self.assertEqual(response.data["name"], "Example Bakery Toast & Apple")
+        provider.generate_name.assert_called_once_with(
+            [
+                {"name": "Apple", "provider_name": "", "servings": "2.0000"},
+                {
+                    "name": "Toast",
+                    "provider_name": "Example Bakery",
+                    "servings": "1.0000",
+                },
+            ]
+        )
+
+    @patch("meals.services.get_estimation_provider")
+    def test_create_uses_numbered_names_when_generation_fails(self, get_provider):
+        get_provider.side_effect = EstimationProviderError("Provider unavailable")
+
+        first = self.create_meal(name="")
+        second = self.create_meal(name="")
+
+        self.assertEqual(first.data["name"], "Meal-00")
+        self.assertEqual(second.data["name"], "Meal-01")
 
     def test_saved_meal_item_does_not_change_after_catalog_update(self):
         response = self.create_meal(

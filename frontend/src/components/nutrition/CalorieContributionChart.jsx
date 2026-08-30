@@ -1,4 +1,4 @@
-import { Box, Paper, Skeleton, Stack, Typography } from '@mui/material';
+import { Box, Paper, Skeleton, Stack, Tooltip, Typography } from '@mui/material';
 import {
   decorateCalorieContributions,
   formatNutritionAmount,
@@ -53,66 +53,73 @@ export default function CalorieContributionChart({
       ) : rows.length ? (
         <Stack spacing={dashboard ? 0.8 : 0.6} aria-label={chartAriaLabel}>
           {rows.map((item) => {
+            const calorieSummary = `${format(item.calories)} kcal (${Math.round(item.percentage)}%)`;
+            const hoverSummary = item.componentNames?.length
+              ? `Components: ${item.componentNames.join(', ')} · ${calorieSummary}`
+              : `Component: ${item.name} · ${calorieSummary}`;
             return (
-              <Box
-                key={item.key}
-                aria-label={`${item.name} ${format(item.calories)} ${ariaUnit} (${Math.round(item.percentage)}${dashboard ? ' percent' : '%'})`}
-              >
-                <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
-                  <Box
-                    sx={{
-                      width: dashboard ? { xs: 104, sm: 180, lg: 240 } : 112,
-                      flex: '0 0 auto',
-                      height: dashboard ? '2rem' : 'auto',
-                      display: 'flex',
-                      alignItems: 'center',
-                    }}
-                  >
+              <Tooltip key={item.key} title={hoverSummary} arrow placement="top">
+                <Box
+                  aria-label={`${item.name} ${format(item.calories)} ${ariaUnit} (${Math.round(item.percentage)}${dashboard ? ' percent' : '%'})`}
+                  tabIndex={0}
+                  sx={{ cursor: 'help' }}
+                >
+                  <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
+                    <Box
+                      sx={{
+                        width: dashboard ? { xs: 104, sm: 180, lg: 240 } : 112,
+                        flex: '0 0 auto',
+                        height: dashboard ? '2rem' : 'auto',
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Typography
+                        variant="caption"
+                        noWrap={!dashboard}
+                        title={item.name}
+                        sx={
+                          dashboard
+                            ? {
+                                display: '-webkit-box',
+                                WebkitBoxOrient: 'vertical',
+                                WebkitLineClamp: 2,
+                                overflow: 'hidden',
+                                lineHeight: 1.2,
+                              }
+                            : undefined
+                        }
+                      >
+                        {item.name}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <MacroCalorieBar
+                        name={item.name}
+                        values={item}
+                        widthPercentage={item.relativeBarWidth}
+                        height={dashboard ? 20 : 14}
+                        borderRadius={dashboard ? 10 : 7}
+                        wholeNumbers={dashboard}
+                      />
+                    </Box>
                     <Typography
                       variant="caption"
-                      noWrap={!dashboard}
-                      title={item.name}
-                      sx={
-                        dashboard
-                          ? {
-                              display: '-webkit-box',
-                              WebkitBoxOrient: 'vertical',
-                              WebkitLineClamp: 2,
-                              overflow: 'hidden',
-                              lineHeight: 1.2,
-                            }
-                          : undefined
-                      }
+                      className={dashboard ? 'numeric-data' : undefined}
+                      sx={{
+                        width: dashboard ? { xs: 92, sm: 106 } : 92,
+                        flex: '0 0 auto',
+                        color: dashboard ? 'var(--atlas-ink-muted)' : undefined,
+                        fontSize: dashboard ? { xs: '0.68rem', sm: '0.75rem' } : undefined,
+                        textAlign: 'right',
+                        whiteSpace: 'nowrap',
+                      }}
                     >
-                      {item.name}
+                      {calorieSummary}
                     </Typography>
-                  </Box>
-                  <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <MacroCalorieBar
-                      name={item.name}
-                      values={item}
-                      widthPercentage={item.relativeBarWidth}
-                      height={dashboard ? 20 : 14}
-                      borderRadius={dashboard ? 10 : 7}
-                      wholeNumbers={dashboard}
-                    />
-                  </Box>
-                  <Typography
-                    variant="caption"
-                    className={dashboard ? 'numeric-data' : undefined}
-                    sx={{
-                      width: dashboard ? { xs: 92, sm: 106 } : 92,
-                      flex: '0 0 auto',
-                      color: dashboard ? 'var(--atlas-ink-muted)' : undefined,
-                      fontSize: dashboard ? { xs: '0.68rem', sm: '0.75rem' } : undefined,
-                      textAlign: 'right',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {format(item.calories)} kcal ({Math.round(item.percentage)}%)
-                  </Typography>
-                </Stack>
-              </Box>
+                  </Stack>
+                </Box>
+              </Tooltip>
             );
           })}
         </Stack>
