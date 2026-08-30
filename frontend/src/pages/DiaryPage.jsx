@@ -529,7 +529,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
         onClose={estimating || saving || adjustmentBusy ? undefined : requestClose}
         fullWidth
         maxWidth="md"
-        aria-labelledby="map-your-meal-title"
+        aria-label={mealHeader.title}
         aria-describedby="map-your-meal-description"
         sx={{
           '& .MuiDialog-paper': {
