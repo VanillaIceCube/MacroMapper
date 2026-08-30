@@ -40,6 +40,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   acceptMealProposal,
+  adjustMeal,
   adjustMealProposal,
   createMeal,
   createMealProposal,
@@ -168,7 +169,6 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
   const [entryDate, setEntryDate] = useState(date);
   const [items, setItems] = useState([]);
   const [proposalId, setProposalId] = useState(null);
-  const [proposalItemKeys, setProposalItemKeys] = useState(() => new Set());
   const [proposalContext, setProposalContext] = useState(null);
   const [catalogPickerOpen, setCatalogPickerOpen] = useState(true);
   const [adjustment, setAdjustment] = useState('');
@@ -188,7 +188,6 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
   const [baselineFingerprint, setBaselineFingerprint] = useState('');
   const catalogSearchRef = useRef(null);
   const catalogRequestIdRef = useRef(0);
-  const aiAdjustmentsAvailable = !meal;
   const selectedFoodIds = useMemo(
     () => new Set(items.map((item) => String(item.food_item))),
     [items],
@@ -254,7 +253,6 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     setEntryDate(initialDate);
     setItems(initialItems);
     setProposalId(null);
-    setProposalItemKeys(new Set());
     setProposalContext(null);
     setCatalogPickerOpen(launchMode !== 'estimate');
     setAdjustment('');
@@ -312,13 +310,12 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     setEntryDate(proposalDate);
     setItems(proposalItems);
     setProposalId(proposal.id);
-    setProposalItemKeys(new Set(proposal.items?.map((item) => item.key) ?? []));
     setProposalContext({
       provider_name: proposal.provider_name,
       provider_model: proposal.provider_model,
       confidence_score: proposal.confidence_score,
     });
-    setCatalogPickerOpen(false);
+    setCatalogPickerOpen(true);
     setQuery('');
     setBaselineFingerprint(
       mealDraftFingerprint({
@@ -370,10 +367,6 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
   };
 
   const applyAdjustment = async () => {
-    if (!aiAdjustmentsAvailable) {
-      setError('AI adjustments are available only while mapping a new meal.');
-      return;
-    }
     const request = adjustment.trim();
     if (!request) {
       setAdjustmentFeedback({
@@ -386,24 +379,26 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     setError('');
     setAdjustmentFeedback(null);
     try {
-      const response = await adjustMealProposal(
-        proposalId,
-        {
-          adjustment: request,
-          entry_date: entryDate,
-          name: name.trim(),
-          notes: notes.trim(),
-          items: items.map(mealItemToProposalItem),
-        },
-        token,
-      );
+      const payload = {
+        adjustment: request,
+        entry_date: entryDate,
+        name: name.trim(),
+        notes: notes.trim(),
+        items: items.map(mealItemToProposalItem),
+      };
+      const response = meal
+        ? await adjustMeal(meal.id, payload, token)
+        : await adjustMealProposal(proposalId, payload, token);
       if (response.ok) {
         const result = await response.json();
         const updatedProposal = result.proposal;
-        setProposalId(updatedProposal.id);
-        setProposalItemKeys(new Set(updatedProposal.items?.map((item) => item.key) ?? []));
+        if (!meal) {
+          setProposalId(updatedProposal.id);
+        }
         if (result.applied) {
           setName(updatedProposal.name);
+          if (updatedProposal.notes !== undefined) setNotes(updatedProposal.notes || '');
+          if (updatedProposal.entry_date) setEntryDate(updatedProposal.entry_date);
           setItems(updatedProposal.items.map(proposalItemToMealItem));
           setProposalContext({
             provider_name: updatedProposal.provider_name,
@@ -466,10 +461,6 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
       setError('Each meal item needs a quantity greater than zero.');
       return;
     }
-    if (proposalId && meal) {
-      setError('An AI proposal cannot overwrite an existing diary entry.');
-      return;
-    }
     setSaving(true);
     setError('');
     if (proposalId) {
@@ -501,12 +492,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
       entry_date: entryDate,
       name: name.trim(),
       notes: notes.trim(),
-      item_inputs: items.map((item, order) => ({
-        food_item: item.food_item,
-        servings: item.servings,
-        order,
-        ...(item.food_version ? { food_version: item.food_version } : {}),
-      })),
+      items: items.map(mealItemToProposalItem),
     };
     const response = meal
       ? await updateMeal(meal.id, payload, token)
@@ -523,12 +509,11 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
   const mealHeader = isEstimateStep
     ? {
         eyebrow: null,
-        title: 'Map It With AI',
-        description: 'Tell us what you ate and we’ll create a meal estimate for you to fine-tune.',
+        title: 'Map it with AI',
+        description: 'Tell us what you ate and we’ll create a meal estimate for you to fine tune.',
       }
     : meal
       ? {
-          eyebrow: 'Diary entry',
           title: 'Edit meal',
           description: 'Update the meal details, catalog foods, and quantities in one place.',
         }
@@ -1002,11 +987,8 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       Meal Items
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {proposalId
-                        ? 'Adjust quantities, units, nutrition, and components, or review each item’s estimate details and sources.'
-                        : meal
-                          ? 'Adjust meal quantities and units, or review each item’s estimate details and sources.'
-                          : 'Adjust meal quantities and units, or review each item’s estimate details and sources. AI adjustments unlock nutrition and component editing.'}
+                      Adjust quantities, units, nutrition, and components, or review each item’s
+                      estimate details and sources.
                     </Typography>
                   </Box>
                   <Chip
@@ -1032,9 +1014,8 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       No meal items yet
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {meal
-                        ? 'Choose a recent or searched catalog food below.'
-                        : 'Choose a recent or searched catalog food below, or use AI Adjustments to get started.'}
+                      Choose a recent or searched catalog food below, or use AI Adjustments to get
+                      started.
                     </Typography>
                   </Box>
                 ) : (
@@ -1047,12 +1028,8 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                         onPortionChange={changePortion}
                         onNutrientChange={changeNutrient}
                         onRemove={removeItem}
-                        allowNutritionEditing={Boolean(
-                          proposalId && aiAdjustmentsAvailable && proposalItemKeys.has(item.key),
-                        )}
-                        allowComponentEditing={Boolean(
-                          proposalId && aiAdjustmentsAvailable && proposalItemKeys.has(item.key),
-                        )}
+                        allowNutritionEditing
+                        allowComponentEditing
                         renderNutrition={(foodItem, onChange) => (
                           <ItemNutritionCards item={foodItem} compact onNutrientChange={onChange} />
                         )}
@@ -1066,79 +1043,77 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                 <MealNutritionSummary items={items} />
               </Box>
 
-              {aiAdjustmentsAvailable && (
-                <Paper
-                  component="section"
-                  aria-labelledby="ai-adjustments-heading"
-                  elevation={0}
-                  sx={{ order: 6, p: 1.25, border: '1px solid var(--atlas-border)' }}
-                >
-                  <Stack spacing={0.75}>
-                    <Stack direction="row" spacing={0.75} alignItems="center">
-                      <AutoAwesomeIcon
-                        fontSize="small"
-                        sx={{ color: 'var(--atlas-persimmon-dark)' }}
-                      />
-                      <Typography
-                        id="ai-adjustments-heading"
-                        variant="subtitle2"
-                        sx={{ fontWeight: 800 }}
-                      >
-                        AI Adjustments
-                      </Typography>
-                    </Stack>
-                    <Stack
-                      direction={{ xs: 'column', sm: 'row' }}
-                      spacing={0.75}
-                      alignItems={{ sm: 'flex-end' }}
+              <Paper
+                component="section"
+                aria-labelledby="ai-adjustments-heading"
+                elevation={0}
+                sx={{ order: 6, p: 1.25, border: '1px solid var(--atlas-border)' }}
+              >
+                <Stack spacing={0.75}>
+                  <Stack direction="row" spacing={0.75} alignItems="center">
+                    <AutoAwesomeIcon
+                      fontSize="small"
+                      sx={{ color: 'var(--atlas-persimmon-dark)' }}
+                    />
+                    <Typography
+                      id="ai-adjustments-heading"
+                      variant="subtitle2"
+                      sx={{ fontWeight: 800 }}
                     >
-                      <TextField
-                        label="Describe an AI adjustment"
-                        value={adjustment}
-                        onChange={(event) => {
-                          setAdjustment(event.target.value);
-                          setAdjustmentFeedback(null);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-                            event.preventDefault();
-                            applyAdjustment();
-                          }
-                        }}
-                        placeholder="Add a medium chocolate milkshake"
-                        multiline
-                        minRows={1}
-                        maxRows={3}
-                        size="small"
-                        inputProps={{ maxLength: 500 }}
-                        disabled={adjustmentBusy}
-                        fullWidth
-                      />
-                      <Button
-                        variant="outlined"
-                        color="secondary"
-                        startIcon={
-                          adjustmentBusy ? (
-                            <CircularProgress size={16} color="inherit" />
-                          ) : (
-                            <SendIcon />
-                          )
-                        }
-                        onClick={applyAdjustment}
-                        disabled={adjustmentBusy || !adjustment.trim()}
-                        sx={{ whiteSpace: 'nowrap', width: { xs: '100%', sm: 'auto' } }}
-                      >
-                        {adjustmentBusy ? 'Adjusting…' : 'Apply adjustment'}
-                      </Button>
-                    </Stack>
-                    {adjustmentFeedback && (
-                      <Alert severity={adjustmentFeedback.severity} sx={{ py: 0 }}>
-                        {adjustmentFeedback.message}
-                      </Alert>
-                    )}
+                      AI Adjustments
+                    </Typography>
                   </Stack>
-                </Paper>
-              )}
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={0.75}
+                    alignItems={{ sm: 'flex-end' }}
+                  >
+                    <TextField
+                      label="Describe an AI adjustment"
+                      value={adjustment}
+                      onChange={(event) => {
+                        setAdjustment(event.target.value);
+                        setAdjustmentFeedback(null);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                          event.preventDefault();
+                          applyAdjustment();
+                        }
+                      }}
+                      placeholder="Add a medium chocolate milkshake"
+                      multiline
+                      minRows={1}
+                      maxRows={3}
+                      size="small"
+                      inputProps={{ maxLength: 500 }}
+                      disabled={adjustmentBusy}
+                      fullWidth
+                    />
+                    <Button
+                      variant="outlined"
+                      color="secondary"
+                      startIcon={
+                        adjustmentBusy ? (
+                          <CircularProgress size={16} color="inherit" />
+                        ) : (
+                          <SendIcon />
+                        )
+                      }
+                      onClick={applyAdjustment}
+                      disabled={adjustmentBusy || !adjustment.trim()}
+                      sx={{ whiteSpace: 'nowrap', width: { xs: '100%', sm: 'auto' } }}
+                    >
+                      {adjustmentBusy ? 'Adjusting…' : 'Apply adjustment'}
+                    </Button>
+                  </Stack>
+                  {adjustmentFeedback && (
+                    <Alert severity={adjustmentFeedback.severity} sx={{ py: 0 }}>
+                      {adjustmentFeedback.message}
+                    </Alert>
+                  )}
+                </Stack>
+              </Paper>
             </Stack>
           )}
         </DialogContent>
@@ -1296,10 +1271,10 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                 variant="h3"
                 sx={{ fontSize: { xs: '2.4rem', sm: '3.35rem' }, lineHeight: 1.02 }}
               >
-                Meal diary
+                Meal Log
               </Typography>
               <Typography sx={{ mt: 0.75, color: 'var(--atlas-ink-muted)' }}>
-                Log meals and see how your nutrition adds up.
+                Find your way to better nutrition, one meal at a time.
               </Typography>
             </Box>
             <Stack
@@ -1310,6 +1285,27 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
               spacing={0.75}
               sx={{ alignSelf: { xs: 'flex-start', md: 'auto' } }}
             >
+              <Box
+                sx={{
+                  width: 44,
+                  height: 44,
+                  visibility: isToday ? 'hidden' : 'visible',
+                }}
+              >
+                <IconButton
+                  aria-label="return to today"
+                  onClick={() => setDate(localDate())}
+                  sx={{
+                    width: 44,
+                    height: 44,
+                    color: 'var(--atlas-mineral-dark)',
+                    border: '1px solid transparent',
+                    '&:hover': { borderColor: 'var(--atlas-border)' },
+                  }}
+                >
+                  <TodayOutlinedIcon />
+                </IconButton>
+              </Box>
               <Paper
                 elevation={0}
                 sx={{
@@ -1375,21 +1371,6 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   }}
                 />
               </Paper>
-              {!isToday && (
-                <IconButton
-                  aria-label="return to today"
-                  onClick={() => setDate(localDate())}
-                  sx={{
-                    width: 44,
-                    height: 44,
-                    color: 'var(--atlas-mineral-dark)',
-                    border: '1px solid transparent',
-                    '&:hover': { borderColor: 'var(--atlas-border)' },
-                  }}
-                >
-                  <TodayOutlinedIcon />
-                </IconButton>
-              )}
             </Stack>
           </Stack>
 

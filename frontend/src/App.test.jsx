@@ -32,7 +32,7 @@ describe('App', () => {
     render(<App />);
 
     expect(await screen.findByText('MacroMapper')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Meal diary', level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Meal Log', level: 1 })).toBeInTheDocument();
     expect(screen.getByLabelText('notifications')).toBeInTheDocument();
     expect(screen.getByLabelText('user profile')).toBeInTheDocument();
     expect(screen.getByLabelText('menu')).toBeInTheDocument();
@@ -57,9 +57,7 @@ describe('App', () => {
     window.history.replaceState({}, '', '/not-a-macromapper-route');
     render(<App />);
 
-    expect(
-      await screen.findByRole('heading', { name: 'Meal diary', level: 1 }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Meal Log', level: 1 })).toBeInTheDocument();
     expect(window.location.pathname).toBe('/');
   });
 });

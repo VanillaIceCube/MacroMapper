@@ -58,7 +58,10 @@ export default function AppHeader({ title, setDrawerOpen }) {
   const profilePrimary = profileUsername || profileEmail.split?.('@')?.[0] || 'Account';
   const profileSecondary = profileEmail || null;
   const unreadCount = useMemo(
-    () => notifications.filter((notification) => !notification.is_read).length,
+    () =>
+      Array.isArray(notifications)
+        ? notifications.filter((notification) => !notification.is_read).length
+        : 0,
     [notifications],
   );
 

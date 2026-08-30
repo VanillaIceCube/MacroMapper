@@ -54,6 +54,10 @@ lower confidence; failed requests keep the draft and input available for retry.
 Users must review the persisted draft before saving: they can rename the meal,
 switch between validated unit/portion options, adjust the amount without
 changing the nutritional basis, remove ingredients, and add catalog foods.
+The same Map Your Meal editor and full set of nutrition, portion, catalog, and
+nested-component controls are used for AI-reviewed meals, manual mapping, and
+editing existing diary entries. Existing meals save back to the same entry
+rather than creating a duplicate.
 Official/verified, catalog-estimate, AI-estimate, and **AI estimate — adjusted
 by you** labels always accompany their sources and confidence rather than
 relying on color alone. Initial AI definitions are reusable shared catalog

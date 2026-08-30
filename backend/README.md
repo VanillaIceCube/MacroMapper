@@ -114,6 +114,18 @@ user's entries.
 - `POST /api/meals/`
 - `PATCH /api/meals/{id}/`
 - `DELETE /api/meals/{id}/`
+- `POST /api/meals/drafts/` with the complete reviewed meal item tree
+  - Creates a meal from the same editable draft used by manual mapping and AI
+    review, materializing private food versions only where nutrition or
+    components changed.
+- `PUT /api/meals/{id}/draft/` with the complete reviewed meal item tree
+  - Updates the existing meal in place through the same validation and
+    materialization path; unchanged items retain their pinned food versions.
+- `POST /api/meals/{id}/adjustments/` with an `adjustment`, the current meal
+  details, and editable items
+  - Applies the existing constrained AI-adjustment flow to a temporary draft
+    and returns it for review without changing the saved meal. The edited meal
+    is persisted only when the client subsequently saves it.
 - `GET /api/meals/daily/?date=YYYY-MM-DD`
   - Returns the day's meals and summed saved nutrient values.
 
@@ -124,6 +136,12 @@ including its nested composite components and nullable nutrient columns.
 Editing an existing item submits its returned `food_version_id` as
 `food_version` so quantity changes continue to use the original saved values even
 if the catalog has since changed.
+
+The draft endpoints accept `entry_date`, `name`, optional `notes`, and `items`
+in the meal-proposal review shape. This full tree supports quantity, portion,
+nutrition, source, and nested-component edits consistently for manual meals,
+AI-reviewed meals, and existing diary entries. Existing archived food versions
+remain valid only when they were already pinned by the meal being updated.
 
 ## GPT Meal Proposal API
 All proposal endpoints require a JWT access token and expose only the current

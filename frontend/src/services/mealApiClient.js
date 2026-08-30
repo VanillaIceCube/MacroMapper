@@ -12,15 +12,22 @@ export const fetchDailyDiary = (date, token) =>
   });
 
 export const createMeal = (payload, token) =>
-  apiFetch('/api/meals/', {
+  apiFetch('/api/meals/drafts/', {
     method: 'POST',
     headers: jsonHeaders(token),
     body: JSON.stringify(payload),
   });
 
 export const updateMeal = (mealId, payload, token) =>
-  apiFetch(`/api/meals/${mealId}/`, {
-    method: 'PATCH',
+  apiFetch(`/api/meals/${mealId}/draft/`, {
+    method: 'PUT',
+    headers: jsonHeaders(token),
+    body: JSON.stringify(payload),
+  });
+
+export const adjustMeal = (mealId, payload, token) =>
+  apiFetch(`/api/meals/${mealId}/adjustments/`, {
+    method: 'POST',
     headers: jsonHeaders(token),
     body: JSON.stringify(payload),
   });
