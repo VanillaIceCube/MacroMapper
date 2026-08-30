@@ -435,6 +435,10 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
       setError('Choose a date and add at least one food.');
       return;
     }
+    if ((meal || proposalId) && !name.trim()) {
+      setError('Enter a meal name before saving.');
+      return;
+    }
     if (
       items.some((item) => !Number.isFinite(Number(item.servings)) || Number(item.servings) <= 0)
     ) {
@@ -449,6 +453,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
         {
           name: name.trim(),
           notes: notes.trim(),
+          entry_date: entryDate,
           items: items.map(mealItemToProposalItem),
         },
         token,
