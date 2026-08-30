@@ -95,6 +95,23 @@ describe('meal item tree operations', () => {
     const zeroed = changeMealItemNutrient([composite], 'composite', 'calories', '0')[0];
     expect(zeroed.components.map((component) => component.servings)).toEqual(['1', '1']);
     expect(zeroed.components.map((component) => component.nutrients.calories)).toEqual(['0', '0']);
+
+    const nestedComposite = editableLeaf({
+      key: 'nested-composite',
+      components: [
+        editableLeaf({
+          key: 'nested-child',
+          components: [editableLeaf({ key: 'nested-leaf', nutrients: { calories: '100' } })],
+        }),
+      ],
+    });
+    const nestedZeroed = changeMealItemNutrient(
+      [nestedComposite],
+      'nested-composite',
+      'calories',
+      '0',
+    )[0];
+    expect(nestedZeroed.components[0].components[0].nutrients.calories).toBe('0');
   });
 
   test('removes nested items without disturbing their siblings', () => {

@@ -43,6 +43,7 @@ export default function MealItemEditorRow({
   onNutrientChange,
   onRemove,
   renderNutrition,
+  allowNutritionEditing = true,
 }) {
   const [componentsOpen, setComponentsOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -215,17 +216,19 @@ export default function MealItemEditorRow({
                   {detailsOpen ? 'Hide details' : 'Estimate details'}
                 </MenuItem>
               )}
-              <MenuItem
-                aria-label={`${nutritionEditing ? 'Finish editing' : 'Edit'} nutrition for ${item.name}`}
-                selected={nutritionEditing}
-                onClick={() => {
-                  setNutritionEditing((current) => !current);
-                  setActionsAnchorEl(null);
-                }}
-              >
-                <EditOutlinedIcon fontSize="small" sx={{ mr: 1.25 }} />
-                {nutritionEditing ? 'Finish editing' : 'Edit nutrition'}
-              </MenuItem>
+              {allowNutritionEditing && (
+                <MenuItem
+                  aria-label={`${nutritionEditing ? 'Finish editing' : 'Edit'} nutrition for ${item.name}`}
+                  selected={nutritionEditing}
+                  onClick={() => {
+                    setNutritionEditing((current) => !current);
+                    setActionsAnchorEl(null);
+                  }}
+                >
+                  <EditOutlinedIcon fontSize="small" sx={{ mr: 1.25 }} />
+                  {nutritionEditing ? 'Finish editing' : 'Edit nutrition'}
+                </MenuItem>
+              )}
               <MenuItem
                 aria-label={`remove ${item.name}`}
                 onClick={() => {
@@ -284,6 +287,7 @@ export default function MealItemEditorRow({
                   onNutrientChange={onNutrientChange}
                   onRemove={onRemove}
                   renderNutrition={renderNutrition}
+                  allowNutritionEditing={allowNutritionEditing}
                 />
               ))}
             </Stack>

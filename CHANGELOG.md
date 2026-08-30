@@ -11,17 +11,15 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
-- Keep Add meal responsive by loading catalog results only after a search and
-  rendering at most the first 25 matches for broad queries.
+- Keep broad catalog searches responsive by rendering at most the first 25
+  matches.
 
 ### Changed
 
 - Load the 20 most recently created visible foods when Map Your Meal opens,
   while keeping broader catalog searches explicitly limited in the interface.
-- Rename the Add meal modal from Meal Builder to Map Your Meal.
+- Rename the Add meal modal to Map Your Meal.
 - Rename the related backend meal-adjustment serializer and field to Map Your Meal.
-- Rename the unified Add meal dialog to Meal Builder and streamline its header
-  into a simple, unboxed contextual introduction without a duplicate alert.
 - Generate blank meal names from the selected foods when a meal is saved, with
   sequential `Meal-00`, `Meal-01`, and `Meal-02` names when the LLM is unavailable.
 - Use Add meal as the single meal-building surface. Estimate meal first gathers a

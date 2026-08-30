@@ -398,7 +398,7 @@ describe('DiaryPage', () => {
         'Showing the first 25 results. Refine your search to find a specific food.',
       ),
     ).toBeVisible();
-    expect(searchFoods).toHaveBeenLastCalledWith('catalog', 'access-token');
+    expect(searchFoods).toHaveBeenLastCalledWith('catalog', 'access-token', { limit: 26 });
   });
 
   test('leaves a new meal name blank for generation when saving', async () => {

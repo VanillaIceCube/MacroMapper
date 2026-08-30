@@ -381,14 +381,14 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
         const result = await response.json();
         const updatedProposal = result.proposal;
         setProposalId(updatedProposal.id);
-        setName(updatedProposal.name);
-        setItems(updatedProposal.items.map(proposalItemToMealItem));
-        setProposalContext({
-          provider_name: updatedProposal.provider_name,
-          provider_model: updatedProposal.provider_model,
-          confidence_score: updatedProposal.confidence_score,
-        });
         if (result.applied) {
+          setName(updatedProposal.name);
+          setItems(updatedProposal.items.map(proposalItemToMealItem));
+          setProposalContext({
+            provider_name: updatedProposal.provider_name,
+            provider_model: updatedProposal.provider_model,
+            confidence_score: updatedProposal.confidence_score,
+          });
           setAdjustment('');
           setAdjustmentFeedback({ severity: 'success', message: result.message });
         } else {
@@ -1017,6 +1017,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                         onPortionChange={changePortion}
                         onNutrientChange={changeNutrient}
                         onRemove={removeItem}
+                        allowNutritionEditing={!meal}
                         renderNutrition={(foodItem, onChange) => (
                           <ItemNutritionCards item={foodItem} compact onNutrientChange={onChange} />
                         )}

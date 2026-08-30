@@ -1,9 +1,11 @@
+from collections import defaultdict
+
 from django.utils import timezone
 from rest_framework import filters, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import FoodItem
+from .models import FoodComponent, FoodItem
 from .permissions import IsPersonalFoodOwnerOrReadOnly
 from .serializers import FoodItemSerializer
 
@@ -22,10 +24,7 @@ class FoodItemViewSet(viewsets.ModelViewSet):
             FoodItem.objects.active()
             .visible_to(self.request.user)
             .select_related("owner", "current_version")
-            .prefetch_related(
-                "current_version__sources",
-                "current_version__components__child_version__food_item",
-            )
+            .prefetch_related("current_version__sources")
         )
 
     def list(self, request, *args, **kwargs):
@@ -36,7 +35,32 @@ class FoodItemViewSet(viewsets.ModelViewSet):
             requested_limit = 0
         if requested_limit > 0:
             queryset = queryset[: min(requested_limit, 100)]
-        serializer = self.get_serializer(queryset, many=True)
+        foods = list(queryset)
+        component_map = defaultdict(list)
+        pending_version_ids = {
+            food.current_version_id for food in foods if food.current_version_id
+        }
+        visited_version_ids = set()
+        while pending_version_ids:
+            pending_version_ids -= visited_version_ids
+            if not pending_version_ids:
+                break
+            components = list(
+                FoodComponent.objects.filter(parent_version_id__in=pending_version_ids)
+                .select_related("child_version__food_item")
+                .prefetch_related("child_version__sources")
+            )
+            visited_version_ids.update(pending_version_ids)
+            pending_version_ids = set()
+            for component in components:
+                component_map[component.parent_version_id].append(component)
+                if component.child_version_id not in visited_version_ids:
+                    pending_version_ids.add(component.child_version_id)
+        serializer = self.get_serializer(
+            foods,
+            many=True,
+            context={"request": request, "component_map": component_map},
+        )
         return Response(serializer.data)
 
     def perform_destroy(self, instance):

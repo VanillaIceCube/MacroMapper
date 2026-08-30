@@ -39,6 +39,17 @@ export const changeMealItemPortion = (items, key, selectedPortionKey) =>
     selected_portion_key: selectedPortionKey,
   }));
 
+const zeroNutrients = (item) => ({
+  ...item,
+  nutrients: Object.fromEntries(
+    Object.entries(item.nutrients || {}).map(([key, value]) => [
+      key,
+      value === null || value === undefined || value === '' ? value : '0',
+    ]),
+  ),
+  components: (item.components || []).map(zeroNutrients),
+});
+
 export const changeMealItemNutrient = (items, key, nutrient, totalValue) =>
   updateMealItemTree(items, key, (item) => {
     const numeric = Number(totalValue);
@@ -57,20 +68,11 @@ export const changeMealItemNutrient = (items, key, nutrient, totalValue) =>
       return {
         ...item,
         components: item.components.map((component) => ({
-          ...component,
           servings:
             scale === 0
               ? component.servings
               : roundedNumberString(servingsValue(component) * scale),
-          nutrients:
-            scale === 0
-              ? Object.fromEntries(
-                  Object.entries(component.nutrients || {}).map(([key, value]) => [
-                    key,
-                    value === null || value === undefined || value === '' ? value : '0',
-                  ]),
-                )
-              : component.nutrients,
+          ...(scale === 0 ? zeroNutrients(component) : component),
         })),
       };
     }

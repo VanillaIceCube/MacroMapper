@@ -105,7 +105,9 @@ class FoodComponentSerializer(serializers.ModelSerializer):
 
     def get_components(self, instance):
         return FoodComponentSerializer(
-            instance.child_version.components.all(),
+            self.context.get("component_map", {}).get(
+                instance.child_version_id, instance.child_version.components.all()
+            ),
             many=True,
             context=self.context,
         ).data

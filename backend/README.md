@@ -148,9 +148,10 @@ user's proposals.
     instruction-like, or personal-metadata payloads. The private proposal
     references those exact versions; its description, date, owner, and review
     state are never copied into the shared catalog.
-- `PATCH /api/meal-proposals/{id}/` with an edited `name` and/or `items`
+- `PATCH /api/meal-proposals/{id}/` with edited `name`, `entry_date`, and/or
+  `items`
 - `POST /api/meal-proposals/{id}/follow-up/` with `follow_up`, the current
-  `name`, and current `items`
+  `name`, `entry_date`, and current `items`
   - Sends the original description and current reviewed draft to the estimation
     provider, then applies only constrained top-level additions, explicit
     removals, or absolute serving corrections.
@@ -160,6 +161,10 @@ user's proposals.
   - Resolves AI-extracted additions against the visible catalog before
     materializing genuinely new shared foods with their sources and provenance,
     then records a separate immutable `ai_follow_up` proposal revision.
+- `POST /api/meal-proposals/adjustments/` with an `adjustment`, the current
+  builder `name`, `entry_date`, optional `notes`, and editable `items`
+  - Creates a draft from manually assembled foods, then applies the requested
+    constrained AI adjustment when possible.
 - `DELETE /api/meal-proposals/{id}/` for unaccepted drafts
 - `POST /api/meal-proposals/{id}/accept/`
   - Reuses unchanged shared definitions. Nutrient or component edits create a
