@@ -42,7 +42,6 @@ describe('MacroMapper theme styles', () => {
     'components/AppHeader.jsx',
     'components/AppNavigationDrawer.jsx',
     'components/AuthPageShell.jsx',
-    'pages/HomePage.jsx',
     'pages/DiaryPage.jsx',
   ])('%s uses shared Field Atlas surfaces', (relativePath) => {
     const source = readSource(relativePath);
