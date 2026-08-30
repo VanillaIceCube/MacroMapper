@@ -467,7 +467,6 @@ class MealProposalSerializer(serializers.ModelSerializer):
                     "Accepted proposals cannot be edited."
                 )
             attrs.pop("description", None)
-            attrs.pop("entry_date", None)
             if "items" in attrs:
                 try:
                     attrs["items"] = secure_review_items(

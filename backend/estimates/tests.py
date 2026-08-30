@@ -1044,11 +1044,13 @@ class MealProposalApiTests(TestCase):
             {
                 "name": "Cheese-free burger",
                 "notes": "Extra crispy, please.",
+                "entry_date": "2026-08-17",
                 "items": [item],
             },
             format="json",
         )
         self.assertEqual(updated.status_code, 200)
+        self.assertEqual(str(updated.data["entry_date"]), "2026-08-17")
         self.assertEqual(updated.data["notes"], "Extra crispy, please.")
         self.assertEqual(updated.data["items"][0]["nutrients"]["calories"], "200")
         self.assertEqual(
@@ -1069,6 +1071,7 @@ class MealProposalApiTests(TestCase):
         self.assertEqual(proposal.status, MealProposal.Status.ACCEPTED)
         meal = MealEntry.objects.get(pk=accepted.data["id"])
         self.assertEqual(meal.owner, self.user)
+        self.assertEqual(str(meal.entry_date), "2026-08-17")
         self.assertEqual(meal.name, "Cheese-free burger")
         self.assertEqual(
             meal.notes,
