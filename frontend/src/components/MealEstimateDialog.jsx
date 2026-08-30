@@ -1,6 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -318,17 +318,19 @@ function NutritionCards({
                 fullWidth
                 value={values[key] ?? ''}
                 onChange={(event) => onNutrientChange(key, event.target.value)}
-                inputProps={{
-                  min: 0,
-                  step: 'any',
-                  'aria-label': `${label} for ${itemName}`,
-                }}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <Typography variant="caption">{unit}</Typography>
-                    </InputAdornment>
-                  ),
+                slotProps={{
+                  htmlInput: {
+                    min: 0,
+                    step: 'any',
+                    'aria-label': `${label} for ${itemName}`,
+                  },
+                  input: {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <Typography variant="caption">{unit}</Typography>
+                      </InputAdornment>
+                    ),
+                  },
                 }}
                 sx={{
                   '& .MuiInputBase-input': {

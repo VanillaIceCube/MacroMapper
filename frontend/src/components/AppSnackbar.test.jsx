@@ -23,7 +23,7 @@ describe('AppSnackbar', () => {
     renderWithProviders(<AppSnackbar open severity="error" message="Boom" onClose={vi.fn()} />);
 
     const alert = screen.getByRole('alert');
-    expect(alert).toHaveClass('MuiAlert-standardError');
+    expect(alert).toHaveClass('MuiAlert-colorError');
   });
 
   test('when the close button is clicked, it calls onClose', async () => {
