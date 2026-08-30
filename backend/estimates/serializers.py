@@ -314,6 +314,23 @@ class MapYourMealItemsField(serializers.JSONField):
         )
 
 
+class MapYourMealDraftSerializer(serializers.Serializer):
+    entry_date = serializers.DateField()
+    name = serializers.CharField(
+        max_length=120,
+        trim_whitespace=True,
+        allow_blank=True,
+        required=False,
+    )
+    notes = serializers.CharField(max_length=2000, allow_blank=True, required=False)
+    items = ProposalItemsField()
+
+    def validate_name(self, value):
+        if self.context.get("meal") is not None and not value:
+            raise serializers.ValidationError("Name the meal before saving changes.")
+        return value
+
+
 class MealProposalFollowUpSerializer(serializers.Serializer):
     follow_up = serializers.CharField(max_length=500, trim_whitespace=True)
     name = serializers.CharField(max_length=120, trim_whitespace=True)

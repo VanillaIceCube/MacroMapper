@@ -5,6 +5,7 @@ from django.db import transaction
 from estimates.provider import EstimationProviderError, get_estimation_provider
 from foods.models import FoodItemVersion
 from foods.nutrients import NUTRIENT_FIELDS, NUTRIENT_METADATA
+from foods.portions import portion_options_for_serving
 
 from .models import MealEntry, MealItem
 
@@ -80,10 +81,34 @@ def _component_tree(version, visited=None):
                 "food_version_id": child.id,
                 "food_name": child.food_item.name,
                 "provider_name": child.food_item.provider_name,
+                "origin_type": child.food_item.origin_type,
                 "servings": str(component.servings),
                 "serving_quantity": str(child.serving_quantity),
                 "serving_unit": child.serving_unit,
                 "serving_label": child.serving_label,
+                "serving_weight_grams": (
+                    str(child.serving_weight_grams)
+                    if child.serving_weight_grams is not None
+                    else None
+                ),
+                "serving_volume_ml": (
+                    str(child.serving_volume_ml)
+                    if child.serving_volume_ml is not None
+                    else None
+                ),
+                "portion_options": portion_options_for_serving(
+                    quantity=child.serving_quantity,
+                    unit=child.serving_unit,
+                    label=child.serving_label,
+                    weight_grams=child.serving_weight_grams,
+                    volume_milliliters=child.serving_volume_ml,
+                ),
+                "provenance": child.provenance,
+                "confidence_score": (
+                    str(child.confidence_score)
+                    if child.confidence_score is not None
+                    else None
+                ),
                 "nutrients": [
                     {
                         "key": key,
@@ -93,6 +118,17 @@ def _component_tree(version, visited=None):
                     }
                     for key, amount in child_nutrients.items()
                     if amount is not None
+                ],
+                "sources": [
+                    {
+                        "title": source.title,
+                        "provider": source.provider,
+                        "url": source.url,
+                        "accessed_on": source.accessed_on,
+                        "is_official": child.provenance
+                        == FoodItemVersion.Provenance.OFFICIAL,
+                    }
+                    for source in child.sources.all()
                 ],
                 "components": _component_tree(child, path),
             }

@@ -10,19 +10,23 @@ All notable changes to this project are documented in this file.
 - Preserve reviewed meal dates and notes even when an AI follow-up produces no
   applicable food changes, and keep top-level catalog component serialization
   bulk-loaded.
-- Prevent manual and existing meal editors from offering nutrition or nested
-  component changes that their direct save path cannot persist.
-- Keep AI adjustments unavailable while updating existing diary entries, and
-  guard proposal drafts from falling through to the direct meal update path.
 - Preserve pinned food-version portion options when reopening saved meals.
-- Keep advanced proposal edits disabled for newly added catalog items until they
-  are part of the persisted proposal, and ignore stale catalog responses.
+- Ignore stale catalog responses when a newer food search has started.
+
+### Changed
+
+- Make AI Adjustments available while editing existing diary entries. AI
+  changes remain a reviewable modal draft until the user saves the meal.
+- Use one complete Map Your Meal draft for AI review, manual mapping, and
+  existing-meal edits. All three paths now expose the same catalog, nutrition,
+  portion, and nested-component controls, while existing meals still update in
+  place.
 
 ## 2026-08-29
 
 ### Added
 
-- Rotate the Map It With AI input placeholder across 100 examples covering
+- Rotate the Map it with AI input placeholder across 100 examples covering
   everyday meals, restaurants, cuisines, quantities, drinks, substitutions,
   leftovers, and uncertain descriptions.
 
