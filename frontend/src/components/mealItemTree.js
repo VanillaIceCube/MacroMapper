@@ -58,7 +58,19 @@ export const changeMealItemNutrient = (items, key, nutrient, totalValue) =>
         ...item,
         components: item.components.map((component) => ({
           ...component,
-          servings: roundedNumberString(servingsValue(component) * scale),
+          servings:
+            scale === 0
+              ? component.servings
+              : roundedNumberString(servingsValue(component) * scale),
+          nutrients:
+            scale === 0
+              ? Object.fromEntries(
+                  Object.entries(component.nutrients || {}).map(([key, value]) => [
+                    key,
+                    value === null || value === undefined || value === '' ? value : '0',
+                  ]),
+                )
+              : component.nutrients,
         })),
       };
     }

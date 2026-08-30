@@ -144,11 +144,7 @@ const mealDraftFingerprint = ({ name, notes, entryDate, items }) =>
     name,
     notes,
     entryDate,
-    items: items.map(({ food_item, food_version, servings }) => ({
-      food_item,
-      food_version,
-      servings,
-    })),
+    items,
   });
 
 async function responseError(response, fallback) {
@@ -224,7 +220,9 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     setShowingRecentFoods(false);
     setFoods([]);
     setError('');
-    const response = await searchFoods(normalizedQuery, token);
+    const response = await searchFoods(normalizedQuery, token, {
+      limit: maxVisibleCatalogResults + 1,
+    });
     if (response.ok) {
       setFoods(await response.json());
     } else {
@@ -655,7 +653,12 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       label="Meal name"
                       value={name}
                       onChange={(event) => setName(event.target.value)}
-                      helperText="Optional. Leave blank to generate a name when you save."
+                      helperText={
+                        meal || proposalId
+                          ? 'A name is required when updating an existing meal or proposal.'
+                          : 'Optional. Leave blank to generate a name when you save.'
+                      }
+                      required={Boolean(meal || proposalId)}
                       fullWidth
                     />
                     <TextField
@@ -947,7 +950,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                           ? 'Search by food or provider to see matching foods.'
                         : foods.length
                           ? 'All matching foods are already in this meal.'
-                          : 'No foods matched this search. Try another term or create a personal food below.'}
+                          : 'No foods matched this search. Try another term or use AI estimation to add a meal.'}
                     </Typography>
                   )}
                 </Collapse>

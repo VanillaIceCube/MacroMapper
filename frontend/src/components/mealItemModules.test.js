@@ -91,6 +91,10 @@ describe('meal item tree operations', () => {
     });
     const scaled = changeMealItemNutrient([composite], 'composite', 'calories', '600')[0];
     expect(scaled.components.map((component) => component.servings)).toEqual(['2', '2']);
+
+    const zeroed = changeMealItemNutrient([composite], 'composite', 'calories', '0')[0];
+    expect(zeroed.components.map((component) => component.servings)).toEqual(['1', '1']);
+    expect(zeroed.components.map((component) => component.nutrients.calories)).toEqual(['0', '0']);
   });
 
   test('removes nested items without disturbing their siblings', () => {

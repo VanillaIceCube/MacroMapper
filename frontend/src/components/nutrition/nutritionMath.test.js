@@ -2,6 +2,7 @@ import {
   decorateCalorieContributions,
   itemCalorieContributions,
   itemNutrientTotal,
+  formatWholeNutritionAmount,
   macroCalorieSegments,
   mealNutrientValues,
   summarizeCalorieContributions,
@@ -16,6 +17,11 @@ const leaf = (key, nutrients, servings = '1') => ({
 });
 
 describe('nutritionMath', () => {
+  test('preserves missing whole nutrition amounts as unavailable', () => {
+    expect(formatWholeNutritionAmount(null)).toBe('—');
+    expect(formatWholeNutritionAmount('')).toBe('—');
+  });
+
   test('rolls recursive component nutrients into item and meal totals', () => {
     const composite = {
       key: 'sandwich',

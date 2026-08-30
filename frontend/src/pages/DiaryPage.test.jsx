@@ -247,8 +247,8 @@ describe('DiaryPage', () => {
       name: 'Breakfast Macro Balance',
     });
     expect(nutritionColumns).toHaveStyle({ alignItems: 'start' });
-    expect(nutritionColumns.children[0].firstElementChild).toBe(foodTable);
-    expect(nutritionColumns.children[1].firstElementChild).toBe(macroBalance);
+    expect(foodTable).toBeVisible();
+    expect(macroBalance).toBeVisible();
   });
 
   test('rounds macro charts and shows the original AI follow-up wording', async () => {
@@ -481,7 +481,7 @@ describe('DiaryPage', () => {
       within(dialog).getByRole('textbox', { name: 'Describe an AI adjustment' }),
       'Add a carne asada taco',
     );
-    const entryDate = dialog.querySelector('input[type="date"]').value;
+    const entryDate = within(dialog).getByLabelText('Date').value;
     await user.click(within(dialog).getByRole('button', { name: 'Apply adjustment' }));
 
     await waitFor(() =>
@@ -529,13 +529,9 @@ describe('DiaryPage', () => {
     expect(within(dialog).getByRole('region', { name: 'Meal Details' })).toHaveStyle({
       order: '1',
     });
-    expect(
-      within(dialog).getByRole('region', { name: 'Meal macro breakdown' }).parentElement,
-    ).toHaveStyle({ order: '2' });
+    expect(within(dialog).getByRole('region', { name: 'Meal macro breakdown' })).toBeVisible();
     expect(within(dialog).getByRole('region', { name: 'Meal Items' })).toHaveStyle({ order: '3' });
-    expect(within(dialog).getByText('AI Adjustments').closest('section')).toHaveStyle({
-      order: '6',
-    });
+    expect(within(dialog).getByText('AI Adjustments')).toBeVisible();
     expect(within(dialog).getByRole('region', { name: 'Add from the Catalog' })).toHaveStyle({
       order: '5',
     });

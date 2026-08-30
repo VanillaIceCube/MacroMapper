@@ -9,6 +9,7 @@ export const formatNutritionAmount = (amount) => {
 };
 
 export const formatWholeNutritionAmount = (amount) => {
+  if (amount === null || amount === undefined || amount === '') return '—';
   const numeric = Number(amount);
   return Number.isFinite(numeric) ? Math.round(numeric).toLocaleString() : '—';
 };
