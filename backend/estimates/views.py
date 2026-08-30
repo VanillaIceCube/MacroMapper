@@ -10,7 +10,7 @@ from meals.serializers import MealEntrySerializer
 from .models import MealProposal
 from .provider import EstimationProviderError, get_estimation_provider
 from .serializers import (
-    MealBuilderAdjustmentSerializer,
+    MapYourMealAdjustmentSerializer,
     MealProposalFollowUpSerializer,
     MealProposalSerializer,
 )
@@ -99,7 +99,7 @@ class MealProposalViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="adjustments")
     def create_adjustment(self, request):
-        serializer = MealBuilderAdjustmentSerializer(
+        serializer = MapYourMealAdjustmentSerializer(
             data=request.data,
             context={"request": request},
         )

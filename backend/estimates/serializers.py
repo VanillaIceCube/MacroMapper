@@ -301,7 +301,7 @@ class ProposalItemsField(serializers.JSONField):
         )
 
 
-class MealBuilderItemsField(serializers.JSONField):
+class MapYourMealItemsField(serializers.JSONField):
     def to_internal_value(self, data):
         if not isinstance(data, list):
             raise serializers.ValidationError("Meal items must be a list.")
@@ -356,7 +356,7 @@ class MealProposalFollowUpSerializer(serializers.Serializer):
         )
 
 
-class MealBuilderAdjustmentSerializer(serializers.Serializer):
+class MapYourMealAdjustmentSerializer(serializers.Serializer):
     adjustment = serializers.CharField(max_length=500, trim_whitespace=True)
     entry_date = serializers.DateField()
     name = serializers.CharField(
@@ -366,7 +366,7 @@ class MealBuilderAdjustmentSerializer(serializers.Serializer):
         required=False,
     )
     notes = serializers.CharField(max_length=2000, allow_blank=True, required=False)
-    items = MealBuilderItemsField()
+    items = MapYourMealItemsField()
 
     def validate_adjustment(self, value):
         if not value:

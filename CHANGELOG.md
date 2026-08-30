@@ -3,6 +3,12 @@ All notable changes to this project are documented in this file.
 
 ## 2026-08-29
 
+### Added
+
+- Rotate the Map It With AI input placeholder across 100 examples covering
+  everyday meals, restaurants, cuisines, quantities, drinks, substitutions,
+  leftovers, and uncertain descriptions.
+
 ### Fixed
 
 - Keep Add meal responsive by loading catalog results only after a search and
@@ -10,6 +16,12 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Load the 20 most recently created visible foods when Map Your Meal opens,
+  while keeping broader catalog searches explicitly limited in the interface.
+- Rename the Add meal modal from Meal Builder to Map Your Meal.
+- Rename the related backend meal-adjustment serializer and field to Map Your Meal.
+- Rename the unified Add meal dialog to Meal Builder and streamline its header
+  into a simple, unboxed contextual introduction without a duplicate alert.
 - Generate blank meal names from the selected foods when a meal is saved, with
   sequential `Meal-00`, `Meal-01`, and `Meal-02` names when the LLM is unavailable.
 - Use Add meal as the single meal-building surface. Estimate meal first gathers a
@@ -39,6 +51,11 @@ All notable changes to this project are documented in this file.
   tags above each food result.
 - Add an AI-style estimate-details action to catalog foods for reviewing their
   metadata and supporting source links.
+
+### Removed
+
+- Remove personal-food creation from Map Your Meal; existing personal foods
+  remain available through catalog search.
 
 ## 2026-08-24
 
@@ -295,6 +312,7 @@ All notable changes to this project are documented in this file.
 - Kept generated dependency lockfile payloads out of AI reviewer prompts so
   large lockfile migrations do not crowd out source, build, and security review.
 ### Removed
+
 - Removed the reusable application initializer and the remaining starter,
   generated-repository, Lorem Ipsum, and fake-profile placeholders.
 - Removed Create React App, its Jest runtime, the `react-router-dom`

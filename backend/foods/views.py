@@ -1,6 +1,7 @@
 from django.utils import timezone
 from rest_framework import filters, viewsets
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 from .models import FoodItem
 from .permissions import IsPersonalFoodOwnerOrReadOnly
@@ -26,6 +27,17 @@ class FoodItemViewSet(viewsets.ModelViewSet):
                 "current_version__components__child_version__food_item",
             )
         )
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        try:
+            requested_limit = int(request.query_params.get("limit", 0))
+        except (TypeError, ValueError):
+            requested_limit = 0
+        if requested_limit > 0:
+            queryset = queryset[: min(requested_limit, 100)]
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
     def perform_destroy(self, instance):
         instance.archived_at = timezone.now()

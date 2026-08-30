@@ -26,10 +26,10 @@ export default function MealNutritionSummary({ items }) {
       <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
         <Box sx={{ minWidth: 0 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-            Meal nutrition summary
+            Meal Nutritional Summary
           </Typography>
           <Typography variant="body2" sx={{ color: 'var(--atlas-ink-muted)' }}>
-            Full-meal totals from the components below.
+            Your meal’s nutrition, mapped at a glance.
           </Typography>
         </Box>
         <Stack direction="row" spacing={0.5} alignItems="center">
@@ -64,9 +64,9 @@ export default function MealNutritionSummary({ items }) {
             <MacroCalorieSplit values={values} />
             <CalorieContributionChart
               contributions={contributions}
-              title="Calories by Component"
-              chartAriaLabel="Component calorie chart"
-              emptyText="Component calories are unavailable."
+              title="Calories by Meal Item"
+              chartAriaLabel="Meal item calorie chart"
+              emptyText=""
               otherKey="other-components"
             />
           </Box>

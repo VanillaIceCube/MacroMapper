@@ -31,17 +31,14 @@ export const deleteMeal = (mealId, token) =>
     headers: authHeader(token),
   });
 
-export const searchFoods = (query, token) =>
-  apiFetch(`/api/foods/?search=${encodeURIComponent(query)}`, {
+export const searchFoods = (query, token, options = {}) => {
+  const params = new URLSearchParams({ search: query });
+  if (options.ordering) params.set('ordering', options.ordering);
+  if (options.limit) params.set('limit', String(options.limit));
+  return apiFetch(`/api/foods/?${params.toString()}`, {
     headers: authHeader(token),
   });
-
-export const createPersonalFood = (payload, token) =>
-  apiFetch('/api/foods/', {
-    method: 'POST',
-    headers: jsonHeaders(token),
-    body: JSON.stringify(payload),
-  });
+};
 
 export const createMealProposal = (payload, token) =>
   apiFetch('/api/meal-proposals/', {

@@ -123,14 +123,14 @@ export default function CalorieContributionChart({
             );
           })}
         </Stack>
-      ) : (
+      ) : emptyText ? (
         <Typography
           variant={dashboard ? 'body2' : 'caption'}
           sx={{ color: 'var(--atlas-ink-muted)' }}
         >
           {emptyText}
         </Typography>
-      )}
+      ) : null}
     </Paper>
   );
 }

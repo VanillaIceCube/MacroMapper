@@ -466,6 +466,14 @@ class FoodApiTests(APITestCase):
             [self.shared_food.id],
         )
 
+    def test_catalog_limit_applies_after_recent_ordering(self):
+        self.client.force_authenticate(user=self.owner)
+
+        response = self.client.get("/api/foods/?ordering=-created_at&limit=1")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([item["id"] for item in response.data], [self.personal_food.id])
+
     def test_shared_detail_retains_provenance_confidence_and_sources(self):
         self.client.force_authenticate(user=self.owner)
 

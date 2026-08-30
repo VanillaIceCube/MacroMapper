@@ -43,7 +43,6 @@ import {
   adjustMealProposal,
   createMeal,
   createMealProposal,
-  createPersonalFood,
   deleteMeal,
   fetchDailyDiary,
   searchFoods,
@@ -77,6 +76,7 @@ import {
   formatWholeNutritionAmount as formatWholeAmount,
   nutrientArrayToValues as nutrientValues,
 } from '../components/nutrition/nutritionMath';
+import { randomMealEstimateExample } from '../mealEstimateExamples';
 
 const provenanceLabels = {
   official: 'Official',
@@ -87,11 +87,7 @@ const provenanceLabels = {
 };
 
 const maxVisibleCatalogResults = 25;
-
-const emptyPersonalFood = () => ({
-  name: '',
-  ...Object.fromEntries(launchNutrients.map((nutrient) => [nutrient.key, ''])),
-});
+const mealBuilderSurfaceRadius = 1.5;
 
 const localDate = () => {
   const now = new Date();
@@ -143,7 +139,7 @@ const mealItemNutrientAmount = (item, nutrientKey) => {
   return Number.isFinite(amount) ? amount : null;
 };
 
-const mealDraftFingerprint = ({ name, notes, entryDate, items, newFood = {} }) =>
+const mealDraftFingerprint = ({ name, notes, entryDate, items }) =>
   JSON.stringify({
     name,
     notes,
@@ -153,7 +149,6 @@ const mealDraftFingerprint = ({ name, notes, entryDate, items, newFood = {} }) =
       food_version,
       servings,
     })),
-    newFood,
   });
 
 async function responseError(response, fallback) {
@@ -168,8 +163,9 @@ async function responseError(response, fallback) {
   return fallback;
 }
 
-function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSaved }) {
+function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSaved }) {
   const [estimateDescription, setEstimateDescription] = useState('');
+  const [estimatePlaceholder, setEstimatePlaceholder] = useState(randomMealEstimateExample);
   const [estimating, setEstimating] = useState(false);
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
@@ -184,11 +180,10 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
   const [query, setQuery] = useState('');
   const [foods, setFoods] = useState([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const [showingRecentFoods, setShowingRecentFoods] = useState(false);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [creatingFood, setCreatingFood] = useState(false);
   const [error, setError] = useState('');
-  const [newFood, setNewFood] = useState(emptyPersonalFood);
   const [discardOpen, setDiscardOpen] = useState(false);
   const [catalogActionsAnchorEl, setCatalogActionsAnchorEl] = useState(null);
   const [catalogActionsFoodId, setCatalogActionsFoodId] = useState(null);
@@ -206,11 +201,28 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
   const visibleFoods = availableFoods.slice(0, maxVisibleCatalogResults);
   const activeCatalogFood = visibleFoods.find((food) => food.id === catalogActionsFoodId);
 
+  const loadRecentFoods = useCallback(async () => {
+    setSearching(true);
+    setHasSearched(false);
+    setShowingRecentFoods(true);
+    setError('');
+    const response = await searchFoods('', token, { ordering: '-created_at', limit: 20 });
+    if (response.ok) {
+      setFoods(await response.json());
+    } else {
+      setFoods([]);
+      setError(await responseError(response, 'Could not load recent catalog foods.'));
+    }
+    setSearching(false);
+  }, [token]);
+
   const runSearch = useCallback(async () => {
     const normalizedQuery = query.trim();
     if (!normalizedQuery) return;
     setSearching(true);
     setHasSearched(true);
+    setShowingRecentFoods(false);
+    setFoods([]);
     setError('');
     const response = await searchFoods(normalizedQuery, token);
     if (response.ok) {
@@ -239,28 +251,30 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
     setAdjustment('');
     setAdjustmentBusy(false);
     setAdjustmentFeedback(null);
-    const initialNewFood = emptyPersonalFood();
     baselineRef.current = mealDraftFingerprint({
       name: initialName,
       notes: initialNotes,
       entryDate: initialDate,
       items: initialItems,
-      newFood: initialNewFood,
     });
     setQuery('');
     setFoods([]);
     setHasSearched(false);
+    setShowingRecentFoods(false);
     setSearching(false);
     setError('');
     setDiscardOpen(false);
     setCatalogActionsAnchorEl(null);
     setCatalogActionsFoodId(null);
     setCatalogDetailFoodIds(new Set());
-    setNewFood(initialNewFood);
+    if (launchMode === 'estimate' && !meal) {
+      setEstimatePlaceholder(randomMealEstimateExample());
+    }
     window.requestAnimationFrame(() => {
       if (!meal && launchMode === 'add') catalogSearchRef.current?.focus();
     });
-  }, [date, launchMode, meal, open]);
+    if (meal || launchMode !== 'estimate') loadRecentFoods();
+  }, [date, launchMode, loadRecentFoods, meal, open]);
 
   const createEstimate = async () => {
     const request = estimateDescription.trim();
@@ -282,7 +296,6 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
     const proposalNotes = proposal.notes ?? '';
     const proposalDate = proposal.entry_date ?? date;
     const proposalItems = proposal.items?.map(proposalItemToMealItem) ?? [];
-    const initialNewFood = emptyPersonalFood();
     setName(proposalName);
     setNotes(proposalNotes);
     setEntryDate(proposalDate);
@@ -295,18 +308,14 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
     });
     setCatalogPickerOpen(false);
     setQuery('');
-    setNewFood(initialNewFood);
     baselineRef.current = mealDraftFingerprint({
       name: proposalName,
       notes: proposalNotes,
       entryDate: proposalDate,
       items: proposalItems,
-      newFood: initialNewFood,
     });
     setEstimating(false);
-    setFoods([]);
-    setHasSearched(false);
-    setSearching(false);
+    loadRecentFoods();
   };
 
   const addFood = (food) => {
@@ -411,7 +420,6 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
     notes,
     entryDate,
     items,
-    newFood,
   });
   const hasUnsavedChanges = Boolean(
     baselineRef.current && currentFingerprint !== baselineRef.current,
@@ -483,62 +491,50 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
     setSaving(false);
   };
 
-  const createFood = async () => {
-    if (!newFood.name.trim() || !newFood.calories) {
-      setError('A food name and calories are required.');
-      return;
-    }
-    const nutrients = Object.fromEntries(
-      Object.entries(newFood).filter(([key, value]) => key !== 'name' && value !== ''),
-    );
-    setCreatingFood(true);
-    setError('');
-    const response = await createPersonalFood(
-      {
-        name: newFood.name.trim(),
-        origin_type: 'generic',
-        provider_name: '',
-        definition: {
-          serving_quantity: '1',
-          serving_unit: 'serving',
-          serving_label: 'one serving',
-          provenance: 'user_entered',
-          confidence_score: null,
-          nutrients,
-          sources: [],
-          components: [],
-        },
-      },
-      token,
-    );
-    if (response.ok) {
-      const food = await response.json();
-      addFood(food);
-      setFoods((current) => [food, ...current.filter((value) => value.id !== food.id)]);
-      setNewFood(emptyPersonalFood());
-    } else {
-      setError(await responseError(response, 'Could not create this personal food.'));
-    }
-    setCreatingFood(false);
-  };
-
   const isEstimateStep = launchMode === 'estimate' && !meal && !proposalId;
+  const mealHeader = isEstimateStep
+    ? {
+        eyebrow: null,
+        title: 'Map It With AI',
+        description: 'Tell us what you ate and we’ll create a meal estimate for you to fine-tune.',
+      }
+    : meal
+      ? {
+          eyebrow: 'Diary entry',
+          title: 'Edit meal',
+          description: 'Update the meal details, foods, and nutrition in one place.',
+        }
+      : proposalContext
+        ? {
+            eyebrow: 'Review estimate',
+            title: 'Map Your Meal',
+            description: 'Your estimate is ready. Adjust anything you need before saving.',
+          }
+        : {
+            eyebrow: null,
+            title: 'Map Your Meal',
+            description:
+              'Chart today’s journey with catalog foods, personal foods, or AI guidance.',
+          };
+  const MealHeaderIcon = isEstimateStep || proposalContext
+    ? AutoAwesomeIcon
+    : RestaurantMenuOutlinedIcon;
 
   return (
     <>
       <Dialog
         open={open}
-        onClose={estimating || saving || creatingFood || adjustmentBusy ? undefined : requestClose}
+        onClose={estimating || saving || adjustmentBusy ? undefined : requestClose}
         fullWidth
         maxWidth="md"
-        aria-labelledby="meal-builder-title"
+        aria-labelledby="map-your-meal-title"
         sx={{
           '& .MuiDialog-paper': {
             m: { xs: 0, sm: 2 },
             width: { xs: '100%', sm: 'calc(100% - 32px)' },
             height: { xs: '100%', sm: 'auto' },
             maxHeight: { xs: '100%', sm: 'calc(100% - 32px)' },
-            borderRadius: { xs: 0, sm: 3 },
+            borderRadius: { xs: 0, sm: mealBuilderSurfaceRadius },
             bgcolor: 'var(--atlas-paper)',
             border: '1px solid var(--atlas-border-strong)',
             boxShadow: '0 24px 64px rgba(23, 50, 77, 0.16)',
@@ -546,56 +542,82 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
         }}
       >
         <DialogTitle
-          id="meal-builder-title"
+          id="map-your-meal-title"
           sx={{
             bgcolor: meal ? 'var(--atlas-mineral-soft)' : 'var(--atlas-persimmon-soft)',
             color: 'var(--atlas-ink)',
             borderBottom: '1px solid var(--atlas-border)',
-            py: { xs: 1.5, sm: 2 },
+            px: { xs: 2, sm: 3 },
+            py: { xs: 2, sm: 2.5 },
           }}
         >
-          <Stack direction="row" spacing={1} alignItems="center">
-            {(isEstimateStep || proposalId) && (
-              <AutoAwesomeIcon sx={{ color: 'var(--atlas-persimmon-dark)' }} />
-            )}
-            <Typography component="span" variant="h5">
-              {isEstimateStep ? 'Estimate meal' : meal ? 'Edit meal' : 'Add meal'}
-            </Typography>
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <MealHeaderIcon
+              sx={{
+                flex: '0 0 auto',
+                fontSize: { xs: 48, sm: 52 },
+                color: meal ? 'var(--atlas-mineral)' : 'var(--atlas-persimmon-dark)',
+              }}
+            />
+            <Box sx={{ minWidth: 0 }}>
+              {mealHeader.eyebrow && (
+                <Typography
+                  component="p"
+                  variant="overline"
+                  sx={{ color: 'var(--atlas-ink-muted)', fontWeight: 800, lineHeight: 1.2 }}
+                >
+                  {mealHeader.eyebrow}
+                </Typography>
+              )}
+              <Typography
+                component="span"
+                variant="h5"
+                sx={{ display: 'block', mt: mealHeader.eyebrow ? 0.25 : 0 }}
+              >
+                {mealHeader.title}
+              </Typography>
+              <Typography
+                component="p"
+                variant="body2"
+                sx={{ color: 'var(--atlas-ink-muted)', mt: 0.5, maxWidth: 620 }}
+              >
+                {mealHeader.description}
+              </Typography>
+            </Box>
           </Stack>
         </DialogTitle>
         <DialogContent
-          dividers
-          sx={{ bgcolor: 'var(--atlas-paper)', borderColor: 'transparent', px: { xs: 1.5, sm: 3 } }}
+          sx={{
+            bgcolor: 'var(--atlas-paper)',
+            borderColor: 'transparent',
+            px: { xs: 2, sm: 3 },
+            pt: '0 !important',
+            '& > .MuiStack-root': {
+              mt: { xs: 2.5, sm: 3 },
+            },
+          }}
         >
           {isEstimateStep ? (
             <Stack spacing={2.5}>
               {error && <Alert severity="error">{error}</Alert>}
-              <Alert severity="info" variant="outlined">
-                Nutrition values are estimates and may vary. You can adjust every item on the Add
-                meal page before saving.
-              </Alert>
               <TextField
                 label="Describe what you ate"
                 value={estimateDescription}
                 onChange={(event) => setEstimateDescription(event.target.value)}
-                placeholder="Double-Double from In-N-Out, no cheese"
+                placeholder={estimatePlaceholder}
                 multiline
                 minRows={3}
                 autoFocus
               />
               <Typography variant="body2" sx={{ color: 'var(--atlas-ink-muted)' }}>
-                MacroMapper searches your visible food catalog first. When there is no suitable
-                match, GPT prepares a sourced, editable proposal.
+                MacroMapper checks your visible food catalog first. Matched foods use their
+                existing nutrition data, while unmatched foods are estimated by GPT with web
+                sources and remain editable before saving.
               </Typography>
             </Stack>
           ) : (
             <Stack spacing={1.25}>
               {error && <Alert severity="error">{error}</Alert>}
-              <Alert severity="info" variant="outlined">
-                {proposalContext
-                  ? 'Your estimate is ready. Add or adjust catalog and personal foods, then save the meal.'
-                  : 'Add catalog or personal foods, adjust the meal, then save it.'}
-              </Alert>
               {proposalContext && (
                 <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
                   <Chip size="small" label="AI estimate" color="secondary" variant="outlined" />
@@ -623,7 +645,7 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
                 }}
               >
                 <Typography id="meal-identity-heading" component="h3" variant="h6">
-                  Meal details
+                  Meal Details
                 </Typography>
                 <Stack spacing={1.5} sx={{ mt: 1.5 }}>
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
@@ -669,23 +691,27 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
                 <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
                   <Box>
                     <Typography id="food-search-heading" component="h3" variant="h6">
-                      Add another food
+                      Add from the Catalog
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Search the shared catalog and your personal foods.
+                      Search through the shared and personal catalog.
                     </Typography>
                   </Box>
                   <Stack direction="row" spacing={0.5} alignItems="center">
-                    {catalogPickerOpen && hasSearched && (
+                    {catalogPickerOpen && (hasSearched || showingRecentFoods) && (
                       <Chip
-                        label={`${availableFoods.length} results`}
+                        label={
+                          showingRecentFoods
+                            ? `${availableFoods.length} recent`
+                            : `${availableFoods.length} results`
+                        }
                         size="small"
                         variant="outlined"
                       />
                     )}
                     <IconButton
                       size="small"
-                      aria-label={`${catalogPickerOpen ? 'Collapse' : 'Expand'} add another food`}
+                      aria-label={`${catalogPickerOpen ? 'Collapse' : 'Expand'} Add from the Catalog`}
                       aria-expanded={catalogPickerOpen}
                       onClick={() => setCatalogPickerOpen((current) => !current)}
                     >
@@ -703,8 +729,7 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
                         const nextQuery = event.target.value;
                         setQuery(nextQuery);
                         if (!nextQuery.trim()) {
-                          setFoods([]);
-                          setHasSearched(false);
+                          loadRecentFoods();
                         }
                       }}
                       onKeyDown={(event) => {
@@ -914,8 +939,10 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
                     </>
                   ) : (
                     <Typography sx={{ mt: 1.5 }} color="text.secondary">
-                      {!hasSearched
-                        ? 'Search by food or provider to see matching foods.'
+                      {showingRecentFoods
+                        ? 'No recent foods are available yet. Search the catalog or create a personal food.'
+                        : !hasSearched
+                          ? 'Search by food or provider to see matching foods.'
                         : foods.length
                           ? 'All matching foods are already in this meal.'
                           : 'No foods matched this search. Try another term or create a personal food below.'}
@@ -937,11 +964,11 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
                 <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
                   <Box>
                     <Typography id="meal-items-heading" component="h3" variant="h6">
-                      Meal items
+                      Meal Items
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Adjust count, unit, nutrition, components, and estimate details using the same
-                      controls as AI estimates.
+                      Adjust quantities, units, nutrition, and components, or review each item’s
+                      estimate details and sources.
                     </Typography>
                   </Box>
                   <Chip
@@ -959,15 +986,16 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
                       textAlign: 'center',
                       bgcolor: 'var(--atlas-bone)',
                       border: '1px dashed var(--atlas-border-strong)',
-                      borderRadius: 2,
+                      borderRadius: mealBuilderSurfaceRadius,
                     }}
                   >
                     <RestaurantMenuOutlinedIcon sx={{ color: 'var(--atlas-mineral-dark)' }} />
                     <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                      No foods added yet
+                      No meal items yet
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Add a catalog or personal food to build the meal.
+                      Choose a recent or searched catalog food below, or use AI Adjustments to get
+                      started.
                     </Typography>
                   </Box>
                 ) : (
@@ -989,77 +1017,8 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
                 )}
               </Paper>
 
-              {!!items.length && (
-                <Box sx={{ order: 2 }}>
-                  <MealNutritionSummary items={items} />
-                </Box>
-              )}
-
-              <Box
-                component="details"
-                sx={{
-                  order: 6,
-                  p: { xs: 1.5, sm: 2 },
-                  bgcolor: 'var(--atlas-persimmon-soft)',
-                  border: '1px solid rgba(169, 68, 32, 0.28)',
-                  borderRadius: 2,
-                }}
-              >
-                <Typography
-                  component="summary"
-                  variant="h6"
-                  sx={{
-                    color: 'var(--atlas-persimmon-dark)',
-                    cursor: 'pointer',
-                    minHeight: 44,
-                    display: 'flex',
-                    alignItems: 'center',
-                  }}
-                >
-                  Create a personal food
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                  Use this when the catalog does not contain the food you need. Enter values for one
-                  serving; unknown nutrients can stay blank.
-                </Typography>
-                <Stack spacing={1.5} sx={{ mt: 2 }}>
-                  <TextField
-                    label="Food name"
-                    value={newFood.name}
-                    onChange={(event) =>
-                      setNewFood((current) => ({ ...current, name: event.target.value }))
-                    }
-                  />
-                  <Box
-                    sx={{
-                      display: 'grid',
-                      gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, 1fr)' },
-                      gap: 1.25,
-                    }}
-                  >
-                    {launchNutrients.map(({ key, label, unit }) => (
-                      <TextField
-                        key={key}
-                        label={`${label} (${unit})`}
-                        type="number"
-                        value={newFood[key]}
-                        onChange={(event) =>
-                          setNewFood((current) => ({ ...current, [key]: event.target.value }))
-                        }
-                        inputProps={{ min: 0, step: 0.1 }}
-                      />
-                    ))}
-                  </Box>
-                  <Button
-                    variant="outlined"
-                    color="secondary"
-                    onClick={createFood}
-                    disabled={saving || creatingFood}
-                    startIcon={creatingFood ? <CircularProgress size={18} /> : <AddIcon />}
-                  >
-                    {creatingFood ? 'Creating…' : 'Create and add food'}
-                  </Button>
-                </Stack>
+              <Box sx={{ order: 2 }}>
+                <MealNutritionSummary items={items} />
               </Box>
 
               {!meal && (
@@ -1067,7 +1026,7 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
                   component="section"
                   aria-labelledby="ai-adjustments-heading"
                   elevation={0}
-                  sx={{ order: 4, p: 1.25, border: '1px solid var(--atlas-border)' }}
+                  sx={{ order: 6, p: 1.25, border: '1px solid var(--atlas-border)' }}
                 >
                   <Stack spacing={0.75}>
                     <Stack direction="row" spacing={0.75} alignItems="center">
@@ -1162,13 +1121,13 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
             </>
           ) : (
             <>
-              <Button onClick={requestClose} disabled={saving || creatingFood || adjustmentBusy}>
+              <Button onClick={requestClose} disabled={saving || adjustmentBusy}>
                 Cancel
               </Button>
               <Button
                 variant="contained"
                 onClick={save}
-                disabled={saving || creatingFood || adjustmentBusy}
+                disabled={saving || adjustmentBusy}
               >
                 {saving ? 'Saving…' : meal ? 'Save changes' : 'Save meal'}
               </Button>
@@ -1207,7 +1166,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
   const [data, setData] = useState({ meals: [], totals: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [mealBuilder, setMealBuilder] = useState({ open: false, meal: null, launchMode: 'add' });
+  const [mapYourMeal, setMapYourMeal] = useState({ open: false, meal: null, launchMode: 'add' });
   const [pendingDelete, setPendingDelete] = useState(null);
   const dateInputRef = useRef(null);
   const token = sessionStorage.getItem('accessToken');
@@ -1569,18 +1528,18 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   variant="contained"
                   color="secondary"
                   startIcon={<AutoAwesomeIcon />}
-                  onClick={() => setMealBuilder({ open: true, meal: null, launchMode: 'estimate' })}
+                  onClick={() => setMapYourMeal({ open: true, meal: null, launchMode: 'estimate' })}
                   sx={{ minHeight: 44 }}
                 >
-                  Estimate meal
+                  Map your Meal with AI
                 </Button>
                 <Button
                   variant="contained"
                   startIcon={<AddIcon />}
-                  onClick={() => setMealBuilder({ open: true, meal: null, launchMode: 'add' })}
+                  onClick={() => setMapYourMeal({ open: true, meal: null, launchMode: 'add' })}
                   sx={{ minHeight: 44 }}
                 >
-                  Add manually
+                  Chart your Course Manually
                 </Button>
               </Stack>
             </Stack>
@@ -1716,7 +1675,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                             <IconButton
                               aria-label={`edit ${meal.name}`}
                               onClick={() =>
-                                setMealBuilder({ open: true, meal, launchMode: 'edit' })
+                                setMapYourMeal({ open: true, meal, launchMode: 'edit' })
                               }
                               sx={{ width: 44, height: 44, color: 'var(--atlas-forest-dark)' }}
                             >
@@ -1997,15 +1956,15 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
           </Box>
         </Stack>
 
-        <MealBuilderDialog
+        <MapYourMealDialog
           date={date}
-          meal={mealBuilder.meal}
-          open={mealBuilder.open}
+          meal={mapYourMeal.meal}
+          open={mapYourMeal.open}
           token={token}
-          launchMode={mealBuilder.launchMode}
-          onClose={() => setMealBuilder({ open: false, meal: null, launchMode: 'add' })}
+          launchMode={mapYourMeal.launchMode}
+          onClose={() => setMapYourMeal({ open: false, meal: null, launchMode: 'add' })}
           onSaved={async (message) => {
-            setMealBuilder({ open: false, meal: null, launchMode: 'add' });
+            setMapYourMeal({ open: false, meal: null, launchMode: 'add' });
             showSnackbar('success', message);
             await loadDiary();
           }}

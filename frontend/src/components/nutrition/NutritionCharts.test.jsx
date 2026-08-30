@@ -96,7 +96,7 @@ describe('shared nutrition charts', () => {
 
     const summary = screen.getByRole('region', { name: 'Meal macro breakdown' });
     expect(within(summary).getByLabelText('Full meal nutrition values')).toBeVisible();
-    expect(within(summary).getByRole('figure', { name: 'Calories by Component' })).toBeVisible();
+    expect(within(summary).getByRole('figure', { name: 'Calories by Meal Item' })).toBeVisible();
 
     await user.click(
       within(summary).getByRole('button', { name: 'Collapse meal nutrition summary' }),
