@@ -86,10 +86,10 @@ class MealEntryViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="adjustments")
     def adjustment(self, request, pk=None):
-        self.get_object()
+        meal = self.get_object()
         serializer = MapYourMealAdjustmentSerializer(
             data=request.data,
-            context={"request": request},
+            context={"request": request, "meal": meal},
         )
         serializer.is_valid(raise_exception=True)
         proposal = None

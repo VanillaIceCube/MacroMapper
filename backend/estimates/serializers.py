@@ -16,6 +16,7 @@ from .services import (
     create_proposal,
     create_proposal_revision,
     normalize_items,
+    saved_meal_version_ids,
     secure_review_items,
 )
 
@@ -398,12 +399,14 @@ class MapYourMealAdjustmentSerializer(serializers.Serializer):
         return value
 
     def create_proposal(self):
+        meal = self.context.get("meal")
         return create_builder_proposal(
             owner=self.context["request"].user,
             entry_date=self.validated_data["entry_date"],
             name=self.validated_data.get("name", ""),
             notes=self.validated_data.get("notes", ""),
             items=self.validated_data["items"],
+            allowed_version_ids=(saved_meal_version_ids(meal) if meal else ()),
         )
 
 

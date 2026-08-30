@@ -1654,8 +1654,14 @@ def secure_builder_items(*, owner, items, allowed_version_ids=()):
 
 
 @transaction.atomic
-def create_builder_proposal(*, owner, entry_date, name, notes, items):
-    secured_items = secure_builder_items(owner=owner, items=items)
+def create_builder_proposal(
+    *, owner, entry_date, name, notes, items, allowed_version_ids=()
+):
+    secured_items = secure_builder_items(
+        owner=owner,
+        items=items,
+        allowed_version_ids=allowed_version_ids,
+    )
     default_name = " & ".join(item["name"] for item in secured_items[:3])
     proposal = MealProposal.objects.create(
         owner=owner,
@@ -1902,7 +1908,7 @@ def _materialize_item(*, owner, item, allowed_version_ids=()):
     return food, food.current_version
 
 
-def _saved_meal_version_ids(meal):
+def saved_meal_version_ids(meal):
     version_ids = set(meal.items.values_list("food_version_id", flat=True))
 
     def collect(components):
@@ -1921,7 +1927,7 @@ def _saved_meal_version_ids(meal):
 def save_meal_draft(*, owner, meal, entry_date, name, notes, items):
     if meal is not None:
         meal = MealEntry.objects.select_for_update().get(pk=meal.pk, owner=owner)
-    allowed_version_ids = _saved_meal_version_ids(meal) if meal is not None else set()
+    allowed_version_ids = saved_meal_version_ids(meal) if meal is not None else set()
     secured_items = secure_builder_items(
         owner=owner,
         items=items,

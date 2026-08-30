@@ -471,6 +471,56 @@ class MealEntryApiTests(APITestCase):
         saved_item = MealItem.objects.get(meal_entry_id=created.data["id"])
         self.assertEqual(saved_item.servings, Decimal("1"))
 
+    @patch("meals.views.get_estimation_provider")
+    def test_ai_adjustment_preserves_an_archived_version_pinned_to_the_meal(
+        self, get_provider
+    ):
+        created = self.create_meal(
+            item_inputs=[{"food_item": self.apple.id, "servings": "1", "order": 0}]
+        )
+        saved_version_id = created.data["items"][0]["food_version_id"]
+        item = _catalog_food(
+            self.apple.current_version,
+            servings=Decimal("1"),
+            key="saved-apple",
+        )
+        archive_response = self.client.delete(f"/api/foods/{self.apple.id}/")
+        self.assertEqual(archive_response.status_code, status.HTTP_204_NO_CONTENT)
+        provider = Mock()
+        provider.follow_up.return_value = {
+            "name": "Breakfast",
+            "message": "Changed the apple to two servings.",
+            "confidence_score": Decimal("0.9"),
+            "remove_keys": [],
+            "serving_updates": [{"key": "saved-apple", "servings": Decimal("2")}],
+            "items_to_add": [],
+            "provider_name": "OpenAI",
+            "provider_model": "gpt-test",
+            "provider_response_id": "resp-archived-edit-meal",
+        }
+        get_provider.return_value = provider
+
+        response = self.client.post(
+            f"/api/meals/{created.data['id']}/adjustments/",
+            {
+                "adjustment": "Make that two apples",
+                "entry_date": "2026-08-16",
+                "name": "Breakfast",
+                "notes": "Before work",
+                "items": [item],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        adjusted_item = response.data["proposal"]["items"][0]
+        self.assertEqual(adjusted_item["food_version_id"], saved_version_id)
+        self.assertEqual(Decimal(adjusted_item["servings"]), Decimal("2"))
+        self.assertEqual(MealProposal.objects.count(), 0)
+        saved_item = MealItem.objects.get(meal_entry_id=created.data["id"])
+        self.assertEqual(saved_item.food_version_id, saved_version_id)
+        self.assertEqual(saved_item.servings, Decimal("1"))
+
     def test_full_draft_create_materializes_reviewed_nutrition(self):
         self.client.force_authenticate(user=self.owner)
         item = _catalog_food(

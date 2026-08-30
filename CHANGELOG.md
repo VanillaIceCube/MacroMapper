@@ -12,6 +12,8 @@ All notable changes to this project are documented in this file.
   bulk-loaded.
 - Preserve pinned food-version portion options when reopening saved meals.
 - Ignore stale catalog responses when a newer food search has started.
+- Allow AI adjustments to reuse archived food versions already pinned to the
+  existing meal being edited.
 
 ### Changed
 
