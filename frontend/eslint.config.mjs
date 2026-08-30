@@ -38,7 +38,10 @@ export default [
       'react/react-in-jsx-scope': 'off',
       'react/prop-types': 'off',
       'jsx-a11y/no-autofocus': 'off',
-      'no-unused-vars': ['error', { varsIgnorePattern: '^_', argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
+      'no-unused-vars': [
+        'error',
+        { varsIgnorePattern: '^_', argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+      ],
       'react-hooks/set-state-in-effect': 'off',
       'react-hooks/immutability': 'off',
       'no-loss-of-precision': 'warn',
