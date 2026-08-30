@@ -78,20 +78,25 @@ describe('shared nutrition charts', () => {
     await user.hover(normalItemBar);
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
 
-    // Other (...) segment should display a tooltip listing grouped items descending by calories
-    const otherSegment = within(figure).getByLabelText(
-      'Other meals (2) 300 kilocalories (14 percent)',
-    );
-    await user.hover(otherSegment);
+    // Hovering Other (...) bar should NOT show a tooltip
+    const otherBar = within(figure).getByRole('img', {
+      name: 'Other meals (2) macro calorie stack: protein 300 kilocalories',
+    });
+    await user.hover(otherBar);
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+
+    // Hovering directly over the Other (...) text label displays a tooltip listing grouped items descending by calories
+    const otherLabel = within(figure).getByText('Other meals (2)');
+    await user.hover(otherLabel);
 
     const tooltip = await screen.findByRole('tooltip');
     expect(within(tooltip).getByText('Meal 5')).toBeInTheDocument();
-    expect(within(tooltip).getByText('200 cal')).toBeInTheDocument();
+    expect(within(tooltip).getByText('200 kcal')).toBeInTheDocument();
     expect(within(tooltip).getByText('Meal 4')).toBeInTheDocument();
-    expect(within(tooltip).getByText('100 cal')).toBeInTheDocument();
+    expect(within(tooltip).getByText('100 kcal')).toBeInTheDocument();
 
     // Moving off Other (...) dismisses tooltip
-    await user.unhover(otherSegment);
+    await user.unhover(otherLabel);
     await waitFor(() => {
       expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
     });

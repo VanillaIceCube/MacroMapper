@@ -35,7 +35,7 @@ function OtherTooltipContent({ items, format }) {
               variant="caption"
               sx={{ whiteSpace: 'nowrap', flex: '0 0 auto', opacity: 0.9 }}
             >
-              {format(groupedItem.calories)} cal
+              {format(groupedItem.calories)} kcal
             </Typography>
           </Stack>
         ))}
@@ -95,43 +95,60 @@ export default function CalorieContributionChart({
             const groupedItems =
               item.groupedItems ||
               (item.componentNames?.map((name) => ({ name, calories: null })) ?? []);
+            const hasGroupedTooltip = isOther && groupedItems.length > 0;
 
-            const content = (
+            const nameBox = (
+              <Box
+                tabIndex={hasGroupedTooltip ? 0 : undefined}
+                aria-label={hasGroupedTooltip ? item.name : undefined}
+                sx={{
+                  width: dashboard ? { xs: 104, sm: 180, lg: 240 } : 112,
+                  flex: '0 0 auto',
+                  height: dashboard ? '2rem' : 'auto',
+                  display: 'flex',
+                  alignItems: 'center',
+                  cursor: hasGroupedTooltip ? 'help' : undefined,
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  noWrap={!dashboard}
+                  title={item.name}
+                  sx={
+                    dashboard
+                      ? {
+                          display: '-webkit-box',
+                          WebkitBoxOrient: 'vertical',
+                          WebkitLineClamp: 2,
+                          overflow: 'hidden',
+                          lineHeight: 1.2,
+                        }
+                      : undefined
+                  }
+                >
+                  {item.name}
+                </Typography>
+              </Box>
+            );
+
+            return (
               <Box
                 key={item.key}
                 aria-label={`${item.name} ${format(item.calories)} ${ariaUnit} (${Math.round(item.percentage)}${dashboard ? ' percent' : '%'})`}
                 tabIndex={0}
-                sx={{ cursor: isOther ? 'help' : undefined }}
               >
                 <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
-                  <Box
-                    sx={{
-                      width: dashboard ? { xs: 104, sm: 180, lg: 240 } : 112,
-                      flex: '0 0 auto',
-                      height: dashboard ? '2rem' : 'auto',
-                      display: 'flex',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <Typography
-                      variant="caption"
-                      noWrap={!dashboard}
-                      title={item.name}
-                      sx={
-                        dashboard
-                          ? {
-                              display: '-webkit-box',
-                              WebkitBoxOrient: 'vertical',
-                              WebkitLineClamp: 2,
-                              overflow: 'hidden',
-                              lineHeight: 1.2,
-                            }
-                          : undefined
-                      }
+                  {hasGroupedTooltip ? (
+                    <Tooltip
+                      title={<OtherTooltipContent items={groupedItems} format={format} />}
+                      arrow
+                      placement="top"
                     >
-                      {item.name}
-                    </Typography>
-                  </Box>
+                      {nameBox}
+                    </Tooltip>
+                  ) : (
+                    nameBox
+                  )}
                   <Box sx={{ minWidth: 0, flex: 1 }}>
                     <MacroCalorieBar
                       name={item.name}
@@ -159,21 +176,6 @@ export default function CalorieContributionChart({
                 </Stack>
               </Box>
             );
-
-            if (isOther && groupedItems.length > 0) {
-              return (
-                <Tooltip
-                  key={item.key}
-                  title={<OtherTooltipContent items={groupedItems} format={format} />}
-                  arrow
-                  placement="top"
-                >
-                  {content}
-                </Tooltip>
-              );
-            }
-
-            return content;
           })}
         </Stack>
       ) : emptyText ? (
