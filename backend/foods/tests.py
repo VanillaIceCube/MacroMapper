@@ -108,6 +108,8 @@ class FoodModelTests(TestCase):
         by_key = {option["key"]: option for option in options}
 
         self.assertEqual(by_key["base"]["label"], "1 can")
+        self.assertEqual(by_key["fl_oz"]["label"], "fl oz")
+        self.assertEqual(by_key["fl_oz"]["unit_label"], "fl oz")
         self.assertEqual(Decimal(by_key["g"]["serving_multiplier"]), Decimal("1") / 355)
         self.assertEqual(
             Decimal(by_key["ml"]["serving_multiplier"]),
