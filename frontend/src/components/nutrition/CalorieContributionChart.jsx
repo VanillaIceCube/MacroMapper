@@ -7,6 +7,45 @@ import {
 } from './nutritionMath';
 import MacroCalorieBar from './MacroCalorieBar';
 
+function OtherTooltipContent({ items, format }) {
+  if (!items || !items.length) return null;
+  const sorted = [...items].sort((a, b) => (b.calories || 0) - (a.calories || 0));
+
+  return (
+    <Box sx={{ p: 0.5, maxWidth: 280, minWidth: 160 }}>
+      <Stack spacing={0.5}>
+        {sorted.map((groupedItem, index) => (
+          <Stack
+            key={groupedItem.key || index}
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            spacing={1.5}
+            sx={{ minWidth: 0 }}
+          >
+            <Typography
+              variant="caption"
+              noWrap
+              sx={{ minWidth: 0, flex: 1, fontWeight: 600 }}
+              title={groupedItem.name}
+            >
+              {groupedItem.name}
+            </Typography>
+            {groupedItem.calories != null && (
+              <Typography
+                variant="caption"
+                sx={{ whiteSpace: 'nowrap', flex: '0 0 auto', opacity: 0.9 }}
+              >
+                {format(groupedItem.calories)} kcal
+              </Typography>
+            )}
+          </Stack>
+        ))}
+      </Stack>
+    </Box>
+  );
+}
+
 export default function CalorieContributionChart({
   contributions,
   title,
@@ -54,72 +93,90 @@ export default function CalorieContributionChart({
         <Stack spacing={dashboard ? 0.8 : 0.6} aria-label={chartAriaLabel}>
           {rows.map((item) => {
             const calorieSummary = `${format(item.calories)} kcal (${Math.round(item.percentage)}%)`;
-            const hoverSummary = item.componentNames?.length
-              ? `Components: ${item.componentNames.join(', ')} · ${calorieSummary}`
-              : `Component: ${item.name} · ${calorieSummary}`;
-            return (
-              <Tooltip key={item.key} title={hoverSummary} arrow placement="top">
-                <Box
-                  aria-label={`${item.name} ${format(item.calories)} ${ariaUnit} (${Math.round(item.percentage)}${dashboard ? ' percent' : '%'})`}
-                  tabIndex={0}
-                  sx={{ cursor: 'help' }}
-                >
-                  <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
-                    <Box
-                      sx={{
-                        width: dashboard ? { xs: 104, sm: 180, lg: 240 } : 112,
-                        flex: '0 0 auto',
-                        height: dashboard ? '2rem' : 'auto',
-                        display: 'flex',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <Typography
-                        variant="caption"
-                        noWrap={!dashboard}
-                        title={item.name}
-                        sx={
-                          dashboard
-                            ? {
-                                display: '-webkit-box',
-                                WebkitBoxOrient: 'vertical',
-                                WebkitLineClamp: 2,
-                                overflow: 'hidden',
-                                lineHeight: 1.2,
-                              }
-                            : undefined
+            const isOther = Boolean(item.isOther || (otherKey && item.key === otherKey));
+            const groupedItems =
+              item.groupedItems ||
+              (item.componentNames?.map((name) => ({ name, calories: null })) ?? []);
+            const hasGroupedTooltip = isOther && groupedItems.length > 0;
+
+            const nameBox = (
+              <Box
+                tabIndex={hasGroupedTooltip ? 0 : undefined}
+                aria-label={hasGroupedTooltip ? item.name : undefined}
+                sx={{
+                  width: dashboard ? { xs: 104, sm: 180, lg: 240 } : 112,
+                  flex: '0 0 auto',
+                  height: dashboard ? '2rem' : 'auto',
+                  display: 'flex',
+                  alignItems: 'center',
+                  cursor: hasGroupedTooltip ? 'help' : undefined,
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  noWrap={!dashboard}
+                  title={item.name}
+                  sx={
+                    dashboard
+                      ? {
+                          display: '-webkit-box',
+                          WebkitBoxOrient: 'vertical',
+                          WebkitLineClamp: 2,
+                          overflow: 'hidden',
+                          lineHeight: 1.2,
                         }
-                      >
-                        {item.name}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ minWidth: 0, flex: 1 }}>
-                      <MacroCalorieBar
-                        name={item.name}
-                        values={item}
-                        widthPercentage={item.relativeBarWidth}
-                        height={dashboard ? 20 : 14}
-                        borderRadius={dashboard ? 10 : 7}
-                        wholeNumbers={dashboard}
-                      />
-                    </Box>
-                    <Typography
-                      variant="caption"
-                      className={dashboard ? 'numeric-data' : undefined}
-                      sx={{
-                        width: dashboard ? { xs: 92, sm: 106 } : 92,
-                        flex: '0 0 auto',
-                        color: dashboard ? 'var(--atlas-ink-muted)' : undefined,
-                        fontSize: dashboard ? { xs: '0.68rem', sm: '0.75rem' } : undefined,
-                        textAlign: 'right',
-                        whiteSpace: 'nowrap',
-                      }}
+                      : undefined
+                  }
+                >
+                  {item.name}
+                </Typography>
+              </Box>
+            );
+
+            return (
+              <Box
+                key={item.key}
+                aria-label={`${item.name} ${format(item.calories)} ${ariaUnit} (${Math.round(item.percentage)}${dashboard ? ' percent' : '%'})`}
+                tabIndex={0}
+              >
+                <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
+                  {hasGroupedTooltip ? (
+                    <Tooltip
+                      title={<OtherTooltipContent items={groupedItems} format={format} />}
+                      arrow
+                      placement="top"
                     >
-                      {calorieSummary}
-                    </Typography>
-                  </Stack>
-                </Box>
-              </Tooltip>
+                      {nameBox}
+                    </Tooltip>
+                  ) : (
+                    nameBox
+                  )}
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <MacroCalorieBar
+                      name={item.name}
+                      values={item}
+                      widthPercentage={item.relativeBarWidth}
+                      height={dashboard ? 20 : 14}
+                      borderRadius={dashboard ? 10 : 7}
+                      wholeNumbers={dashboard}
+                    />
+                  </Box>
+                  <Typography
+                    variant="caption"
+                    className={dashboard ? 'numeric-data' : undefined}
+                    sx={{
+                      width: dashboard ? { xs: 92, sm: 106 } : 92,
+                      flex: '0 0 auto',
+                      color: dashboard ? 'var(--atlas-ink-muted)' : undefined,
+                      fontSize: dashboard ? { xs: '0.68rem', sm: '0.75rem' } : undefined,
+                      textAlign: 'right',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {calorieSummary}
+                  </Typography>
+                </Stack>
+              </Box>
             );
           })}
         </Stack>

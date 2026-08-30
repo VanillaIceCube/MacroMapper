@@ -106,6 +106,8 @@ export function summarizeCalorieContributions(
     {
       key: otherKey,
       name: otherLabel(remaining.length),
+      isOther: true,
+      groupedItems: remaining,
       componentNames: remaining.map((item) => item.name),
       calories: remaining.reduce((total, item) => total + item.calories, 0),
       ...Object.fromEntries(
