@@ -15,6 +15,8 @@ All notable changes to this project are documented in this file.
 - Keep AI adjustments unavailable while updating existing diary entries, and
   guard proposal drafts from falling through to the direct meal update path.
 - Preserve pinned food-version portion options when reopening saved meals.
+- Keep advanced proposal edits disabled for newly added catalog items until they
+  are part of the persisted proposal, and ignore stale catalog responses.
 
 ## 2026-08-29
 

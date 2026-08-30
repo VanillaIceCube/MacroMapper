@@ -168,6 +168,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
   const [entryDate, setEntryDate] = useState(date);
   const [items, setItems] = useState([]);
   const [proposalId, setProposalId] = useState(null);
+  const [proposalItemKeys, setProposalItemKeys] = useState(() => new Set());
   const [proposalContext, setProposalContext] = useState(null);
   const [catalogPickerOpen, setCatalogPickerOpen] = useState(true);
   const [adjustment, setAdjustment] = useState('');
@@ -186,6 +187,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
   const [catalogDetailFoodIds, setCatalogDetailFoodIds] = useState(() => new Set());
   const [baselineFingerprint, setBaselineFingerprint] = useState('');
   const catalogSearchRef = useRef(null);
+  const catalogRequestIdRef = useRef(0);
   const aiAdjustmentsAvailable = !meal;
   const selectedFoodIds = useMemo(
     () => new Set(items.map((item) => String(item.food_item))),
@@ -199,11 +201,13 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
   const activeCatalogFood = visibleFoods.find((food) => food.id === catalogActionsFoodId);
 
   const loadRecentFoods = useCallback(async () => {
+    const requestId = ++catalogRequestIdRef.current;
     setSearching(true);
     setHasSearched(false);
     setShowingRecentFoods(true);
     setError('');
     const response = await searchFoods('', token, { ordering: '-created_at', limit: 20 });
+    if (requestId !== catalogRequestIdRef.current) return;
     if (response.ok) {
       setFoods(await response.json());
     } else {
@@ -216,6 +220,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
   const runSearch = useCallback(async () => {
     const normalizedQuery = query.trim();
     if (!normalizedQuery) return;
+    const requestId = ++catalogRequestIdRef.current;
     setSearching(true);
     setHasSearched(true);
     setShowingRecentFoods(false);
@@ -224,6 +229,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     const response = await searchFoods(normalizedQuery, token, {
       limit: maxVisibleCatalogResults + 1,
     });
+    if (requestId !== catalogRequestIdRef.current) return;
     if (response.ok) {
       setFoods(await response.json());
     } else {
@@ -233,7 +239,10 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
   }, [query, token]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      catalogRequestIdRef.current += 1;
+      return;
+    }
     const initialName = meal?.name ?? '';
     const initialNotes = meal?.notes ?? '';
     const initialDate = meal?.entry_date ?? date;
@@ -245,6 +254,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     setEntryDate(initialDate);
     setItems(initialItems);
     setProposalId(null);
+    setProposalItemKeys(new Set());
     setProposalContext(null);
     setCatalogPickerOpen(launchMode !== 'estimate');
     setAdjustment('');
@@ -302,6 +312,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     setEntryDate(proposalDate);
     setItems(proposalItems);
     setProposalId(proposal.id);
+    setProposalItemKeys(new Set(proposal.items?.map((item) => item.key) ?? []));
     setProposalContext({
       provider_name: proposal.provider_name,
       provider_model: proposal.provider_model,
@@ -390,6 +401,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
         const result = await response.json();
         const updatedProposal = result.proposal;
         setProposalId(updatedProposal.id);
+        setProposalItemKeys(new Set(updatedProposal.items?.map((item) => item.key) ?? []));
         if (result.applied) {
           setName(updatedProposal.name);
           setItems(updatedProposal.items.map(proposalItemToMealItem));
@@ -1035,8 +1047,12 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                         onPortionChange={changePortion}
                         onNutrientChange={changeNutrient}
                         onRemove={removeItem}
-                        allowNutritionEditing={Boolean(proposalId && aiAdjustmentsAvailable)}
-                        allowComponentEditing={Boolean(proposalId && aiAdjustmentsAvailable)}
+                        allowNutritionEditing={Boolean(
+                          proposalId && aiAdjustmentsAvailable && proposalItemKeys.has(item.key),
+                        )}
+                        allowComponentEditing={Boolean(
+                          proposalId && aiAdjustmentsAvailable && proposalItemKeys.has(item.key),
+                        )}
                         renderNutrition={(foodItem, onChange) => (
                           <ItemNutritionCards item={foodItem} compact onNutrientChange={onChange} />
                         )}

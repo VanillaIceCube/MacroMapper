@@ -31,6 +31,14 @@ const response = (body = {}, ok = true) => ({
   json: vi.fn().mockResolvedValue(body),
 });
 
+const deferred = () => {
+  let resolve;
+  const promise = new Promise((settle) => {
+    resolve = settle;
+  });
+  return { promise, resolve };
+};
+
 const apple = {
   id: 7,
   name: 'Apple',
@@ -624,6 +632,58 @@ describe('DiaryPage', () => {
     });
     expect(acceptMealProposal).toHaveBeenCalledWith(90, 'access-token');
     expect(createMeal).not.toHaveBeenCalled();
+  });
+
+  test('does not enable advanced edits for a catalog food added after a proposal', async () => {
+    const user = userEvent.setup();
+    searchFoods.mockImplementation((query) => response(query ? [breakfastBurrito] : [apple]));
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    createMealProposal.mockResolvedValue(response(estimatedProposal));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Map your Meal with AI' }));
+    const estimateDialog = await screen.findByRole('dialog', { name: /Map It With AI/ });
+    await user.type(
+      within(estimateDialog).getByRole('textbox', { name: 'Describe what you ate' }),
+      'Carne asada taco',
+    );
+    await user.click(within(estimateDialog).getByRole('button', { name: 'Create estimate' }));
+
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    await user.click(within(dialog).getByRole('button', { name: 'Expand Add from the Catalog' }));
+    await user.type(within(dialog).getByRole('textbox', { name: 'Search catalog' }), 'Breakfast');
+    await user.click(within(dialog).getByRole('button', { name: 'search foods' }));
+    await user.click(await within(dialog).findByRole('button', { name: 'Add' }));
+    await user.click(
+      within(dialog).getByRole('button', { name: 'More actions for Breakfast Burrito' }),
+    );
+
+    expect(
+      screen.queryByRole('menuitem', { name: 'Edit nutrition for Breakfast Burrito' }),
+    ).not.toBeInTheDocument();
+  });
+
+  test('ignores a stale recent-food response after a catalog search starts', async () => {
+    const user = userEvent.setup();
+    const recent = deferred();
+    const search = deferred();
+    searchFoods.mockImplementation((query) => (query ? search.promise : recent.promise));
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    const searchInput = within(dialog).getByRole('textbox', { name: 'Search catalog' });
+    await user.type(searchInput, 'Apple');
+    await user.keyboard('{Enter}');
+
+    search.resolve(response([apple]));
+    expect(await within(dialog).findByText('Apple')).toBeVisible();
+    recent.resolve(response([breakfastBurrito]));
+    await waitFor(() => expect(within(dialog).getByText('Apple')).toBeVisible());
+    expect(within(dialog).queryByText('Breakfast Burrito')).not.toBeInTheDocument();
   });
 
   test('keeps AI Adjustments in Map Your Meal after estimation', async () => {
