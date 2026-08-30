@@ -86,6 +86,8 @@ const provenanceLabels = {
   user_entered: 'User entered',
 };
 
+const maxVisibleCatalogResults = 25;
+
 const emptyPersonalFood = () => ({
   name: '',
   ...Object.fromEntries(launchNutrients.map((nutrient) => [nutrient.key, ''])),
@@ -181,6 +183,7 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
   const [adjustmentFeedback, setAdjustmentFeedback] = useState(null);
   const [query, setQuery] = useState('');
   const [foods, setFoods] = useState([]);
+  const [hasSearched, setHasSearched] = useState(false);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [creatingFood, setCreatingFood] = useState(false);
@@ -200,12 +203,16 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
     () => foods.filter((food) => !selectedFoodIds.has(String(food.id))),
     [foods, selectedFoodIds],
   );
-  const activeCatalogFood = availableFoods.find((food) => food.id === catalogActionsFoodId);
+  const visibleFoods = availableFoods.slice(0, maxVisibleCatalogResults);
+  const activeCatalogFood = visibleFoods.find((food) => food.id === catalogActionsFoodId);
 
   const runSearch = useCallback(async () => {
+    const normalizedQuery = query.trim();
+    if (!normalizedQuery) return;
     setSearching(true);
+    setHasSearched(true);
     setError('');
-    const response = await searchFoods(query, token);
+    const response = await searchFoods(normalizedQuery, token);
     if (response.ok) {
       setFoods(await response.json());
     } else {
@@ -216,7 +223,6 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
 
   useEffect(() => {
     if (!open) return;
-    let active = true;
     const initialName = meal?.name ?? '';
     const initialNotes = meal?.notes ?? '';
     const initialDate = meal?.entry_date ?? date;
@@ -242,36 +248,19 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
       newFood: initialNewFood,
     });
     setQuery('');
+    setFoods([]);
+    setHasSearched(false);
+    setSearching(false);
     setError('');
     setDiscardOpen(false);
     setCatalogActionsAnchorEl(null);
     setCatalogActionsFoodId(null);
     setCatalogDetailFoodIds(new Set());
     setNewFood(initialNewFood);
-    if (launchMode === 'estimate' && !meal) {
-      setFoods([]);
-      setSearching(false);
-      return () => {
-        active = false;
-      };
-    }
-    setSearching(true);
-    searchFoods('', token).then(async (response) => {
-      if (!active) return;
-      if (response.ok) {
-        setFoods(await response.json());
-      } else {
-        setError(await responseError(response, 'Could not search the food catalog.'));
-      }
-      setSearching(false);
-    });
     window.requestAnimationFrame(() => {
       if (!meal && launchMode === 'add') catalogSearchRef.current?.focus();
     });
-    return () => {
-      active = false;
-    };
-  }, [date, launchMode, meal, open, token]);
+  }, [date, launchMode, meal, open]);
 
   const createEstimate = async () => {
     const request = estimateDescription.trim();
@@ -315,15 +304,9 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
       newFood: initialNewFood,
     });
     setEstimating(false);
-    setSearching(true);
-    searchFoods('', token).then(async (catalogResponse) => {
-      if (catalogResponse.ok) {
-        setFoods(await catalogResponse.json());
-      } else {
-        setError(await responseError(catalogResponse, 'Could not search the food catalog.'));
-      }
-      setSearching(false);
-    });
+    setFoods([]);
+    setHasSearched(false);
+    setSearching(false);
   };
 
   const addFood = (food) => {
@@ -693,7 +676,7 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
                     </Typography>
                   </Box>
                   <Stack direction="row" spacing={0.5} alignItems="center">
-                    {catalogPickerOpen && (
+                    {catalogPickerOpen && hasSearched && (
                       <Chip
                         label={`${availableFoods.length} results`}
                         size="small"
@@ -716,7 +699,14 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
                       inputRef={catalogSearchRef}
                       label="Search catalog"
                       value={query}
-                      onChange={(event) => setQuery(event.target.value)}
+                      onChange={(event) => {
+                        const nextQuery = event.target.value;
+                        setQuery(nextQuery);
+                        if (!nextQuery.trim()) {
+                          setFoods([]);
+                          setHasSearched(false);
+                        }
+                      }}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter') {
                           event.preventDefault();
@@ -728,7 +718,7 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
                     <Button
                       variant="outlined"
                       onClick={runSearch}
-                      disabled={searching}
+                      disabled={searching || !query.trim()}
                       startIcon={searching ? <CircularProgress size={18} /> : <SearchIcon />}
                       aria-label="search foods"
                       sx={{ minWidth: { xs: 52, sm: 116 }, px: { xs: 1.5, sm: 2.5 } }}
@@ -751,7 +741,7 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
                         aria-label="Food search results"
                         sx={{ maxHeight: 360, mt: 1.5, overflow: 'auto' }}
                       >
-                        {availableFoods.map((food) => {
+                        {visibleFoods.map((food) => {
                           const version = food.current_version || {};
                           const source =
                             provenanceLabels[version.provenance] ||
@@ -894,6 +884,12 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
                           );
                         })}
                       </List>
+                      {availableFoods.length > maxVisibleCatalogResults && (
+                        <Typography variant="caption" color="text.secondary">
+                          Showing the first {maxVisibleCatalogResults} results. Refine your search
+                          to find a specific food.
+                        </Typography>
+                      )}
                       <Menu
                         anchorEl={catalogActionsAnchorEl}
                         open={Boolean(catalogActionsAnchorEl && activeCatalogFood)}
@@ -918,9 +914,11 @@ function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSav
                     </>
                   ) : (
                     <Typography sx={{ mt: 1.5 }} color="text.secondary">
-                      {foods.length
-                        ? 'All matching foods are already in this meal.'
-                        : 'No foods matched this search. Try another term or create a personal food below.'}
+                      {!hasSearched
+                        ? 'Search by food or provider to see matching foods.'
+                        : foods.length
+                          ? 'All matching foods are already in this meal.'
+                          : 'No foods matched this search. Try another term or create a personal food below.'}
                     </Typography>
                   )}
                 </Collapse>

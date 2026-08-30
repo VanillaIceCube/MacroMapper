@@ -42,7 +42,8 @@ describe('shared nutrition charts', () => {
     ).toBeVisible();
   });
 
-  test('renders and summarizes a reusable calories-by-x chart', () => {
+  test('renders, summarizes, and explains a reusable calories-by-x chart on hover', async () => {
+    const user = userEvent.setup();
     const contributions = [600, 500, 400, 300, 200, 100].map((calories, index) => ({
       key: `meal-${index}`,
       name: `Meal ${index}`,
@@ -71,6 +72,10 @@ describe('shared nutrition charts', () => {
         name: 'Meal 0 macro calorie stack: protein 600 kilocalories',
       }),
     ).toBeVisible();
+    await user.hover(
+      within(figure).getByLabelText('Other meals (2) 300 kilocalories (14 percent)'),
+    );
+    expect(await screen.findByText('Components: Meal 4, Meal 5 · 300 kcal (14%)')).toBeVisible();
   });
 
   test('combines shared cards and charts in a collapsible meal summary', async () => {

@@ -3,6 +3,11 @@ All notable changes to this project are documented in this file.
 
 ## 2026-08-29
 
+### Fixed
+
+- Keep Add meal responsive by loading catalog results only after a search and
+  rendering at most the first 25 matches for broad queries.
+
 ### Changed
 
 - Generate blank meal names from the selected foods when a meal is saved, with
