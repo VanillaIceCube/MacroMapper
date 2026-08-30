@@ -3,8 +3,9 @@ from decimal import Decimal
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.test import RequestFactory, TestCase
+from django.test.utils import CaptureQueriesContext
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -476,6 +477,48 @@ class FoodApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(
             [item["id"] for item in response.data], [self.personal_food.id]
+        )
+
+    def test_catalog_list_uses_bulk_loaded_top_level_components(self):
+        create_food_item(
+            name="Apple plate",
+            scope=FoodItem.Scope.PERSONAL,
+            origin_type=FoodItem.OriginType.GENERIC,
+            provider_name="",
+            owner=self.owner,
+            definition=food_definition(
+                calories="95",
+                confidence=None,
+                components=[
+                    {
+                        "food_item": self.shared_food,
+                        "servings": Decimal("1"),
+                        "order": 0,
+                    }
+                ],
+            ),
+            created_by=self.owner,
+        )
+        self.client.force_authenticate(user=self.owner)
+
+        with CaptureQueriesContext(connection) as captured:
+            response = self.client.get("/api/foods/")
+
+        component_queries = [
+            query
+            for query in captured.captured_queries
+            if "foods_foodcomponent" in query["sql"].lower()
+        ]
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(
+            len(component_queries),
+            1,
+            [query["sql"] for query in component_queries],
+        )
+        plate = next(item for item in response.data if item["name"] == "Apple plate")
+        self.assertEqual(
+            plate["current_version"]["components"][0]["food_item_name"],
+            "Shared apple",
         )
 
     def test_shared_detail_retains_provenance_confidence_and_sources(self):

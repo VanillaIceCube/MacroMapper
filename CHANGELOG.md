@@ -7,6 +7,8 @@ All notable changes to this project are documented in this file.
 
 - Preserve personal-food provenance, validated meal dates, and intentionally
   removed recipe components throughout AI-adjusted meal drafts.
+- Preserve reviewed meal dates even when an AI follow-up produces no applicable
+  food changes, and keep top-level catalog component serialization bulk-loaded.
 - Prevent manual and existing meal editors from offering nutrition or nested
   component changes that their direct save path cannot persist.
 

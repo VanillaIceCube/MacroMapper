@@ -975,6 +975,46 @@ class MealProposalApiTests(TestCase):
             "- Actually, I only ate a quarter",
         )
 
+    def test_follow_up_persists_date_when_no_food_change_applies(self):
+        shared_food(name="Apple")
+        proposal_response = self.client.post(
+            "/api/meal-proposals/",
+            {"description": "Apple", "entry_date": "2026-08-16"},
+            format="json",
+        )
+        provider = Mock()
+        provider.follow_up.return_value = {
+            "name": proposal_response.data["name"],
+            "message": "No applicable food changes were found.",
+            "confidence_score": Decimal("0.9"),
+            "remove_keys": [],
+            "serving_updates": [],
+            "items_to_add": [],
+            "provider_name": "OpenAI",
+            "provider_model": "gpt-test",
+            "provider_response_id": "resp_no_food_change",
+        }
+
+        with patch("estimates.views.get_estimation_provider", return_value=provider):
+            response = self.client.post(
+                f"/api/meal-proposals/{proposal_response.data['id']}/follow-up/",
+                {
+                    "follow_up": "Move this meal to Monday",
+                    "name": proposal_response.data["name"],
+                    "entry_date": "2026-08-17",
+                    "items": proposal_response.data["items"],
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertFalse(response.data["applied"])
+        self.assertEqual(str(response.data["proposal"]["entry_date"]), "2026-08-17")
+        self.assertEqual(
+            MealProposal.objects.get(pk=proposal_response.data["id"]).entry_date,
+            date(2026, 8, 17),
+        )
+
     def test_unsafe_provider_catalog_metadata_is_rejected_before_publication(self):
         provider = Mock()
         provider.estimate.return_value = simple_ai_estimate(

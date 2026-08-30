@@ -44,6 +44,13 @@ def _portion_options(version):
     )
 
 
+def _components_for_version(version, context):
+    component_map = context.get("component_map")
+    if component_map is None:
+        return version.components.all()
+    return component_map.get(version.pk, ())
+
+
 class FoodComponentSerializer(serializers.ModelSerializer):
     food_item_id = serializers.IntegerField(source="child_version.food_item_id")
     food_item_name = serializers.CharField(source="child_version.food_item.name")
@@ -105,9 +112,7 @@ class FoodComponentSerializer(serializers.ModelSerializer):
 
     def get_components(self, instance):
         return FoodComponentSerializer(
-            self.context.get("component_map", {}).get(
-                instance.child_version_id, instance.child_version.components.all()
-            ),
+            _components_for_version(instance.child_version, self.context),
             many=True,
             context=self.context,
         ).data
@@ -119,7 +124,7 @@ class FoodComponentSerializer(serializers.ModelSerializer):
 class FoodItemVersionSerializer(serializers.ModelSerializer):
     nutrients = serializers.SerializerMethodField()
     sources = SourceReferenceSerializer(many=True, read_only=True)
-    components = FoodComponentSerializer(many=True, read_only=True)
+    components = serializers.SerializerMethodField()
     portion_options = serializers.SerializerMethodField()
 
     class Meta:
@@ -146,6 +151,13 @@ class FoodItemVersionSerializer(serializers.ModelSerializer):
 
     def get_nutrients(self, instance):
         return _serialized_nutrients(instance)
+
+    def get_components(self, instance):
+        return FoodComponentSerializer(
+            _components_for_version(instance, self.context),
+            many=True,
+            context=self.context,
+        ).data
 
     def get_portion_options(self, instance):
         return _portion_options(instance)

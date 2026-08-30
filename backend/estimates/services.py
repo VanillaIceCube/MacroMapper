@@ -1448,6 +1448,9 @@ def apply_proposal_follow_up(
         and not added_items
         and not merged_addition
     ):
+        if entry_date is not None and proposal.entry_date != entry_date:
+            proposal.entry_date = entry_date
+            proposal.save(update_fields=["entry_date", "updated_at"])
         return {
             "applied": False,
             "message": "AI could not produce an applicable meal change from that request.",
