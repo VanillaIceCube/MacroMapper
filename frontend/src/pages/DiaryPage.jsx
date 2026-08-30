@@ -41,6 +41,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   acceptMealProposal,
   createMeal,
+  createMealProposal,
   createPersonalFood,
   deleteMeal,
   fetchDailyDiary,
@@ -49,12 +50,11 @@ import {
   updateMealProposal,
   updateMeal,
 } from '../services/mealApiClient';
-import MealEstimateDialog from '../components/MealEstimateDialog';
 import MealItemEditorRow from '../components/MealItemEditorRow';
 import {
-  catalogFoodToManualMealItem,
-  manualMealItemToProposalItem,
-  proposalItemToManualMealItem,
+  catalogFoodToMealItem,
+  mealItemToProposalItem,
+  proposalItemToMealItem,
   savedMealItemToEditableMealItem,
 } from '../components/mealItemAdapters';
 import {
@@ -141,7 +141,7 @@ const mealItemNutrientAmount = (item, nutrientKey) => {
   return Number.isFinite(amount) ? amount : null;
 };
 
-const manualDraftFingerprint = ({ name, notes, entryDate, items, newFood = {} }) =>
+const mealDraftFingerprint = ({ name, notes, entryDate, items, newFood = {} }) =>
   JSON.stringify({
     name,
     notes,
@@ -166,7 +166,9 @@ async function responseError(response, fallback) {
   return fallback;
 }
 
-function MealEditor({ date, meal, open, token, initialProposal, onClose, onSaved }) {
+function MealBuilderDialog({ date, meal, open, token, launchMode, onClose, onSaved }) {
+  const [estimateDescription, setEstimateDescription] = useState('');
+  const [estimating, setEstimating] = useState(false);
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
   const [entryDate, setEntryDate] = useState(date);
@@ -215,32 +217,24 @@ function MealEditor({ date, meal, open, token, initialProposal, onClose, onSaved
   useEffect(() => {
     if (!open) return;
     let active = true;
-    const initialName = meal?.name ?? initialProposal?.name ?? '';
-    const initialNotes = meal?.notes ?? initialProposal?.notes ?? '';
-    const initialDate = meal?.entry_date ?? initialProposal?.entry_date ?? date;
-    const initialItems = meal
-      ? meal.items.map(savedMealItemToEditableMealItem)
-      : (initialProposal?.items?.map(proposalItemToManualMealItem) ?? []);
+    const initialName = meal?.name ?? '';
+    const initialNotes = meal?.notes ?? '';
+    const initialDate = meal?.entry_date ?? date;
+    const initialItems = meal ? meal.items.map(savedMealItemToEditableMealItem) : [];
+    setEstimateDescription('');
+    setEstimating(false);
     setName(initialName);
     setNotes(initialNotes);
     setEntryDate(initialDate);
     setItems(initialItems);
-    setProposalId(initialProposal?.id ?? null);
-    setProposalContext(
-      initialProposal
-        ? {
-            provider_name: initialProposal.provider_name,
-            provider_model: initialProposal.provider_model,
-            confidence_score: initialProposal.confidence_score,
-          }
-        : null,
-    );
-    setCatalogPickerOpen(!initialProposal);
+    setProposalId(null);
+    setProposalContext(null);
+    setCatalogPickerOpen(launchMode !== 'estimate');
     setFollowUp('');
     setFollowUpBusy(false);
     setFollowUpFeedback(null);
     const initialNewFood = emptyPersonalFood();
-    baselineRef.current = manualDraftFingerprint({
+    baselineRef.current = mealDraftFingerprint({
       name: initialName,
       notes: initialNotes,
       entryDate: initialDate,
@@ -254,6 +248,13 @@ function MealEditor({ date, meal, open, token, initialProposal, onClose, onSaved
     setCatalogActionsFoodId(null);
     setCatalogDetailFoodIds(new Set());
     setNewFood(initialNewFood);
+    if (launchMode === 'estimate' && !meal) {
+      setFoods([]);
+      setSearching(false);
+      return () => {
+        active = false;
+      };
+    }
     setSearching(true);
     searchFoods('', token).then(async (response) => {
       if (!active) return;
@@ -265,17 +266,70 @@ function MealEditor({ date, meal, open, token, initialProposal, onClose, onSaved
       setSearching(false);
     });
     window.requestAnimationFrame(() => {
-      if (!meal && !initialProposal) catalogSearchRef.current?.focus();
+      if (!meal && launchMode === 'add') catalogSearchRef.current?.focus();
     });
     return () => {
       active = false;
     };
-  }, [date, initialProposal, meal, open, token]);
+  }, [date, launchMode, meal, open, token]);
+
+  const createEstimate = async () => {
+    const request = estimateDescription.trim();
+    if (!request) {
+      setError('Describe the meal you want to estimate.');
+      return;
+    }
+    setEstimating(true);
+    setError('');
+    const response = await createMealProposal({ description: request, entry_date: date }, token);
+    if (!response.ok) {
+      setError(await responseError(response, 'Could not estimate this meal.'));
+      setEstimating(false);
+      return;
+    }
+
+    const proposal = await response.json();
+    const proposalName = proposal.name ?? '';
+    const proposalNotes = proposal.notes ?? '';
+    const proposalDate = proposal.entry_date ?? date;
+    const proposalItems = proposal.items?.map(proposalItemToMealItem) ?? [];
+    const initialNewFood = emptyPersonalFood();
+    setName(proposalName);
+    setNotes(proposalNotes);
+    setEntryDate(proposalDate);
+    setItems(proposalItems);
+    setProposalId(proposal.id);
+    setProposalContext({
+      provider_name: proposal.provider_name,
+      provider_model: proposal.provider_model,
+      confidence_score: proposal.confidence_score,
+    });
+    setCatalogPickerOpen(false);
+    setQuery('');
+    setNewFood(initialNewFood);
+    baselineRef.current = mealDraftFingerprint({
+      name: proposalName,
+      notes: proposalNotes,
+      entryDate: proposalDate,
+      items: proposalItems,
+      newFood: initialNewFood,
+    });
+    setEstimating(false);
+    setSearching(true);
+    searchFoods('', token).then(async (catalogResponse) => {
+      if (catalogResponse.ok) {
+        setFoods(await catalogResponse.json());
+      } else {
+        setError(await responseError(catalogResponse, 'Could not search the food catalog.'));
+      }
+      setSearching(false);
+    });
+  };
 
   const addFood = (food) => {
     setItems((current) => {
       if (current.some((item) => String(item.food_item) === String(food.id))) return current;
-      return [...current, catalogFoodToManualMealItem(food)];
+      return [...current, catalogFoodToMealItem(food)];
     });
   };
 
@@ -335,7 +389,7 @@ function MealEditor({ date, meal, open, token, initialProposal, onClose, onSaved
         {
           follow_up: request,
           name: name.trim(),
-          items: items.map(manualMealItemToProposalItem),
+          items: items.map(mealItemToProposalItem),
         },
         token,
       );
@@ -344,7 +398,7 @@ function MealEditor({ date, meal, open, token, initialProposal, onClose, onSaved
         if (result.applied) {
           const updatedProposal = result.proposal;
           setName(updatedProposal.name);
-          setItems(updatedProposal.items.map(proposalItemToManualMealItem));
+          setItems(updatedProposal.items.map(proposalItemToMealItem));
           setProposalContext({
             provider_name: updatedProposal.provider_name,
             provider_model: updatedProposal.provider_model,
@@ -374,7 +428,7 @@ function MealEditor({ date, meal, open, token, initialProposal, onClose, onSaved
     }
   };
 
-  const currentFingerprint = manualDraftFingerprint({
+  const currentFingerprint = mealDraftFingerprint({
     name,
     notes,
     entryDate,
@@ -411,7 +465,7 @@ function MealEditor({ date, meal, open, token, initialProposal, onClose, onSaved
         {
           name: name.trim(),
           notes: notes.trim(),
-          items: items.map(manualMealItemToProposalItem),
+          items: items.map(mealItemToProposalItem),
         },
         token,
       );
@@ -490,14 +544,16 @@ function MealEditor({ date, meal, open, token, initialProposal, onClose, onSaved
     setCreatingFood(false);
   };
 
+  const isEstimateStep = launchMode === 'estimate' && !meal && !proposalId;
+
   return (
     <>
       <Dialog
         open={open}
-        onClose={saving || creatingFood || followUpBusy ? undefined : requestClose}
+        onClose={estimating || saving || creatingFood || followUpBusy ? undefined : requestClose}
         fullWidth
         maxWidth="md"
-        aria-labelledby="manual-meal-editor-title"
+        aria-labelledby="meal-builder-title"
         sx={{
           '& .MuiDialog-paper': {
             m: { xs: 0, sm: 2 },
@@ -512,18 +568,20 @@ function MealEditor({ date, meal, open, token, initialProposal, onClose, onSaved
         }}
       >
         <DialogTitle
-          id="manual-meal-editor-title"
+          id="meal-builder-title"
           sx={{
-            bgcolor: proposalId ? 'var(--atlas-persimmon-soft)' : 'var(--atlas-mineral-soft)',
+            bgcolor: meal ? 'var(--atlas-mineral-soft)' : 'var(--atlas-persimmon-soft)',
             color: 'var(--atlas-ink)',
             borderBottom: '1px solid var(--atlas-border)',
             py: { xs: 1.5, sm: 2 },
           }}
         >
           <Stack direction="row" spacing={1} alignItems="center">
-            {proposalId && <AutoAwesomeIcon sx={{ color: 'var(--atlas-persimmon-dark)' }} />}
+            {(isEstimateStep || proposalId) && (
+              <AutoAwesomeIcon sx={{ color: 'var(--atlas-persimmon-dark)' }} />
+            )}
             <Typography component="span" variant="h5">
-              {proposalId ? 'Review meal estimate' : meal ? 'Edit meal' : 'Add meal'}
+              {isEstimateStep ? 'Estimate meal' : meal ? 'Edit meal' : 'Add meal'}
             </Typography>
           </Stack>
         </DialogTitle>
@@ -531,394 +589,419 @@ function MealEditor({ date, meal, open, token, initialProposal, onClose, onSaved
           dividers
           sx={{ bgcolor: 'var(--atlas-paper)', borderColor: 'transparent', px: { xs: 1.5, sm: 3 } }}
         >
-          <Stack spacing={proposalId ? 1.25 : 2.25}>
-            {error && <Alert severity="error">{error}</Alert>}
-            <Alert severity="info" variant="outlined">
-              {proposalContext
-                ? 'Review the estimate, add catalog or personal foods if needed, then save the meal.'
-                : 'Add catalog or personal foods, then review everything together before saving.'}
-            </Alert>
-            {proposalContext && (
-              <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-                <Chip size="small" label="AI estimate" color="secondary" variant="outlined" />
-                {proposalContext.provider_name && (
-                  <Chip size="small" label={proposalContext.provider_name} variant="outlined" />
-                )}
-                {proposalContext.confidence_score != null && (
-                  <Chip
-                    size="small"
-                    label={`${Math.round(Number(proposalContext.confidence_score) * 100)}% confidence`}
-                    variant="outlined"
-                  />
-                )}
-              </Stack>
-            )}
-
-            <Paper
-              component="section"
-              aria-labelledby="manual-meal-identity-heading"
-              elevation={0}
-              sx={{
-                order: 1,
-                p: { xs: 1.5, sm: 2 },
-                border: '1px solid var(--atlas-border)',
-              }}
-            >
-              <Typography id="manual-meal-identity-heading" component="h3" variant="h6">
-                Meal details
+          {isEstimateStep ? (
+            <Stack spacing={2.5}>
+              {error && <Alert severity="error">{error}</Alert>}
+              <Alert severity="info" variant="outlined">
+                Nutrition values are estimates and may vary. You can adjust every item on the Add
+                meal page before saving.
+              </Alert>
+              <TextField
+                label="Describe what you ate"
+                value={estimateDescription}
+                onChange={(event) => setEstimateDescription(event.target.value)}
+                placeholder="Double-Double from In-N-Out, no cheese"
+                multiline
+                minRows={3}
+                autoFocus
+              />
+              <Typography variant="body2" sx={{ color: 'var(--atlas-ink-muted)' }}>
+                MacroMapper searches your visible food catalog first. When there is no suitable
+                match, GPT prepares a sourced, editable proposal.
               </Typography>
-              <Stack spacing={1.5} sx={{ mt: 1.5 }}>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-                  <TextField
-                    label="Meal name"
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    required
-                    fullWidth
-                  />
-                  <TextField
-                    label="Date"
-                    type="date"
-                    value={entryDate}
-                    onChange={(event) => setEntryDate(event.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                    required
-                    sx={{ minWidth: { sm: 180 } }}
-                  />
-                </Stack>
-                <TextField
-                  label="Notes (optional)"
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  multiline
-                  minRows={2}
-                  helperText="Add preparation details or context you want saved with this meal."
-                />
-              </Stack>
-            </Paper>
-
-            <Paper
-              component="section"
-              aria-labelledby="food-search-heading"
-              elevation={0}
-              sx={{
-                order: proposalId ? 4 : 2,
-                p: { xs: 1.5, sm: 2 },
-                bgcolor: 'var(--atlas-mineral-soft)',
-                border: '1px solid rgba(71, 121, 138, 0.32)',
-              }}
-            >
-              <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
-                <Box>
-                  <Typography id="food-search-heading" component="h3" variant="h6">
-                    {proposalId ? 'Add another food' : 'Find and add foods'}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Search the shared catalog and your personal foods.
-                  </Typography>
-                </Box>
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  {catalogPickerOpen && (
+            </Stack>
+          ) : (
+            <Stack spacing={1.25}>
+              {error && <Alert severity="error">{error}</Alert>}
+              <Alert severity="info" variant="outlined">
+                {proposalContext
+                  ? 'Your estimate is ready. Add or adjust catalog and personal foods, then save the meal.'
+                  : 'Add catalog or personal foods, adjust the meal, then save it.'}
+              </Alert>
+              {proposalContext && (
+                <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                  <Chip size="small" label="AI estimate" color="secondary" variant="outlined" />
+                  {proposalContext.provider_name && (
+                    <Chip size="small" label={proposalContext.provider_name} variant="outlined" />
+                  )}
+                  {proposalContext.confidence_score != null && (
                     <Chip
-                      label={`${availableFoods.length} results`}
                       size="small"
+                      label={`${Math.round(Number(proposalContext.confidence_score) * 100)}% confidence`}
                       variant="outlined"
                     />
                   )}
-                  <IconButton
-                    size="small"
-                    aria-label={`${catalogPickerOpen ? 'Collapse' : 'Expand'} add another food`}
-                    aria-expanded={catalogPickerOpen}
-                    onClick={() => setCatalogPickerOpen((current) => !current)}
-                  >
-                    {catalogPickerOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                  </IconButton>
-                </Stack>
-              </Stack>
-              <Collapse in={catalogPickerOpen} unmountOnExit>
-                <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
-                  <TextField
-                    inputRef={catalogSearchRef}
-                    label="Search catalog"
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault();
-                        runSearch();
-                      }
-                    }}
-                    fullWidth
-                  />
-                  <Button
-                    variant="outlined"
-                    onClick={runSearch}
-                    disabled={searching}
-                    startIcon={searching ? <CircularProgress size={18} /> : <SearchIcon />}
-                    aria-label="search foods"
-                    sx={{ minWidth: { xs: 52, sm: 116 }, px: { xs: 1.5, sm: 2.5 } }}
-                  >
-                    <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
-                      Search
-                    </Box>
-                  </Button>
-                </Stack>
-                {searching ? (
-                  <Stack spacing={1} sx={{ mt: 1.5 }} aria-label="Loading food results">
-                    {[0, 1].map((value) => (
-                      <Skeleton key={value} variant="rounded" height={92} />
-                    ))}
-                  </Stack>
-                ) : availableFoods.length ? (
-                  <>
-                    <List
-                      disablePadding
-                      aria-label="Food search results"
-                      sx={{ maxHeight: 360, mt: 1.5, overflow: 'auto' }}
-                    >
-                      {availableFoods.map((food) => {
-                        const version = food.current_version || {};
-                        const source =
-                          provenanceLabels[version.provenance] ||
-                          (food.scope === 'personal' ? 'Personal' : 'Catalog');
-                        return (
-                          <Paper
-                            component="li"
-                            key={food.id}
-                            elevation={0}
-                            sx={{
-                              listStyle: 'none',
-                              mb: 1,
-                              p: 1.25,
-                              bgcolor: 'var(--atlas-paper)',
-                              border: '1px solid var(--atlas-border)',
-                              borderLeft: `4px solid ${food.scope === 'personal' ? 'var(--atlas-persimmon)' : 'var(--atlas-forest)'}`,
-                            }}
-                          >
-                            <Stack
-                              direction={{ xs: 'column', sm: 'row' }}
-                              justifyContent="space-between"
-                              gap={1}
-                            >
-                              <Box sx={{ minWidth: 0 }}>
-                                <Stack
-                                  direction="row"
-                                  spacing={0.75}
-                                  useFlexGap
-                                  flexWrap="wrap"
-                                  sx={{ mb: 0.5 }}
-                                >
-                                  <Chip size="small" label={source} variant="outlined" />
-                                  {version.confidence_score != null && (
-                                    <Chip
-                                      size="small"
-                                      label={`${Math.round(Number(version.confidence_score) * 100)}% confidence`}
-                                      variant="outlined"
-                                    />
-                                  )}
-                                  {food.provider_name && (
-                                    <Chip
-                                      size="small"
-                                      label={food.provider_name}
-                                      variant="outlined"
-                                    />
-                                  )}
-                                </Stack>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                                  {food.name}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  {version.serving_label ||
-                                    `${formatAmount(version.serving_quantity)} ${version.serving_unit || 'serving'}`}
-                                </Typography>
-                              </Box>
-                              <Stack direction="row" spacing={1} alignItems="center">
-                                <Button onClick={() => addFood(food)} startIcon={<AddIcon />}>
-                                  Add
-                                </Button>
-                                <IconButton
-                                  size="small"
-                                  aria-label={`More actions for ${food.name}`}
-                                  aria-haspopup="menu"
-                                  aria-expanded={
-                                    catalogActionsFoodId === food.id &&
-                                    Boolean(catalogActionsAnchorEl)
-                                  }
-                                  onClick={(event) => {
-                                    setCatalogActionsAnchorEl(event.currentTarget);
-                                    setCatalogActionsFoodId(food.id);
-                                  }}
-                                >
-                                  <MoreVertIcon fontSize="small" />
-                                </IconButton>
-                              </Stack>
-                            </Stack>
-                            <Collapse in={catalogDetailFoodIds.has(food.id)} unmountOnExit>
-                              <Paper
-                                elevation={0}
-                                sx={{ mt: 0.75, p: 0.75, border: '1px solid var(--atlas-border)' }}
-                              >
-                                <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-                                  <Chip size="small" label={source} variant="outlined" />
-                                  {version.confidence_score != null && (
-                                    <Chip
-                                      size="small"
-                                      label={`${Math.round(Number(version.confidence_score) * 100)}% confidence`}
-                                      variant="outlined"
-                                    />
-                                  )}
-                                  {food.provider_name && (
-                                    <Chip
-                                      size="small"
-                                      label={food.provider_name}
-                                      variant="outlined"
-                                    />
-                                  )}
-                                </Stack>
-                                {!!version.sources?.length ? (
-                                  <Stack component="ul" spacing={0.25} sx={{ mb: 0, pl: 2.25 }}>
-                                    {version.sources.map((estimateSource) => (
-                                      <Typography
-                                        component="li"
-                                        variant="caption"
-                                        key={estimateSource.url || estimateSource.title}
-                                      >
-                                        {estimateSource.url ? (
-                                          <Link
-                                            href={estimateSource.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                          >
-                                            {estimateSource.title || estimateSource.url}
-                                          </Link>
-                                        ) : (
-                                          estimateSource.title
-                                        )}
-                                      </Typography>
-                                    ))}
-                                  </Stack>
-                                ) : (
-                                  <Typography variant="caption" color="text.secondary">
-                                    No source links were provided for this estimate.
-                                  </Typography>
-                                )}
-                              </Paper>
-                            </Collapse>
-                            <Box sx={{ mt: 1 }}>
-                              <NutritionCards
-                                values={nutrientValues(version.nutrients)}
-                                ariaLabel={`${food.name} catalog nutrition`}
-                                compact
-                              />
-                            </Box>
-                          </Paper>
-                        );
-                      })}
-                    </List>
-                    <Menu
-                      anchorEl={catalogActionsAnchorEl}
-                      open={Boolean(catalogActionsAnchorEl && activeCatalogFood)}
-                      onClose={closeCatalogActions}
-                      MenuListProps={{
-                        'aria-label': `Actions for ${activeCatalogFood?.name || 'catalog food'}`,
-                      }}
-                    >
-                      <MenuItem
-                        aria-label={`${catalogDetailFoodIds.has(catalogActionsFoodId) ? 'Hide' : 'Show'} estimate details for ${activeCatalogFood?.name || 'catalog food'}`}
-                        onClick={() => {
-                          toggleCatalogDetails(catalogActionsFoodId);
-                          closeCatalogActions();
-                        }}
-                      >
-                        <InfoOutlinedIcon fontSize="small" sx={{ mr: 1.25 }} />
-                        {catalogDetailFoodIds.has(catalogActionsFoodId)
-                          ? 'Hide details'
-                          : 'Estimate details'}
-                      </MenuItem>
-                    </Menu>
-                  </>
-                ) : (
-                  <Typography sx={{ mt: 1.5 }} color="text.secondary">
-                    {foods.length
-                      ? 'All matching foods are already in this meal.'
-                      : 'No foods matched this search. Try another term or create a personal food below.'}
-                  </Typography>
-                )}
-              </Collapse>
-            </Paper>
-
-            <Paper
-              component="section"
-              aria-labelledby="selected-foods-heading"
-              elevation={0}
-              sx={{
-                order: 3,
-                p: { xs: 1.5, sm: 2 },
-                border: '1px solid var(--atlas-border-strong)',
-              }}
-            >
-              <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
-                <Box>
-                  <Typography id="selected-foods-heading" component="h3" variant="h6">
-                    Review meal items
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Adjust count, unit, nutrition, components, and estimate details using the same
-                    controls as AI estimates.
-                  </Typography>
-                </Box>
-                <Chip
-                  size="small"
-                  label={`${items.length} ${items.length === 1 ? 'item' : 'items'}`}
-                  color={items.length ? 'success' : 'default'}
-                  variant="outlined"
-                />
-              </Stack>
-              {!items.length ? (
-                <Box
-                  sx={{
-                    mt: 1.5,
-                    p: 2.5,
-                    textAlign: 'center',
-                    bgcolor: 'var(--atlas-bone)',
-                    border: '1px dashed var(--atlas-border-strong)',
-                    borderRadius: 2,
-                  }}
-                >
-                  <RestaurantMenuOutlinedIcon sx={{ color: 'var(--atlas-mineral-dark)' }} />
-                  <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                    No foods added yet
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Add a catalog or personal food to build the nutrition review.
-                  </Typography>
-                </Box>
-              ) : (
-                <Stack spacing={1.5} sx={{ mt: 1.5 }} aria-label="Selected meal items">
-                  {items.map((item) => (
-                    <MealItemEditorRow
-                      key={item.key}
-                      item={item}
-                      onServings={changeServings}
-                      onPortionChange={changePortion}
-                      onNutrientChange={changeNutrient}
-                      onRemove={removeItem}
-                      renderNutrition={(foodItem, onChange) => (
-                        <ItemNutritionCards item={foodItem} compact onNutrientChange={onChange} />
-                      )}
-                    />
-                  ))}
                 </Stack>
               )}
-            </Paper>
 
-            {!!items.length && (
-              <Box sx={{ order: proposalId ? 2 : 4 }}>
-                <MealNutritionSummary items={items} />
-              </Box>
-            )}
+              <Paper
+                component="section"
+                aria-labelledby="meal-identity-heading"
+                elevation={0}
+                sx={{
+                  order: 1,
+                  p: { xs: 1.5, sm: 2 },
+                  border: '1px solid var(--atlas-border)',
+                }}
+              >
+                <Typography id="meal-identity-heading" component="h3" variant="h6">
+                  Meal details
+                </Typography>
+                <Stack spacing={1.5} sx={{ mt: 1.5 }}>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                    <TextField
+                      label="Meal name"
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                      required
+                      fullWidth
+                    />
+                    <TextField
+                      label="Date"
+                      type="date"
+                      value={entryDate}
+                      onChange={(event) => setEntryDate(event.target.value)}
+                      InputLabelProps={{ shrink: true }}
+                      required
+                      sx={{ minWidth: { sm: 180 } }}
+                    />
+                  </Stack>
+                  <TextField
+                    label="Notes (optional)"
+                    value={notes}
+                    onChange={(event) => setNotes(event.target.value)}
+                    multiline
+                    minRows={2}
+                    helperText="Add preparation details or context you want saved with this meal."
+                  />
+                </Stack>
+              </Paper>
 
-            {!proposalId && (
+              <Paper
+                component="section"
+                aria-labelledby="food-search-heading"
+                elevation={0}
+                sx={{
+                  order: 4,
+                  p: { xs: 1.5, sm: 2 },
+                  bgcolor: 'var(--atlas-mineral-soft)',
+                  border: '1px solid rgba(71, 121, 138, 0.32)',
+                }}
+              >
+                <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
+                  <Box>
+                    <Typography id="food-search-heading" component="h3" variant="h6">
+                      Add another food
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Search the shared catalog and your personal foods.
+                    </Typography>
+                  </Box>
+                  <Stack direction="row" spacing={0.5} alignItems="center">
+                    {catalogPickerOpen && (
+                      <Chip
+                        label={`${availableFoods.length} results`}
+                        size="small"
+                        variant="outlined"
+                      />
+                    )}
+                    <IconButton
+                      size="small"
+                      aria-label={`${catalogPickerOpen ? 'Collapse' : 'Expand'} add another food`}
+                      aria-expanded={catalogPickerOpen}
+                      onClick={() => setCatalogPickerOpen((current) => !current)}
+                    >
+                      {catalogPickerOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                    </IconButton>
+                  </Stack>
+                </Stack>
+                <Collapse in={catalogPickerOpen} unmountOnExit>
+                  <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
+                    <TextField
+                      inputRef={catalogSearchRef}
+                      label="Search catalog"
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          runSearch();
+                        }
+                      }}
+                      fullWidth
+                    />
+                    <Button
+                      variant="outlined"
+                      onClick={runSearch}
+                      disabled={searching}
+                      startIcon={searching ? <CircularProgress size={18} /> : <SearchIcon />}
+                      aria-label="search foods"
+                      sx={{ minWidth: { xs: 52, sm: 116 }, px: { xs: 1.5, sm: 2.5 } }}
+                    >
+                      <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                        Search
+                      </Box>
+                    </Button>
+                  </Stack>
+                  {searching ? (
+                    <Stack spacing={1} sx={{ mt: 1.5 }} aria-label="Loading food results">
+                      {[0, 1].map((value) => (
+                        <Skeleton key={value} variant="rounded" height={92} />
+                      ))}
+                    </Stack>
+                  ) : availableFoods.length ? (
+                    <>
+                      <List
+                        disablePadding
+                        aria-label="Food search results"
+                        sx={{ maxHeight: 360, mt: 1.5, overflow: 'auto' }}
+                      >
+                        {availableFoods.map((food) => {
+                          const version = food.current_version || {};
+                          const source =
+                            provenanceLabels[version.provenance] ||
+                            (food.scope === 'personal' ? 'Personal' : 'Catalog');
+                          return (
+                            <Paper
+                              component="li"
+                              key={food.id}
+                              elevation={0}
+                              sx={{
+                                listStyle: 'none',
+                                mb: 1,
+                                p: 1.25,
+                                bgcolor: 'var(--atlas-paper)',
+                                border: '1px solid var(--atlas-border)',
+                                borderLeft: `4px solid ${food.scope === 'personal' ? 'var(--atlas-persimmon)' : 'var(--atlas-forest)'}`,
+                              }}
+                            >
+                              <Stack
+                                direction={{ xs: 'column', sm: 'row' }}
+                                justifyContent="space-between"
+                                gap={1}
+                              >
+                                <Box sx={{ minWidth: 0 }}>
+                                  <Stack
+                                    direction="row"
+                                    spacing={0.75}
+                                    useFlexGap
+                                    flexWrap="wrap"
+                                    sx={{ mb: 0.5 }}
+                                  >
+                                    <Chip size="small" label={source} variant="outlined" />
+                                    {version.confidence_score != null && (
+                                      <Chip
+                                        size="small"
+                                        label={`${Math.round(Number(version.confidence_score) * 100)}% confidence`}
+                                        variant="outlined"
+                                      />
+                                    )}
+                                    {food.provider_name && (
+                                      <Chip
+                                        size="small"
+                                        label={food.provider_name}
+                                        variant="outlined"
+                                      />
+                                    )}
+                                  </Stack>
+                                  <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                                    {food.name}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {version.serving_label ||
+                                      `${formatAmount(version.serving_quantity)} ${version.serving_unit || 'serving'}`}
+                                  </Typography>
+                                </Box>
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                  <Button onClick={() => addFood(food)} startIcon={<AddIcon />}>
+                                    Add
+                                  </Button>
+                                  <IconButton
+                                    size="small"
+                                    aria-label={`More actions for ${food.name}`}
+                                    aria-haspopup="menu"
+                                    aria-expanded={
+                                      catalogActionsFoodId === food.id &&
+                                      Boolean(catalogActionsAnchorEl)
+                                    }
+                                    onClick={(event) => {
+                                      setCatalogActionsAnchorEl(event.currentTarget);
+                                      setCatalogActionsFoodId(food.id);
+                                    }}
+                                  >
+                                    <MoreVertIcon fontSize="small" />
+                                  </IconButton>
+                                </Stack>
+                              </Stack>
+                              <Collapse in={catalogDetailFoodIds.has(food.id)} unmountOnExit>
+                                <Paper
+                                  elevation={0}
+                                  sx={{
+                                    mt: 0.75,
+                                    p: 0.75,
+                                    border: '1px solid var(--atlas-border)',
+                                  }}
+                                >
+                                  <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                                    <Chip size="small" label={source} variant="outlined" />
+                                    {version.confidence_score != null && (
+                                      <Chip
+                                        size="small"
+                                        label={`${Math.round(Number(version.confidence_score) * 100)}% confidence`}
+                                        variant="outlined"
+                                      />
+                                    )}
+                                    {food.provider_name && (
+                                      <Chip
+                                        size="small"
+                                        label={food.provider_name}
+                                        variant="outlined"
+                                      />
+                                    )}
+                                  </Stack>
+                                  {!!version.sources?.length ? (
+                                    <Stack component="ul" spacing={0.25} sx={{ mb: 0, pl: 2.25 }}>
+                                      {version.sources.map((estimateSource) => (
+                                        <Typography
+                                          component="li"
+                                          variant="caption"
+                                          key={estimateSource.url || estimateSource.title}
+                                        >
+                                          {estimateSource.url ? (
+                                            <Link
+                                              href={estimateSource.url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                            >
+                                              {estimateSource.title || estimateSource.url}
+                                            </Link>
+                                          ) : (
+                                            estimateSource.title
+                                          )}
+                                        </Typography>
+                                      ))}
+                                    </Stack>
+                                  ) : (
+                                    <Typography variant="caption" color="text.secondary">
+                                      No source links were provided for this estimate.
+                                    </Typography>
+                                  )}
+                                </Paper>
+                              </Collapse>
+                              <Box sx={{ mt: 1 }}>
+                                <NutritionCards
+                                  values={nutrientValues(version.nutrients)}
+                                  ariaLabel={`${food.name} catalog nutrition`}
+                                  compact
+                                />
+                              </Box>
+                            </Paper>
+                          );
+                        })}
+                      </List>
+                      <Menu
+                        anchorEl={catalogActionsAnchorEl}
+                        open={Boolean(catalogActionsAnchorEl && activeCatalogFood)}
+                        onClose={closeCatalogActions}
+                        MenuListProps={{
+                          'aria-label': `Actions for ${activeCatalogFood?.name || 'catalog food'}`,
+                        }}
+                      >
+                        <MenuItem
+                          aria-label={`${catalogDetailFoodIds.has(catalogActionsFoodId) ? 'Hide' : 'Show'} estimate details for ${activeCatalogFood?.name || 'catalog food'}`}
+                          onClick={() => {
+                            toggleCatalogDetails(catalogActionsFoodId);
+                            closeCatalogActions();
+                          }}
+                        >
+                          <InfoOutlinedIcon fontSize="small" sx={{ mr: 1.25 }} />
+                          {catalogDetailFoodIds.has(catalogActionsFoodId)
+                            ? 'Hide details'
+                            : 'Estimate details'}
+                        </MenuItem>
+                      </Menu>
+                    </>
+                  ) : (
+                    <Typography sx={{ mt: 1.5 }} color="text.secondary">
+                      {foods.length
+                        ? 'All matching foods are already in this meal.'
+                        : 'No foods matched this search. Try another term or create a personal food below.'}
+                    </Typography>
+                  )}
+                </Collapse>
+              </Paper>
+
+              <Paper
+                component="section"
+                aria-labelledby="meal-items-heading"
+                elevation={0}
+                sx={{
+                  order: 3,
+                  p: { xs: 1.5, sm: 2 },
+                  border: '1px solid var(--atlas-border-strong)',
+                }}
+              >
+                <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
+                  <Box>
+                    <Typography id="meal-items-heading" component="h3" variant="h6">
+                      Meal items
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Adjust count, unit, nutrition, components, and estimate details using the same
+                      controls as AI estimates.
+                    </Typography>
+                  </Box>
+                  <Chip
+                    size="small"
+                    label={`${items.length} ${items.length === 1 ? 'item' : 'items'}`}
+                    color={items.length ? 'success' : 'default'}
+                    variant="outlined"
+                  />
+                </Stack>
+                {!items.length ? (
+                  <Box
+                    sx={{
+                      mt: 1.5,
+                      p: 2.5,
+                      textAlign: 'center',
+                      bgcolor: 'var(--atlas-bone)',
+                      border: '1px dashed var(--atlas-border-strong)',
+                      borderRadius: 2,
+                    }}
+                  >
+                    <RestaurantMenuOutlinedIcon sx={{ color: 'var(--atlas-mineral-dark)' }} />
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                      No foods added yet
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Add a catalog or personal food to build the meal.
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Stack spacing={1.5} sx={{ mt: 1.5 }} aria-label="Selected meal items">
+                    {items.map((item) => (
+                      <MealItemEditorRow
+                        key={item.key}
+                        item={item}
+                        onServings={changeServings}
+                        onPortionChange={changePortion}
+                        onNutrientChange={changeNutrient}
+                        onRemove={removeItem}
+                        renderNutrition={(foodItem, onChange) => (
+                          <ItemNutritionCards item={foodItem} compact onNutrientChange={onChange} />
+                        )}
+                      />
+                    ))}
+                  </Stack>
+                )}
+              </Paper>
+
+              {!!items.length && (
+                <Box sx={{ order: 2 }}>
+                  <MealNutritionSummary items={items} />
+                </Box>
+              )}
+
               <Box
                 component="details"
                 sx={{
@@ -985,78 +1068,82 @@ function MealEditor({ date, meal, open, token, initialProposal, onClose, onSaved
                   </Button>
                 </Stack>
               </Box>
-            )}
 
-            {proposalId && !meal && (
-              <Paper
-                component="section"
-                aria-labelledby="adjust-meal-with-ai-heading"
-                elevation={0}
-                sx={{ order: 6, p: 1.25, border: '1px solid var(--atlas-border)' }}
-              >
-                <Stack spacing={0.75}>
-                  <Stack direction="row" spacing={0.75} alignItems="center">
-                    <AutoAwesomeIcon
-                      fontSize="small"
-                      sx={{ color: 'var(--atlas-persimmon-dark)' }}
-                    />
-                    <Typography
-                      id="adjust-meal-with-ai-heading"
-                      variant="subtitle2"
-                      sx={{ fontWeight: 800 }}
+              {proposalId && !meal && (
+                <Paper
+                  component="section"
+                  aria-labelledby="adjust-meal-with-ai-heading"
+                  elevation={0}
+                  sx={{ order: 6, p: 1.25, border: '1px solid var(--atlas-border)' }}
+                >
+                  <Stack spacing={0.75}>
+                    <Stack direction="row" spacing={0.75} alignItems="center">
+                      <AutoAwesomeIcon
+                        fontSize="small"
+                        sx={{ color: 'var(--atlas-persimmon-dark)' }}
+                      />
+                      <Typography
+                        id="adjust-meal-with-ai-heading"
+                        variant="subtitle2"
+                        sx={{ fontWeight: 800 }}
+                      >
+                        Adjust with AI
+                      </Typography>
+                    </Stack>
+                    <Stack
+                      direction={{ xs: 'column', sm: 'row' }}
+                      spacing={0.75}
+                      alignItems={{ sm: 'flex-end' }}
                     >
-                      Adjust with AI
-                    </Typography>
-                  </Stack>
-                  <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    spacing={0.75}
-                    alignItems={{ sm: 'flex-end' }}
-                  >
-                    <TextField
-                      label="Ask AI to make changes"
-                      value={followUp}
-                      onChange={(event) => {
-                        setFollowUp(event.target.value);
-                        setFollowUpFeedback(null);
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-                          event.preventDefault();
-                          applyFollowUp();
+                      <TextField
+                        label="Ask AI to make changes"
+                        value={followUp}
+                        onChange={(event) => {
+                          setFollowUp(event.target.value);
+                          setFollowUpFeedback(null);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                            event.preventDefault();
+                            applyFollowUp();
+                          }
+                        }}
+                        placeholder="I also had a medium chocolate milkshake"
+                        multiline
+                        minRows={1}
+                        maxRows={3}
+                        size="small"
+                        inputProps={{ maxLength: 500 }}
+                        disabled={followUpBusy}
+                        fullWidth
+                      />
+                      <Button
+                        variant="outlined"
+                        color="secondary"
+                        startIcon={
+                          followUpBusy ? (
+                            <CircularProgress size={16} color="inherit" />
+                          ) : (
+                            <SendIcon />
+                          )
                         }
-                      }}
-                      placeholder="I also had a medium chocolate milkshake"
-                      multiline
-                      minRows={1}
-                      maxRows={3}
-                      size="small"
-                      inputProps={{ maxLength: 500 }}
-                      disabled={followUpBusy}
-                      fullWidth
-                    />
-                    <Button
-                      variant="outlined"
-                      color="secondary"
-                      startIcon={
-                        followUpBusy ? <CircularProgress size={16} color="inherit" /> : <SendIcon />
-                      }
-                      onClick={applyFollowUp}
-                      disabled={followUpBusy || !followUp.trim()}
-                      sx={{ whiteSpace: 'nowrap', width: { xs: '100%', sm: 'auto' } }}
-                    >
-                      {followUpBusy ? 'Applying…' : 'Apply'}
-                    </Button>
+                        onClick={applyFollowUp}
+                        disabled={followUpBusy || !followUp.trim()}
+                        sx={{ whiteSpace: 'nowrap', width: { xs: '100%', sm: 'auto' } }}
+                      >
+                        {followUpBusy ? 'Applying…' : 'Apply'}
+                      </Button>
+                    </Stack>
+                    {followUpFeedback && (
+                      <Alert severity={followUpFeedback.severity} sx={{ py: 0 }}>
+                        {followUpFeedback.message}
+                      </Alert>
+                    )}
                   </Stack>
-                  {followUpFeedback && (
-                    <Alert severity={followUpFeedback.severity} sx={{ py: 0 }}>
-                      {followUpFeedback.message}
-                    </Alert>
-                  )}
-                </Stack>
-              </Paper>
-            )}
-          </Stack>
+                </Paper>
+              )}
+            </Stack>
+          )}
         </DialogContent>
         <DialogActions
           sx={{
@@ -1066,24 +1153,42 @@ function MealEditor({ date, meal, open, token, initialProposal, onClose, onSaved
             py: 1.25,
           }}
         >
-          <Button onClick={requestClose} disabled={saving || creatingFood || followUpBusy}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={save}
-            disabled={saving || creatingFood || followUpBusy}
-          >
-            {saving ? 'Saving…' : meal ? 'Save changes' : 'Save meal'}
-          </Button>
+          {isEstimateStep ? (
+            <>
+              <Button onClick={requestClose} disabled={estimating}>
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                color="secondary"
+                onClick={createEstimate}
+                disabled={estimating}
+              >
+                {estimating ? 'Estimating…' : 'Create estimate'}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button onClick={requestClose} disabled={saving || creatingFood || followUpBusy}>
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                onClick={save}
+                disabled={saving || creatingFood || followUpBusy}
+              >
+                {saving ? 'Saving…' : meal ? 'Save changes' : 'Save meal'}
+              </Button>
+            </>
+          )}
         </DialogActions>
       </Dialog>
       <Dialog
         open={discardOpen}
         onClose={() => setDiscardOpen(false)}
-        aria-labelledby="discard-manual-meal-title"
+        aria-labelledby="discard-meal-title"
       >
-        <DialogTitle id="discard-manual-meal-title">Discard manual meal changes?</DialogTitle>
+        <DialogTitle id="discard-meal-title">Discard meal changes?</DialogTitle>
         <DialogContent>
           <Typography>Your meal draft will be lost if you close the builder.</Typography>
         </DialogContent>
@@ -1109,8 +1214,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
   const [data, setData] = useState({ meals: [], totals: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [estimateOpen, setEstimateOpen] = useState(false);
-  const [editor, setEditor] = useState({ open: false, meal: null, initialProposal: null });
+  const [mealBuilder, setMealBuilder] = useState({ open: false, meal: null, launchMode: 'add' });
   const [pendingDelete, setPendingDelete] = useState(null);
   const dateInputRef = useRef(null);
   const token = sessionStorage.getItem('accessToken');
@@ -1472,7 +1576,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   variant="contained"
                   color="secondary"
                   startIcon={<AutoAwesomeIcon />}
-                  onClick={() => setEstimateOpen(true)}
+                  onClick={() => setMealBuilder({ open: true, meal: null, launchMode: 'estimate' })}
                   sx={{ minHeight: 44 }}
                 >
                   Estimate meal
@@ -1480,7 +1584,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                 <Button
                   variant="contained"
                   startIcon={<AddIcon />}
-                  onClick={() => setEditor({ open: true, meal: null, initialProposal: null })}
+                  onClick={() => setMealBuilder({ open: true, meal: null, launchMode: 'add' })}
                   sx={{ minHeight: 44 }}
                 >
                   Add manually
@@ -1618,7 +1722,9 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                           >
                             <IconButton
                               aria-label={`edit ${meal.name}`}
-                              onClick={() => setEditor({ open: true, meal, initialProposal: null })}
+                              onClick={() =>
+                                setMealBuilder({ open: true, meal, launchMode: 'edit' })
+                              }
                               sx={{ width: 44, height: 44, color: 'var(--atlas-forest-dark)' }}
                             >
                               <EditOutlinedIcon />
@@ -1898,26 +2004,15 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
           </Box>
         </Stack>
 
-        <MealEstimateDialog
+        <MealBuilderDialog
           date={date}
-          open={estimateOpen}
+          meal={mealBuilder.meal}
+          open={mealBuilder.open}
           token={token}
-          onClose={() => setEstimateOpen(false)}
-          onEstimated={(proposal) => {
-            setEstimateOpen(false);
-            setEditor({ open: true, meal: null, initialProposal: proposal });
-          }}
-        />
-
-        <MealEditor
-          date={date}
-          meal={editor.meal}
-          open={editor.open}
-          token={token}
-          initialProposal={editor.initialProposal}
-          onClose={() => setEditor({ open: false, meal: null, initialProposal: null })}
+          launchMode={mealBuilder.launchMode}
+          onClose={() => setMealBuilder({ open: false, meal: null, launchMode: 'add' })}
           onSaved={async (message) => {
-            setEditor({ open: false, meal: null, initialProposal: null });
+            setMealBuilder({ open: false, meal: null, launchMode: 'add' });
             showSnackbar('success', message);
             await loadDiary();
           }}

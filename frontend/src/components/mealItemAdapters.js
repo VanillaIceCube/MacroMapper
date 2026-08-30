@@ -29,7 +29,7 @@ const withPortionSelection = (item) => {
 
 export const componentSnapshotToMealItem = (component) =>
   withPortionSelection({
-    key: nextKey('manual-component', component.food_version_id || component.id),
+    key: nextKey('meal-component', component.food_version_id || component.id),
     food_item: component.food_item_id,
     food_version: component.food_version_id,
     name: component.food_name || component.food_item_name,
@@ -48,12 +48,12 @@ export const componentSnapshotToMealItem = (component) =>
     components: (component.components || []).map(componentSnapshotToMealItem),
   });
 
-export const catalogFoodToManualMealItem = (food) => {
+export const catalogFoodToMealItem = (food) => {
   const version = food.current_version || {};
   const provenance =
     version.provenance || (food.scope === 'personal' ? 'user_entered' : 'official');
   return withPortionSelection({
-    key: nextKey('manual-food', food.id),
+    key: nextKey('meal-food', food.id),
     food_item: food.id,
     food_version: null,
     catalog_food_version: version.id,
@@ -77,7 +77,7 @@ export const catalogFoodToManualMealItem = (food) => {
   });
 };
 
-export const proposalItemToManualMealItem = (item) => {
+export const proposalItemToMealItem = (item) => {
   const normalized = withPortionSelection({
     ...item,
     key: item.key,
@@ -88,7 +88,7 @@ export const proposalItemToManualMealItem = (item) => {
       ? nutrientArrayToValues(item.nutrients)
       : item.nutrients || {},
     sources: item.sources || [],
-    components: (item.components || []).map(proposalItemToManualMealItem),
+    components: (item.components || []).map(proposalItemToMealItem),
   });
   return {
     ...normalized,
@@ -96,7 +96,7 @@ export const proposalItemToManualMealItem = (item) => {
   };
 };
 
-export const manualMealItemToProposalItem = (item) => ({
+export const mealItemToProposalItem = (item) => ({
   key: item.key,
   food_item_id: item.food_item ?? null,
   food_version_id: item.food_version || item.catalog_food_version || null,
@@ -117,13 +117,13 @@ export const manualMealItemToProposalItem = (item) => ({
   is_user_modified: Boolean(item.is_user_modified),
   nutrients: item.nutrients || {},
   sources: item.sources || [],
-  components: (item.components || []).map(manualMealItemToProposalItem),
+  components: (item.components || []).map(mealItemToProposalItem),
 });
 
 export const savedMealItemToEditableMealItem = (item) => {
   const servings = Number(item.servings);
   return withPortionSelection({
-    key: nextKey('manual-saved', item.id || item.food_item_id),
+    key: nextKey('saved-meal-item', item.id || item.food_item_id),
     food_item: item.food_item_id,
     food_version: item.food_version_id,
     name: item.food_name,
@@ -168,6 +168,6 @@ export const catalogFoodToProposalItem = (food) => {
     })),
     components: (version.components || [])
       .map(componentSnapshotToMealItem)
-      .map(manualMealItemToProposalItem),
+      .map(mealItemToProposalItem),
   });
 };

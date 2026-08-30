@@ -5,20 +5,22 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
-- Keep AI estimation as a focused prompt, then hand its proposal into the unified
-  meal builder based on the original estimate review, including AI follow-up,
-  catalog and personal foods, notes, editable nutrition, and one shared draft.
-- Hide catalog foods after they are added to a manual meal and prevent duplicate
+- Use Add meal as the single meal-building surface. Estimate meal first gathers a
+  description and creates an initial estimate, then transitions to Add meal in the
+  same dialog; Add manually opens Add meal directly.
+- Keep AI follow-up, catalog and personal foods, notes, editable nutrition, and
+  one shared draft in the unified Add meal builder.
+- Hide catalog foods after they are added to a meal and prevent duplicate
   additions until the existing item is removed.
-- Extract the AI estimate food editor into one shared component and use it for
-  manual meal items, including the same responsive layout, nutrition editing,
+- Extract meal-item editing into one shared component for all Add meal items,
+  including the same responsive layout, nutrition editing,
   count/unit controls, details menu, removal, and recursive component breakdown.
-- Consolidate meal nutrition definitions, calculations, item adapters, editor
+- Consolidate meal nutrition definitions, calculations, item adapters, builder
   tree operations, macro split charts, and calorie-contribution charts into
-  shared modules used by AI estimates, manual entry, and the diary dashboard.
+  shared modules used by Add meal and the diary dashboard.
 - Render each diary meal's Macro Balance with the shared macro-calorie component
   and use the same title, typography, number formatting, legend alignment, and
-  bordered container across the meal log, meal editors, and daily dashboard.
+  bordered container across the meal log, Add meal builder, and daily dashboard.
 - Place the meal-log food table and Macro Balance container in the same aligned
   grid row and move Foods & servings into the table header to remove the
   redundant label above them.

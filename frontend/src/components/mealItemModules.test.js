@@ -1,5 +1,5 @@
 import {
-  catalogFoodToManualMealItem,
+  catalogFoodToMealItem,
   catalogFoodToProposalItem,
   savedMealItemToEditableMealItem,
 } from './mealItemAdapters';
@@ -108,25 +108,25 @@ describe('meal item tree operations', () => {
 });
 
 describe('meal item adapters', () => {
-  test('normalizes catalog foods for manual and proposal editors', () => {
-    const manual = catalogFoodToManualMealItem(catalogFood);
+  test('normalizes catalog foods for the meal builder and proposal payloads', () => {
+    const mealItem = catalogFoodToMealItem(catalogFood);
     const proposal = catalogFoodToProposalItem(catalogFood);
 
-    expect(manual).toMatchObject({
+    expect(mealItem).toMatchObject({
       food_item: 7,
       food_version: null,
       source_kind: 'official_verified',
       nutrients: { calories: '95' },
       selected_portion_key: 'base',
     });
-    expect(manual.components[0]).toMatchObject({
+    expect(mealItem.components[0]).toMatchObject({
       food_item: 8,
       food_version: 10,
       name: 'Apple flesh',
       nutrients: { calories: '95' },
     });
-    expect(itemNutrientTotal(manual.components[0], 'calories')).toBe(95);
-    expect(itemNutrientTotal(manual, 'calories')).toBe(95);
+    expect(itemNutrientTotal(mealItem.components[0], 'calories')).toBe(95);
+    expect(itemNutrientTotal(mealItem, 'calories')).toBe(95);
     expect(proposal).toMatchObject({
       food_item_id: 7,
       food_version_id: 9,
