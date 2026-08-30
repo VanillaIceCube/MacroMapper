@@ -128,6 +128,37 @@ describe('shared nutrition charts', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
+  test('handles componentNames fallback when groupedItems is not provided', async () => {
+    const user = userEvent.setup();
+    const contributions = [
+      { key: 'item-1', name: 'Item 1', calories: 500 },
+      {
+        key: 'other-items',
+        name: 'Other (2)',
+        isOther: true,
+        componentNames: ['Fallback Item A', 'Fallback Item B'],
+        calories: 200,
+      },
+    ];
+    renderWithProviders(
+      <CalorieContributionChart
+        contributions={contributions}
+        title="Calories by Meal Item"
+        chartAriaLabel="Meal item calorie chart"
+        otherKey="other-items"
+      />,
+    );
+
+    const figure = screen.getByRole('figure', { name: 'Calories by Meal Item' });
+    const otherLabel = within(figure).getByText('Other (2)');
+    await user.hover(otherLabel);
+
+    const tooltip = await screen.findByRole('tooltip');
+    expect(within(tooltip).getByText('Fallback Item A')).toBeInTheDocument();
+    expect(within(tooltip).getByText('Fallback Item B')).toBeInTheDocument();
+    expect(within(tooltip).queryByText(/kcal/)).not.toBeInTheDocument();
+  });
+
   test('combines shared cards and charts in a collapsible meal summary', async () => {
     const user = userEvent.setup();
     renderWithProviders(

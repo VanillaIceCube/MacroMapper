@@ -31,12 +31,14 @@ function OtherTooltipContent({ items, format }) {
             >
               {groupedItem.name}
             </Typography>
-            <Typography
-              variant="caption"
-              sx={{ whiteSpace: 'nowrap', flex: '0 0 auto', opacity: 0.9 }}
-            >
-              {format(groupedItem.calories)} kcal
-            </Typography>
+            {groupedItem.calories != null && (
+              <Typography
+                variant="caption"
+                sx={{ whiteSpace: 'nowrap', flex: '0 0 auto', opacity: 0.9 }}
+              >
+                {format(groupedItem.calories)} kcal
+              </Typography>
+            )}
           </Stack>
         ))}
       </Stack>
