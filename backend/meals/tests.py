@@ -262,8 +262,7 @@ class MealEntryApiTests(APITestCase):
         self.assertEqual(nutrients["protein"], "4.0000")
         components = {
             item["food_name"]: {
-                nutrient["key"]: nutrient["amount"]
-                for nutrient in item["nutrients"]
+                nutrient["key"]: nutrient["amount"] for nutrient in item["nutrients"]
             }
             for item in response.data["items"][0]["component_snapshot"]
         }
@@ -300,7 +299,9 @@ class MealEntryApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         returned_components = response.data["items"][0]["component_snapshot"]
         self.assertTrue(returned_components)
-        self.assertTrue(all(component["nutrients"] for component in returned_components))
+        self.assertTrue(
+            all(component["nutrients"] for component in returned_components)
+        )
 
     def test_composite_reuses_descendant_across_independent_branches(self):
         branch_definition = {

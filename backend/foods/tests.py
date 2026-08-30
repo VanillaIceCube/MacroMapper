@@ -472,7 +472,9 @@ class FoodApiTests(APITestCase):
         response = self.client.get("/api/foods/?ordering=-created_at&limit=1")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual([item["id"] for item in response.data], [self.personal_food.id])
+        self.assertEqual(
+            [item["id"] for item in response.data], [self.personal_food.id]
+        )
 
     def test_shared_detail_retains_provenance_confidence_and_sources(self):
         self.client.force_authenticate(user=self.owner)
@@ -623,7 +625,9 @@ class FoodApiTests(APITestCase):
         ]
         child_response = self.client.post(
             "/api/foods/",
-            self.personal_food_payload(name="Smoothie cup", definition=child_definition),
+            self.personal_food_payload(
+                name="Smoothie cup", definition=child_definition
+            ),
             format="json",
         )
         self.assertEqual(child_response.status_code, status.HTTP_201_CREATED)
@@ -634,7 +638,9 @@ class FoodApiTests(APITestCase):
         ]
         parent_response = self.client.post(
             "/api/foods/",
-            self.personal_food_payload(name="Breakfast combo", definition=parent_definition),
+            self.personal_food_payload(
+                name="Breakfast combo", definition=parent_definition
+            ),
             format="json",
         )
         self.assertEqual(parent_response.status_code, status.HTTP_201_CREATED)

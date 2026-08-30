@@ -681,7 +681,9 @@ class MealProposalApiTests(TestCase):
         self.assertIn("AI adjustments:\n- Add an apple", accepted.data["notes"])
         self.assertNotIn("Estimated from:", accepted.data["notes"])
 
-    def test_builder_adjustment_preserves_catalog_foods_and_applies_quantity_changes(self):
+    def test_builder_adjustment_preserves_catalog_foods_and_applies_quantity_changes(
+        self,
+    ):
         apple = shared_food(name="Apple")
         proposal_response = self.client.post(
             "/api/meal-proposals/",

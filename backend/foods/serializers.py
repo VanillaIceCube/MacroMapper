@@ -48,7 +48,9 @@ class FoodComponentSerializer(serializers.ModelSerializer):
     food_item_id = serializers.IntegerField(source="child_version.food_item_id")
     food_item_name = serializers.CharField(source="child_version.food_item.name")
     food_version_id = serializers.IntegerField(source="child_version_id")
-    provider_name = serializers.CharField(source="child_version.food_item.provider_name")
+    provider_name = serializers.CharField(
+        source="child_version.food_item.provider_name"
+    )
     origin_type = serializers.CharField(source="child_version.food_item.origin_type")
     serving_quantity = serializers.DecimalField(
         source="child_version.serving_quantity",
