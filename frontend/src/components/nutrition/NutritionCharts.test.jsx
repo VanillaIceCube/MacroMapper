@@ -42,9 +42,9 @@ describe('shared nutrition charts', () => {
     ).toBeVisible();
   });
 
-  test('renders, summarizes, and explains a reusable calories-by-x chart on hover', async () => {
+  test('renders, summarizes, and explains a reusable calories-by-x chart on hover only for Other (...)', async () => {
     const user = userEvent.setup();
-    const contributions = [600, 500, 400, 300, 200, 100].map((calories, index) => ({
+    const contributions = [600, 500, 400, 300, 100, 200].map((calories, index) => ({
       key: `meal-${index}`,
       name: `Meal ${index}`,
       calories,
@@ -72,10 +72,55 @@ describe('shared nutrition charts', () => {
         name: 'Meal 0 macro calorie stack: protein 600 kilocalories',
       }),
     ).toBeVisible();
-    await user.hover(
-      within(figure).getByLabelText('Other meals (2) 300 kilocalories (14 percent)'),
+
+    // Normal meal-item bar should NOT display a tooltip
+    const normalItemBar = within(figure).getByLabelText('Meal 0 600 kilocalories (29 percent)');
+    await user.hover(normalItemBar);
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+
+    // Other (...) segment should display a tooltip listing grouped items descending by calories
+    const otherSegment = within(figure).getByLabelText(
+      'Other meals (2) 300 kilocalories (14 percent)',
     );
-    expect(await screen.findByText('Components: Meal 4, Meal 5 · 300 kcal (14%)')).toBeVisible();
+    await user.hover(otherSegment);
+
+    const tooltip = await screen.findByRole('tooltip');
+    expect(within(tooltip).getByText('Meal 5')).toBeInTheDocument();
+    expect(within(tooltip).getByText('200 cal')).toBeInTheDocument();
+    expect(within(tooltip).getByText('Meal 4')).toBeInTheDocument();
+    expect(within(tooltip).getByText('100 cal')).toBeInTheDocument();
+
+    // Moving off Other (...) dismisses tooltip
+    await user.unhover(otherSegment);
+    await waitFor(() => {
+      expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+    });
+  });
+
+  test('does not show tooltips when no items are grouped into Other', async () => {
+    const user = userEvent.setup();
+    const contributions = [600, 500, 400].map((calories, index) => ({
+      key: `meal-${index}`,
+      name: `Meal ${index}`,
+      calories,
+      protein: calories / 4,
+    }));
+    renderWithProviders(
+      <CalorieContributionChart
+        contributions={contributions}
+        title="Calories by meal"
+        chartAriaLabel="Meal calorie chart"
+        emptyText="No meals."
+        variant="dashboard"
+        otherKey="other-meals"
+        otherLabel={(count) => `Other meals (${count})`}
+      />,
+    );
+
+    const figure = screen.getByRole('figure', { name: 'Calories by meal' });
+    const normalItemBar = within(figure).getByLabelText('Meal 0 600 kilocalories (40 percent)');
+    await user.hover(normalItemBar);
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
   test('combines shared cards and charts in a collapsible meal summary', async () => {
