@@ -3,6 +3,11 @@ All notable changes to this project are documented in this file.
 
 ## 2026-08-30
 
+### Added
+
+- Add combinable catalog scope, provider, provenance, and source-aware search
+  filters to Map Your Meal, with visible active filters and add confirmation.
+
 ### Fixed
 
 - Preserve personal-food provenance, validated meal dates, and intentionally

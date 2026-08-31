@@ -417,6 +417,37 @@ describe('DiaryPage', () => {
     expect(searchFoods).toHaveBeenLastCalledWith('catalog', 'access-token', { limit: 26 });
   });
 
+  test('combines catalog search filters and confirms an added result', async () => {
+    const user = userEvent.setup();
+    searchFoods.mockResolvedValueOnce(response([apple])).mockResolvedValueOnce(response([apple]));
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    await within(dialog).findByText('Apple');
+    await user.type(within(dialog).getByRole('textbox', { name: 'Search catalog' }), 'apple');
+    await user.click(within(dialog).getByRole('combobox', { name: 'Catalog scope' }));
+    await user.click(screen.getByRole('option', { name: 'Personal only' }));
+    await user.type(within(dialog).getByRole('textbox', { name: 'Provider or brand' }), 'Orchard');
+    await user.click(within(dialog).getByRole('combobox', { name: 'Provenance' }));
+    await user.click(screen.getByRole('option', { name: 'Official' }));
+    await user.click(within(dialog).getByRole('button', { name: 'search foods' }));
+
+    await waitFor(() =>
+      expect(searchFoods).toHaveBeenLastCalledWith('apple', 'access-token', {
+        limit: 26,
+        scope: 'personal',
+        provider: 'Orchard',
+        provenance: 'official',
+      }),
+    );
+    expect(within(dialog).getByLabelText('Active catalog filters')).toBeVisible();
+    await user.click(await within(dialog).findByRole('button', { name: 'Add' }));
+    expect(within(dialog).getByText('Apple added to Meal Items.')).toBeVisible();
+  });
+
   test('leaves a new meal name blank for generation when saving', async () => {
     const user = userEvent.setup();
     fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));

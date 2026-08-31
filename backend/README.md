@@ -58,7 +58,12 @@ All food and nutrient endpoints require a JWT access token.
 
 - `GET /api/foods/`
   - Returns active shared foods plus personal foods owned by the current user.
-  - Accepts `?search=` for case-insensitive name and provider lookup.
+  - Accepts `?search=` for case-insensitive name, provider, and source lookup.
+  - Filters combine with search: `scope=personal|shared`, a partial `provider`,
+    one or more comma-separated `provenance` values, and
+    `origin_type=generic|branded|restaurant`.
+  - Accepts bounded `limit` and supported `ordering` parameters so catalog
+    browsing does not require loading the full visible catalog.
 - `GET /api/foods/{id}/`
   - Returns the current serving quantity/unit and human-readable serving label,
     provenance, confidence, nutrients, sources,

@@ -42,6 +42,14 @@ export const searchFoods = (query, token, options = {}) => {
   const params = new URLSearchParams({ search: query });
   if (options.ordering) params.set('ordering', options.ordering);
   if (options.limit) params.set('limit', String(options.limit));
+  if (options.scope && options.scope !== 'all') params.set('scope', options.scope);
+  if (options.provider) params.set('provider', options.provider);
+  if (options.provenance && options.provenance !== 'all') {
+    params.set('provenance', options.provenance);
+  }
+  if (options.originType && options.originType !== 'all') {
+    params.set('origin_type', options.originType);
+  }
   return apiFetch(`/api/foods/?${params.toString()}`, {
     headers: authHeader(token),
   });
