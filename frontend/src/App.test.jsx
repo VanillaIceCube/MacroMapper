@@ -36,6 +36,9 @@ describe('App', () => {
     expect(screen.getByLabelText('notifications')).toBeInTheDocument();
     expect(screen.getByLabelText('user profile')).toBeInTheDocument();
     expect(screen.getByLabelText('menu')).toBeInTheDocument();
+
+    const dateNav = screen.getByRole('navigation', { name: 'diary date navigation' });
+    expect(dateNav).toBeInTheDocument();
   });
 
   test('navigates between authentication routes through the browser router', async () => {
