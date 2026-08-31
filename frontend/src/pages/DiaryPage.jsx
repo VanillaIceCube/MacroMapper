@@ -1285,27 +1285,6 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
               spacing={0.75}
               sx={{ alignSelf: { xs: 'flex-start', md: 'auto' } }}
             >
-              <Box
-                sx={{
-                  width: 44,
-                  height: 44,
-                  visibility: isToday ? 'hidden' : 'visible',
-                }}
-              >
-                <IconButton
-                  aria-label="return to today"
-                  onClick={() => setDate(localDate())}
-                  sx={{
-                    width: 44,
-                    height: 44,
-                    color: 'var(--atlas-mineral-dark)',
-                    border: '1px solid transparent',
-                    '&:hover': { borderColor: 'var(--atlas-border)' },
-                  }}
-                >
-                  <TodayOutlinedIcon />
-                </IconButton>
-              </Box>
               <Paper
                 elevation={0}
                 sx={{
@@ -1371,6 +1350,21 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   }}
                 />
               </Paper>
+              {!isToday && (
+                <IconButton
+                  aria-label="return to today"
+                  onClick={() => setDate(localDate())}
+                  sx={{
+                    width: 44,
+                    height: 44,
+                    color: 'var(--atlas-mineral-dark)',
+                    border: '1px solid transparent',
+                    '&:hover': { borderColor: 'var(--atlas-border)' },
+                  }}
+                >
+                  <TodayOutlinedIcon />
+                </IconButton>
+              )}
             </Stack>
           </Stack>
 

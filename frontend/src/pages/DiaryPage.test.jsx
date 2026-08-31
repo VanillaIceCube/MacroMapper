@@ -222,6 +222,22 @@ describe('DiaryPage', () => {
     searchFoods.mockResolvedValue(response([apple]));
   });
 
+  test('keeps date navigation compact until a different day is selected', async () => {
+    const user = userEvent.setup();
+    fetchDailyDiary.mockResolvedValue(response({ meals: [], totals: [] }));
+
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByRole('heading', { name: 'Nothing logged yet' });
+    expect(screen.queryByRole('button', { name: 'return to today' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'previous day' }));
+    expect(screen.getByRole('button', { name: 'return to today' })).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'return to today' }));
+    expect(screen.queryByRole('button', { name: 'return to today' })).not.toBeInTheDocument();
+  });
+
   test('shows saved meals and daily totals', async () => {
     fetchDailyDiary.mockResolvedValue(
       response({
