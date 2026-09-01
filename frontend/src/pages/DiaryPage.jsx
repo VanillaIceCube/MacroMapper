@@ -1285,13 +1285,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
               spacing={0.75}
               sx={{ alignSelf: { xs: 'flex-start', md: 'auto' } }}
             >
-              <Box
-                sx={{
-                  width: 44,
-                  height: 44,
-                  visibility: isToday ? 'hidden' : 'visible',
-                }}
-              >
+              {!isToday && (
                 <IconButton
                   aria-label="return to today"
                   onClick={() => setDate(localDate())}
@@ -1305,7 +1299,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                 >
                   <TodayOutlinedIcon />
                 </IconButton>
-              </Box>
+              )}
               <Paper
                 elevation={0}
                 sx={{

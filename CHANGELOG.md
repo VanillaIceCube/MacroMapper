@@ -1,6 +1,18 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 2026-08-31
+
+### Fixed
+
+- Keep the meal-diary date navigation compact by rendering its left-side
+  return-to-today action only after navigating away from today.
+
+### Changed
+
+- Open the Meal Diary directly for signed-in users and remove the redundant
+  Home destination.
+
 ## 2026-08-30
 
 ### Fixed
