@@ -58,8 +58,21 @@ export default function AppNavigationDrawer({ open, setOpen }) {
         }}
         role="navigation"
       >
-        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ p: 2 }}>
-          <Stack direction="row" alignItems="center" spacing={1.25}>
+        <Stack
+          direction="row"
+          sx={{
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            p: 2,
+          }}
+        >
+          <Stack
+            direction="row"
+            spacing={1.25}
+            sx={{
+              alignItems: 'center',
+            }}
+          >
             <Box
               component="img"
               src="/macromapper-mark.png"

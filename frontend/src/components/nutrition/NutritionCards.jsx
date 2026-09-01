@@ -57,17 +57,19 @@ export function NutritionCards({
                 fullWidth
                 value={values[key] ?? ''}
                 onChange={(event) => onNutrientChange(key, event.target.value)}
-                inputProps={{
-                  min: 0,
-                  step: 'any',
-                  'aria-label': `${label} for ${itemName}`,
-                }}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <Typography variant="caption">{unit}</Typography>
-                    </InputAdornment>
-                  ),
+                slotProps={{
+                  htmlInput: {
+                    min: 0,
+                    step: 'any',
+                    'aria-label': `${label} for ${itemName}`,
+                  },
+                  input: {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <Typography variant="caption">{unit}</Typography>
+                      </InputAdornment>
+                    ),
+                  },
                 }}
                 sx={{
                   '& .MuiInputBase-input': {
@@ -79,7 +81,14 @@ export function NutritionCards({
                 }}
               />
             ) : (
-              <Stack direction="row" spacing={0.4} alignItems="baseline" sx={{ minWidth: 0 }}>
+              <Stack
+                direction="row"
+                spacing={0.4}
+                sx={{
+                  alignItems: 'baseline',
+                  minWidth: 0,
+                }}
+              >
                 <Typography variant={compact ? 'subtitle1' : 'h6'} noWrap sx={{ lineHeight: 1.15 }}>
                   {formatNutritionAmount(values[key])}
                 </Typography>

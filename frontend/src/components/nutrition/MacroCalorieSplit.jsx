@@ -39,9 +39,11 @@ export default function MacroCalorieSplit({
         <Stack
           direction="row"
           spacing={1.5}
-          alignItems="center"
-          justifyContent="center"
-          sx={{ flex: 1 }}
+          sx={{
+            alignItems: 'center',
+            justifyContent: 'center',
+            flex: 1,
+          }}
         >
           <Skeleton
             variant="circular"
@@ -58,9 +60,9 @@ export default function MacroCalorieSplit({
         <Stack
           direction="row"
           spacing={dashboard ? 1 : mealCard ? { xs: 1.5, sm: 2 } : 1.5}
-          alignItems="center"
-          justifyContent={dashboard ? 'space-evenly' : 'center'}
           sx={{
+            alignItems: 'center',
+            justifyContent: dashboard ? 'space-evenly' : 'center',
             width: '100%',
             maxWidth: dashboard || mealCard ? undefined : 380,
             mx: 'auto',

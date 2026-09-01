@@ -6,6 +6,10 @@ describe('MacroMapper theme styles', () => {
   const appCss = fs.readFileSync(path.join(sourceRoot, 'App.css'), 'utf8');
   const themeSource = fs.readFileSync(path.join(sourceRoot, 'theme.js'), 'utf8');
   const readSource = (relativePath) => fs.readFileSync(path.join(sourceRoot, relativePath), 'utf8');
+  const jsxFiles = fs
+    .readdirSync(sourceRoot, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.jsx'))
+    .map((entry) => path.join(entry.parentPath, entry.name));
 
   test('defines the Field Atlas core and semantic tokens centrally', () => {
     expect(appCss).toContain('--atlas-bone: #f6f1e7');
@@ -85,5 +89,31 @@ describe('MacroMapper theme styles', () => {
   test('provides focus and reduced-motion safeguards', () => {
     expect(appCss).toContain('.auth-link:focus-visible');
     expect(appCss).toContain('@media (prefers-reduced-motion: reduce)');
+  });
+
+  test('keeps removed Material UI 9 system props inside sx', () => {
+    const removedSystemProp =
+      /\b(?:alignContent|alignItems|alignSelf|columnGap|flexBasis|flexDirection|flexGrow|flexShrink|flexWrap|gap|gridArea|gridAutoColumns|gridAutoFlow|gridAutoRows|gridColumn|gridRow|gridTemplateAreas|gridTemplateColumns|gridTemplateRows|justifyContent|justifyItems|justifySelf|order|rowGap)\s*=/g;
+    const offenders = jsxFiles.flatMap((filePath) => {
+      const relativePath = path.relative(sourceRoot, filePath);
+      return [...fs.readFileSync(filePath, 'utf8').matchAll(removedSystemProp)].map(
+        (match) => `${relativePath}:${match[0].replace(/\s*=.*/, '')}`,
+      );
+    });
+
+    expect(offenders).toEqual([]);
+  });
+
+  test('uses Material UI slotProps instead of removed TextField prop APIs', () => {
+    const removedTextFieldProp =
+      /\b(?:FormHelperTextProps|InputLabelProps|InputProps|SelectProps|inputProps)\s*=/g;
+    const offenders = jsxFiles.flatMap((filePath) => {
+      const relativePath = path.relative(sourceRoot, filePath);
+      return [...fs.readFileSync(filePath, 'utf8').matchAll(removedTextFieldProp)].map(
+        (match) => `${relativePath}:${match[0].replace(/\s*=.*/, '')}`,
+      );
+    });
+
+    expect(offenders).toEqual([]);
   });
 });

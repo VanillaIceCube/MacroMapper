@@ -512,6 +512,23 @@ describe('DiaryPage', () => {
     );
   });
 
+  test('keeps the meal-log actions grouped at the opposite edge of the toolbar', async () => {
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByRole('heading', { name: 'Nothing logged yet' });
+    const toolbar = screen.getByTestId('meal-log-toolbar');
+    const actions = screen.getByTestId('meal-log-actions');
+
+    expect(toolbar).toHaveStyle({ justifyContent: 'space-between' });
+    expect(actions).toHaveStyle({ flexDirection: 'column' });
+    expect(within(actions).getAllByRole('button')).toEqual([
+      screen.getByRole('button', { name: 'Map your Meal with AI' }),
+      screen.getByRole('button', { name: 'Chart your Course Manually' }),
+    ]);
+  });
+
   test('uses AI Adjustments to build and save a meal from no foods', async () => {
     const user = userEvent.setup();
     fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
