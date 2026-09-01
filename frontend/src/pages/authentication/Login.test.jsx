@@ -47,4 +47,14 @@ describe('Login', () => {
     expect(showSnackbar).toHaveBeenCalledWith('error', 'Please sign in again.');
     expect(sessionStorage.getItem('pendingSnackbar')).toBeNull();
   });
+
+  test('centers the authentication brand and login card', () => {
+    renderWithProviders(<Login showSnackbar={vi.fn()} />, { routeEntries: ['/login'] });
+
+    const brand = screen.getByRole('heading', { name: 'MacroMapper' }).parentElement;
+    const shell = brand.parentElement;
+
+    expect(brand).toHaveStyle({ alignItems: 'center' });
+    expect(shell).toHaveStyle({ alignItems: 'center' });
+  });
 });

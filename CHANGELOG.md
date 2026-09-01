@@ -7,6 +7,8 @@ All notable changes to this project are documented in this file.
 
 - Keep the meal-diary date navigation compact by rendering its left-side
   return-to-today action only after navigating away from today.
+- Restore centered authentication layouts and keep the meal-diary date controls
+  compact and correctly positioned after the Material UI 9 upgrade.
 
 ### Changed
 

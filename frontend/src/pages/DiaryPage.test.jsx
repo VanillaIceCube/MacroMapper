@@ -234,6 +234,15 @@ describe('DiaryPage', () => {
     await user.click(screen.getByRole('button', { name: 'previous day' }));
     expect(screen.getByRole('button', { name: 'return to today' })).toBeVisible();
     const dateNavigation = screen.getByRole('navigation', { name: 'diary date navigation' });
+    const diaryHeader = screen.getByTestId('diary-header');
+    const dateControl = dateNavigation.querySelector('.MuiPaper-root > .MuiStack-root');
+
+    expect(diaryHeader).toHaveStyle({
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+    });
+    expect(dateNavigation).toHaveStyle({ alignItems: 'center' });
+    expect(dateControl).toHaveStyle({ alignItems: 'center' });
     expect(within(dateNavigation).getAllByRole('button')[0]).toHaveAccessibleName(
       'return to today',
     );
