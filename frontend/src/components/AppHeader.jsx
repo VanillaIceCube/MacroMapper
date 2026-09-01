@@ -173,7 +173,14 @@ export default function AppHeader({ title, setDrawerOpen }) {
         }}
       >
         <Toolbar sx={{ width: '100%', maxWidth: 1280, mx: 'auto', gap: { xs: 0, sm: 0.5 } }}>
-          <Stack direction="row" alignItems="center" spacing={1.25} sx={{ flexGrow: 1 }}>
+          <Stack
+            direction="row"
+            spacing={1.25}
+            sx={{
+              alignItems: 'center',
+              flexGrow: 1,
+            }}
+          >
             <Box
               component="img"
               src="/macromapper-mark.png"
@@ -222,7 +229,14 @@ export default function AppHeader({ title, setDrawerOpen }) {
             }}
           >
             <Box sx={{ p: 1.5 }}>
-              <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1}>
+              <Stack
+                direction="row"
+                sx={{
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 1,
+                }}
+              >
                 <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
                   Notifications
                 </Typography>

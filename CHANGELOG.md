@@ -5,6 +5,10 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Complete the Material UI 9 layout migration across the frontend so meal-log
+  actions, navigation, editor controls, nutrition summaries, charts, and dialogs
+  retain their intended alignment and wrapping.
+- Replace deprecated Material UI TextField prop APIs with slot props.
 - Keep the meal-diary date navigation compact by rendering its left-side
   return-to-today action only after navigating away from today.
 - Restore centered authentication layouts and keep the meal-diary date controls

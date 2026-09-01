@@ -41,6 +41,30 @@ const deferred = () => {
   return { promise, resolve };
 };
 
+const responsiveStylesFor = (element) => {
+  const generatedClasses = [...element.classList].filter((className) =>
+    className.startsWith('css-'),
+  );
+  const matches = [];
+
+  const collectRules = (rules, condition = 'base') => {
+    Array.from(rules).forEach((rule) => {
+      if (rule.cssRules?.length) {
+        const nestedCondition = rule.conditionText ? `@media ${rule.conditionText}` : condition;
+        collectRules(rule.cssRules, nestedCondition);
+      } else if (
+        rule.selectorText &&
+        generatedClasses.some((className) => rule.selectorText.includes(`.${className}`))
+      ) {
+        matches.push(`${condition} ${rule.cssText}`);
+      }
+    });
+  };
+
+  Array.from(document.styleSheets).forEach((styleSheet) => collectRules(styleSheet.cssRules));
+  return matches.join('\n');
+};
+
 const apple = {
   id: 7,
   name: 'Apple',
@@ -510,6 +534,28 @@ describe('DiaryPage', () => {
     await waitFor(() =>
       expect(within(dialog).getByRole('textbox', { name: 'Search catalog' })).toHaveFocus(),
     );
+  });
+
+  test('keeps the meal-log actions grouped at the opposite edge of the toolbar', async () => {
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByRole('heading', { name: 'Nothing logged yet' });
+    const toolbar = screen.getByTestId('meal-log-toolbar');
+    const actions = screen.getByTestId('meal-log-actions');
+
+    expect(toolbar).toHaveStyle({ justifyContent: 'space-between' });
+    expect(actions).toHaveStyle({ flexDirection: 'column' });
+    const toolbarResponsiveStyles = responsiveStylesFor(toolbar);
+    const actionResponsiveStyles = responsiveStylesFor(actions);
+    expect(toolbarResponsiveStyles).toMatch(/@media \(min-width:900px\).*flex-direction:\s*row/i);
+    expect(toolbarResponsiveStyles).toMatch(/@media \(min-width:900px\).*align-items:\s*flex-end/i);
+    expect(actionResponsiveStyles).toMatch(/@media \(min-width:600px\).*flex-direction:\s*row/i);
+    expect(within(actions).getAllByRole('button')).toEqual([
+      screen.getByRole('button', { name: 'Map your Meal with AI' }),
+      screen.getByRole('button', { name: 'Chart your Course Manually' }),
+    ]);
   });
 
   test('uses AI Adjustments to build and save a meal from no foods', async () => {

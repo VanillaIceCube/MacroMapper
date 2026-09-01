@@ -564,7 +564,13 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
             py: { xs: 2, sm: 2.5 },
           }}
         >
-          <Stack direction="row" spacing={1.5} alignItems="center">
+          <Stack
+            direction="row"
+            spacing={1.5}
+            sx={{
+              alignItems: 'center',
+            }}
+          >
             <MealHeaderIcon
               sx={{
                 flex: '0 0 auto',
@@ -634,7 +640,14 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
             <Stack spacing={1.25}>
               {error && <Alert severity="error">{error}</Alert>}
               {proposalContext && (
-                <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                <Stack
+                  direction="row"
+                  spacing={0.75}
+                  useFlexGap
+                  sx={{
+                    flexWrap: 'wrap',
+                  }}
+                >
                   <Chip size="small" label="AI estimate" color="secondary" variant="outlined" />
                   {proposalContext.provider_name && (
                     <Chip size="small" label={proposalContext.provider_name} variant="outlined" />
@@ -681,7 +694,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       type="date"
                       value={entryDate}
                       onChange={(event) => setEntryDate(event.target.value)}
-                      InputLabelProps={{ shrink: true }}
+                      slotProps={{ inputLabel: { shrink: true } }}
                       required
                       sx={{ minWidth: { sm: 180 } }}
                     />
@@ -708,16 +721,34 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                   border: '1px solid rgba(71, 121, 138, 0.32)',
                 }}
               >
-                <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
+                <Stack
+                  direction="row"
+                  sx={{
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 1,
+                  }}
+                >
                   <Box>
                     <Typography id="food-search-heading" component="h3" variant="h6">
                       Add from the Catalog
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: 'text.secondary',
+                      }}
+                    >
                       Search through the shared and personal catalog.
                     </Typography>
                   </Box>
-                  <Stack direction="row" spacing={0.5} alignItems="center">
+                  <Stack
+                    direction="row"
+                    spacing={0.5}
+                    sx={{
+                      alignItems: 'center',
+                    }}
+                  >
                     {catalogPickerOpen && (hasSearched || showingRecentFoods) && (
                       <Chip
                         label={
@@ -807,16 +838,20 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                             >
                               <Stack
                                 direction={{ xs: 'column', sm: 'row' }}
-                                justifyContent="space-between"
-                                gap={1}
+                                sx={{
+                                  justifyContent: 'space-between',
+                                  gap: 1,
+                                }}
                               >
                                 <Box sx={{ minWidth: 0 }}>
                                   <Stack
                                     direction="row"
                                     spacing={0.75}
                                     useFlexGap
-                                    flexWrap="wrap"
-                                    sx={{ mb: 0.5 }}
+                                    sx={{
+                                      flexWrap: 'wrap',
+                                      mb: 0.5,
+                                    }}
                                   >
                                     <Chip size="small" label={source} variant="outlined" />
                                     {version.confidence_score != null && (
@@ -837,12 +872,23 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                                   <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
                                     {food.name}
                                   </Typography>
-                                  <Typography variant="caption" color="text.secondary">
+                                  <Typography
+                                    variant="caption"
+                                    sx={{
+                                      color: 'text.secondary',
+                                    }}
+                                  >
                                     {version.serving_label ||
                                       `${formatAmount(version.serving_quantity)} ${version.serving_unit || 'serving'}`}
                                   </Typography>
                                 </Box>
-                                <Stack direction="row" spacing={1} alignItems="center">
+                                <Stack
+                                  direction="row"
+                                  spacing={1}
+                                  sx={{
+                                    alignItems: 'center',
+                                  }}
+                                >
                                   <Button onClick={() => addFood(food)} startIcon={<AddIcon />}>
                                     Add
                                   </Button>
@@ -872,7 +918,14 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                                     border: '1px solid var(--atlas-border)',
                                   }}
                                 >
-                                  <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                                  <Stack
+                                    direction="row"
+                                    spacing={0.75}
+                                    useFlexGap
+                                    sx={{
+                                      flexWrap: 'wrap',
+                                    }}
+                                  >
                                     <Chip size="small" label={source} variant="outlined" />
                                     {version.confidence_score != null && (
                                       <Chip
@@ -912,7 +965,12 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                                       ))}
                                     </Stack>
                                   ) : (
-                                    <Typography variant="caption" color="text.secondary">
+                                    <Typography
+                                      variant="caption"
+                                      sx={{
+                                        color: 'text.secondary',
+                                      }}
+                                    >
                                       No source links were provided for this estimate.
                                     </Typography>
                                   )}
@@ -930,7 +988,12 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                         })}
                       </List>
                       {availableFoods.length > maxVisibleCatalogResults && (
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: 'text.secondary',
+                          }}
+                        >
                           Showing the first {maxVisibleCatalogResults} results. Refine your search
                           to find a specific food.
                         </Typography>
@@ -958,7 +1021,12 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       </Menu>
                     </>
                   ) : (
-                    <Typography sx={{ mt: 1.5 }} color="text.secondary">
+                    <Typography
+                      sx={{
+                        color: 'text.secondary',
+                        mt: 1.5,
+                      }}
+                    >
                       {showingRecentFoods
                         ? 'No recent foods are available yet. Search the catalog or create a personal food.'
                         : !hasSearched
@@ -981,12 +1049,24 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                   border: '1px solid var(--atlas-border-strong)',
                 }}
               >
-                <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
+                <Stack
+                  direction="row"
+                  sx={{
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 1,
+                  }}
+                >
                   <Box>
                     <Typography id="meal-items-heading" component="h3" variant="h6">
                       Meal Items
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: 'text.secondary',
+                      }}
+                    >
                       Adjust quantities, units, nutrition, and components, or review each item’s
                       estimate details and sources.
                     </Typography>
@@ -1013,7 +1093,12 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                     <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
                       No meal items yet
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: 'text.secondary',
+                      }}
+                    >
                       Choose a recent or searched catalog food below, or use AI Adjustments to get
                       started.
                     </Typography>
@@ -1050,7 +1135,13 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                 sx={{ order: 6, p: 1.25, border: '1px solid var(--atlas-border)' }}
               >
                 <Stack spacing={0.75}>
-                  <Stack direction="row" spacing={0.75} alignItems="center">
+                  <Stack
+                    direction="row"
+                    spacing={0.75}
+                    sx={{
+                      alignItems: 'center',
+                    }}
+                  >
                     <AutoAwesomeIcon
                       fontSize="small"
                       sx={{ color: 'var(--atlas-persimmon-dark)' }}
@@ -1066,7 +1157,9 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                   <Stack
                     direction={{ xs: 'column', sm: 'row' }}
                     spacing={0.75}
-                    alignItems={{ sm: 'flex-end' }}
+                    sx={{
+                      alignItems: { sm: 'flex-end' },
+                    }}
                   >
                     <TextField
                       label="Describe an AI adjustment"
@@ -1086,7 +1179,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       minRows={1}
                       maxRows={3}
                       size="small"
-                      inputProps={{ maxLength: 500 }}
+                      slotProps={{ htmlInput: { maxLength: 500 } }}
                       disabled={adjustmentBusy}
                       fullWidth
                     />
@@ -1408,9 +1501,11 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
           >
             <Stack
               direction={{ xs: 'column', sm: 'row' }}
-              justifyContent="space-between"
               spacing={0.5}
-              sx={{ mb: 1.75 }}
+              sx={{
+                justifyContent: 'space-between',
+                mb: 1.75,
+              }}
             >
               <Typography id="daily-totals-heading" component="h2" variant="h5">
                 Daily summary
@@ -1456,7 +1551,14 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   {loading ? (
                     <Skeleton width="72%" height={34} />
                   ) : (
-                    <Stack direction="row" alignItems="baseline" spacing={0.5} sx={{ mt: 0.5 }}>
+                    <Stack
+                      direction="row"
+                      spacing={0.5}
+                      sx={{
+                        alignItems: 'baseline',
+                        mt: 0.5,
+                      }}
+                    >
                       <Typography
                         variant="h5"
                         noWrap
@@ -1511,14 +1613,23 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
 
           <Box component="section" aria-labelledby="meals-heading">
             <Stack
+              data-testid="meal-log-toolbar"
               direction={{ xs: 'column', md: 'row' }}
-              justifyContent="space-between"
-              alignItems={{ md: 'flex-end' }}
               spacing={1.5}
-              sx={{ mb: 1.5 }}
+              sx={{
+                justifyContent: 'space-between',
+                alignItems: { md: 'flex-end' },
+                mb: 1.5,
+              }}
             >
               <Box>
-                <Stack direction="row" alignItems="center" spacing={1}>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{
+                    alignItems: 'center',
+                  }}
+                >
                   <Typography id="meals-heading" component="h2" variant="h5">
                     Meal log
                   </Typography>
@@ -1548,7 +1659,11 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   meal.
                 </Typography>
               </Box>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+              <Stack
+                data-testid="meal-log-actions"
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={1}
+              >
                 <Button
                   variant="contained"
                   color="secondary"
@@ -1631,9 +1746,11 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                       >
                         <Stack
                           direction={{ xs: 'column', sm: 'row' }}
-                          justifyContent="space-between"
-                          alignItems={{ sm: 'flex-start' }}
                           spacing={1.5}
+                          sx={{
+                            justifyContent: 'space-between',
+                            alignItems: { sm: 'flex-start' },
+                          }}
                         >
                           <Box sx={{ minWidth: 0, flex: 1 }}>
                             <Typography
@@ -1657,8 +1774,10 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                               direction="row"
                               spacing={0.75}
                               useFlexGap
-                              flexWrap="wrap"
-                              sx={{ mt: 1 }}
+                              sx={{
+                                flexWrap: 'wrap',
+                                mt: 1,
+                              }}
                             >
                               <Chip
                                 size="small"
@@ -1692,10 +1811,12 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                           </Box>
                           <Stack
                             direction="row"
-                            alignItems="center"
-                            justifyContent="flex-end"
                             spacing={0.25}
-                            sx={{ width: { xs: '100%', sm: 'auto' } }}
+                            sx={{
+                              alignItems: 'center',
+                              justifyContent: 'flex-end',
+                              width: { xs: '100%', sm: 'auto' },
+                            }}
                           >
                             <IconButton
                               aria-label={`edit ${meal.name}`}

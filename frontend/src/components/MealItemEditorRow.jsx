@@ -144,7 +144,7 @@ export default function MealItemEditorRow({
               value={servingAmountValue(item)}
               onChange={(event) => onServings(item.key, event.target.value, item)}
               disabled={!canEditItem}
-              inputProps={{ min: 0, step: 1 }}
+              slotProps={{ htmlInput: { min: 0, step: 1 } }}
               sx={{ gridArea: 'quantity', minWidth: 0, width: '100%' }}
             />
             <TextField
@@ -166,9 +166,12 @@ export default function MealItemEditorRow({
           <Stack
             direction="row"
             spacing={0}
-            alignItems="center"
-            justifyContent="flex-end"
-            sx={{ gridArea: 'actions', flexShrink: 0 }}
+            sx={{
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gridArea: 'actions',
+              flexShrink: 0,
+            }}
           >
             {!!item.components?.length && (
               <Button
@@ -256,7 +259,15 @@ export default function MealItemEditorRow({
         {hasDetails && (
           <Collapse in={detailsOpen} unmountOnExit>
             <Paper elevation={0} sx={{ mt: 0.5, p: 0.75, border: '1px solid var(--atlas-border)' }}>
-              <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 0.25 }}>
+              <Stack
+                direction="row"
+                spacing={0.75}
+                useFlexGap
+                sx={{
+                  flexWrap: 'wrap',
+                  mt: 0.25,
+                }}
+              >
                 <Chip size="small" label={source.label} color={source.color} variant="outlined" />
                 {item.confidence_score != null && (
                   <Chip

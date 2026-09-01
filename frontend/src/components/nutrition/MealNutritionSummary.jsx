@@ -23,7 +23,14 @@ export default function MealNutritionSummary({ items }) {
       elevation={0}
       sx={{ p: 1.25, border: '1px solid var(--atlas-border-strong)', bgcolor: 'var(--atlas-bone)' }}
     >
-      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
         <Box sx={{ minWidth: 0 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
             Meal Nutritional Summary
@@ -32,7 +39,13 @@ export default function MealNutritionSummary({ items }) {
             Your meal’s nutrition, mapped at a glance.
           </Typography>
         </Box>
-        <Stack direction="row" spacing={0.5} alignItems="center">
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{
+            alignItems: 'center',
+          }}
+        >
           {!open && (
             <Chip
               size="small"

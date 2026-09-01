@@ -18,10 +18,12 @@ function OtherTooltipContent({ items, format }) {
           <Stack
             key={groupedItem.key || index}
             direction="row"
-            justifyContent="space-between"
-            alignItems="center"
             spacing={1.5}
-            sx={{ minWidth: 0 }}
+            sx={{
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              minWidth: 0,
+            }}
           >
             <Typography
               variant="caption"
@@ -139,7 +141,14 @@ export default function CalorieContributionChart({
                 aria-label={`${item.name} ${format(item.calories)} ${ariaUnit} (${Math.round(item.percentage)}${dashboard ? ' percent' : '%'})`}
                 tabIndex={0}
               >
-                <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
+                <Stack
+                  direction="row"
+                  spacing={0.75}
+                  sx={{
+                    alignItems: 'center',
+                    minWidth: 0,
+                  }}
+                >
                   {hasGroupedTooltip ? (
                     <Tooltip
                       title={<OtherTooltipContent items={groupedItems} format={format} />}
