@@ -1,0 +1,5 @@
+# 🦦 Otto's Journal
+
+## 2026-08-31 - Architectural Decomposition & Vocabulary Synchronization Sequence **Learning:** Structural refactor issues (#94 frontend decomposition, #107 backend decomposition, #108 naming convention standardization) describe closely related architectural improvements that should be executed sequentially rather than in parallel to avoid repeated refactored file movements and import churn. **Action:** Maintain explicit dependency relationships between #94, #107, and #108 in backlog reviews so implementation agents execute backend and frontend structural decomposition before attempting cross-stack terminology standardization.
+
+## 2026-08-31 - Landing Page Migration Dependency Tracking **Learning:** Issue #111 (remove static Home page and default to Meal Diary) acts as a prerequisite for #112 (build data-driven Today dashboard), while PR #114 is the active implementation PR addressing #111. **Action:** In future daily audits, ensure #112 remains deferred until #111 is fully merged and sufficient supporting domain data (goals, activities, trends) is implemented in the codebase.
