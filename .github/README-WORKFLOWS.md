@@ -186,6 +186,14 @@ including an unchanged repeat of an earlier blocking verdict, fails the
 reviewer's required check so the branch ruleset prevents merging. A later
 approval on a new head commit can restore a passing reviewer check.
 
+## 🦦 Otto Backlog Audit Automation
+Otto backlog audits analyze open MacroMapper issues and record reusable backlog-management insights in `.jules/otto.md`.
+
+- **Schedule & Ownership:** Otto audit tasks are scheduled and dispatched externally by automated Jules/Otto configuration. Task IDs `9888435943740512366` and `16777031825920690710` reflect external daily audit triggers.
+- **PR Deduplication:** At most one backlog-audit PR is created per repository per audit period. Before opening a new PR, the audit process checks for existing open Otto audit PRs and updates or reuses the existing branch and PR instead of opening a duplicate.
+- **Retry Handling:** Retry attempts verify whether the resulting git tree contains changes relative to its parent commit. If the tree is unchanged, no empty retry commit is pushed.
+- **Canonical PR Decision:** For the 2026-08-31 audit incident, PR #118 is canonical because its `.jules/otto.md` journal entries preserve explicit issue and pull-request references (#94, #107, #108, #111, #112, PR #114). Redundant PR #119 is closed and superseded by PR #118.
+
 ## 🔒 Main Branch Protection
 The active `main` ruleset requires pull requests, resolved review threads, the
 lint/test/CodeQL scope and analyzer/dependency checks, the Automation Tests
