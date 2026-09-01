@@ -1290,25 +1290,29 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                 alignSelf: { xs: 'flex-start', md: 'flex-end' },
               }}
             >
-              {!isToday && (
-                <IconButton
-                  aria-label="return to today"
-                  onClick={() => setDate(localDate())}
-                  sx={{
-                    width: 44,
-                    height: 44,
-                    color: 'var(--atlas-mineral-dark)',
-                    border: '1px solid transparent',
-                    '&:hover': { borderColor: 'var(--atlas-border)' },
-                  }}
-                >
-                  <TodayOutlinedIcon />
-                </IconButton>
-              )}
+              <Box data-testid="return-to-today-slot" sx={{ width: 44, height: 44, flexShrink: 0 }}>
+                {!isToday && (
+                  <IconButton
+                    aria-label="return to today"
+                    onClick={() => setDate(localDate())}
+                    sx={{
+                      width: 44,
+                      height: 44,
+                      color: 'var(--atlas-mineral-dark)',
+                      border: '1px solid transparent',
+                      '&:hover': { borderColor: 'var(--atlas-border)' },
+                    }}
+                  >
+                    <TodayOutlinedIcon />
+                  </IconButton>
+                )}
+              </Box>
               <Paper
+                data-testid="diary-date-control"
                 elevation={0}
                 sx={{
                   position: 'relative',
+                  flexShrink: 0,
                   p: 0.375,
                   bgcolor: 'var(--atlas-paper)',
                   color: 'var(--atlas-ink)',
