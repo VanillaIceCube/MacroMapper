@@ -5,15 +5,15 @@ export default function AuthPageShell({ children, title }) {
     <Stack
       className="atlas-contours"
       spacing={2}
-      alignItems="center"
       sx={{
+        alignItems: 'center',
         px: { xs: 2, sm: 4 },
         py: { xs: 4, sm: 6 },
         justifyContent: 'center',
         minHeight: '100vh',
       }}
     >
-      <Stack alignItems="center" spacing={1}>
+      <Stack spacing={1} sx={{ alignItems: 'center' }}>
         <Box component="img" src="/macromapper-mark.png" alt="" sx={{ width: 64, height: 64 }} />
         <Typography variant="h3" sx={{ fontWeight: 650, color: 'var(--atlas-ink)' }}>
           MacroMapper

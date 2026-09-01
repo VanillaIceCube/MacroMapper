@@ -76,22 +76,20 @@ redirects, and unknown-route fallback behavior.
 - The profile name and email are stored for the app header.
 - API requests that receive a `401` attempt one refresh-token exchange.
 - An invalid refresh token clears the session and redirects to login.
-- Login and registration navigate directly to the protected home page.
+- Login and registration navigate directly to the protected Meal Diary.
 - The app header title is `MacroMapper`.
 - The header provides MacroMapper navigation, recipient-scoped
   notifications, profile display, and logout action.
-- The drawer contains the Home destination and MacroMapper product description.
-- The drawer links to the responsive meal diary, where users can search the
+- The drawer contains the Meal Diary destination and MacroMapper product description.
+- The responsive meal diary lets users search the
   visible catalog, create a personal food, add/remove foods, change quantities,
   inspect saved composite ingredients, and create, edit, or delete meals.
 
 ## ✨ Planned Product Surfaces
 
-The authenticated shell now includes the daily diary and Food Item search and
-creation needed for manual meal logging. It will grow to include an AI
-meal-review flow, nutrition and activity goals, and trends. The Home page is an
-intentional MacroMapper dashboard that distinguishes active account
-capabilities from product features still on the roadmap.
+The authenticated shell opens directly to the daily diary and includes the
+Food Item search and creation needed for manual meal logging. It will grow to
+include an AI meal-review flow, nutrition and activity goals, and trends.
 
 Authentication endpoint functions live in `src/services/authApiClient.js`.
 Notification functions live in `src/services/notificationApiClient.js`. Token

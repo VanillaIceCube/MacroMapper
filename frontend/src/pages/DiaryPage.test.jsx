@@ -222,6 +222,42 @@ describe('DiaryPage', () => {
     searchFoods.mockResolvedValue(response([apple]));
   });
 
+  test('keeps date navigation compact and puts the Today action on the left', async () => {
+    const user = userEvent.setup();
+    fetchDailyDiary.mockResolvedValue(response({ meals: [], totals: [] }));
+
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByRole('heading', { name: 'Nothing logged yet' });
+    expect(screen.queryByRole('button', { name: 'return to today' })).not.toBeInTheDocument();
+    const dateNavigation = screen.getByRole('navigation', { name: 'diary date navigation' });
+    const diaryHeader = screen.getByTestId('diary-header');
+    const todaySlot = screen.getByTestId('return-to-today-slot');
+    const dateControl = screen.getByTestId('diary-date-control');
+    const dateControlContent = dateControl.querySelector('.MuiStack-root');
+
+    expect(todaySlot).toHaveStyle({ width: '44px', height: '44px', flexShrink: 0 });
+    expect(Array.from(dateNavigation.children)).toEqual([todaySlot, dateControl]);
+
+    await user.click(screen.getByRole('button', { name: 'previous day' }));
+    expect(screen.getByRole('button', { name: 'return to today' })).toBeVisible();
+    expect(Array.from(dateNavigation.children)).toEqual([todaySlot, dateControl]);
+
+    expect(diaryHeader).toHaveStyle({
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+    });
+    expect(dateNavigation).toHaveStyle({ alignItems: 'center' });
+    expect(dateControl).toHaveStyle({ flexShrink: 0 });
+    expect(dateControlContent).toHaveStyle({ alignItems: 'center' });
+    expect(within(dateNavigation).getAllByRole('button')[0]).toHaveAccessibleName(
+      'return to today',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'return to today' }));
+    expect(screen.queryByRole('button', { name: 'return to today' })).not.toBeInTheDocument();
+  });
+
   test('shows saved meals and daily totals', async () => {
     fetchDailyDiary.mockResolvedValue(
       response({

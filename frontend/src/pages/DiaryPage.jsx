@@ -1254,10 +1254,13 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
       <Container maxWidth="lg" sx={{ py: { xs: 2.5, sm: 4.5 } }}>
         <Stack spacing={{ xs: 2.5, sm: 3 }}>
           <Stack
+            data-testid="diary-header"
             direction={{ xs: 'column', md: 'row' }}
-            alignItems={{ md: 'flex-end' }}
-            justifyContent="space-between"
             spacing={1.5}
+            sx={{
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+            }}
           >
             <Box>
               <Typography
@@ -1281,35 +1284,35 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
               component="nav"
               aria-label="diary date navigation"
               direction="row"
-              alignItems="center"
               spacing={0.75}
-              sx={{ alignSelf: { xs: 'flex-start', md: 'auto' } }}
+              sx={{
+                alignItems: 'center',
+                alignSelf: { xs: 'flex-start', md: 'flex-end' },
+              }}
             >
-              <Box
-                sx={{
-                  width: 44,
-                  height: 44,
-                  visibility: isToday ? 'hidden' : 'visible',
-                }}
-              >
-                <IconButton
-                  aria-label="return to today"
-                  onClick={() => setDate(localDate())}
-                  sx={{
-                    width: 44,
-                    height: 44,
-                    color: 'var(--atlas-mineral-dark)',
-                    border: '1px solid transparent',
-                    '&:hover': { borderColor: 'var(--atlas-border)' },
-                  }}
-                >
-                  <TodayOutlinedIcon />
-                </IconButton>
+              <Box data-testid="return-to-today-slot" sx={{ width: 44, height: 44, flexShrink: 0 }}>
+                {!isToday && (
+                  <IconButton
+                    aria-label="return to today"
+                    onClick={() => setDate(localDate())}
+                    sx={{
+                      width: 44,
+                      height: 44,
+                      color: 'var(--atlas-mineral-dark)',
+                      border: '1px solid transparent',
+                      '&:hover': { borderColor: 'var(--atlas-border)' },
+                    }}
+                  >
+                    <TodayOutlinedIcon />
+                  </IconButton>
+                )}
               </Box>
               <Paper
+                data-testid="diary-date-control"
                 elevation={0}
                 sx={{
                   position: 'relative',
+                  flexShrink: 0,
                   p: 0.375,
                   bgcolor: 'var(--atlas-paper)',
                   color: 'var(--atlas-ink)',
@@ -1317,7 +1320,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   borderRadius: 999,
                 }}
               >
-                <Stack direction="row" alignItems="center" spacing={0.125}>
+                <Stack direction="row" spacing={0.125} sx={{ alignItems: 'center' }}>
                   <IconButton
                     aria-label="previous day"
                     onClick={() => setDate((current) => shiftDate(current, -1))}
