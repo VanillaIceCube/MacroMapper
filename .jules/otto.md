@@ -1,0 +1,5 @@
+# 🦦 Otto's Journal
+
+## 2026-08-31 - Architectural Decomposition & Vocabulary Synchronization Sequence **Learning:** Structural refactor issues describing frontend decomposition, backend decomposition, and naming convention standardization should be executed sequentially rather than in parallel to avoid repeated refactored file movements and import churn. **Action:** Maintain explicit dependency relationships between structural refactoring and terminology standardization issues in backlog reviews so implementation agents execute backend and frontend structural decomposition before attempting cross-stack terminology standardization.
+
+## 2026-08-31 - Dashboard Feature Dependency Structure **Learning:** User experience transitions that remove legacy landing pages and default to daily entry flows serve as prerequisites for broader data-driven overview dashboards. **Action:** Ensure speculative or data-rich dashboard work remains deferred until foundational landing page routes and necessary supporting domain models (goals, activities, trends) exist in the codebase.
