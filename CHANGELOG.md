@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
-- Keep the meal-diary date navigation compact by rendering the
+- Keep the meal-diary date navigation compact by rendering its left-side
   return-to-today action only after navigating away from today.
 
 ### Changed

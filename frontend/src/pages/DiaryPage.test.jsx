@@ -222,7 +222,7 @@ describe('DiaryPage', () => {
     searchFoods.mockResolvedValue(response([apple]));
   });
 
-  test('keeps date navigation compact until a different day is selected', async () => {
+  test('keeps date navigation compact and puts the Today action on the left', async () => {
     const user = userEvent.setup();
     fetchDailyDiary.mockResolvedValue(response({ meals: [], totals: [] }));
 
@@ -233,6 +233,10 @@ describe('DiaryPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'previous day' }));
     expect(screen.getByRole('button', { name: 'return to today' })).toBeVisible();
+    const dateNavigation = screen.getByRole('navigation', { name: 'diary date navigation' });
+    expect(within(dateNavigation).getAllByRole('button')[0]).toHaveAccessibleName(
+      'return to today',
+    );
 
     await user.click(screen.getByRole('button', { name: 'return to today' }));
     expect(screen.queryByRole('button', { name: 'return to today' })).not.toBeInTheDocument();
