@@ -7,7 +7,6 @@ import AppNavigationDrawer from './components/AppNavigationDrawer';
 import AppSnackbar from './components/AppSnackbar';
 import AuthenticatedRoute from './components/AuthenticatedRoute';
 import NavigationBridge from './components/NavigationBridge';
-import HomePage from './pages/HomePage';
 import DiaryPage from './pages/DiaryPage';
 import ForgotPassword from './pages/authentication/ForgotPassword';
 import Login from './pages/authentication/Login';
@@ -43,7 +42,7 @@ export default function App() {
             path="/"
             element={
               <Protected>
-                <HomePage />
+                <DiaryPage showSnackbar={showSnackbar} />
               </Protected>
             }
           />

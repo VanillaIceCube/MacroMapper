@@ -58,7 +58,10 @@ export default function AppHeader({ title, setDrawerOpen }) {
   const profilePrimary = profileUsername || profileEmail.split?.('@')?.[0] || 'Account';
   const profileSecondary = profileEmail || null;
   const unreadCount = useMemo(
-    () => notifications.filter((notification) => !notification.is_read).length,
+    () =>
+      Array.isArray(notifications)
+        ? notifications.filter((notification) => !notification.is_read).length
+        : 0,
     [notifications],
   );
 
@@ -73,7 +76,8 @@ export default function AppHeader({ title, setDrawerOpen }) {
     try {
       const response = await fetchNotifications(accessToken);
       if (!response.ok) throw new Error('Unable to load notifications.');
-      setNotifications(await response.json());
+      const data = await response.json();
+      setNotifications(Array.isArray(data) ? data : []);
     } catch (_error) {
       setNotificationError('Notifications are unavailable right now.');
     } finally {
