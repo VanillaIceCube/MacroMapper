@@ -1682,6 +1682,49 @@ def create_builder_proposal(
     return proposal
 
 
+def process_builder_adjustment(
+    *,
+    owner,
+    adjustment,
+    entry_date,
+    items,
+    name="",
+    notes="",
+    meal=None,
+    provider=None,
+):
+    proposal = create_builder_proposal(
+        owner=owner,
+        entry_date=entry_date,
+        name=name,
+        notes=notes,
+        items=items,
+        allowed_version_ids=(saved_meal_version_ids(meal) if meal else ()),
+    )
+    try:
+        estimation_provider = provider or get_estimation_provider()
+        result = estimation_provider.follow_up(
+            original_description="",
+            meal_name=proposal.name,
+            items=proposal.items,
+            follow_up=adjustment,
+        )
+        outcome = apply_proposal_follow_up(
+            proposal=proposal,
+            owner=owner,
+            follow_up=adjustment,
+            items=proposal.items,
+            result=result,
+        )
+    except Exception:
+        proposal.delete()
+        raise
+
+    updated_proposal = outcome["proposal"]
+    updated_proposal.refresh_from_db()
+    return outcome, updated_proposal
+
+
 def _definition(item, components):
     nutrients = {
         field: _storage_decimal(value, decimal_places=4)

@@ -13,7 +13,7 @@ from estimates.serializers import (
     MapYourMealDraftSerializer,
     MealProposalSerializer,
 )
-from estimates.services import apply_proposal_follow_up, save_meal_draft
+from estimates.services import process_builder_adjustment, save_meal_draft
 
 from .models import MealEntry, MealItem
 from .serializers import MealEntrySerializer
@@ -92,41 +92,30 @@ class MealEntryViewSet(viewsets.ModelViewSet):
             context={"request": request, "meal": meal},
         )
         serializer.is_valid(raise_exception=True)
-        proposal = None
         try:
-            proposal = serializer.create_proposal()
-            result = get_estimation_provider().follow_up(
-                original_description="",
-                meal_name=proposal.name,
-                items=proposal.items,
-                follow_up=serializer.validated_data["adjustment"],
-            )
-            outcome = apply_proposal_follow_up(
-                proposal=proposal,
+            outcome, updated_proposal = process_builder_adjustment(
                 owner=request.user,
-                follow_up=serializer.validated_data["adjustment"],
-                items=proposal.items,
-                result=result,
+                adjustment=serializer.validated_data["adjustment"],
+                entry_date=serializer.validated_data["entry_date"],
+                items=serializer.validated_data["items"],
+                name=serializer.validated_data.get("name", ""),
+                notes=serializer.validated_data.get("notes", ""),
+                meal=meal,
+                provider=get_estimation_provider(),
             )
+            proposal_data = MealProposalSerializer(
+                updated_proposal,
+                context={"request": request},
+            ).data
+            updated_proposal.delete()
         except EstimationProviderError:
-            if proposal is not None:
-                proposal.delete()
             return Response(
                 {"detail": PROVIDER_UNAVAILABLE_DETAIL},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         except DjangoValidationError as error:
-            if proposal is not None:
-                proposal.delete()
             raise ValidationError(error.messages) from error
 
-        updated_proposal = outcome["proposal"]
-        updated_proposal.refresh_from_db()
-        proposal_data = MealProposalSerializer(
-            updated_proposal,
-            context={"request": request},
-        ).data
-        updated_proposal.delete()
         return Response(
             {
                 "applied": outcome["applied"],

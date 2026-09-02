@@ -30,6 +30,7 @@ from .provider import (
     MealSearchPlan,
     OpenAIMealEstimationProvider,
 )
+from .services import _catalog_food, process_builder_adjustment
 
 
 def shared_food(
@@ -809,6 +810,66 @@ class MealProposalApiTests(TestCase):
             [filling.pk],
         )
         self.assertEqual(adjusted_item["source_kind"], "user_modified_estimate")
+
+    def test_process_builder_adjustment_deletes_proposal_on_provider_error(self):
+        user = get_user_model().objects.create_user(
+            username="builder_error_user",
+            email="builder_error@example.com",
+            password="password123",
+        )
+        food = shared_food(name="Oatmeal")
+        item = _catalog_food(food.current_version, key="item-1")
+        failing_provider = Mock()
+        failing_provider.follow_up.side_effect = EstimationProviderError(
+            "Service unavailable"
+        )
+
+        initial_count = MealProposal.objects.count()
+        with self.assertRaises(EstimationProviderError):
+            process_builder_adjustment(
+                owner=user,
+                adjustment="Add berries",
+                entry_date=date(2026, 8, 16),
+                items=[item],
+                provider=failing_provider,
+            )
+
+        self.assertEqual(MealProposal.objects.count(), initial_count)
+
+    def test_process_builder_adjustment_deletes_proposal_on_validation_error(self):
+        user = get_user_model().objects.create_user(
+            username="builder_val_user",
+            email="builder_val@example.com",
+            password="password123",
+        )
+        food = shared_food(name="Oatmeal")
+        item = _catalog_food(food.current_version, key="item-1")
+        mock_provider = Mock()
+        mock_provider.follow_up.return_value = {
+            "name": "Invalid Adjustment",
+            "message": "Removed everything",
+            "confidence_score": 0.9,
+            "remove_keys": ["item-1"],
+            "serving_updates": [],
+            "items_to_add": [],
+            "provider_name": "OpenAI",
+            "provider_model": "gpt-5.6-luna",
+            "provider_response_id": "resp-123",
+        }
+
+        initial_count = MealProposal.objects.count()
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        with self.assertRaises(DjangoValidationError):
+            process_builder_adjustment(
+                owner=user,
+                adjustment="Remove all foods",
+                entry_date=date(2026, 8, 16),
+                items=[item],
+                provider=mock_provider,
+            )
+
+        self.assertEqual(MealProposal.objects.count(), initial_count)
 
     def test_follow_up_addition_reuses_a_matching_catalog_food(self):
         shared_food(name="Burger")
