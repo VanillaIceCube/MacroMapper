@@ -50,6 +50,7 @@ import {
   updateMealProposal,
   updateMeal,
 } from '../services/mealApiClient';
+import { getResponseErrorMessage, safeReadJson } from '../services/authSession';
 import MealItemEditorRow from '../components/MealItemEditorRow';
 import {
   catalogFoodToMealItem,
@@ -148,18 +149,6 @@ const mealDraftFingerprint = ({ name, notes, entryDate, items }) =>
     items,
   });
 
-async function responseError(response, fallback) {
-  try {
-    const body = await response.json();
-    const firstValue = Object.values(body)[0];
-    if (Array.isArray(firstValue)) return firstValue[0];
-    if (typeof firstValue === 'string') return firstValue;
-  } catch (_error) {
-    // Use the stable fallback below.
-  }
-  return fallback;
-}
-
 function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSaved }) {
   const [estimateDescription, setEstimateDescription] = useState('');
   const [estimatePlaceholder, setEstimatePlaceholder] = useState(randomMealEstimateExample);
@@ -208,10 +197,10 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     const response = await searchFoods('', token, { ordering: '-created_at', limit: 20 });
     if (requestId !== catalogRequestIdRef.current) return;
     if (response.ok) {
-      setFoods(await response.json());
+      setFoods((await safeReadJson(response)) || []);
     } else {
       setFoods([]);
-      setError(await responseError(response, 'Could not load recent catalog foods.'));
+      setError(await getResponseErrorMessage(response, 'Could not load recent catalog foods.'));
     }
     setSearching(false);
   }, [token]);
@@ -230,9 +219,9 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     });
     if (requestId !== catalogRequestIdRef.current) return;
     if (response.ok) {
-      setFoods(await response.json());
+      setFoods((await safeReadJson(response)) || []);
     } else {
-      setError(await responseError(response, 'Could not search the food catalog.'));
+      setError(await getResponseErrorMessage(response, 'Could not search the food catalog.'));
     }
     setSearching(false);
   }, [query, token]);
@@ -295,12 +284,17 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     setError('');
     const response = await createMealProposal({ description: request, entry_date: date }, token);
     if (!response.ok) {
-      setError(await responseError(response, 'Could not estimate this meal.'));
+      setError(await getResponseErrorMessage(response, 'Could not estimate this meal.'));
       setEstimating(false);
       return;
     }
 
-    const proposal = await response.json();
+    const proposal = await safeReadJson(response);
+    if (!proposal) {
+      setError('Could not parse estimation response.');
+      setEstimating(false);
+      return;
+    }
     const proposalName = proposal.name ?? '';
     const proposalNotes = proposal.notes ?? '';
     const proposalDate = proposal.entry_date ?? date;
@@ -390,7 +384,14 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
         ? await adjustMeal(meal.id, payload, token)
         : await adjustMealProposal(proposalId, payload, token);
       if (response.ok) {
-        const result = await response.json();
+        const result = await safeReadJson(response);
+        if (!result) {
+          setAdjustmentFeedback({
+            severity: 'error',
+            message: 'Could not parse adjustment response.',
+          });
+          return;
+        }
         const updatedProposal = result.proposal;
         if (!meal) {
           setProposalId(updatedProposal.id);
@@ -413,7 +414,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
       } else {
         setAdjustmentFeedback({
           severity: 'error',
-          message: await responseError(
+          message: await getResponseErrorMessage(
             response,
             'Could not apply that adjustment. Your current meal is still here.',
           ),
@@ -475,7 +476,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
         token,
       );
       if (!updateResponse.ok) {
-        setError(await responseError(updateResponse, 'Could not save your meal draft.'));
+        setError(await getResponseErrorMessage(updateResponse, 'Could not save your meal draft.'));
         setSaving(false);
         return;
       }
@@ -483,7 +484,9 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
       if (acceptResponse.ok) {
         onSaved('Meal added.');
       } else {
-        setError(await responseError(acceptResponse, 'Could not add this meal to your diary.'));
+        setError(
+          await getResponseErrorMessage(acceptResponse, 'Could not add this meal to your diary.'),
+        );
       }
       setSaving(false);
       return;
@@ -500,7 +503,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     if (response.ok) {
       onSaved(meal ? 'Meal updated.' : 'Meal added.');
     } else {
-      setError(await responseError(response, 'Could not save this meal.'));
+      setError(await getResponseErrorMessage(response, 'Could not save this meal.'));
     }
     setSaving(false);
   };
@@ -1285,9 +1288,9 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
     setError('');
     const response = await fetchDailyDiary(date, token);
     if (response.ok) {
-      setData(await response.json());
+      setData((await safeReadJson(response)) || { meals: [], totals: [] });
     } else {
-      setError(await responseError(response, 'Could not load this day.'));
+      setError(await getResponseErrorMessage(response, 'Could not load this day.'));
     }
     setLoading(false);
   }, [date, token]);
@@ -1335,7 +1338,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
       await loadDiary();
     } else {
       setPendingDelete(null);
-      setError(await responseError(response, 'Could not delete this meal.'));
+      setError(await getResponseErrorMessage(response, 'Could not delete this meal.'));
     }
   };
 
