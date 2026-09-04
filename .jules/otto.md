@@ -1,0 +1,3 @@
+# Otto's Backlog Management Journal
+
+## 2026-09-04 - Local Sandbox GitHub API Access Limits **Learning:** In isolated execution sandboxes without GitHub CLI (`gh`) authentication or `GITHUB_TOKEN` environment variables, live GitHub issue and project board mutation APIs cannot be queried or updated directly via HTTP or CLI. **Action:** Perform forensic analysis using local repository artifacts (git history, remote branches, workflows, project creation scripts), document organizational observations in the report, and maintain durable Otto learnings in `.jules/otto.md` without modifying application code or manufacturing speculative issues.
