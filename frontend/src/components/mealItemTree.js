@@ -22,10 +22,11 @@ export function changeMealItemServings(items, key, amount, item) {
   const activePortion = selectedPortion(item);
   const multiplier = Number(activePortion.serving_multiplier);
   const numericAmount = Number(amount);
+  const effectiveAmount = Math.max(numericAmount, 0);
   const servings =
     amount === '' || !Number.isFinite(numericAmount) || !Number.isFinite(multiplier)
       ? amount
-      : roundedNumberString(numericAmount * (multiplier > 0 ? multiplier : 1));
+      : roundedNumberString(effectiveAmount * (multiplier > 0 ? multiplier : 1));
   return updateMealItemTree(items, key, (currentItem) => ({
     ...currentItem,
     servings,
@@ -77,10 +78,11 @@ export const changeMealItemNutrient = (items, key, nutrient, totalValue) =>
       };
     }
     const servings = servingsValue(item);
+    const effectiveValue = Math.max(numeric, 0);
     const perServingValue =
       totalValue === '' || !Number.isFinite(numeric) || !servings
         ? totalValue
-        : String(numeric / servings);
+        : String(effectiveValue / servings);
     return {
       ...item,
       nutrients: { ...item.nutrients, [nutrient]: perServingValue },

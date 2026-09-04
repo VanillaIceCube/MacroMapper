@@ -75,6 +75,16 @@ describe('meal item tree operations', () => {
     expect(withPortion[0].components[0].selected_portion_key).toBe('base');
   });
 
+  test('clamps negative serving amounts and nutrient values to zero', () => {
+    const leaf = editableLeaf({ servings: '2', nutrients: { calories: '100' } });
+
+    const negativeServings = changeMealItemServings([leaf], 'food', '-3', leaf);
+    expect(negativeServings[0].servings).toBe('0');
+
+    const negativeNutrient = changeMealItemNutrient([leaf], 'food', 'calories', '-100');
+    expect(negativeNutrient[0].nutrients.calories).toBe('0');
+  });
+
   test('stores leaf nutrition per serving and scales composite children', () => {
     const leaf = editableLeaf();
     expect(changeMealItemNutrient([leaf], 'food', 'calories', '300')[0].nutrients.calories).toBe(

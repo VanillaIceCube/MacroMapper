@@ -716,6 +716,32 @@ class MealProposalApiTests(TestCase):
         self.assertIn("AI adjustments:\n- Add an apple", accepted.data["notes"])
         self.assertNotIn("Estimated from:", accepted.data["notes"])
 
+    def test_process_map_your_meal_adjustment_handles_provider_error(self):
+        provider = Mock()
+        provider.follow_up.side_effect = EstimationProviderError(
+            "Provider unavailable."
+        )
+
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
+            response = self.client.post(
+                "/api/meal-proposals/adjustments/",
+                {
+                    "adjustment": "Add an apple",
+                    "entry_date": "2026-08-16",
+                    "name": "",
+                    "notes": "",
+                    "items": [],
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.data["detail"],
+            "The meal estimation service is temporarily unavailable. "
+            "Try again without losing your meal.",
+        )
+
     def test_builder_adjustment_preserves_catalog_foods_and_applies_quantity_changes(
         self,
     ):
