@@ -1,6 +1,14 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 2026-09-05
+
+### Added
+
+- Add the author's personal motivation and project background to the README.
+- Add a captioned six-image tour of the daily nutrition and AI meal-estimation
+  experiences to the README.
+
 ## 2026-08-31
 
 ### Fixed
