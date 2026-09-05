@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
-- Add the author's personal motivation and project background to the README.
+- Add the author's personal motivation to the README.
 - Add a captioned six-image tour of the daily nutrition and AI meal-estimation
   experiences to the README.
 
