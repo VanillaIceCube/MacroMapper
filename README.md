@@ -15,6 +15,32 @@ The authentication, application, Food Item catalog, private meal diary, and
 GPT-assisted meal-estimation flows are implemented. Activity and goal features
 remain planned in the [product roadmap](docs/PRODUCT_VISION.md).
 
+## 👋 A Note from the Author
+
+First and foremost, I created this application because I wanted a calorie
+counting app. I used to use MyFitnessPal, but I wanted something AI-powered,
+and all the options were around $20 a month. I also didn't want to take
+pictures of my food. I mean, I feel like that would give you the worst estimate
+of all time.
+
+I had a vision where you'd write a description, then the app would do its best
+to fact-check it against the internet. If I said I had a Double-Double Animal
+Style with no lettuce (this is an example—I love lettuce) from In-N-Out, it
+would find the nutrition facts, figure out what Animal Style adds, break the
+meal down into components, and remove the lettuce. That information would then
+be available to everyone using the application, along with a confidence level,
+the actual source, and a provenance label.
+
+Outside of that, my goal was to build a useful personal application that uses
+generative AI in a way you can trust and audit.
+
+MacroMapper also builds on lessons from my earlier projects. Notoli taught me
+how to deploy and maintain a full-stack application, and it introduced the
+personality-driven GPT GitHub reviewers I use as a merge gate. I then created
+FullStackTemplate to capture the pieces I wanted to reuse—authentication,
+email, CI/CD reviewers, deployment, and the base Django/React scaffolding—so I
+could focus MacroMapper on nutrition tracking and source-aware estimation.
+
 ## ✨ Features
 - **Account foundation:** email-first registration, JWT sessions, password
   reset, protected routes, and recipient-scoped notifications
@@ -53,6 +79,46 @@ remain planned in the [product roadmap](docs/PRODUCT_VISION.md).
 - **Security automation:** CodeQL, dependency and malware review, Dependabot,
   blocking AI PR reviewer verdicts enforced through required checks, and
   scheduled security-alert aggregation
+
+## 📸 Application Tour
+
+### Daily Nutrition Page 01
+
+View your daily statistics.
+
+![MacroMapper daily nutrition summary with nutrient totals, macro balance, and calories by meal](docs/images/daily-nutrition-01.png)
+
+### Daily Nutrition Page 02
+
+View your meal-by-meal stats as well as their confidence and provenance.
+
+![MacroMapper meal log with food-level nutrition, confidence, provenance, and macro charts](docs/images/daily-nutrition-02.png)
+
+### Meal Estimation Page 01
+
+Estimate your meal with AI!
+
+![MacroMapper AI meal description dialog](docs/images/meal-estimation-01.png)
+
+### Meal Estimation Page 02
+
+The nutritional information for your meal!
+
+![MacroMapper estimated meal editor with nutrition totals and meal items](docs/images/meal-estimation-02.png)
+
+### Meal Estimation Page 03
+
+Break down meal items by component for easy adjustments—like, “Oh! I actually
+didn't have sour cream.” The app also displays the provenance, source, and
+confidence.
+
+![MacroMapper meal component editor with source, provenance, and confidence details](docs/images/meal-estimation-03.png)
+
+### Meal Estimation Page 04
+
+Manually add items from the catalog, or use AI to make adjustments!
+
+![MacroMapper catalog search and conversational AI adjustment controls](docs/images/meal-estimation-04.png)
 
 ## 📚 Documentation
 - Product vision and delivery roadmap: [`docs/PRODUCT_VISION.md`](docs/PRODUCT_VISION.md)
