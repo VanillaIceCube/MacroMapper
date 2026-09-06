@@ -119,3 +119,36 @@ class NotificationApiTests(APITestCase):
         self.assertTrue(
             Notification.objects.filter(pk=self.other_notification.pk).exists()
         )
+
+    def test_patch_without_is_read_field_does_not_alter_read_at(self):
+        self.client.force_authenticate(user=self.recipient)
+        self.assertIsNone(self.notification.read_at)
+
+        response = self.client.patch(
+            f"/api/notifications/{self.notification.id}/",
+            {},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.notification.refresh_from_db()
+        self.assertIsNone(self.notification.read_at)
+
+    def test_mark_all_read_when_no_unread_notifications_returns_zero(self):
+        self.client.force_authenticate(user=self.recipient)
+        self.client.patch(
+            f"/api/notifications/{self.notification.id}/",
+            {"is_read": True},
+            format="json",
+        )
+
+        response = self.client.patch("/api/notifications/mark-all-read/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["updated"], 0)
+
+    def test_clear_all_when_no_notifications_exist_returns_zero(self):
+        self.client.force_authenticate(user=self.recipient)
+        self.client.delete("/api/notifications/clear-all/")
+
+        response = self.client.delete("/api/notifications/clear-all/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["deleted"], 0)
