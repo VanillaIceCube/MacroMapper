@@ -423,6 +423,8 @@ def _visible_catalog_foods(user):
             "current_version__components__child_version__food_item",
             "current_version__components__child_version__sources",
             "current_version__components__child_version__components",
+            "current_version__components__child_version__components__child_version__food_item",
+            "current_version__components__child_version__components__child_version__sources",
         )
     )
 
