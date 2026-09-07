@@ -487,14 +487,19 @@ class FoodApiTests(APITestCase):
             provider_name="",
             owner=self.owner,
             definition=food_definition(
-                calories="95",
+                calories="305",
                 confidence=None,
                 components=[
                     {
                         "food_item": self.shared_food,
                         "servings": Decimal("1"),
                         "order": 0,
-                    }
+                    },
+                    {
+                        "food_item": self.personal_food,
+                        "servings": Decimal("1"),
+                        "order": 1,
+                    },
                 ],
             ),
             created_by=self.owner,
@@ -520,6 +525,53 @@ class FoodApiTests(APITestCase):
             plate["current_version"]["components"][0]["food_item_name"],
             "Shared apple",
         )
+
+    def test_catalog_retrieve_uses_bulk_loaded_components(self):
+        plate = create_food_item(
+            name="Apple plate detail",
+            scope=FoodItem.Scope.PERSONAL,
+            origin_type=FoodItem.OriginType.GENERIC,
+            provider_name="",
+            owner=self.owner,
+            definition=food_definition(
+                calories="305",
+                confidence=None,
+                components=[
+                    {
+                        "food_item": self.shared_food,
+                        "servings": Decimal("1"),
+                        "order": 0,
+                    },
+                    {
+                        "food_item": self.personal_food,
+                        "servings": Decimal("1"),
+                        "order": 1,
+                    },
+                ],
+            ),
+            created_by=self.owner,
+        )
+        self.client.force_authenticate(user=self.owner)
+
+        with CaptureQueriesContext(connection) as captured:
+            response = self.client.get(f"/api/foods/{plate.id}/")
+
+        component_queries = [
+            query
+            for query in captured.captured_queries
+            if "foods_foodcomponent" in query["sql"].lower()
+        ]
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertLessEqual(
+            len(component_queries),
+            2,
+            [query["sql"] for query in component_queries],
+        )
+        component_names = {
+            item["food_item_name"]
+            for item in response.data["current_version"]["components"]
+        }
+        self.assertEqual(component_names, {"Shared apple", "Owner smoothie"})
 
     def test_shared_detail_retains_provenance_confidence_and_sources(self):
         self.client.force_authenticate(user=self.owner)
