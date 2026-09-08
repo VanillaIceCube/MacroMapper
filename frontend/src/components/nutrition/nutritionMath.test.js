@@ -2,6 +2,7 @@ import {
   decorateCalorieContributions,
   itemCalorieContributions,
   itemNutrientTotal,
+  mealNutrientTotal,
   formatWholeNutritionAmount,
   macroCalorieSegments,
   mealNutrientValues,
@@ -98,5 +99,67 @@ describe('nutritionMath', () => {
       expect.objectContaining({ key: 'protein', calories: 300, protein: 40 }),
       expect.objectContaining({ key: 'side', calories: 200, carbohydrates: 40 }),
     ]);
+  });
+
+  test('safely handles non-finite, null, or malformed inputs in calculations', () => {
+    expect(itemNutrientTotal(null, 'calories')).toBeNull();
+    expect(itemNutrientTotal({ nutrients: { calories: 'NaN' } }, 'calories')).toBeNull();
+    expect(
+      itemNutrientTotal({ nutrients: { calories: '100' }, servings: 'invalid' }, 'calories'),
+    ).toBe(0);
+    expect(
+      mealNutrientTotal(
+        [null, { nutrients: { calories: 'Infinity' } }, leaf('apple', { calories: '95' })],
+        'calories',
+      ),
+    ).toBe(95);
+  });
+
+  test('handles fallback key/name resolution and filters invalid calorie rows in itemCalorieContributions', () => {
+    const items = [
+      {
+        food_item_id: 42,
+        food_name: 'Fallback Item',
+        servings: '1',
+        nutrients: { calories: '150', protein: '10' },
+      },
+      { key: 'no-cals', name: 'Water', servings: '1', nutrients: { calories: null } },
+      { key: 'invalid-cals', name: 'Broken', servings: '1', nutrients: { calories: 'NaN' } },
+      null,
+    ];
+
+    expect(itemCalorieContributions(items)).toEqual([
+      {
+        key: '42',
+        name: 'Fallback Item',
+        calories: 150,
+        protein: 10,
+        carbohydrates: null,
+        fat: null,
+      },
+    ]);
+    expect(itemCalorieContributions(null)).toEqual([]);
+  });
+
+  test('safely summarizes and decorates contributions with non-finite or missing calories', () => {
+    const contributions = [
+      { name: 'Item B', calories: '100' },
+      { name: 'Item A', calories: '100' },
+      { name: 'Broken', calories: 'NaN' },
+      { name: 'Zero', calories: 0 },
+      null,
+    ];
+
+    const summarized = summarizeCalorieContributions(contributions, { maxItems: 10 });
+    expect(summarized).toHaveLength(4);
+    expect(summarized[0].name).toBe('Item A');
+    expect(summarized[1].name).toBe('Item B');
+
+    const decorated = decorateCalorieContributions(summarized);
+    expect(decorated[0].percentage).toBe(50);
+    expect(decorated[0].relativeBarWidth).toBe(100);
+
+    const emptyDecorated = decorateCalorieContributions([null, { calories: 0 }]);
+    expect(emptyDecorated[0]).toMatchObject({ percentage: 0, relativeBarWidth: 0 });
   });
 });
