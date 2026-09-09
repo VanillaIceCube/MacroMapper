@@ -151,7 +151,7 @@ export default function MealItemEditorRow({
               select
               label="Unit"
               size="small"
-              value={activePortion.key}
+              value={activePortion?.key || ''}
               onChange={(event) => onPortionChange(item.key, event.target.value)}
               disabled={!canEditItem || options.length < 2}
               sx={{ gridArea: 'portion', minWidth: 0, width: '100%' }}

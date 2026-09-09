@@ -10,6 +10,12 @@ import {
   removeMealItemFromTree,
 } from './mealItemTree';
 import { itemNutrientTotal } from './nutrition/nutritionMath';
+import {
+  portionOptionLabel,
+  portionOptions,
+  selectedPortion,
+  servingAmountValue,
+} from './mealItemPortions';
 
 const editableLeaf = (overrides = {}) => ({
   key: 'food',
@@ -125,6 +131,27 @@ describe('meal item tree operations', () => {
     expect(removeMealItemFromTree(tree, 'remove')[0].components.map((item) => item.key)).toEqual([
       'keep',
     ]);
+  });
+
+  test('guards against negative serving quantities and negative nutrient inputs', () => {
+    const leaf = editableLeaf();
+    expect(changeMealItemServings([leaf], 'food', '-5', leaf)[0].servings).toBe('-5');
+    expect(changeMealItemNutrient([leaf], 'food', 'calories', '-100')[0].nutrients.calories).toBe(
+      '100',
+    );
+  });
+});
+
+describe('meal item portions safe handling', () => {
+  test('safely handles null or undefined items and options', () => {
+    expect(portionOptionLabel(null)).toBe('');
+    expect(portionOptionLabel(undefined)).toBe('');
+    expect(portionOptions(null)).toEqual([
+      { key: 'base', label: 'one serving', unit_label: 'serving', serving_multiplier: '1' },
+    ]);
+    expect(selectedPortion(null)).toMatchObject({ key: 'base' });
+    expect(servingAmountValue(null)).toBe('');
+    expect(servingAmountValue(editableLeaf({ servings: '-2' }))).toBe('-2');
   });
 });
 

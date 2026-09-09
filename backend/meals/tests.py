@@ -521,6 +521,33 @@ class MealEntryApiTests(APITestCase):
         self.assertEqual(saved_item.food_version_id, saved_version_id)
         self.assertEqual(saved_item.servings, Decimal("1"))
 
+    @patch("meals.views.get_estimation_provider")
+    def test_saved_meal_adjustment_cleans_up_proposal_on_unexpected_exception(
+        self, get_provider
+    ):
+        created = self.create_meal(
+            item_inputs=[{"food_item": self.apple.id, "servings": "1", "order": 0}]
+        )
+        provider = Mock()
+        provider.follow_up.side_effect = RuntimeError("Unexpected provider failure")
+        get_provider.return_value = provider
+
+        initial_proposal_count = MealProposal.objects.count()
+        with self.assertRaises(RuntimeError):
+            self.client.post(
+                f"/api/meals/{created.data['id']}/adjustments/",
+                {
+                    "adjustment": "Make that two apples",
+                    "entry_date": "2026-08-16",
+                    "name": "Breakfast",
+                    "notes": "",
+                    "items": [],
+                },
+                format="json",
+            )
+
+        self.assertEqual(MealProposal.objects.count(), initial_proposal_count)
+
     def test_full_draft_create_materializes_reviewed_nutrition(self):
         self.client.force_authenticate(user=self.owner)
         item = _catalog_food(
