@@ -20,16 +20,19 @@ export function removeMealItemFromTree(items, key) {
 
 export function changeMealItemServings(items, key, amount, item) {
   const activePortion = selectedPortion(item);
-  const multiplier = Number(activePortion.serving_multiplier);
+  const multiplier = Number(activePortion?.serving_multiplier);
   const numericAmount = Number(amount);
   const servings =
-    amount === '' || !Number.isFinite(numericAmount) || !Number.isFinite(multiplier)
+    amount === '' ||
+    !Number.isFinite(numericAmount) ||
+    numericAmount < 0 ||
+    !Number.isFinite(multiplier)
       ? amount
       : roundedNumberString(numericAmount * (multiplier > 0 ? multiplier : 1));
   return updateMealItemTree(items, key, (currentItem) => ({
     ...currentItem,
     servings,
-    selected_portion_key: activePortion.key,
+    selected_portion_key: activePortion?.key || currentItem.selected_portion_key,
   }));
 }
 
@@ -75,6 +78,9 @@ export const changeMealItemNutrient = (items, key, nutrient, totalValue) =>
               : roundedNumberString(servingsValue(component) * scale),
         })),
       };
+    }
+    if (totalValue !== '' && Number.isFinite(numeric) && numeric < 0) {
+      return item;
     }
     const servings = servingsValue(item);
     const perServingValue =

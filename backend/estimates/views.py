@@ -131,6 +131,10 @@ class MealProposalViewSet(viewsets.ModelViewSet):
             if proposal is not None:
                 proposal.delete()
             raise ValidationError(error.messages) from error
+        except Exception:
+            if proposal is not None:
+                proposal.delete()
+            raise
 
         updated_proposal = outcome["proposal"]
         updated_proposal.refresh_from_db()
