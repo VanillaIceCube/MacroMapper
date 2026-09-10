@@ -29,7 +29,11 @@ export function changeMealItemServings(items, key, amount, item) {
     servings = amount;
   } else {
     const validAmount = Math.max(0, numericAmount);
-    if (typeof amount === 'string' && (amount.endsWith('.') || amount.endsWith('.0'))) {
+    if (
+      multiplier === 1 &&
+      typeof amount === 'string' &&
+      (amount.endsWith('.') || amount.endsWith('.0'))
+    ) {
       servings = amount;
     } else {
       servings = roundedNumberString(validAmount * (multiplier > 0 ? multiplier : 1));
