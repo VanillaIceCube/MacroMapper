@@ -144,7 +144,7 @@ export default function MealItemEditorRow({
               value={servingAmountValue(item)}
               onChange={(event) => onServings(item.key, event.target.value, item)}
               disabled={!canEditItem}
-              slotProps={{ htmlInput: { min: 0, step: 1 } }}
+              slotProps={{ htmlInput: { min: 0, step: 'any' } }}
               sx={{ gridArea: 'quantity', minWidth: 0, width: '100%' }}
             />
             <TextField

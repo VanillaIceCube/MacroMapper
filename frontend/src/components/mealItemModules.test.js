@@ -75,10 +75,32 @@ describe('meal item tree operations', () => {
     expect(withPortion[0].components[0].selected_portion_key).toBe('base');
   });
 
+  test('clamps negative serving input to zero and preserves trailing decimal while typing', () => {
+    const leaf = editableLeaf();
+    const clamped = changeMealItemServings([leaf], 'food', '-5', leaf);
+    expect(clamped[0].servings).toBe('0');
+
+    const baseLeaf = editableLeaf({ selected_portion_key: 'base' });
+    const typingDecimal = changeMealItemServings([baseLeaf], 'food', '1.', baseLeaf);
+    expect(typingDecimal[0].servings).toBe('1.');
+  });
+
+  test('applies non-unit portion multiplier when entering values with trailing decimal or zero', () => {
+    const halfLeaf = editableLeaf({ selected_portion_key: 'half' });
+    const resultOnePointZero = changeMealItemServings([halfLeaf], 'food', '1.0', halfLeaf);
+    expect(resultOnePointZero[0].servings).toBe('0.5');
+
+    const resultOnePoint = changeMealItemServings([halfLeaf], 'food', '1.', halfLeaf);
+    expect(resultOnePoint[0].servings).toBe('0.5');
+  });
+
   test('stores leaf nutrition per serving and scales composite children', () => {
     const leaf = editableLeaf();
     expect(changeMealItemNutrient([leaf], 'food', 'calories', '300')[0].nutrients.calories).toBe(
       '150',
+    );
+    expect(changeMealItemNutrient([leaf], 'food', 'calories', '-100')[0].nutrients.calories).toBe(
+      '0',
     );
 
     const composite = editableLeaf({

@@ -5,6 +5,7 @@ import {
   formatWholeNutritionAmount,
   macroCalorieSegments,
   mealNutrientValues,
+  nutrientArrayToValues,
   summarizeCalorieContributions,
 } from './nutritionMath';
 
@@ -80,6 +81,31 @@ describe('nutritionMath', () => {
     });
     expect(rows[0]).toMatchObject({ name: 'Item 1', relativeBarWidth: 100 });
     expect(rows.reduce((total, row) => total + row.percentage, 0)).toBeCloseTo(100);
+
+    const stringLabelSummarized = summarizeCalorieContributions(contributions, {
+      otherLabel: 'Additional Items',
+    });
+    expect(stringLabelSummarized.at(-1).name).toBe('Additional Items');
+  });
+
+  test('nutrientArrayToValues handles object inputs and clamps negative values', () => {
+    const objectValues = nutrientArrayToValues({ calories: '-50', protein: '10' }, 2);
+    expect(objectValues).toEqual({ calories: '0', protein: '5' });
+
+    const arrayValues = nutrientArrayToValues(
+      [
+        { key: 'calories', amount: '-20' },
+        { key: 'protein', amount: '8' },
+      ],
+      2,
+    );
+    expect(arrayValues).toEqual({ calories: '0', protein: '4' });
+  });
+
+  test('itemCalorieContributions safely handles null, undefined, or empty items', () => {
+    expect(itemCalorieContributions(null)).toEqual([]);
+    expect(itemCalorieContributions([])).toEqual([]);
+    expect(itemCalorieContributions([null, undefined])).toEqual([]);
   });
 
   test('uses a composite food components as calorie contribution rows', () => {

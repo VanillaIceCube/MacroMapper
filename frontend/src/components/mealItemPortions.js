@@ -51,11 +51,15 @@ export const roundedNumberString = (value, fractionDigits = 8) =>
   String(Number(value.toFixed(fractionDigits)));
 
 export const servingAmountValue = (item) => {
-  if (item.servings === '') return '';
+  if (item.servings === '' || item.servings == null) return '';
+  const rawString = String(item.servings);
   const servings = Number(item.servings);
   const multiplier = Number(selectedPortion(item).serving_multiplier);
   if (!Number.isFinite(servings) || !Number.isFinite(multiplier) || multiplier <= 0) {
     return item.servings;
+  }
+  if (multiplier === 1 && (rawString.endsWith('.') || rawString.includes('.'))) {
+    if (Number(rawString) === servings) return rawString;
   }
   return roundedNumberString(servings / multiplier, 6);
 };
