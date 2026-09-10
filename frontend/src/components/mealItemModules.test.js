@@ -75,10 +75,22 @@ describe('meal item tree operations', () => {
     expect(withPortion[0].components[0].selected_portion_key).toBe('base');
   });
 
+  test('clamps negative serving input to zero and preserves trailing decimal while typing', () => {
+    const leaf = editableLeaf();
+    const clamped = changeMealItemServings([leaf], 'food', '-5', leaf);
+    expect(clamped[0].servings).toBe('0');
+
+    const typingDecimal = changeMealItemServings([leaf], 'food', '1.', leaf);
+    expect(typingDecimal[0].servings).toBe('1.');
+  });
+
   test('stores leaf nutrition per serving and scales composite children', () => {
     const leaf = editableLeaf();
     expect(changeMealItemNutrient([leaf], 'food', 'calories', '300')[0].nutrients.calories).toBe(
       '150',
+    );
+    expect(changeMealItemNutrient([leaf], 'food', 'calories', '-100')[0].nutrients.calories).toBe(
+      '0',
     );
 
     const composite = editableLeaf({

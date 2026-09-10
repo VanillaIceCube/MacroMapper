@@ -22,10 +22,19 @@ export function changeMealItemServings(items, key, amount, item) {
   const activePortion = selectedPortion(item);
   const multiplier = Number(activePortion.serving_multiplier);
   const numericAmount = Number(amount);
-  const servings =
-    amount === '' || !Number.isFinite(numericAmount) || !Number.isFinite(multiplier)
-      ? amount
-      : roundedNumberString(numericAmount * (multiplier > 0 ? multiplier : 1));
+  let servings;
+  if (amount === '' || amount == null) {
+    servings = '';
+  } else if (!Number.isFinite(numericAmount) || !Number.isFinite(multiplier) || multiplier <= 0) {
+    servings = amount;
+  } else {
+    const validAmount = Math.max(0, numericAmount);
+    if (typeof amount === 'string' && (amount.endsWith('.') || amount.endsWith('.0'))) {
+      servings = amount;
+    } else {
+      servings = roundedNumberString(validAmount * (multiplier > 0 ? multiplier : 1));
+    }
+  }
   return updateMealItemTree(items, key, (currentItem) => ({
     ...currentItem,
     servings,
@@ -77,10 +86,13 @@ export const changeMealItemNutrient = (items, key, nutrient, totalValue) =>
       };
     }
     const servings = servingsValue(item);
+    const validNumeric = Number.isFinite(numeric) ? Math.max(0, numeric) : numeric;
     const perServingValue =
       totalValue === '' || !Number.isFinite(numeric) || !servings
-        ? totalValue
-        : String(numeric / servings);
+        ? totalValue !== '' && Number.isFinite(numeric) && numeric < 0
+          ? '0'
+          : totalValue
+        : String(validNumeric / servings);
     return {
       ...item,
       nutrients: { ...item.nutrients, [nutrient]: perServingValue },

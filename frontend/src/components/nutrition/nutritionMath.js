@@ -14,16 +14,33 @@ export const formatWholeNutritionAmount = (amount) => {
   return Number.isFinite(numeric) ? Math.round(numeric).toLocaleString() : '—';
 };
 
-export const nutrientArrayToValues = (nutrients = [], divisor = 1) =>
-  Object.fromEntries(
+export const nutrientArrayToValues = (nutrients = [], divisor = 1) => {
+  if (!Array.isArray(nutrients)) {
+    if (nutrients && typeof nutrients === 'object') {
+      return Object.fromEntries(
+        Object.entries(nutrients).map(([key, value]) => {
+          const amount = Number(value);
+          return [
+            key,
+            Number.isFinite(amount) && divisor > 0 ? String(Math.max(0, amount) / divisor) : value,
+          ];
+        }),
+      );
+    }
+    return {};
+  }
+  return Object.fromEntries(
     nutrients.map((nutrient) => {
       const amount = Number(nutrient.amount);
       return [
         nutrient.key,
-        Number.isFinite(amount) && divisor > 0 ? String(amount / divisor) : nutrient.amount,
+        Number.isFinite(amount) && divisor > 0
+          ? String(Math.max(0, amount) / divisor)
+          : nutrient.amount,
       ];
     }),
   );
+};
 
 export const servingsValue = (item) => {
   const servings = Number(item.servings);
@@ -101,11 +118,16 @@ export function summarizeCalorieContributions(
   if (sorted.length <= maxItems) return sorted;
   const visibleCount = maxItems - 1;
   const remaining = sorted.slice(visibleCount);
+  const getLabel = () => {
+    if (typeof otherLabel === 'function') return otherLabel(remaining.length);
+    if (typeof otherLabel === 'string' && otherLabel.trim()) return otherLabel;
+    return `Other (${remaining.length})`;
+  };
   return [
     ...sorted.slice(0, visibleCount),
     {
       key: otherKey,
-      name: otherLabel(remaining.length),
+      name: getLabel(),
       isOther: true,
       groupedItems: remaining,
       componentNames: remaining.map((item) => item.name),
@@ -134,22 +156,24 @@ export function decorateCalorieContributions(contributions) {
 }
 
 export function itemCalorieContributions(items) {
-  const singleComposite = items.length === 1 && items[0].components?.length;
+  if (!Array.isArray(items)) return [];
+  const singleComposite = items.length === 1 && items[0]?.components?.length;
   const chartItems = singleComposite ? items[0].components : items;
   const parentServings = singleComposite ? servingsValue(items[0]) : 1;
 
   return chartItems.flatMap((item) => {
+    if (!item) return [];
     const calories = itemNutrientTotal(item, 'calories');
     if (calories == null) return [];
     return [
       {
-        key: item.key,
-        name: item.name,
-        calories: calories * parentServings,
+        key: item.key || item.name || 'item',
+        name: item.name || 'Unnamed item',
+        calories: Math.max(0, calories * parentServings),
         ...Object.fromEntries(
           MACRO_CALORIE_FIELDS.map(({ key }) => {
             const value = itemNutrientTotal(item, key);
-            return [key, value == null ? null : value * parentServings];
+            return [key, value == null ? null : Math.max(0, value * parentServings)];
           }),
         ),
       },
