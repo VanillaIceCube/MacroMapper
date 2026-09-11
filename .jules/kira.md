@@ -1,0 +1,3 @@
+# Kira's Journal — Downstream Parity Learnings
+
+## 2026-09-04 - Security Alert Action SHA Pinning Parity **Learning:** The security-alerts composite action at `.github/actions/security-alerts/action.yml` contained an unpinned `actions/github-script@v9` step, whereas all other `actions/github-script` steps across repository workflows and the FullStack Template baseline are SHA-pinned to `3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0`. **Action:** Verify that all third-party and GitHub-provided script steps in composite actions maintain explicit commit SHAs matching the repository security baseline.
