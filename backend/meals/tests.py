@@ -723,6 +723,80 @@ class MealEntryApiTests(APITestCase):
                     "Supply a valid date in YYYY-MM-DD format.",
                 )
 
+    def test_meal_item_serializer_uses_stored_component_snapshot(self):
+        composite = create_food_item(
+            name="Combo Plate",
+            scope=FoodItem.Scope.PERSONAL,
+            origin_type=FoodItem.OriginType.GENERIC,
+            provider_name="",
+            owner=self.owner,
+            definition=definition(
+                components=[
+                    {"food_item": self.apple, "servings": Decimal("1"), "order": 0},
+                ],
+            ),
+            created_by=self.owner,
+        )
+        created = self.create_meal(
+            item_inputs=[{"food_item": composite.id, "servings": "1", "order": 0}]
+        )
+        meal_item = MealItem.objects.get(meal_entry_id=created.data["id"])
+        meal_item.component_snapshot = [
+            {
+                "food_item_id": self.apple.id,
+                "food_version_id": self.apple.current_version.id,
+                "food_name": "Stored Snapshot Apple",
+                "provider_name": "",
+                "origin_type": "generic",
+                "servings": "1",
+                "serving_quantity": "1",
+                "serving_unit": "item",
+                "serving_label": "one item",
+                "nutrients": [],
+            }
+        ]
+        meal_item.save(update_fields=["component_snapshot"])
+
+        response = self.client.get(f"/api/meals/{created.data['id']}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data["items"][0]["component_snapshot"][0]["food_name"],
+            "Stored Snapshot Apple",
+        )
+
+    @patch("meals.views.get_estimation_provider")
+    def test_adjustment_deletes_draft_proposal_on_unexpected_exception(
+        self, get_provider
+    ):
+        provider = Mock()
+        provider.follow_up.side_effect = RuntimeError("Simulated crash")
+        get_provider.return_value = provider
+
+        created = self.create_meal(
+            item_inputs=[{"food_item": self.apple.id, "servings": "1", "order": 0}]
+        )
+        initial_proposals = MealProposal.objects.count()
+
+        with self.assertRaises(RuntimeError):
+            self.client.post(
+                f"/api/meals/{created.data['id']}/adjustments/",
+                {
+                    "adjustment": "Make it spicy",
+                    "entry_date": "2026-08-16",
+                    "name": "Breakfast",
+                    "items": [
+                        _catalog_food(
+                            self.apple.current_version,
+                            servings=Decimal("1"),
+                            key="apple-1",
+                        )
+                    ],
+                },
+                format="json",
+            )
+
+        self.assertEqual(MealProposal.objects.count(), initial_proposals)
+
 
 class MealAdminTests(TestCase):
     def setUp(self):
