@@ -1728,6 +1728,31 @@ class MealProposalApiTests(TestCase):
         )
         self.assertFalse(MealProposal.objects.exists())
 
+    @patch("estimates.views.get_estimation_provider")
+    def test_create_adjustment_deletes_proposal_on_unexpected_exception(
+        self, get_provider
+    ):
+        provider = Mock()
+        provider.follow_up.side_effect = RuntimeError("Unexpected provider crash")
+        get_provider.return_value = provider
+
+        initial_proposals = MealProposal.objects.count()
+
+        with self.assertRaises(RuntimeError):
+            self.client.post(
+                "/api/meal-proposals/adjustments/",
+                {
+                    "adjustment": "Make it spicy",
+                    "entry_date": "2026-08-16",
+                    "name": "Breakfast",
+                    "notes": "",
+                    "items": [],
+                },
+                format="json",
+            )
+
+        self.assertEqual(MealProposal.objects.count(), initial_proposals)
+
 
 @override_settings(
     OPENAI_API_KEY="test-key",

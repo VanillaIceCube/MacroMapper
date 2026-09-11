@@ -76,6 +76,10 @@ class MealItemSerializer(serializers.ModelSerializer):
         ]
 
     def get_component_snapshot(self, instance):
+        if instance.component_snapshot is not None and all(
+            "nutrients" in component for component in instance.component_snapshot
+        ):
+            return instance.component_snapshot
         return _component_tree(instance.food_version)
 
     def get_sources(self, instance):
