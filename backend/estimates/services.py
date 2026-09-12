@@ -1514,6 +1514,32 @@ def apply_proposal_follow_up(
     }
 
 
+def process_meal_adjustment(*, serializer, request):
+    proposal = None
+    try:
+        proposal = serializer.create_proposal()
+        result = get_estimation_provider().follow_up(
+            original_description="",
+            meal_name=proposal.name,
+            items=proposal.items,
+            follow_up=serializer.validated_data["adjustment"],
+        )
+        outcome = apply_proposal_follow_up(
+            proposal=proposal,
+            owner=request.user,
+            follow_up=serializer.validated_data["adjustment"],
+            items=proposal.items,
+            result=result,
+        )
+        updated_proposal = outcome["proposal"]
+        updated_proposal.refresh_from_db()
+        return proposal, outcome, updated_proposal
+    except Exception:
+        if proposal is not None and proposal.pk:
+            proposal.delete()
+        raise
+
+
 def _visible_catalog_version(*, owner, item, allowed_version_ids=()):
     food_item_id = item.get("food_item_id")
     version_id = item.get("food_version_id")
