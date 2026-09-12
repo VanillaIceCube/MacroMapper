@@ -679,7 +679,7 @@ class MealProposalApiTests(TestCase):
             "provider_response_id": "resp_empty_builder_adjustment",
         }
 
-        with patch("estimates.views.get_estimation_provider", return_value=provider):
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
             response = self.client.post(
                 "/api/meal-proposals/adjustments/",
                 {
@@ -739,7 +739,7 @@ class MealProposalApiTests(TestCase):
             "provider_response_id": "resp_builder_quantity_adjustment",
         }
 
-        with patch("estimates.views.get_estimation_provider", return_value=provider):
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
             response = self.client.post(
                 "/api/meal-proposals/adjustments/",
                 {
@@ -788,7 +788,7 @@ class MealProposalApiTests(TestCase):
             "provider_response_id": "resp_removed_component",
         }
 
-        with patch("estimates.views.get_estimation_provider", return_value=provider):
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
             response = self.client.post(
                 "/api/meal-proposals/adjustments/",
                 {
@@ -809,6 +809,28 @@ class MealProposalApiTests(TestCase):
             [filling.pk],
         )
         self.assertEqual(adjusted_item["source_kind"], "user_modified_estimate")
+
+    def test_create_adjustment_deletes_proposal_on_unexpected_exception(self):
+        provider = Mock()
+        provider.follow_up.side_effect = RuntimeError("Provider unexpected failure")
+
+        with (
+            patch("estimates.services.get_estimation_provider", return_value=provider),
+            self.assertRaises(RuntimeError),
+        ):
+            self.client.post(
+                "/api/meal-proposals/adjustments/",
+                {
+                    "adjustment": "Add an apple",
+                    "entry_date": "2026-08-16",
+                    "name": "",
+                    "notes": "",
+                    "items": [],
+                },
+                format="json",
+            )
+
+        self.assertEqual(MealProposal.objects.count(), 0)
 
     def test_follow_up_addition_reuses_a_matching_catalog_food(self):
         shared_food(name="Burger")

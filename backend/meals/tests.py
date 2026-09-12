@@ -423,7 +423,7 @@ class MealEntryApiTests(APITestCase):
         }
         self.assertEqual(totals["calories"], Decimal("160.0000"))
 
-    @patch("meals.views.get_estimation_provider")
+    @patch("estimates.services.get_estimation_provider")
     def test_ai_adjustment_returns_an_editable_draft_without_changing_meal(
         self, get_provider
     ):
@@ -471,7 +471,7 @@ class MealEntryApiTests(APITestCase):
         saved_item = MealItem.objects.get(meal_entry_id=created.data["id"])
         self.assertEqual(saved_item.servings, Decimal("1"))
 
-    @patch("meals.views.get_estimation_provider")
+    @patch("estimates.services.get_estimation_provider")
     def test_ai_adjustment_preserves_an_archived_version_pinned_to_the_meal(
         self, get_provider
     ):
@@ -520,6 +520,68 @@ class MealEntryApiTests(APITestCase):
         saved_item = MealItem.objects.get(meal_entry_id=created.data["id"])
         self.assertEqual(saved_item.food_version_id, saved_version_id)
         self.assertEqual(saved_item.servings, Decimal("1"))
+
+    @patch("estimates.services.get_estimation_provider")
+    def test_ai_adjustment_deletes_temporary_proposal_on_provider_error(
+        self, get_provider
+    ):
+        created = self.create_meal(
+            item_inputs=[{"food_item": self.apple.id, "servings": "1", "order": 0}]
+        )
+        item = _catalog_food(
+            self.apple.current_version,
+            servings=Decimal("1"),
+            key="saved-apple",
+        )
+        provider = Mock()
+        provider.follow_up.side_effect = EstimationProviderError("Provider failure")
+        get_provider.return_value = provider
+
+        response = self.client.post(
+            f"/api/meals/{created.data['id']}/adjustments/",
+            {
+                "adjustment": "Add extra apple",
+                "entry_date": "2026-08-16",
+                "name": "Breakfast",
+                "notes": "",
+                "items": [item],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertEqual(MealProposal.objects.count(), 0)
+
+    @patch("estimates.services.get_estimation_provider")
+    def test_ai_adjustment_deletes_temporary_proposal_on_unexpected_exception(
+        self, get_provider
+    ):
+        created = self.create_meal(
+            item_inputs=[{"food_item": self.apple.id, "servings": "1", "order": 0}]
+        )
+        item = _catalog_food(
+            self.apple.current_version,
+            servings=Decimal("1"),
+            key="saved-apple",
+        )
+        provider = Mock()
+        provider.follow_up.side_effect = RuntimeError("Unexpected internal error")
+        get_provider.return_value = provider
+
+        with self.assertRaises(RuntimeError):
+            self.client.post(
+                f"/api/meals/{created.data['id']}/adjustments/",
+                {
+                    "adjustment": "Add extra apple",
+                    "entry_date": "2026-08-16",
+                    "name": "Breakfast",
+                    "notes": "",
+                    "items": [item],
+                },
+                format="json",
+            )
+
+        self.assertEqual(MealProposal.objects.count(), 0)
 
     def test_full_draft_create_materializes_reviewed_nutrition(self):
         self.client.force_authenticate(user=self.owner)

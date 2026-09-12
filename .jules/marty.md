@@ -1,0 +1,3 @@
+# Marty's Journal
+
+## 2026-09-12 - AI Meal Adjustment Cleanup & Mock Scoping **Learning:** Temporary proposals created during meal adjustments must be cleaned up in a `finally` block or within `process_meal_adjustment` to prevent orphan DB records on unhandled exceptions or serialization failures; when mocking `get_estimation_provider`, unit tests should target `estimates.services.get_estimation_provider` where the service layer calls the provider. **Action:** Ensure any temporary DB objects used for calculation/drafting are wrapped in `try...finally` cleanup and mock provider calls at `estimates.services.get_estimation_provider`.
