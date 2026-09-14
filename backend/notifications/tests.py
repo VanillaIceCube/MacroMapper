@@ -69,6 +69,33 @@ class NotificationApiTests(APITestCase):
         self.assertFalse(unread_response.data["is_read"])
         self.assertIsNone(unread_response.data["read_at"])
 
+    def test_remarking_already_read_notification_preserves_read_at(self):
+        self.client.force_authenticate(user=self.recipient)
+
+        read_response_1 = self.client.patch(
+            f"/api/notifications/{self.notification.id}/",
+            {"is_read": True},
+            format="json",
+        )
+        initial_read_at = read_response_1.data["read_at"]
+
+        read_response_2 = self.client.patch(
+            f"/api/notifications/{self.notification.id}/",
+            {"is_read": True},
+            format="json",
+        )
+        self.assertEqual(read_response_2.data["read_at"], initial_read_at)
+
+    def test_patch_without_is_read_field_does_not_raise_key_error(self):
+        self.client.force_authenticate(user=self.recipient)
+
+        response = self.client.patch(
+            f"/api/notifications/{self.notification.id}/",
+            {},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
     def test_user_cannot_access_another_users_notification(self):
         self.client.force_authenticate(user=self.recipient)
 
