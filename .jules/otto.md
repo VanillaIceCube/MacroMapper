@@ -1,0 +1,3 @@
+# Otto's Backlog Management Journal
+
+## 2026-09-15 - Active Specialist Work Protection & Deferral **Learning:** Active PRs created by specialist implementation agents (e.g., Marty for backend/frontend hardening, Kira for GitHub actions pinning, Dependabot for dependency updates) must be protected during backlog audits. Materially restructuring, splitting, or consolidating issues under active implementation risks moving goalposts underneath active PRs. **Action:** During backlog audits, identify issues linked to open PRs, verify their metadata without restructuring scope or acceptance criteria, and defer major organizational changes until the implementation cycle completes.
