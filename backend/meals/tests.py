@@ -521,6 +521,35 @@ class MealEntryApiTests(APITestCase):
         self.assertEqual(saved_item.food_version_id, saved_version_id)
         self.assertEqual(saved_item.servings, Decimal("1"))
 
+    @patch("meals.views.get_estimation_provider")
+    def test_ai_adjustment_cleans_up_temporary_proposal_on_error(self, get_provider):
+        created = self.create_meal(
+            item_inputs=[{"food_item": self.apple.id, "servings": "1", "order": 0}]
+        )
+        item = _catalog_food(
+            self.apple.current_version,
+            servings=Decimal("1"),
+            key="saved-apple",
+        )
+        provider = Mock()
+        provider.follow_up.side_effect = EstimationProviderError("Provider unavailable")
+        get_provider.return_value = provider
+
+        response = self.client.post(
+            f"/api/meals/{created.data['id']}/adjustments/",
+            {
+                "adjustment": "Make that two apples",
+                "entry_date": "2026-08-16",
+                "name": "Breakfast",
+                "notes": "Before work",
+                "items": [item],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertEqual(MealProposal.objects.count(), 0)
+
     def test_full_draft_create_materializes_reviewed_nutrition(self):
         self.client.force_authenticate(user=self.owner)
         item = _catalog_food(

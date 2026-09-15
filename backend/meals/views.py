@@ -108,32 +108,29 @@ class MealEntryViewSet(viewsets.ModelViewSet):
                 items=proposal.items,
                 result=result,
             )
+            updated_proposal = outcome["proposal"]
+            updated_proposal.refresh_from_db()
+            proposal_data = MealProposalSerializer(
+                updated_proposal,
+                context={"request": request},
+            ).data
+            return Response(
+                {
+                    "applied": outcome["applied"],
+                    "message": outcome["message"],
+                    "proposal": proposal_data,
+                }
+            )
         except EstimationProviderError:
-            if proposal is not None:
-                proposal.delete()
             return Response(
                 {"detail": PROVIDER_UNAVAILABLE_DETAIL},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         except DjangoValidationError as error:
-            if proposal is not None:
-                proposal.delete()
             raise ValidationError(error.messages) from error
-
-        updated_proposal = outcome["proposal"]
-        updated_proposal.refresh_from_db()
-        proposal_data = MealProposalSerializer(
-            updated_proposal,
-            context={"request": request},
-        ).data
-        updated_proposal.delete()
-        return Response(
-            {
-                "applied": outcome["applied"],
-                "message": outcome["message"],
-                "proposal": proposal_data,
-            }
-        )
+        finally:
+            if proposal is not None and proposal.pk:
+                proposal.delete()
 
     def _save_draft(self, request, meal=None):
         serializer = MapYourMealDraftSerializer(
