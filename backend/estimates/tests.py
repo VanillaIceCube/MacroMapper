@@ -1750,6 +1750,45 @@ class MealProposalApiTests(TestCase):
 
         self.assertEqual(MealProposal.objects.count(), 0)
 
+    def test_builder_adjustment_deletes_proposal_when_response_serialization_fails(
+        self,
+    ):
+        addition = simple_ai_estimate(name="Apple", calories="95")["items"][0]
+        provider = Mock()
+        provider.follow_up.return_value = {
+            "name": "Apple Snack",
+            "message": "Added an apple.",
+            "confidence_score": Decimal("0.9"),
+            "remove_keys": [],
+            "serving_updates": [],
+            "items_to_add": [addition],
+            "provider_name": "OpenAI",
+            "provider_model": "gpt-test",
+            "provider_response_id": "resp_empty_builder_adjustment",
+        }
+
+        with (
+            patch("estimates.views.get_estimation_provider", return_value=provider),
+            patch(
+                "estimates.views.MealProposalSerializer",
+                side_effect=RuntimeError("Serialization crashed"),
+            ),
+            self.assertRaises(RuntimeError),
+        ):
+            self.client.post(
+                "/api/meal-proposals/adjustments/",
+                {
+                    "adjustment": "Add an apple",
+                    "entry_date": "2026-08-16",
+                    "name": "",
+                    "notes": "",
+                    "items": [],
+                },
+                format="json",
+            )
+
+        self.assertEqual(MealProposal.objects.count(), 0)
+
     def test_follow_up_without_confidence_score_preserves_existing_proposal_confidence(
         self,
     ):
