@@ -1350,9 +1350,9 @@ def apply_proposal_follow_up(
 
     current_items = deepcopy(items)
     current_by_key = {item["key"]: item for item in current_items}
-    remove_keys = set(result["remove_keys"])
+    remove_keys = set(result.get("remove_keys") or [])
     serving_updates = {}
-    for update in result["serving_updates"]:
+    for update in result.get("serving_updates") or []:
         key = update["key"]
         serving_updates[key] = update["servings"]
 
@@ -1381,7 +1381,7 @@ def apply_proposal_follow_up(
     foods = _visible_catalog_foods(owner)
     pending_additions = []
     merged_addition = False
-    for index, item in enumerate(result["items_to_add"]):
+    for index, item in enumerate(result.get("items_to_add") or []):
         intent = _follow_up_search_intent(item)
         catalog_match = (
             _resolve_catalog_intent(intent=intent, user=owner, foods=foods)
@@ -1431,9 +1431,9 @@ def apply_proposal_follow_up(
         materialized_raw_additions = _shared_estimate_items(
             {
                 "items": raw_additions,
-                "provider_name": result["provider_name"],
-                "provider_model": result["provider_model"],
-                "provider_response_id": result["provider_response_id"],
+                "provider_name": result.get("provider_name", "OpenAI"),
+                "provider_model": result.get("provider_model", ""),
+                "provider_response_id": result.get("provider_response_id", ""),
             }
         )
     materialized_raw = iter(materialized_raw_additions)
@@ -1459,33 +1459,41 @@ def apply_proposal_follow_up(
             proposal.save(update_fields=[*reviewed_fields, "updated_at"])
         return {
             "applied": False,
-            "message": "AI could not produce an applicable meal change from that request.",
+            "message": result.get(
+                "message",
+                "AI could not produce an applicable meal change from that request.",
+            ),
             "proposal": proposal,
         }
 
-    proposal.name = _brief_generated_meal_name(result["name"])
+    proposal.name = _brief_generated_meal_name(result.get("name", proposal.name))
     if entry_date is not None:
         proposal.entry_date = entry_date
     if notes is not None:
         proposal.notes = notes
     proposal.items = normalize_items([*retained_items, *added_items])
     proposal.generator = MealProposal.Generator.OPENAI
-    provider_name = result["provider_name"]
-    if proposal.provider_name and provider_name not in proposal.provider_name:
-        proposal.provider_name = f"{proposal.provider_name} + {provider_name}"[:80]
-    elif not proposal.provider_name:
-        proposal.provider_name = provider_name
-    proposal.provider_model = result["provider_model"]
-    proposal.provider_response_id = result["provider_response_id"]
-    follow_up_confidence = _storage_decimal(
-        result["confidence_score"],
-        decimal_places=3,
+    provider_name = result.get("provider_name", "")
+    if provider_name:
+        if proposal.provider_name and provider_name not in proposal.provider_name:
+            proposal.provider_name = f"{proposal.provider_name} + {provider_name}"[:80]
+        elif not proposal.provider_name:
+            proposal.provider_name = provider_name
+    proposal.provider_model = result.get("provider_model", proposal.provider_model)
+    proposal.provider_response_id = result.get(
+        "provider_response_id", proposal.provider_response_id
     )
-    proposal.confidence_score = (
-        min(proposal.confidence_score, follow_up_confidence)
-        if proposal.confidence_score is not None
-        else follow_up_confidence
-    )
+    raw_confidence = result.get("confidence_score")
+    if raw_confidence is not None:
+        follow_up_confidence = _storage_decimal(
+            raw_confidence,
+            decimal_places=3,
+        )
+        proposal.confidence_score = (
+            min(proposal.confidence_score, follow_up_confidence)
+            if proposal.confidence_score is not None
+            else follow_up_confidence
+        )
     proposal.save(
         update_fields=[
             "name",
@@ -1505,11 +1513,11 @@ def apply_proposal_follow_up(
         kind=MealProposalRevision.Kind.AI_FOLLOW_UP,
         created_by=owner,
         follow_up=follow_up,
-        message=result["message"],
+        message=result.get("message", ""),
     )
     return {
         "applied": True,
-        "message": result["message"],
+        "message": result.get("message", ""),
         "proposal": proposal,
     }
 

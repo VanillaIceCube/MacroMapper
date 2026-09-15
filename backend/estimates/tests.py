@@ -1728,6 +1728,112 @@ class MealProposalApiTests(TestCase):
         )
         self.assertFalse(MealProposal.objects.exists())
 
+    def test_builder_adjustment_deletes_proposal_on_unexpected_exception(self):
+        provider = Mock()
+        provider.follow_up.side_effect = RuntimeError("Unexpected internal error")
+
+        with (
+            patch("estimates.views.get_estimation_provider", return_value=provider),
+            self.assertRaises(RuntimeError),
+        ):
+            self.client.post(
+                "/api/meal-proposals/adjustments/",
+                {
+                    "adjustment": "Add an apple",
+                    "entry_date": "2026-08-16",
+                    "name": "",
+                    "notes": "",
+                    "items": [],
+                },
+                format="json",
+            )
+
+        self.assertEqual(MealProposal.objects.count(), 0)
+
+    def test_builder_adjustment_deletes_proposal_when_response_serialization_fails(
+        self,
+    ):
+        addition = simple_ai_estimate(name="Apple", calories="95")["items"][0]
+        provider = Mock()
+        provider.follow_up.return_value = {
+            "name": "Apple Snack",
+            "message": "Added an apple.",
+            "confidence_score": Decimal("0.9"),
+            "remove_keys": [],
+            "serving_updates": [],
+            "items_to_add": [addition],
+            "provider_name": "OpenAI",
+            "provider_model": "gpt-test",
+            "provider_response_id": "resp_empty_builder_adjustment",
+        }
+
+        with (
+            patch("estimates.views.get_estimation_provider", return_value=provider),
+            patch(
+                "estimates.views.MealProposalSerializer",
+                side_effect=RuntimeError("Serialization crashed"),
+            ),
+            self.assertRaises(RuntimeError),
+        ):
+            self.client.post(
+                "/api/meal-proposals/adjustments/",
+                {
+                    "adjustment": "Add an apple",
+                    "entry_date": "2026-08-16",
+                    "name": "",
+                    "notes": "",
+                    "items": [],
+                },
+                format="json",
+            )
+
+        self.assertEqual(MealProposal.objects.count(), 0)
+
+    def test_follow_up_without_confidence_score_preserves_existing_proposal_confidence(
+        self,
+    ):
+        provider = Mock()
+        provider.estimate.return_value = simple_ai_estimate(name="Apple", calories="95")
+
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
+            proposal_response = self.client.post(
+                "/api/meal-proposals/",
+                {"description": "A single apple", "entry_date": "2026-08-16"},
+                format="json",
+            )
+
+        self.assertEqual(proposal_response.status_code, 201)
+        original_confidence = proposal_response.data["confidence_score"]
+        self.assertIsNotNone(original_confidence)
+
+        provider.follow_up.return_value = {
+            "name": "Apple",
+            "message": "Adjusted notes.",
+            "confidence_score": None,
+            "remove_keys": [],
+            "serving_updates": [],
+            "items_to_add": [],
+            "provider_name": "OpenAI",
+            "provider_model": "gpt-test",
+            "provider_response_id": "resp_follow_up_no_conf",
+        }
+
+        with patch("estimates.views.get_estimation_provider", return_value=provider):
+            response = self.client.post(
+                f"/api/meal-proposals/{proposal_response.data['id']}/follow-up/",
+                {
+                    "follow_up": "Add note",
+                    "name": proposal_response.data["name"],
+                    "items": proposal_response.data["items"],
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data["proposal"]["confidence_score"], original_confidence
+        )
+
 
 @override_settings(
     OPENAI_API_KEY="test-key",
