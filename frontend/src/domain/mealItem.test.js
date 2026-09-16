@@ -2,14 +2,12 @@ import {
   catalogFoodToMealItem,
   catalogFoodToProposalItem,
   savedMealItemToEditableMealItem,
-} from './mealItemAdapters';
-import {
   changeMealItemNutrient,
   changeMealItemPortion,
   changeMealItemServings,
   removeMealItemFromTree,
-} from './mealItemTree';
-import { itemNutrientTotal } from './nutrition/nutritionMath';
+} from '../domain/mealItem';
+import { itemNutrientTotal } from '../components/nutrition/nutritionMath';
 
 const editableLeaf = (overrides = {}) => ({
   key: 'food',

@@ -56,13 +56,11 @@ import {
   mealItemToProposalItem,
   proposalItemToMealItem,
   savedMealItemToEditableMealItem,
-} from '../components/mealItemAdapters';
-import {
   changeMealItemNutrient,
   changeMealItemPortion,
   changeMealItemServings,
   removeMealItemFromTree,
-} from '../components/mealItemTree';
+} from '../domain/mealItem';
 import CalorieContributionChart from '../components/nutrition/CalorieContributionChart';
 import MacroCalorieBar from '../components/nutrition/MacroCalorieBar';
 import MacroCalorieSplit from '../components/nutrition/MacroCalorieSplit';
