@@ -2042,3 +2042,46 @@ def accept_proposal(*, proposal):
         created_by=proposal.owner,
     )
     return meal
+
+
+def process_meal_adjustment(
+    *, serializer, owner, request=None, temporary=False, get_provider=None
+):
+    from .serializers import MealProposalSerializer
+
+    get_provider = get_provider or get_estimation_provider
+    proposal = None
+    try:
+        proposal = serializer.create_proposal()
+        result = get_provider().follow_up(
+            original_description="",
+            meal_name=proposal.name,
+            items=proposal.items,
+            follow_up=serializer.validated_data["adjustment"],
+        )
+        outcome = apply_proposal_follow_up(
+            proposal=proposal,
+            owner=owner,
+            follow_up=serializer.validated_data["adjustment"],
+            items=proposal.items,
+            result=result,
+        )
+        updated_proposal = outcome["proposal"]
+        updated_proposal.refresh_from_db()
+        proposal_data = MealProposalSerializer(
+            updated_proposal,
+            context={"request": request},
+        ).data
+        return {
+            "applied": outcome["applied"],
+            "message": outcome["message"],
+            "proposal": proposal_data,
+        }
+    except Exception:
+        if proposal is not None:
+            proposal.delete()
+            proposal = None
+        raise
+    finally:
+        if temporary and proposal is not None:
+            proposal.delete()
