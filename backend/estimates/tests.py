@@ -810,6 +810,34 @@ class MealProposalApiTests(TestCase):
         )
         self.assertEqual(adjusted_item["source_kind"], "user_modified_estimate")
 
+    def test_builder_adjustment_cleans_up_proposal_on_unexpected_exception(self):
+        shared_food(name="Apple")
+        proposal_response = self.client.post(
+            "/api/meal-proposals/",
+            {"description": "Apple", "entry_date": "2026-08-16"},
+            format="json",
+        )
+        item = proposal_response.data["items"][0]
+        initial_count = MealProposal.objects.count()
+        provider = Mock()
+        provider.follow_up.side_effect = RuntimeError("Unexpected provider error")
+
+        with patch("estimates.views.get_estimation_provider", return_value=provider):
+            with self.assertRaises(RuntimeError):
+                self.client.post(
+                    "/api/meal-proposals/adjustments/",
+                    {
+                        "adjustment": "Make that two apples",
+                        "entry_date": "2026-08-16",
+                        "name": "Apple",
+                        "notes": "",
+                        "items": [item],
+                    },
+                    format="json",
+                )
+
+        self.assertEqual(MealProposal.objects.count(), initial_count)
+
     def test_follow_up_addition_reuses_a_matching_catalog_food(self):
         shared_food(name="Burger")
         kfc_fries = shared_food(
