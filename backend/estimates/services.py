@@ -1431,9 +1431,9 @@ def apply_proposal_follow_up(
         materialized_raw_additions = _shared_estimate_items(
             {
                 "items": raw_additions,
-                    "provider_name": result.get("provider_name") or "",
-                    "provider_model": result.get("provider_model") or "",
-                    "provider_response_id": result.get("provider_response_id") or "",
+                "provider_name": result.get("provider_name") or "",
+                "provider_model": result.get("provider_model") or "",
+                "provider_response_id": result.get("provider_response_id") or "",
             }
         )
     materialized_raw = iter(materialized_raw_additions)
@@ -1463,9 +1463,7 @@ def apply_proposal_follow_up(
             "proposal": proposal,
         }
 
-    proposal.name = _brief_generated_meal_name(
-        result.get("name") or proposal.name
-    )
+    proposal.name = _brief_generated_meal_name(result.get("name") or proposal.name)
     if entry_date is not None:
         proposal.entry_date = entry_date
     if notes is not None:
@@ -1473,7 +1471,11 @@ def apply_proposal_follow_up(
     proposal.items = normalize_items([*retained_items, *added_items])
     proposal.generator = MealProposal.Generator.OPENAI
     provider_name = result.get("provider_name") or ""
-    if proposal.provider_name and provider_name and provider_name not in proposal.provider_name:
+    if (
+        proposal.provider_name
+        and provider_name
+        and provider_name not in proposal.provider_name
+    ):
         proposal.provider_name = f"{proposal.provider_name} + {provider_name}"[:80]
     elif not proposal.provider_name:
         proposal.provider_name = provider_name
