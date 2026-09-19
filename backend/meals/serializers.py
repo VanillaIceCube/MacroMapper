@@ -10,6 +10,21 @@ from foods.portions import portion_options_for_serving
 from .models import MealEntry, MealItem
 from .services import _component_tree, replace_meal_items
 
+REQUIRED_SNAPSHOT_FIELDS = {
+    "food_item_id",
+    "food_version_id",
+    "food_name",
+    "servings",
+    "serving_quantity",
+    "serving_unit",
+    "serving_label",
+    "portion_options",
+    "provenance",
+    "nutrients",
+    "sources",
+    "components",
+}
+
 
 def _is_valid_component_snapshot(components):
     if not isinstance(components, list):
@@ -17,11 +32,13 @@ def _is_valid_component_snapshot(components):
     for component in components:
         if not isinstance(component, dict):
             return False
-        if "nutrients" not in component or not isinstance(
-            component.get("nutrients"), list
+        if not REQUIRED_SNAPSHOT_FIELDS.issubset(component.keys()):
+            return False
+        if not isinstance(component["nutrients"], list) or not isinstance(
+            component["sources"], list
         ):
             return False
-        if not _is_valid_component_snapshot(component.get("components", [])):
+        if not _is_valid_component_snapshot(component["components"]):
             return False
     return True
 

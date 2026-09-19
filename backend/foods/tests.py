@@ -573,6 +573,46 @@ class FoodApiTests(APITestCase):
         }
         self.assertEqual(component_names, {"Shared apple", "Owner smoothie"})
 
+    def test_catalog_create_uses_bulk_loaded_components(self):
+        self.client.force_authenticate(user=self.owner)
+        payload = self.personal_food_payload(
+            name="Apple toast combo",
+            definition={
+                "serving_quantity": "1",
+                "serving_unit": FoodItemVersion.ServingUnit.ITEM,
+                "serving_label": "one combo",
+                "provenance": FoodItemVersion.Provenance.USER_ENTERED,
+                "confidence_score": None,
+                "nutrients": {"calories": "300"},
+                "sources": [],
+                "components": [
+                    {"food_item": self.shared_food.id, "servings": "1", "order": 0},
+                    {"food_item": self.personal_food.id, "servings": "1", "order": 1},
+                ],
+            },
+        )
+
+        with CaptureQueriesContext(connection) as captured:
+            response = self.client.post("/api/foods/", payload, format="json")
+
+        read_component_queries = [
+            query
+            for query in captured.captured_queries
+            if 'WHERE "foods_foodcomponent"."parent_version_id" IN'
+            in query["sql"]
+        ]
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertLessEqual(
+            len(read_component_queries),
+            2,
+            [query["sql"] for query in read_component_queries],
+        )
+        component_names = {
+            item["food_item_name"]
+            for item in response.data["current_version"]["components"]
+        }
+        self.assertEqual(component_names, {"Shared apple", "Owner smoothie"})
+
     def test_shared_detail_retains_provenance_confidence_and_sources(self):
         self.client.force_authenticate(user=self.owner)
 

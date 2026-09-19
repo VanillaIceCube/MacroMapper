@@ -70,11 +70,9 @@ def _component_tree(version, visited=None):
     path = visited | {version.pk}
 
     snapshots = []
-    for component in (
-        version.components.select_related("child_version__food_item")
-        .prefetch_related("child_version__sources")
-        .order_by("order", "id")
-    ):
+    for component in version.components.select_related(
+        "child_version__food_item"
+    ).prefetch_related("child_version__sources").order_by("order", "id"):
         child = component.child_version
         child_nutrients = _effective_nutrients(child, path)
         snapshots.append(
