@@ -127,11 +127,25 @@ export function summarizeCalorieContributions(
   if (sorted.length <= maxItems) return sorted;
   const visibleCount = maxItems - 1;
   const remaining = sorted.slice(visibleCount);
+  const count = remaining.length;
+  let formattedOtherLabel;
+  if (typeof otherLabel === 'function') {
+    try {
+      formattedOtherLabel = otherLabel(count);
+    } catch (_err) {
+      formattedOtherLabel = `Other (${count})`;
+    }
+  } else if (typeof otherLabel === 'string' && otherLabel.trim() !== '') {
+    formattedOtherLabel = otherLabel.trim();
+  } else {
+    formattedOtherLabel = `Other (${count})`;
+  }
+
   return [
     ...sorted.slice(0, visibleCount),
     {
       key: otherKey,
-      name: otherLabel(remaining.length),
+      name: formattedOtherLabel,
       isOther: true,
       groupedItems: remaining,
       componentNames: remaining.map((item) => item.name || 'Item'),
