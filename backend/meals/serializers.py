@@ -11,6 +11,21 @@ from .models import MealEntry, MealItem
 from .services import _component_tree, replace_meal_items
 
 
+def _is_valid_component_snapshot(components):
+    if not isinstance(components, list):
+        return False
+    for component in components:
+        if not isinstance(component, dict):
+            return False
+        if "nutrients" not in component or not isinstance(
+            component.get("nutrients"), list
+        ):
+            return False
+        if not _is_valid_component_snapshot(component.get("components", [])):
+            return False
+    return True
+
+
 class MealItemSerializer(serializers.ModelSerializer):
     food_item_id = serializers.IntegerField(source="food_version.food_item_id")
     food_version_id = serializers.IntegerField(read_only=True)
@@ -76,6 +91,10 @@ class MealItemSerializer(serializers.ModelSerializer):
         ]
 
     def get_component_snapshot(self, instance):
+        if instance.component_snapshot and _is_valid_component_snapshot(
+            instance.component_snapshot
+        ):
+            return instance.component_snapshot
         return _component_tree(instance.food_version)
 
     def get_sources(self, instance):

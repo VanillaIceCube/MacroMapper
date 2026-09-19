@@ -47,9 +47,7 @@ class FoodItemViewSet(viewsets.ModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
-        version_ids = (
-            [instance.current_version_id] if instance.current_version_id else []
-        )
+        version_ids = [instance.current_version_id] if instance.current_version_id else []
         component_map = build_component_map(version_ids)
         serializer = self.get_serializer(
             instance,
@@ -63,9 +61,7 @@ class FoodItemViewSet(viewsets.ModelViewSet):
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         instance = serializer.instance
-        version_ids = (
-            [instance.current_version_id] if instance.current_version_id else []
-        )
+        version_ids = [instance.current_version_id] if instance.current_version_id else []
         component_map = build_component_map(version_ids)
         output_serializer = self.get_serializer(
             instance,
@@ -85,9 +81,7 @@ class FoodItemViewSet(viewsets.ModelViewSet):
         self.perform_update(serializer)
         if getattr(instance, "_prefetched_objects_cache", None):
             instance._prefetched_objects_cache = {}
-        version_ids = (
-            [instance.current_version_id] if instance.current_version_id else []
-        )
+        version_ids = [instance.current_version_id] if instance.current_version_id else []
         component_map = build_component_map(version_ids)
         output_serializer = self.get_serializer(
             instance,
