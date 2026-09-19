@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import AuthPageShell from '../../components/AuthPageShell';
 import { forgotPassword } from '../../services/authApiClient';
-import { readOkJson } from '../../services/authSession';
+import { formatAuthErrorMessage, readOkJson } from '../../services/authSession';
 
 export default function ForgotPassword({ showSnackbar }) {
   const [email, setEmail] = useState('');
@@ -19,12 +19,7 @@ export default function ForgotPassword({ showSnackbar }) {
       );
       navigate('/login');
     } catch (error) {
-      const isNetworkError =
-        error instanceof TypeError || error?.message?.toLowerCase().includes('network');
-      showSnackbar(
-        'error',
-        isNetworkError ? 'Network error.' : error?.message || 'Password reset request failed.',
-      );
+      showSnackbar('error', formatAuthErrorMessage(error, 'Password reset request failed.'));
     }
   };
 

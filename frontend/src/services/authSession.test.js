@@ -1,4 +1,9 @@
-import { getResponseErrorMessage, persistAuthSession, readOkJson } from './authSession';
+import {
+  formatAuthErrorMessage,
+  getResponseErrorMessage,
+  persistAuthSession,
+  readOkJson,
+} from './authSession';
 
 function makeResponse({ ok, status = 200, json }) {
   return { ok, status, json };
@@ -105,6 +110,25 @@ describe('authSession', () => {
     });
   });
 
+  describe('formatAuthErrorMessage', () => {
+    test('returns "Network error." for TypeError or network error message', () => {
+      expect(formatAuthErrorMessage(new TypeError('Failed to fetch'))).toBe('Network error.');
+      expect(formatAuthErrorMessage(new Error('Network request failed'))).toBe('Network error.');
+    });
+
+    test('returns error message if available and not a network error', () => {
+      expect(formatAuthErrorMessage(new Error('Invalid email or password.'))).toBe(
+        'Invalid email or password.',
+      );
+    });
+
+    test('returns fallback message if error is empty or has no message', () => {
+      expect(formatAuthErrorMessage(null, 'Custom fallback')).toBe('Custom fallback');
+      expect(formatAuthErrorMessage({}, 'Custom fallback')).toBe('Custom fallback');
+      expect(formatAuthErrorMessage(new Error(''))).toBe('An unexpected error occurred.');
+    });
+  });
+
   describe('persistAuthSession', () => {
     test('when tokens are missing, it throws', () => {
       expect(() => persistAuthSession({})).toThrow('Auth response missing tokens.');
@@ -126,7 +150,10 @@ describe('authSession', () => {
       expect(sessionStorage.getItem('email')).toBe('e@example.com');
     });
 
-    test('when username/email are missing, it does not store "undefined"', () => {
+    test('when username/email are missing, it does not store "undefined" and removes stale values', () => {
+      sessionStorage.setItem('username', 'old_user');
+      sessionStorage.setItem('email', 'old@example.com');
+
       persistAuthSession({ access: 'A', refresh: 'R', username: undefined, email: undefined });
 
       expect(sessionStorage.getItem('username')).toBeNull();

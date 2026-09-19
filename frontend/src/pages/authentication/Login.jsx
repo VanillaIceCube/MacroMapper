@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import AuthPageShell from '../../components/AuthPageShell';
 import { login } from '../../services/authApiClient';
-import { persistAuthSession, readOkJson } from '../../services/authSession';
+import { formatAuthErrorMessage, persistAuthSession, readOkJson } from '../../services/authSession';
 
 export default function Login({ showSnackbar }) {
   const [email, setEmail] = useState('');
@@ -31,9 +31,7 @@ export default function Login({ showSnackbar }) {
       showSnackbar('success', `Welcome ${data.username || email.split('@')[0] || 'there'}!`);
       navigate('/');
     } catch (error) {
-      const isNetworkError =
-        error instanceof TypeError || error?.message?.toLowerCase().includes('network');
-      showSnackbar('error', isNetworkError ? 'Network error.' : error?.message || 'Login failed.');
+      showSnackbar('error', formatAuthErrorMessage(error, 'Login failed.'));
     }
   };
 
