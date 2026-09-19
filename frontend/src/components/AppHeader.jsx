@@ -31,6 +31,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '../services/notificationApiClient';
+import { getResponseErrorMessage, safeReadJson } from '../services/authSession';
 import { logout } from '../services/requestClient';
 
 const AUTH_PATHS = ['/login', '/register', '/forgot-password', '/reset-password'];
@@ -75,9 +76,15 @@ export default function AppHeader({ title, setDrawerOpen }) {
     setNotificationError('');
     try {
       const response = await fetchNotifications(accessToken);
-      if (!response.ok) throw new Error('Unable to load notifications.');
-      const data = await response.json();
-      setNotifications(Array.isArray(data) ? data : []);
+      if (!response.ok) {
+        setNotificationError(
+          await getResponseErrorMessage(response, 'Notifications are unavailable right now.'),
+        );
+        setNotifications([]);
+      } else {
+        const data = await safeReadJson(response);
+        setNotifications(Array.isArray(data) ? data : []);
+      }
     } catch (_error) {
       setNotificationError('Notifications are unavailable right now.');
     } finally {
@@ -93,7 +100,10 @@ export default function AppHeader({ title, setDrawerOpen }) {
     setNotificationError('');
     try {
       const response = await operation(notificationId, accessToken);
-      if (!response.ok) throw new Error(errorMessage);
+      if (!response.ok) {
+        setNotificationError(await getResponseErrorMessage(response, errorMessage));
+        return null;
+      }
       return response;
     } catch (_error) {
       setNotificationError(errorMessage);
@@ -108,7 +118,8 @@ export default function AppHeader({ title, setDrawerOpen }) {
       'Could not update that notification.',
     );
     if (!response) return;
-    const updated = await response.json();
+    const updated = await safeReadJson(response);
+    if (!updated) return;
     setNotifications((current) =>
       current.map((notification) => (notification.id === updated.id ? updated : notification)),
     );
@@ -138,7 +149,12 @@ export default function AppHeader({ title, setDrawerOpen }) {
     setNotificationError('');
     try {
       const response = await markAllNotificationsRead(accessToken);
-      if (!response.ok) throw new Error();
+      if (!response.ok) {
+        setNotificationError(
+          await getResponseErrorMessage(response, 'Could not update notifications.'),
+        );
+        return;
+      }
       setNotifications((current) =>
         current.map((notification) => ({ ...notification, is_read: true })),
       );
@@ -151,7 +167,12 @@ export default function AppHeader({ title, setDrawerOpen }) {
     setNotificationError('');
     try {
       const response = await clearAllNotifications(accessToken);
-      if (!response.ok) throw new Error();
+      if (!response.ok) {
+        setNotificationError(
+          await getResponseErrorMessage(response, 'Could not clear notifications.'),
+        );
+        return;
+      }
       setNotifications([]);
     } catch (_error) {
       setNotificationError('Could not clear notifications.');

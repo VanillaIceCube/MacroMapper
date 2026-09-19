@@ -1,4 +1,9 @@
-import { getResponseErrorMessage, persistAuthSession, readOkJson } from './authSession';
+import {
+  getResponseErrorMessage,
+  persistAuthSession,
+  readOkJson,
+  safeReadJson,
+} from './authSession';
 
 function makeResponse({ ok, status = 200, json }) {
   return { ok, status, json };
@@ -8,6 +13,23 @@ describe('authSession', () => {
   beforeEach(() => {
     sessionStorage.clear();
     vi.restoreAllMocks();
+  });
+
+  describe('safeReadJson', () => {
+    test('returns parsed json on success', async () => {
+      const response = makeResponse({ ok: true, json: async () => ({ foo: 'bar' }) });
+      await expect(safeReadJson(response)).resolves.toEqual({ foo: 'bar' });
+    });
+
+    test('returns null when json parsing fails', async () => {
+      const response = makeResponse({
+        ok: false,
+        json: async () => {
+          throw new Error('bad json');
+        },
+      });
+      await expect(safeReadJson(response)).resolves.toBeNull();
+    });
   });
 
   describe('getResponseErrorMessage', () => {
@@ -32,6 +54,30 @@ describe('authSession', () => {
 
       await expect(getResponseErrorMessage(response, 'fallback')).resolves.toBe(
         'Invalid credentials',
+      );
+    });
+
+    test('when response json is a DRF field validation object, it extracts the first error', async () => {
+      const response = makeResponse({
+        ok: false,
+        status: 400,
+        json: async () => ({ date: ['Supply a valid date in YYYY-MM-DD format.'] }),
+      });
+
+      await expect(getResponseErrorMessage(response, 'fallback')).resolves.toBe(
+        'Supply a valid date in YYYY-MM-DD format.',
+      );
+    });
+
+    test('when response json is an array of error strings, it extracts the first string', async () => {
+      const response = makeResponse({
+        ok: false,
+        status: 400,
+        json: async () => ['Accepted proposals cannot be deleted.'],
+      });
+
+      await expect(getResponseErrorMessage(response, 'fallback')).resolves.toBe(
+        'Accepted proposals cannot be deleted.',
       );
     });
 
