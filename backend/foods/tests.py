@@ -598,8 +598,7 @@ class FoodApiTests(APITestCase):
         read_component_queries = [
             query
             for query in captured.captured_queries
-            if 'WHERE "foods_foodcomponent"."parent_version_id" IN'
-            in query["sql"]
+            if 'WHERE "foods_foodcomponent"."parent_version_id" IN' in query["sql"]
         ]
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         self.assertLessEqual(
