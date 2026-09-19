@@ -15,6 +15,14 @@ The authentication, application, Food Item catalog, private meal diary, and
 GPT-assisted meal-estimation flows are implemented. Activity and goal features
 remain planned in the [product roadmap](docs/PRODUCT_VISION.md).
 
+## 👋 A Note from the Author
+
+First and foremost, I created this application because I wanted a Calorie Counting App. I used to use MyFitnessPal, but I wanted something AI-Powered, and all options were like $20 bucks a month. I also didn't want to take pictures of my food? I mean I feel like that would just give you the worst estimate of all time.
+
+I had a vision where you'd write up a description then it would do it's best to fact check it against the internet. Like if I said I wanted a double double animal style with no lettuce (this is an example, I love lettuce) from inn-n-out, it would go to the internet and find the double double facts, find the animal style if it can, then break it down into components, and then remove the lettuce. And that info would be available for everyone in the application, with confidence level, the actual source, and a provenance marking.
+
+Outside of that, I mean my goal was to get a good personal use application that utilized generative AI in a manner that you could trust and audit it.
+
 ## ✨ Features
 - **Account foundation:** email-first registration, JWT sessions, password
   reset, protected routes, and recipient-scoped notifications
@@ -53,6 +61,46 @@ remain planned in the [product roadmap](docs/PRODUCT_VISION.md).
 - **Security automation:** CodeQL, dependency and malware review, Dependabot,
   blocking AI PR reviewer verdicts enforced through required checks, and
   scheduled security-alert aggregation
+
+## 📸 Application Tour
+
+### Daily Nutrition Page 01
+
+View your daily statistics.
+
+![MacroMapper daily nutrition summary with nutrient totals, macro balance, and calories by meal](docs/images/daily-nutrition-01.png)
+
+### Daily Nutrition Page 02
+
+View your meal-by-meal stats as well as their confidence and provenance.
+
+![MacroMapper meal log with food-level nutrition, confidence, provenance, and macro charts](docs/images/daily-nutrition-02.png)
+
+### Meal Estimation Page 01
+
+Estimate your meal with AI!
+
+![MacroMapper AI meal description dialog](docs/images/meal-estimation-01.png)
+
+### Meal Estimation Page 02
+
+The nutritional information for your meal!
+
+![MacroMapper estimated meal editor with nutrition totals and meal items](docs/images/meal-estimation-02.png)
+
+### Meal Estimation Page 03
+
+Break down meal items by component for easy adjustments—like, “Oh! I actually
+didn't have sour cream.” The app also displays the provenance, source, and
+confidence.
+
+![MacroMapper meal component editor with source, provenance, and confidence details](docs/images/meal-estimation-03.png)
+
+### Meal Estimation Page 04
+
+Manually add items from the catalog, or use AI to make adjustments!
+
+![MacroMapper catalog search and conversational AI adjustment controls](docs/images/meal-estimation-04.png)
 
 ## 📚 Documentation
 - Product vision and delivery roadmap: [`docs/PRODUCT_VISION.md`](docs/PRODUCT_VISION.md)
