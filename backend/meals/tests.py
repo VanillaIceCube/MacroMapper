@@ -311,6 +311,37 @@ class MealEntryApiTests(APITestCase):
             all(component["nutrients"] for component in returned_components)
         )
 
+    def test_malformed_component_snapshot_falls_back_to_tree(self):
+        composite = create_food_item(
+            name="Apple toast",
+            scope=FoodItem.Scope.PERSONAL,
+            origin_type=FoodItem.OriginType.GENERIC,
+            provider_name="",
+            owner=self.owner,
+            definition=definition(
+                components=[
+                    {"food_item": self.apple, "servings": Decimal("1"), "order": 0},
+                    {"food_item": self.toast, "servings": Decimal("1"), "order": 1},
+                ],
+            ),
+            created_by=self.owner,
+        )
+        created = self.create_meal(
+            item_inputs=[{"food_item": composite.id, "servings": "1", "order": 0}]
+        )
+        saved_item = MealItem.objects.get(pk=created.data["items"][0]["id"])
+        saved_item.component_snapshot = [{"food_item_id": 123}]
+        saved_item.save(update_fields=["component_snapshot"])
+
+        response = self.client.get(f"/api/meals/{created.data['id']}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        returned_components = response.data["items"][0]["component_snapshot"]
+        self.assertTrue(returned_components)
+        self.assertEqual(len(returned_components), 2)
+        self.assertIn("nutrients", returned_components[0])
+        self.assertIn("food_name", returned_components[0])
+
     def test_composite_reuses_descendant_across_independent_branches(self):
         branch_definition = {
             **definition(),

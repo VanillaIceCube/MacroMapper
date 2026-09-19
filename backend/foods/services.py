@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Max
@@ -8,6 +10,28 @@ from .models import (
     FoodItemVersion,
     SourceReference,
 )
+
+
+def build_component_map(root_version_ids):
+    component_map = defaultdict(list)
+    pending_version_ids = {vid for vid in root_version_ids if vid}
+    visited_version_ids = set()
+    while pending_version_ids:
+        pending_version_ids -= visited_version_ids
+        if not pending_version_ids:
+            break
+        components = list(
+            FoodComponent.objects.filter(parent_version_id__in=pending_version_ids)
+            .select_related("child_version__food_item")
+            .prefetch_related("child_version__sources")
+        )
+        visited_version_ids.update(pending_version_ids)
+        pending_version_ids = set()
+        for component in components:
+            component_map[component.parent_version_id].append(component)
+            if component.child_version_id not in visited_version_ids:
+                pending_version_ids.add(component.child_version_id)
+    return component_map
 
 
 @transaction.atomic
