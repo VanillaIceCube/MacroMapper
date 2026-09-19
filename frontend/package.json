@@ -11,14 +11,14 @@
     "@mui/icons-material": "^9.3.1",
     "@mui/material": "^9.3.1",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8",
+    "react-dom": "^19.3.0",
     "react-router": "^8.3.1"
   },
   "devDependencies": {
     "@babel/parser": "^7.29.8",
     "@eslint/compat": "^2.1.1",
     "@eslint/js": "^9.39.5",
-    "@testing-library/dom": "^10.4.1",
+    "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",
@@ -30,7 +30,7 @@
     "globals": "^17.12.0",
     "jsdom": "^30.0.1",
     "prettier": "^3.9.6",
-    "vite": "^8.2.2",
+    "vite": "^8.3.0",
     "vitest": "^4.1.11"
   },
   "scripts": {
