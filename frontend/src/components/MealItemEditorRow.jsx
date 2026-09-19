@@ -144,20 +144,20 @@ export default function MealItemEditorRow({
               value={servingAmountValue(item)}
               onChange={(event) => onServings(item.key, event.target.value, item)}
               disabled={!canEditItem}
-              slotProps={{ htmlInput: { min: 0, step: 1 } }}
+              slotProps={{ htmlInput: { min: 0, step: 'any' } }}
               sx={{ gridArea: 'quantity', minWidth: 0, width: '100%' }}
             />
             <TextField
               select
               label="Unit"
               size="small"
-              value={activePortion.key}
+              value={activePortion?.key || 'base'}
               onChange={(event) => onPortionChange(item.key, event.target.value)}
               disabled={!canEditItem || options.length < 2}
               sx={{ gridArea: 'portion', minWidth: 0, width: '100%' }}
             >
               {options.map((option) => (
-                <MenuItem key={option.key} value={option.key}>
+                <MenuItem key={option.key || option.label} value={option.key || 'base'}>
                   {portionOptionLabel(option)}
                 </MenuItem>
               ))}
