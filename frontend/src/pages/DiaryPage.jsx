@@ -91,6 +91,14 @@ const provenanceLabels = {
 };
 
 const catalogPageSize = 20;
+const initialCatalogRequest = {
+  query: '',
+  scope: 'all',
+  originType: 'all',
+  sort: 'recommended',
+  provider: '',
+  provenance: 'all',
+};
 const catalogScopeOptions = [
   { value: 'all', label: 'All' },
   { value: 'personal', label: 'My Foods' },
@@ -222,6 +230,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
   const [baselineFingerprint, setBaselineFingerprint] = useState('');
   const catalogSearchRef = useRef(null);
   const catalogRequestIdRef = useRef(0);
+  const appliedCatalogRequestRef = useRef(initialCatalogRequest);
   const selectedFoodIds = useMemo(
     () => new Set(items.map((item) => String(item.food_item))),
     [items],
@@ -242,16 +251,17 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     Number(appliedCatalogProvenance !== 'all');
 
   const loadRecentFoods = useCallback(
-    async ({ append = false, offset = 0 } = {}) => {
+    async ({ append = false, offset = 0 } = {}, appliedRequest = initialCatalogRequest) => {
       const requestId = ++catalogRequestIdRef.current;
       if (append) {
         setLoadingMoreFoods(true);
       } else {
         setSearching(true);
         setLoadingMoreFoods(false);
-        setAppliedCatalogOriginType('all');
-        setAppliedCatalogProvider('');
-        setAppliedCatalogProvenance('all');
+        appliedCatalogRequestRef.current = appliedRequest;
+        setAppliedCatalogOriginType(appliedRequest.originType);
+        setAppliedCatalogProvider(appliedRequest.provider);
+        setAppliedCatalogProvenance(appliedRequest.provenance);
         setHasSearched(false);
         setShowingRecentFoods(true);
         setFoods([]);
@@ -283,13 +293,21 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
           if (requestId !== catalogRequestIdRef.current) return;
           if (!append) setFoods([]);
           setCatalogError(message);
-          setCatalogRetry({ type: 'recent', pageOptions: { append, offset } });
+          setCatalogRetry({
+            type: 'recent',
+            appliedRequest,
+            pageOptions: { append, offset },
+          });
         }
       } catch (_error) {
         if (requestId !== catalogRequestIdRef.current) return;
         if (!append) setFoods([]);
         setCatalogError('Could not load recent catalog foods.');
-        setCatalogRetry({ type: 'recent', pageOptions: { append, offset } });
+        setCatalogRetry({
+          type: 'recent',
+          appliedRequest,
+          pageOptions: { append, offset },
+        });
       } finally {
         if (requestId === catalogRequestIdRef.current) {
           if (append) setLoadingMoreFoods(false);
@@ -308,6 +326,14 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
       const nextSort = overrides.sort ?? catalogSort;
       const nextProvider = overrides.provider ?? catalogProvider;
       const nextProvenance = overrides.provenance ?? catalogProvenance;
+      const appliedRequest = {
+        query: nextQuery,
+        scope: nextScope,
+        originType: nextOriginType,
+        sort: nextSort,
+        provider: nextProvider,
+        provenance: nextProvenance,
+      };
       const normalizedQuery = nextQuery.trim();
       const hasFilters =
         nextScope !== 'all' ||
@@ -319,7 +345,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
         !hasFilters &&
         (nextSort === 'recommended' || nextSort === 'recent')
       ) {
-        loadRecentFoods();
+        loadRecentFoods({ append, offset }, appliedRequest);
         return;
       }
       const requestId = ++catalogRequestIdRef.current;
@@ -338,6 +364,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
       setCatalogError('');
       setCatalogRetry(null);
       if (!append) {
+        appliedCatalogRequestRef.current = appliedRequest;
         setAppliedCatalogOriginType(nextOriginType);
         setAppliedCatalogProvider(nextProvider);
         setAppliedCatalogProvenance(nextProvenance);
@@ -358,14 +385,6 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
       if (nextOriginType !== 'all') options.originType = nextOriginType;
       if (nextProvider.trim()) options.provider = nextProvider.trim();
       if (nextProvenance !== 'all') options.provenance = nextProvenance;
-      const retryOverrides = {
-        query: nextQuery,
-        scope: nextScope,
-        originType: nextOriginType,
-        sort: nextSort,
-        provider: nextProvider,
-        provenance: nextProvenance,
-      };
       try {
         const response = await searchFoods(normalizedQuery, token, options);
         if (requestId !== catalogRequestIdRef.current) return;
@@ -386,7 +405,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
           setCatalogError(message);
           setCatalogRetry({
             type: 'search',
-            overrides: retryOverrides,
+            overrides: appliedRequest,
             pageOptions: { append, offset },
           });
         }
@@ -395,7 +414,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
         setCatalogError('Could not search the food catalog.');
         setCatalogRetry({
           type: 'search',
-          overrides: retryOverrides,
+          overrides: appliedRequest,
           pageOptions: { append, offset },
         });
       } finally {
@@ -417,10 +436,16 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     ],
   );
 
+  const runAppliedCatalogSearch = useCallback(
+    (overrides = {}, pageOptions = {}) =>
+      runSearch({ ...appliedCatalogRequestRef.current, ...overrides }, pageOptions),
+    [runSearch],
+  );
+
   const retryCatalogRequest = () => {
     if (!catalogRetry) return;
     if (catalogRetry.type === 'recent') {
-      loadRecentFoods(catalogRetry.pageOptions);
+      loadRecentFoods(catalogRetry.pageOptions, catalogRetry.appliedRequest);
       return;
     }
     runSearch(catalogRetry.overrides, catalogRetry.pageOptions);
@@ -434,11 +459,12 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     setCatalogFeedback('');
     setCatalogError('');
     setCatalogRetry(null);
-    if (query.trim() || catalogSort === 'name' || catalogSort === 'logged') {
-      runSearch({ scope: 'all', originType: 'all', provider: '', provenance: 'all' });
-    } else {
-      loadRecentFoods();
-    }
+    runAppliedCatalogSearch({
+      scope: 'all',
+      originType: 'all',
+      provider: '',
+      provenance: 'all',
+    });
   };
 
   const clearCatalogFilter = (filter) => {
@@ -456,19 +482,20 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     if (filter === 'provenance') {
       setCatalogProvenance('all');
     }
-    if (filter !== 'scope') {
-      overrides.originType = filter === 'originType' ? 'all' : appliedCatalogOriginType;
-      overrides.provider = filter === 'provider' ? '' : appliedCatalogProvider;
-      overrides.provenance = filter === 'provenance' ? 'all' : appliedCatalogProvenance;
-    }
-    runSearch(overrides);
+    if (filter === 'originType') overrides.originType = 'all';
+    if (filter === 'provider') overrides.provider = '';
+    if (filter === 'provenance') overrides.provenance = 'all';
+    runAppliedCatalogSearch(overrides);
   };
 
   const loadMoreCatalogFoods = () => {
     if (!catalogHasMore || searching || loadingMoreFoods) return;
     const pageOptions = { append: true, offset: catalogNextOffset };
-    if (showingRecentFoods) loadRecentFoods(pageOptions);
-    else runSearch({}, pageOptions);
+    if (showingRecentFoods) {
+      loadRecentFoods(pageOptions, appliedCatalogRequestRef.current);
+    } else {
+      runAppliedCatalogSearch({}, pageOptions);
+    }
   };
 
   useEffect(() => {
@@ -510,6 +537,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     setAppliedCatalogOriginType('all');
     setAppliedCatalogProvider('');
     setAppliedCatalogProvenance('all');
+    appliedCatalogRequestRef.current = initialCatalogRequest;
     setCatalogFeedback('');
     setCatalogError('');
     setCatalogRetry(null);
@@ -1030,15 +1058,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                         const nextQuery = event.target.value;
                         setQuery(nextQuery);
                         if (!nextQuery.trim()) {
-                          if (
-                            hasCatalogFilters ||
-                            catalogSort === 'name' ||
-                            catalogSort === 'logged'
-                          ) {
-                            runSearch({ query: '' });
-                          } else {
-                            loadRecentFoods();
-                          }
+                          runAppliedCatalogSearch({ query: '' });
                         }
                       }}
                       onKeyDown={(event) => {
@@ -1076,7 +1096,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                         onChange={(_event, nextScope) => {
                           if (!nextScope) return;
                           setCatalogScope(nextScope);
-                          runSearch({ scope: nextScope });
+                          runAppliedCatalogSearch({ scope: nextScope });
                         }}
                         aria-label="Catalog scope"
                         sx={{
@@ -1119,7 +1139,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                         onChange={(event) => {
                           const nextSort = event.target.value;
                           setCatalogSort(nextSort);
-                          runSearch({ sort: nextSort });
+                          runAppliedCatalogSearch({ sort: nextSort });
                         }}
                         sx={{ minWidth: 150 }}
                       >

@@ -605,6 +605,93 @@ describe('DiaryPage', () => {
     expect(within(dialog).getByRole('button', { name: 'Filters (1)' })).toBeVisible();
   });
 
+  test('preserves applied criteria when scope and sorting change with unapplied drafts', async () => {
+    const user = userEvent.setup();
+    searchFoods.mockResolvedValue(response([apple]));
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    await within(dialog).findByText('Apple');
+    await user.click(within(dialog).getByRole('button', { name: 'My Foods' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Filters' }));
+    await user.type(within(dialog).getByRole('textbox', { name: 'Provider or brand' }), 'Orchard');
+    await user.click(within(dialog).getByRole('button', { name: 'Apply filters' }));
+
+    await user.type(within(dialog).getByRole('textbox', { name: 'Search catalog' }), 'pear');
+    await user.clear(within(dialog).getByRole('textbox', { name: 'Provider or brand' }));
+    await user.type(within(dialog).getByRole('textbox', { name: 'Provider or brand' }), 'Market');
+    await user.click(within(dialog).getByRole('combobox', { name: 'Food type' }));
+    await user.click(screen.getByRole('option', { name: 'Branded' }));
+
+    await user.click(within(dialog).getByRole('button', { name: 'All' }));
+    await waitFor(() =>
+      expect(searchFoods).toHaveBeenLastCalledWith('', 'access-token', {
+        limit: 21,
+        offset: 0,
+        ordering: '-created_at,-id',
+        provider: 'Orchard',
+      }),
+    );
+
+    await user.click(within(dialog).getByRole('combobox', { name: 'Sort' }));
+    await user.click(screen.getByRole('option', { name: 'Alphabetically' }));
+    await waitFor(() =>
+      expect(searchFoods).toHaveBeenLastCalledWith('', 'access-token', {
+        limit: 21,
+        offset: 0,
+        ordering: 'name,id',
+        provider: 'Orchard',
+      }),
+    );
+    const activeFilters = within(dialog).getByLabelText('Active catalog filters');
+    expect(within(activeFilters).getByText('Provider: Orchard')).toBeVisible();
+    expect(within(activeFilters).queryByText('Type: Branded')).not.toBeInTheDocument();
+  });
+
+  test('paginates with the exact applied criteria instead of unapplied drafts', async () => {
+    const user = userEvent.setup();
+    const catalogResults = Array.from({ length: 21 }, (_, index) => ({
+      ...apple,
+      id: 300 + index,
+      name: `Filtered food ${String(index + 1).padStart(2, '0')}`,
+      current_version: { ...apple.current_version, id: 400 + index },
+    }));
+    searchFoods.mockResolvedValue(response(catalogResults));
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    await within(dialog).findByText('Filtered food 01');
+    await user.click(within(dialog).getByRole('button', { name: 'My Foods' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Filters' }));
+    await user.type(within(dialog).getByRole('textbox', { name: 'Provider or brand' }), 'Orchard');
+    await user.click(within(dialog).getByRole('button', { name: 'Apply filters' }));
+
+    await user.clear(within(dialog).getByRole('textbox', { name: 'Provider or brand' }));
+    await user.type(within(dialog).getByRole('textbox', { name: 'Provider or brand' }), 'Market');
+    await user.click(within(dialog).getByRole('combobox', { name: 'Food type' }));
+    await user.click(screen.getByRole('option', { name: 'Branded' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Show 20 more' }));
+
+    await waitFor(() =>
+      expect(searchFoods).toHaveBeenLastCalledWith('', 'access-token', {
+        limit: 21,
+        offset: 20,
+        ordering: '-created_at,-id',
+        scope: 'personal',
+        provider: 'Orchard',
+      }),
+    );
+    const activeFilters = within(dialog).getByLabelText('Active catalog filters');
+    expect(within(activeFilters).getByText('Provider: Orchard')).toBeVisible();
+    expect(within(activeFilters).queryByText('Type: Branded')).not.toBeInTheDocument();
+  });
+
   test('isolates shared catalog foods', async () => {
     const user = userEvent.setup();
     searchFoods.mockResolvedValue(response([apple]));

@@ -10,6 +10,8 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Keep pagination, scope changes, sorting, filter removal, and retries tied to
+  the last applied catalog request instead of silently applying draft criteria.
 - Keep catalog filter alignment and wrapping styles inside Material UI's supported
   styling API instead of forwarding them to the browser DOM.
 
