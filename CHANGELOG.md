@@ -18,6 +18,9 @@ All notable changes to this project are documented in this file.
 - Paginate the food catalog in 20-item pages with a compact in-list Show more
   action that preserves the active search and filters, plus a dedicated scrollbar
   gutter that keeps result cards clear of the scroll track.
+- Replace the catalog's always-visible technical filters with quick food-type
+  choices, a compact advanced Filters panel, and relevance, recency, or name
+  sorting.
 
 ## 2026-09-05
 

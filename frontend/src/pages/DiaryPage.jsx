@@ -14,6 +14,7 @@ import RestaurantMenuOutlinedIcon from '@mui/icons-material/RestaurantMenuOutlin
 import SearchIcon from '@mui/icons-material/Search';
 import SendIcon from '@mui/icons-material/Send';
 import TodayOutlinedIcon from '@mui/icons-material/TodayOutlined';
+import TuneIcon from '@mui/icons-material/Tune';
 import {
   Alert,
   Box,
@@ -35,6 +36,8 @@ import {
   Skeleton,
   Stack,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -88,6 +91,18 @@ const provenanceLabels = {
 };
 
 const catalogPageSize = 20;
+const catalogKindOptions = [
+  { value: 'all', label: 'All' },
+  { value: 'personal', label: 'My Foods' },
+  { value: 'generic', label: 'Common' },
+  { value: 'branded', label: 'Branded' },
+  { value: 'restaurant', label: 'Restaurant' },
+];
+const catalogSortOptions = [
+  { value: 'recommended', label: 'Recommended' },
+  { value: 'recent', label: 'Recently added' },
+  { value: 'name', label: 'Name A–Z' },
+];
 const mealBuilderSurfaceRadius = 1.5;
 
 const localDate = () => {
@@ -175,7 +190,9 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
   const [adjustmentBusy, setAdjustmentBusy] = useState(false);
   const [adjustmentFeedback, setAdjustmentFeedback] = useState(null);
   const [query, setQuery] = useState('');
-  const [catalogScope, setCatalogScope] = useState('all');
+  const [catalogKind, setCatalogKind] = useState('all');
+  const [catalogSort, setCatalogSort] = useState('recommended');
+  const [catalogFiltersOpen, setCatalogFiltersOpen] = useState(false);
   const [catalogProvider, setCatalogProvider] = useState('');
   const [catalogProvenance, setCatalogProvenance] = useState('all');
   const [catalogFeedback, setCatalogFeedback] = useState('');
@@ -205,56 +222,62 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
   );
   const activeCatalogFood = availableFoods.find((food) => food.id === catalogActionsFoodId);
   const hasCatalogFilters =
-    catalogScope !== 'all' || Boolean(catalogProvider.trim()) || catalogProvenance !== 'all';
+    catalogKind !== 'all' || Boolean(catalogProvider.trim()) || catalogProvenance !== 'all';
+  const advancedCatalogFilterCount =
+    Number(Boolean(catalogProvider.trim())) + Number(catalogProvenance !== 'all');
 
-  const loadRecentFoods = useCallback(async ({ append = false, offset = 0 } = {}) => {
-    const requestId = ++catalogRequestIdRef.current;
-    if (append) {
-      setLoadingMoreFoods(true);
-    } else {
-      setSearching(true);
-      setLoadingMoreFoods(false);
-      setHasSearched(false);
-      setShowingRecentFoods(true);
-      setFoods([]);
-      setCatalogHasMore(false);
-      setCatalogNextOffset(0);
-    }
-    setError('');
-    const response = await searchFoods('', token, {
-      ordering: '-created_at,-id',
-      limit: catalogPageSize + 1,
-      offset,
-    });
-    if (requestId !== catalogRequestIdRef.current) return;
-    if (response.ok) {
-      const results = await response.json();
-      const page = results.slice(0, catalogPageSize);
-      setFoods((current) => {
-        if (!append) return page;
-        const loadedIds = new Set(current.map((food) => String(food.id)));
-        return [...current, ...page.filter((food) => !loadedIds.has(String(food.id)))];
+  const loadRecentFoods = useCallback(
+    async ({ append = false, offset = 0 } = {}) => {
+      const requestId = ++catalogRequestIdRef.current;
+      if (append) {
+        setLoadingMoreFoods(true);
+      } else {
+        setSearching(true);
+        setLoadingMoreFoods(false);
+        setHasSearched(false);
+        setShowingRecentFoods(true);
+        setFoods([]);
+        setCatalogHasMore(false);
+        setCatalogNextOffset(0);
+      }
+      setError('');
+      const response = await searchFoods('', token, {
+        ordering: '-created_at,-id',
+        limit: catalogPageSize + 1,
+        offset,
       });
-      setCatalogHasMore(results.length > catalogPageSize);
-      setCatalogNextOffset(offset + page.length);
-    } else {
-      if (!append) setFoods([]);
-      setError(await responseError(response, 'Could not load recent catalog foods.'));
-    }
-    if (append) setLoadingMoreFoods(false);
-    else setSearching(false);
-  }, [token]);
+      if (requestId !== catalogRequestIdRef.current) return;
+      if (response.ok) {
+        const results = await response.json();
+        const page = results.slice(0, catalogPageSize);
+        setFoods((current) => {
+          if (!append) return page;
+          const loadedIds = new Set(current.map((food) => String(food.id)));
+          return [...current, ...page.filter((food) => !loadedIds.has(String(food.id)))];
+        });
+        setCatalogHasMore(results.length > catalogPageSize);
+        setCatalogNextOffset(offset + page.length);
+      } else {
+        if (!append) setFoods([]);
+        setError(await responseError(response, 'Could not load recent catalog foods.'));
+      }
+      if (append) setLoadingMoreFoods(false);
+      else setSearching(false);
+    },
+    [token],
+  );
 
   const runSearch = useCallback(
     async (overrides = {}, { append = false, offset = 0 } = {}) => {
       const nextQuery = overrides.query ?? query;
-      const nextScope = overrides.scope ?? catalogScope;
+      const nextKind = overrides.kind ?? catalogKind;
+      const nextSort = overrides.sort ?? catalogSort;
       const nextProvider = overrides.provider ?? catalogProvider;
       const nextProvenance = overrides.provenance ?? catalogProvenance;
       const normalizedQuery = nextQuery.trim();
       const hasFilters =
-        nextScope !== 'all' || Boolean(nextProvider.trim()) || nextProvenance !== 'all';
-      if (!normalizedQuery && !hasFilters) {
+        nextKind !== 'all' || Boolean(nextProvider.trim()) || nextProvenance !== 'all';
+      if (!normalizedQuery && !hasFilters && nextSort !== 'name') {
         loadRecentFoods();
         return;
       }
@@ -272,8 +295,18 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
       }
       setCatalogFeedback('');
       setError('');
-      const options = { limit: catalogPageSize + 1, offset };
-      if (nextScope !== 'all') options.scope = nextScope;
+      const options = {
+        limit: catalogPageSize + 1,
+        offset,
+        ordering:
+          nextSort === 'name'
+            ? 'name,id'
+            : nextSort === 'recent' || !normalizedQuery
+              ? '-created_at,-id'
+              : 'relevance,name,id',
+      };
+      if (nextKind === 'personal') options.scope = 'personal';
+      else if (nextKind !== 'all') options.originType = nextKind;
       if (nextProvider.trim()) options.provider = nextProvider.trim();
       if (nextProvenance !== 'all') options.provenance = nextProvenance;
       const response = await searchFoods(normalizedQuery, token, options);
@@ -294,23 +327,23 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
       if (append) setLoadingMoreFoods(false);
       else setSearching(false);
     },
-    [catalogProvider, catalogProvenance, catalogScope, loadRecentFoods, query, token],
+    [catalogKind, catalogProvider, catalogProvenance, catalogSort, loadRecentFoods, query, token],
   );
 
   const resetCatalogFilters = () => {
-    setCatalogScope('all');
+    setCatalogKind('all');
     setCatalogProvider('');
     setCatalogProvenance('all');
     setCatalogFeedback('');
-    if (query.trim()) runSearch({ scope: 'all', provider: '', provenance: 'all' });
+    if (query.trim()) runSearch({ kind: 'all', provider: '', provenance: 'all' });
     else loadRecentFoods();
   };
 
   const clearCatalogFilter = (filter) => {
     const overrides = {};
-    if (filter === 'scope') {
-      setCatalogScope('all');
-      overrides.scope = 'all';
+    if (filter === 'kind') {
+      setCatalogKind('all');
+      overrides.kind = 'all';
     }
     if (filter === 'provider') {
       setCatalogProvider('');
@@ -360,7 +393,9 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
       }),
     );
     setQuery('');
-    setCatalogScope('all');
+    setCatalogKind('all');
+    setCatalogSort('recommended');
+    setCatalogFiltersOpen(false);
     setCatalogProvider('');
     setCatalogProvenance('all');
     setCatalogFeedback('');
@@ -880,8 +915,12 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       onChange={(event) => {
                         const nextQuery = event.target.value;
                         setQuery(nextQuery);
-                        if (!nextQuery.trim() && !hasCatalogFilters) {
-                          loadRecentFoods();
+                        if (!nextQuery.trim()) {
+                          if (hasCatalogFilters || catalogSort === 'name') {
+                            runSearch({ query: '' });
+                          } else {
+                            loadRecentFoods();
+                          }
                         }
                       }}
                       onKeyDown={(event) => {
@@ -908,58 +947,126 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                   <Stack
                     direction={{ xs: 'column', sm: 'row' }}
                     spacing={1}
-                    sx={{ mt: 1, alignItems: { sm: 'flex-start' } }}
+                    sx={{ mt: 1, alignItems: { sm: 'center' } }}
                   >
-                    <TextField
-                      select
-                      size="small"
-                      label="Catalog scope"
-                      value={catalogScope}
-                      onChange={(event) => setCatalogScope(event.target.value)}
-                      sx={{ minWidth: { sm: 150 } }}
-                    >
-                      <MenuItem value="all">Personal and shared</MenuItem>
-                      <MenuItem value="personal">Personal only</MenuItem>
-                      <MenuItem value="shared">Shared only</MenuItem>
-                    </TextField>
-                    <TextField
-                      size="small"
-                      label="Provider or brand"
-                      value={catalogProvider}
-                      onChange={(event) => setCatalogProvider(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          event.preventDefault();
-                          runSearch();
+                    <Box sx={{ minWidth: 0, flex: 1, overflowX: 'auto' }}>
+                      <ToggleButtonGroup
+                        exclusive
+                        size="small"
+                        value={catalogKind}
+                        onChange={(_event, nextKind) => {
+                          if (!nextKind) return;
+                          setCatalogKind(nextKind);
+                          runSearch({ kind: nextKind });
+                        }}
+                        aria-label="Food type"
+                        sx={{
+                          whiteSpace: 'nowrap',
+                          '& .MuiToggleButton-root': {
+                            px: 1.25,
+                            py: 0.75,
+                            fontWeight: 750,
+                            textTransform: 'none',
+                          },
+                        }}
+                      >
+                        {catalogKindOptions.map((option) => (
+                          <ToggleButton key={option.value} value={option.value}>
+                            {option.label}
+                          </ToggleButton>
+                        ))}
+                      </ToggleButtonGroup>
+                    </Box>
+                    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
+                      <Button
+                        size="small"
+                        variant={
+                          catalogFiltersOpen || advancedCatalogFilterCount ? 'outlined' : 'text'
                         }
-                      }}
-                      sx={{ flex: 1, minWidth: { sm: 180 } }}
-                    />
-                    <TextField
-                      select
-                      size="small"
-                      label="Provenance"
-                      value={catalogProvenance}
-                      onChange={(event) => setCatalogProvenance(event.target.value)}
-                      sx={{ minWidth: { sm: 170 } }}
-                    >
-                      <MenuItem value="all">Any provenance</MenuItem>
-                      {Object.entries(provenanceLabels).map(([value, label]) => (
-                        <MenuItem key={value} value={value}>
-                          {label}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                    <Button
-                      size="small"
-                      onClick={resetCatalogFilters}
-                      disabled={!hasCatalogFilters}
-                      sx={{ minHeight: 40, whiteSpace: 'nowrap' }}
-                    >
-                      Reset filters
-                    </Button>
+                        startIcon={<TuneIcon />}
+                        aria-expanded={catalogFiltersOpen}
+                        aria-controls="catalog-advanced-filters"
+                        onClick={() => setCatalogFiltersOpen((current) => !current)}
+                        sx={{ minHeight: 40, whiteSpace: 'nowrap' }}
+                      >
+                        Filters
+                        {advancedCatalogFilterCount ? ` (${advancedCatalogFilterCount})` : ''}
+                      </Button>
+                      <TextField
+                        select
+                        size="small"
+                        label="Sort"
+                        value={catalogSort}
+                        onChange={(event) => {
+                          const nextSort = event.target.value;
+                          setCatalogSort(nextSort);
+                          runSearch({ sort: nextSort });
+                        }}
+                        sx={{ minWidth: 150 }}
+                      >
+                        {catalogSortOptions.map((option) => (
+                          <MenuItem key={option.value} value={option.value}>
+                            {option.label}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Stack>
                   </Stack>
-                  {hasCatalogFilters && (
+                  <Collapse in={catalogFiltersOpen} unmountOnExit>
+                    <Paper
+                      id="catalog-advanced-filters"
+                      elevation={0}
+                      sx={{ mt: 1, p: 1, border: '1px solid var(--atlas-border)' }}
+                    >
+                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                        <TextField
+                          size="small"
+                          label="Provider or brand"
+                          value={catalogProvider}
+                          onChange={(event) => setCatalogProvider(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault();
+                              runSearch();
+                            }
+                          }}
+                          sx={{ flex: 1, minWidth: { sm: 180 } }}
+                        />
+                        <TextField
+                          select
+                          size="small"
+                          label="Provenance"
+                          value={catalogProvenance}
+                          onChange={(event) => setCatalogProvenance(event.target.value)}
+                          sx={{ minWidth: { sm: 180 } }}
+                        >
+                          <MenuItem value="all">Any provenance</MenuItem>
+                          {Object.entries(provenanceLabels).map(([value, label]) => (
+                            <MenuItem key={value} value={value}>
+                              {label}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          onClick={() => runSearch()}
+                          sx={{ minHeight: 40, whiteSpace: 'nowrap' }}
+                        >
+                          Apply filters
+                        </Button>
+                        <Button
+                          size="small"
+                          onClick={resetCatalogFilters}
+                          disabled={!hasCatalogFilters}
+                          sx={{ minHeight: 40, whiteSpace: 'nowrap' }}
+                        >
+                          Clear all
+                        </Button>
+                      </Stack>
+                    </Paper>
+                  </Collapse>
+                  {advancedCatalogFilterCount > 0 && (
                     <Stack
                       direction="row"
                       spacing={0.75}
@@ -970,13 +1077,6 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       <Typography variant="caption" color="text.secondary">
                         Active filters
                       </Typography>
-                      {catalogScope !== 'all' && (
-                        <Chip
-                          size="small"
-                          label={catalogScope === 'personal' ? 'Personal only' : 'Shared only'}
-                          onDelete={() => clearCatalogFilter('scope')}
-                        />
-                      )}
                       {catalogProvider.trim() && (
                         <Chip
                           size="small"

@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+from django.db.models import Case, IntegerField, Value, When
 from django.utils import timezone
 from rest_framework import filters, viewsets
 from rest_framework.exceptions import ValidationError
@@ -21,7 +22,7 @@ class FoodItemViewSet(viewsets.ModelViewSet):
         "current_version__sources__title",
         "current_version__sources__provider",
     ]
-    ordering_fields = ["id", "name", "created_at", "updated_at"]
+    ordering_fields = ["id", "name", "created_at", "updated_at", "relevance"]
     ordering = ["name", "id"]
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
@@ -32,6 +33,23 @@ class FoodItemViewSet(viewsets.ModelViewSet):
             .select_related("owner", "current_version")
             .prefetch_related("current_version__sources")
         )
+        search_query = self.request.query_params.get("search", "").strip()
+        if search_query:
+            queryset = queryset.annotate(
+                relevance=Case(
+                    When(name__iexact=search_query, then=Value(0)),
+                    When(name__istartswith=search_query, then=Value(1)),
+                    When(provider_name__iexact=search_query, then=Value(2)),
+                    When(name__icontains=search_query, then=Value(3)),
+                    When(provider_name__istartswith=search_query, then=Value(4)),
+                    default=Value(5),
+                    output_field=IntegerField(),
+                )
+            )
+        else:
+            queryset = queryset.annotate(
+                relevance=Value(0, output_field=IntegerField())
+            )
         scope = self.request.query_params.get("scope", "").strip()
         if scope:
             if scope not in FoodItem.Scope.values:

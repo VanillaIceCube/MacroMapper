@@ -469,6 +469,37 @@ class FoodApiTests(APITestCase):
             [self.shared_food.id],
         )
 
+    def test_catalog_relevance_prefers_exact_then_prefix_name_matches(self):
+        self.client.force_authenticate(user=self.owner)
+        exact_food = create_food_item(
+            name="Apple",
+            scope=FoodItem.Scope.PERSONAL,
+            origin_type=FoodItem.OriginType.GENERIC,
+            provider_name="",
+            owner=self.owner,
+            definition=food_definition(calories="95", confidence=None),
+            created_by=self.owner,
+        )
+        prefix_food = create_food_item(
+            name="Apple slices",
+            scope=FoodItem.Scope.PERSONAL,
+            origin_type=FoodItem.OriginType.GENERIC,
+            provider_name="",
+            owner=self.owner,
+            definition=food_definition(calories="80", confidence=None),
+            created_by=self.owner,
+        )
+
+        response = self.client.get(
+            "/api/foods/?search=apple&ordering=relevance,name,id"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [item["id"] for item in response.data[:2]],
+            [exact_food.id, prefix_food.id],
+        )
+
     def test_catalog_filters_combine_with_search(self):
         self.client.force_authenticate(user=self.owner)
 
