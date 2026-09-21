@@ -10,11 +10,12 @@ from django.db.models import (
     When,
 )
 from django.utils import timezone
-from meals.models import MealItem
 from rest_framework import filters, viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+from meals.models import MealItem
 
 from .models import FoodComponent, FoodItem, FoodItemVersion
 from .permissions import IsPersonalFoodOwnerOrReadOnly

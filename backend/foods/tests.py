@@ -598,9 +598,7 @@ class FoodApiTests(APITestCase):
         response = self.client.get("/api/foods/?ordering=name,id&limit=1&offset=1")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            [item["id"] for item in response.data], [self.shared_food.id]
-        )
+        self.assertEqual([item["id"] for item in response.data], [self.shared_food.id])
 
     def test_catalog_list_uses_bulk_loaded_top_level_components(self):
         create_food_item(

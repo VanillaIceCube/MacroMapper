@@ -201,6 +201,8 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
   const [catalogProvider, setCatalogProvider] = useState('');
   const [catalogProvenance, setCatalogProvenance] = useState('all');
   const [catalogFeedback, setCatalogFeedback] = useState('');
+  const [catalogError, setCatalogError] = useState('');
+  const [catalogRetry, setCatalogRetry] = useState(null);
   const [foods, setFoods] = useState([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [showingRecentFoods, setShowingRecentFoods] = useState(false);
@@ -250,29 +252,44 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
         setCatalogHasMore(false);
         setCatalogNextOffset(0);
       }
-      setError('');
-      const response = await searchFoods('', token, {
-        ordering: '-created_at,-id',
-        limit: catalogPageSize + 1,
-        offset,
-      });
-      if (requestId !== catalogRequestIdRef.current) return;
-      if (response.ok) {
-        const results = await response.json();
-        const page = results.slice(0, catalogPageSize);
-        setFoods((current) => {
-          if (!append) return page;
-          const loadedIds = new Set(current.map((food) => String(food.id)));
-          return [...current, ...page.filter((food) => !loadedIds.has(String(food.id)))];
+      setCatalogError('');
+      setCatalogRetry(null);
+      try {
+        const response = await searchFoods('', token, {
+          ordering: '-created_at,-id',
+          limit: catalogPageSize + 1,
+          offset,
         });
-        setCatalogHasMore(results.length > catalogPageSize);
-        setCatalogNextOffset(offset + page.length);
-      } else {
+        if (requestId !== catalogRequestIdRef.current) return;
+        if (response.ok) {
+          const results = await response.json();
+          if (requestId !== catalogRequestIdRef.current) return;
+          const page = results.slice(0, catalogPageSize);
+          setFoods((current) => {
+            if (!append) return page;
+            const loadedIds = new Set(current.map((food) => String(food.id)));
+            return [...current, ...page.filter((food) => !loadedIds.has(String(food.id)))];
+          });
+          setCatalogHasMore(results.length > catalogPageSize);
+          setCatalogNextOffset(offset + page.length);
+        } else {
+          const message = await responseError(response, 'Could not load recent catalog foods.');
+          if (requestId !== catalogRequestIdRef.current) return;
+          if (!append) setFoods([]);
+          setCatalogError(message);
+          setCatalogRetry({ type: 'recent', pageOptions: { append, offset } });
+        }
+      } catch (_error) {
+        if (requestId !== catalogRequestIdRef.current) return;
         if (!append) setFoods([]);
-        setError(await responseError(response, 'Could not load recent catalog foods.'));
+        setCatalogError('Could not load recent catalog foods.');
+        setCatalogRetry({ type: 'recent', pageOptions: { append, offset } });
+      } finally {
+        if (requestId === catalogRequestIdRef.current) {
+          if (append) setLoadingMoreFoods(false);
+          else setSearching(false);
+        }
       }
-      if (append) setLoadingMoreFoods(false);
-      else setSearching(false);
     },
     [token],
   );
@@ -312,7 +329,8 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
         setCatalogNextOffset(0);
       }
       setCatalogFeedback('');
-      setError('');
+      setCatalogError('');
+      setCatalogRetry(null);
       const options = {
         limit: catalogPageSize + 1,
         offset,
@@ -322,30 +340,59 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
             : nextSort === 'logged'
               ? '-has_logged,-last_logged_on,name,id'
               : nextSort === 'recent' || !normalizedQuery
-              ? '-created_at,-id'
-              : 'relevance,name,id',
+                ? '-created_at,-id'
+                : 'relevance,name,id',
       };
       if (nextScope !== 'all') options.scope = nextScope;
       if (nextOriginType !== 'all') options.originType = nextOriginType;
       if (nextProvider.trim()) options.provider = nextProvider.trim();
       if (nextProvenance !== 'all') options.provenance = nextProvenance;
-      const response = await searchFoods(normalizedQuery, token, options);
-      if (requestId !== catalogRequestIdRef.current) return;
-      if (response.ok) {
-        const results = await response.json();
-        const page = results.slice(0, catalogPageSize);
-        setFoods((current) => {
-          if (!append) return page;
-          const loadedIds = new Set(current.map((food) => String(food.id)));
-          return [...current, ...page.filter((food) => !loadedIds.has(String(food.id)))];
+      const retryOverrides = {
+        query: nextQuery,
+        scope: nextScope,
+        originType: nextOriginType,
+        sort: nextSort,
+        provider: nextProvider,
+        provenance: nextProvenance,
+      };
+      try {
+        const response = await searchFoods(normalizedQuery, token, options);
+        if (requestId !== catalogRequestIdRef.current) return;
+        if (response.ok) {
+          const results = await response.json();
+          if (requestId !== catalogRequestIdRef.current) return;
+          const page = results.slice(0, catalogPageSize);
+          setFoods((current) => {
+            if (!append) return page;
+            const loadedIds = new Set(current.map((food) => String(food.id)));
+            return [...current, ...page.filter((food) => !loadedIds.has(String(food.id)))];
+          });
+          setCatalogHasMore(results.length > catalogPageSize);
+          setCatalogNextOffset(offset + page.length);
+        } else {
+          const message = await responseError(response, 'Could not search the food catalog.');
+          if (requestId !== catalogRequestIdRef.current) return;
+          setCatalogError(message);
+          setCatalogRetry({
+            type: 'search',
+            overrides: retryOverrides,
+            pageOptions: { append, offset },
+          });
+        }
+      } catch (_error) {
+        if (requestId !== catalogRequestIdRef.current) return;
+        setCatalogError('Could not search the food catalog.');
+        setCatalogRetry({
+          type: 'search',
+          overrides: retryOverrides,
+          pageOptions: { append, offset },
         });
-        setCatalogHasMore(results.length > catalogPageSize);
-        setCatalogNextOffset(offset + page.length);
-      } else {
-        setError(await responseError(response, 'Could not search the food catalog.'));
+      } finally {
+        if (requestId === catalogRequestIdRef.current) {
+          if (append) setLoadingMoreFoods(false);
+          else setSearching(false);
+        }
       }
-      if (append) setLoadingMoreFoods(false);
-      else setSearching(false);
     },
     [
       catalogOriginType,
@@ -359,12 +406,23 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     ],
   );
 
+  const retryCatalogRequest = () => {
+    if (!catalogRetry) return;
+    if (catalogRetry.type === 'recent') {
+      loadRecentFoods(catalogRetry.pageOptions);
+      return;
+    }
+    runSearch(catalogRetry.overrides, catalogRetry.pageOptions);
+  };
+
   const resetCatalogFilters = () => {
     setCatalogScope('all');
     setCatalogOriginType('all');
     setCatalogProvider('');
     setCatalogProvenance('all');
     setCatalogFeedback('');
+    setCatalogError('');
+    setCatalogRetry(null);
     if (query.trim() || catalogSort === 'name' || catalogSort === 'logged') {
       runSearch({ scope: 'all', originType: 'all', provider: '', provenance: 'all' });
     } else {
@@ -437,6 +495,8 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     setCatalogProvider('');
     setCatalogProvenance('all');
     setCatalogFeedback('');
+    setCatalogError('');
+    setCatalogRetry(null);
     setFoods([]);
     setHasSearched(false);
     setShowingRecentFoods(false);
@@ -987,6 +1047,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                     </Button>
                   </Stack>
                   <Stack
+                    data-testid="catalog-filter-toolbar"
                     direction={{ xs: 'column', sm: 'row' }}
                     spacing={1}
                     sx={{ mt: 1, alignItems: { sm: 'center' } }}
@@ -1060,7 +1121,11 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       elevation={0}
                       sx={{ mt: 1, p: 1, border: '1px solid var(--atlas-border)' }}
                     >
-                      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1}>
+                      <Stack
+                        data-testid="catalog-advanced-filter-controls"
+                        direction={{ xs: 'column', md: 'row' }}
+                        spacing={1}
+                      >
                         <TextField
                           select
                           size="small"
@@ -1131,7 +1196,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       sx={{ mt: 1, flexWrap: 'wrap', alignItems: 'center' }}
                       aria-label="Active catalog filters"
                     >
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                         Active filters
                       </Typography>
                       {catalogOriginType !== 'all' && (
@@ -1157,6 +1222,24 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       )}
                     </Stack>
                   )}
+                  {catalogError && (
+                    <Alert
+                      severity="error"
+                      sx={{ mt: 1 }}
+                      action={
+                        <Button
+                          color="inherit"
+                          size="small"
+                          onClick={retryCatalogRequest}
+                          disabled={searching || loadingMoreFoods}
+                        >
+                          Retry
+                        </Button>
+                      }
+                    >
+                      {catalogError}
+                    </Alert>
+                  )}
                   {catalogFeedback && (
                     <Alert severity="success" sx={{ mt: 1 }} onClose={() => setCatalogFeedback('')}>
                       {catalogFeedback}
@@ -1168,7 +1251,8 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                         <Skeleton key={value} variant="rounded" height={92} />
                       ))}
                     </Stack>
-                  ) : availableFoods.length || catalogHasMore ? (
+                  ) : catalogError && !availableFoods.length ? null : availableFoods.length ||
+                    catalogHasMore ? (
                     <>
                       <List
                         disablePadding

@@ -3,6 +3,11 @@ All notable changes to this project are documented in this file.
 
 ## 2026-09-20
 
+### Added
+
+- Add an in-context Retry action for failed catalog loads, searches, and
+  pagination requests while preserving the exact failed request.
+
 ### Fixed
 
 - Keep catalog filter alignment and wrapping styles inside Material UI's supported
