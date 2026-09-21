@@ -491,6 +491,33 @@ describe('DiaryPage', () => {
     });
   });
 
+  test('identifies personal and shared foods in catalog result metadata', async () => {
+    const user = userEvent.setup();
+    const sharedApple = {
+      ...apple,
+      id: 8,
+      name: 'Shared Apple',
+      scope: 'shared',
+      current_version: { ...apple.current_version, id: 10 },
+    };
+    searchFoods.mockResolvedValue(response([apple, sharedApple]));
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    const personalResult = (await within(dialog).findByRole('heading', { name: 'Apple' })).closest(
+      'li',
+    );
+    const sharedResult = within(dialog)
+      .getByRole('heading', { name: 'Shared Apple' })
+      .closest('li');
+
+    expect(within(personalResult).getByText('My Food')).toBeVisible();
+    expect(within(sharedResult).getByText('Shared')).toBeVisible();
+  });
+
   test('sorts the catalog by foods the current user logged most recently', async () => {
     const user = userEvent.setup();
     searchFoods.mockResolvedValue(response([apple]));

@@ -1201,6 +1201,12 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                           const source =
                             provenanceLabels[version.provenance] ||
                             (food.scope === 'personal' ? 'Personal' : 'Catalog');
+                          const scopeLabel =
+                            food.scope === 'personal'
+                              ? 'My Food'
+                              : food.scope === 'shared'
+                                ? 'Shared'
+                                : 'Catalog';
                           return (
                             <Paper
                               component="li"
@@ -1254,6 +1260,16 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                                     <Typography component="span" variant="caption">
                                       {version.serving_label ||
                                         `${formatAmount(version.serving_quantity)} ${version.serving_unit || 'serving'}`}
+                                    </Typography>
+                                    <Typography component="span" variant="caption" aria-hidden>
+                                      ·
+                                    </Typography>
+                                    <Typography
+                                      component="span"
+                                      variant="caption"
+                                      sx={{ color: 'text.primary', fontWeight: 700 }}
+                                    >
+                                      {scopeLabel}
                                     </Typography>
                                   </Stack>
                                 </Box>

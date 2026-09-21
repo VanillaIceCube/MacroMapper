@@ -25,6 +25,8 @@ All notable changes to this project are documented in this file.
   Alphabetically.
 - Separate catalog scope from food type so All, My Foods, and Shared can combine
   with Common, Branded, or Restaurant filters.
+- Identify My Food and Shared catalog results with restrained inline metadata
+  beside the serving information.
 
 ## 2026-09-05
 
