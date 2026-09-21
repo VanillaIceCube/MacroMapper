@@ -21,7 +21,7 @@ class FoodItemViewSet(viewsets.ModelViewSet):
         "current_version__sources__title",
         "current_version__sources__provider",
     ]
-    ordering_fields = ["name", "created_at", "updated_at"]
+    ordering_fields = ["id", "name", "created_at", "updated_at"]
     ordering = ["name", "id"]
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
@@ -65,8 +65,15 @@ class FoodItemViewSet(viewsets.ModelViewSet):
             requested_limit = int(request.query_params.get("limit", 0))
         except (TypeError, ValueError):
             requested_limit = 0
+        try:
+            requested_offset = max(int(request.query_params.get("offset", 0)), 0)
+        except (TypeError, ValueError):
+            requested_offset = 0
         if requested_limit > 0:
-            queryset = queryset[: min(requested_limit, 100)]
+            requested_limit = min(requested_limit, 100)
+            queryset = queryset[requested_offset : requested_offset + requested_limit]
+        elif requested_offset > 0:
+            queryset = queryset[requested_offset:]
         foods = list(queryset)
         component_map = defaultdict(list)
         pending_version_ids = {

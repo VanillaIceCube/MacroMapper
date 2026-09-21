@@ -27,12 +27,12 @@ import {
 } from './mealItemPortions';
 
 const sourceLabels = {
-  official_verified: { label: 'Official / verified', color: 'success' },
-  catalog_estimate: { label: 'Catalog estimate', color: 'info' },
-  community_estimate: { label: 'Community estimate', color: 'info' },
-  ai_estimate: { label: 'AI estimate', color: 'warning' },
-  user_modified_estimate: { label: 'AI estimate — adjusted by you', color: 'warning' },
-  user_entered: { label: 'User entered', color: 'default' },
+  official_verified: { label: 'Official / Verified', color: 'success' },
+  catalog_estimate: { label: 'Catalog Estimate', color: 'info' },
+  community_estimate: { label: 'Community Estimate', color: 'info' },
+  ai_estimate: { label: 'AI Estimate', color: 'warning' },
+  user_modified_estimate: { label: 'AI Estimate — Adjusted by You', color: 'warning' },
+  user_entered: { label: 'User Entered', color: 'default' },
 };
 
 export default function MealItemEditorRow({
@@ -258,7 +258,12 @@ export default function MealItemEditorRow({
         </Box>
         {hasDetails && (
           <Collapse in={detailsOpen} unmountOnExit>
-            <Paper elevation={0} sx={{ mt: 0.5, p: 0.75, border: '1px solid var(--atlas-border)' }}>
+            <Paper
+              role="region"
+              aria-label={`${item.name} estimate details`}
+              elevation={0}
+              sx={{ mt: 0.5, p: 0.75, border: '1px solid var(--atlas-border)' }}
+            >
               <Stack
                 direction="row"
                 spacing={0.75}
@@ -268,16 +273,16 @@ export default function MealItemEditorRow({
                   mt: 0.25,
                 }}
               >
+                {item.provider_name && (
+                  <Chip size="small" label={item.provider_name} variant="outlined" />
+                )}
                 <Chip size="small" label={source.label} color={source.color} variant="outlined" />
                 {item.confidence_score != null && (
                   <Chip
                     size="small"
-                    label={`${Math.round(Number(item.confidence_score) * 100)}% confidence`}
+                    label={`${Math.round(Number(item.confidence_score) * 100)}% Confidence`}
                     variant="outlined"
                   />
-                )}
-                {item.provider_name && (
-                  <Chip size="small" label={item.provider_name} variant="outlined" />
                 )}
               </Stack>
               {!!item.sources?.length && (
@@ -287,7 +292,7 @@ export default function MealItemEditorRow({
                       <Link href={entry.url} target="_blank" rel="noopener noreferrer">
                         {entry.title}
                       </Link>
-                      {entry.is_official ? ' · official source' : ''}
+                      {entry.is_official ? ' · Official Source' : ''}
                     </Typography>
                   ))}
                 </Stack>

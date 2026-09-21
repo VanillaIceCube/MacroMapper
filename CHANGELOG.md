@@ -1,6 +1,24 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 2026-09-20
+
+### Fixed
+
+- Keep catalog filter alignment and wrapping styles inside Material UI's supported
+  styling API instead of forwarding them to the browser DOM.
+
+### Changed
+
+- Reorganize Add from Catalog result cards around the food name first, with
+  provider and serving context beneath it while provenance and confidence stay
+  inside optional estimate details beneath the nutrition summary.
+- Standardize estimate metadata in catalog and Meal Item details as provider,
+  provenance, then confidence, using title-cased labels throughout.
+- Paginate the food catalog in 20-item pages with a compact in-list Show more
+  action that preserves the active search and filters, plus a dedicated scrollbar
+  gutter that keeps result cards clear of the scroll track.
+
 ## 2026-09-05
 
 ### Added

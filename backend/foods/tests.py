@@ -513,6 +513,16 @@ class FoodApiTests(APITestCase):
             [item["id"] for item in response.data], [self.personal_food.id]
         )
 
+    def test_catalog_offset_returns_the_next_ordered_page(self):
+        self.client.force_authenticate(user=self.owner)
+
+        response = self.client.get("/api/foods/?ordering=name,id&limit=1&offset=1")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [item["id"] for item in response.data], [self.shared_food.id]
+        )
+
     def test_catalog_list_uses_bulk_loaded_top_level_components(self):
         create_food_item(
             name="Apple plate",

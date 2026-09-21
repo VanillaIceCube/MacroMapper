@@ -303,11 +303,11 @@ describe('DiaryPage', () => {
     expect(within(dailySummary).getByText('0.5', { selector: 'h5' })).toBeInTheDocument();
     const sugarTotal = within(dailySummary).getByRole('group', { name: 'Sugar daily total' });
     expect(within(sugarTotal).getByText('—')).toBeInTheDocument();
-    expect(screen.getByText('80% confidence')).toBeInTheDocument();
+    expect(screen.getByText('80% Confidence')).toBeInTheDocument();
     expect(screen.getByText('1 × Apple')).toBeInTheDocument();
     expect(screen.getByText('95 kcal')).toBeInTheDocument();
     expect(screen.getByText('Not scored')).toBeInTheDocument();
-    expect(screen.getByText('User entered')).toBeInTheDocument();
+    expect(screen.getByText('User Entered')).toBeInTheDocument();
 
     const nutritionColumns = screen.getByTestId('meal-11-nutrition-columns');
     const foodTable = within(nutritionColumns).getByRole('table', {
@@ -431,7 +431,7 @@ describe('DiaryPage', () => {
     expect(showSnackbar).toHaveBeenCalledWith('success', 'Meal added.');
   });
 
-  test('loads 20 recent foods by default and limits broad search results', async () => {
+  test('loads 20 recent foods and appends the next catalog page', async () => {
     const user = userEvent.setup();
     const recentResults = Array.from({ length: 20 }, (_, index) => ({
       ...apple,
@@ -439,15 +439,22 @@ describe('DiaryPage', () => {
       name: `Recent food ${String(index + 1).padStart(2, '0')}`,
       current_version: { ...apple.current_version, id: 70 + index },
     }));
-    const broadResults = Array.from({ length: 30 }, (_, index) => ({
+    const firstSearchPage = Array.from({ length: 21 }, (_, index) => ({
       ...apple,
       id: 100 + index,
       name: `Catalog food ${String(index + 1).padStart(2, '0')}`,
       current_version: { ...apple.current_version, id: 200 + index },
     }));
+    const secondSearchPage = Array.from({ length: 10 }, (_, index) => ({
+      ...apple,
+      id: 120 + index,
+      name: `Catalog food ${String(index + 21).padStart(2, '0')}`,
+      current_version: { ...apple.current_version, id: 220 + index },
+    }));
     searchFoods
       .mockResolvedValueOnce(response(recentResults))
-      .mockResolvedValueOnce(response(broadResults));
+      .mockResolvedValueOnce(response(firstSearchPage))
+      .mockResolvedValueOnce(response(secondSearchPage));
     fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
     renderWithProviders(<DiaryPage />);
 
@@ -459,22 +466,28 @@ describe('DiaryPage', () => {
     expect(within(dialog).getAllByRole('button', { name: 'Add' })).toHaveLength(20);
     expect(within(dialog).getByText('20 recent')).toBeVisible();
     expect(searchFoods).toHaveBeenCalledWith('', 'access-token', {
-      ordering: '-created_at',
-      limit: 20,
+      ordering: '-created_at,-id',
+      limit: 21,
+      offset: 0,
     });
 
     await user.type(within(dialog).getByRole('textbox', { name: 'Search catalog' }), 'catalog');
     await user.click(within(dialog).getByRole('button', { name: 'search foods' }));
 
     expect(await within(dialog).findByText('Catalog food 01')).toBeVisible();
-    expect(within(dialog).getAllByRole('button', { name: 'Add' })).toHaveLength(25);
-    expect(within(dialog).queryByText('Catalog food 26')).not.toBeInTheDocument();
-    expect(
-      within(dialog).getByText(
-        'Showing the first 25 results. Refine your search to find a specific food.',
-      ),
-    ).toBeVisible();
-    expect(searchFoods).toHaveBeenLastCalledWith('catalog', 'access-token', { limit: 26 });
+    expect(within(dialog).getAllByRole('button', { name: 'Add' })).toHaveLength(20);
+    expect(within(dialog).queryByText('Catalog food 21')).not.toBeInTheDocument();
+    expect(within(dialog).getByText('20 shown')).toBeVisible();
+    await user.click(within(dialog).getByRole('button', { name: 'Show 20 more' }));
+
+    expect(await within(dialog).findByText('Catalog food 30')).toBeVisible();
+    expect(within(dialog).getAllByRole('button', { name: 'Add' })).toHaveLength(30);
+    expect(within(dialog).getByText('30 shown')).toBeVisible();
+    expect(within(dialog).queryByRole('button', { name: 'Show 20 more' })).not.toBeInTheDocument();
+    expect(searchFoods).toHaveBeenLastCalledWith('catalog', 'access-token', {
+      limit: 21,
+      offset: 20,
+    });
   });
 
   test('combines catalog search filters and confirms an added result', async () => {
@@ -497,7 +510,8 @@ describe('DiaryPage', () => {
 
     await waitFor(() =>
       expect(searchFoods).toHaveBeenLastCalledWith('apple', 'access-token', {
-        limit: 26,
+        limit: 21,
+        offset: 0,
         scope: 'personal',
         provider: 'Orchard',
         provenance: 'official',
@@ -859,9 +873,9 @@ describe('DiaryPage', () => {
     );
     await user.click(within(dialog).getByRole('button', { name: 'search foods' }));
 
-    expect(await within(dialog).findByText('AI estimate')).toBeVisible();
-    expect(within(dialog).getByText('91% confidence')).toBeVisible();
-    expect(within(dialog).getByText('San Diego Taco Co.')).toBeVisible();
+    expect(await within(dialog).findByText('San Diego Taco Co.')).toBeVisible();
+    expect(within(dialog).queryByText('AI Estimate')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('91% Confidence')).not.toBeInTheDocument();
     expect(
       within(dialog).queryByRole('link', { name: 'Restaurant nutrition reference' }),
     ).not.toBeInTheDocument();
@@ -874,6 +888,23 @@ describe('DiaryPage', () => {
         name: 'Show estimate details for Carne Asada Taco',
       }),
     );
+    const catalogDetails = within(dialog).getByRole('region', {
+      name: 'Carne Asada Taco estimate details',
+    });
+    const catalogProvider = within(catalogDetails).getByText('San Diego Taco Co.');
+    const catalogProvenance = within(catalogDetails).getByText('AI Estimate');
+    const catalogConfidence = within(catalogDetails).getByText('91% Confidence');
+    expect(catalogProvider.compareDocumentPosition(catalogProvenance)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(catalogProvenance.compareDocumentPosition(catalogConfidence)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(
+      within(dialog)
+        .getByLabelText('Carne Asada Taco catalog nutrition')
+        .compareDocumentPosition(catalogProvenance),
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(
       within(dialog).getByRole('link', { name: 'Restaurant nutrition reference' }),
     ).toHaveAttribute('href', 'https://example.com/taco-nutrition');
@@ -902,6 +933,24 @@ describe('DiaryPage', () => {
     expect(
       screen.getByRole('menuitem', { name: 'Show estimate details for Carne Asada Taco' }),
     ).toBeVisible();
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Show estimate details for Carne Asada Taco' }),
+    );
+    const mealItemDetails = within(dialog).getByRole('region', {
+      name: 'Carne Asada Taco estimate details',
+    });
+    const mealItemProvider = within(mealItemDetails).getByText('San Diego Taco Co.');
+    const mealItemProvenance = within(mealItemDetails).getByText('AI Estimate');
+    const mealItemConfidence = within(mealItemDetails).getByText('91% Confidence');
+    expect(mealItemProvider.compareDocumentPosition(mealItemProvenance)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(mealItemProvenance.compareDocumentPosition(mealItemConfidence)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    await user.click(
+      within(dialog).getByRole('button', { name: 'More actions for Carne Asada Taco' }),
+    );
     await user.click(screen.getByRole('menuitem', { name: 'remove Carne Asada Taco' }));
 
     expect(await within(dialog).findByRole('button', { name: 'Add' })).toBeVisible();

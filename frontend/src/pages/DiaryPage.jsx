@@ -81,13 +81,13 @@ import { randomMealEstimateExample } from '../mealEstimateExamples';
 
 const provenanceLabels = {
   official: 'Official',
-  community_estimate: 'Community',
-  ai_estimate: 'AI estimate',
-  user_modified_estimate: 'User adjusted',
-  user_entered: 'User entered',
+  community_estimate: 'Community Estimate',
+  ai_estimate: 'AI Estimate',
+  user_modified_estimate: 'User Adjusted',
+  user_entered: 'User Entered',
 };
 
-const maxVisibleCatalogResults = 25;
+const catalogPageSize = 20;
 const mealBuilderSurfaceRadius = 1.5;
 
 const localDate = () => {
@@ -183,6 +183,9 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
   const [hasSearched, setHasSearched] = useState(false);
   const [showingRecentFoods, setShowingRecentFoods] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [loadingMoreFoods, setLoadingMoreFoods] = useState(false);
+  const [catalogHasMore, setCatalogHasMore] = useState(false);
+  const [catalogNextOffset, setCatalogNextOffset] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [discardOpen, setDiscardOpen] = useState(false);
@@ -200,30 +203,50 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     () => foods.filter((food) => !selectedFoodIds.has(String(food.id))),
     [foods, selectedFoodIds],
   );
-  const visibleFoods = availableFoods.slice(0, maxVisibleCatalogResults);
-  const activeCatalogFood = visibleFoods.find((food) => food.id === catalogActionsFoodId);
+  const activeCatalogFood = availableFoods.find((food) => food.id === catalogActionsFoodId);
   const hasCatalogFilters =
     catalogScope !== 'all' || Boolean(catalogProvider.trim()) || catalogProvenance !== 'all';
 
-  const loadRecentFoods = useCallback(async () => {
+  const loadRecentFoods = useCallback(async ({ append = false, offset = 0 } = {}) => {
     const requestId = ++catalogRequestIdRef.current;
-    setSearching(true);
-    setHasSearched(false);
-    setShowingRecentFoods(true);
+    if (append) {
+      setLoadingMoreFoods(true);
+    } else {
+      setSearching(true);
+      setLoadingMoreFoods(false);
+      setHasSearched(false);
+      setShowingRecentFoods(true);
+      setFoods([]);
+      setCatalogHasMore(false);
+      setCatalogNextOffset(0);
+    }
     setError('');
-    const response = await searchFoods('', token, { ordering: '-created_at', limit: 20 });
+    const response = await searchFoods('', token, {
+      ordering: '-created_at,-id',
+      limit: catalogPageSize + 1,
+      offset,
+    });
     if (requestId !== catalogRequestIdRef.current) return;
     if (response.ok) {
-      setFoods(await response.json());
+      const results = await response.json();
+      const page = results.slice(0, catalogPageSize);
+      setFoods((current) => {
+        if (!append) return page;
+        const loadedIds = new Set(current.map((food) => String(food.id)));
+        return [...current, ...page.filter((food) => !loadedIds.has(String(food.id)))];
+      });
+      setCatalogHasMore(results.length > catalogPageSize);
+      setCatalogNextOffset(offset + page.length);
     } else {
-      setFoods([]);
+      if (!append) setFoods([]);
       setError(await responseError(response, 'Could not load recent catalog foods.'));
     }
-    setSearching(false);
+    if (append) setLoadingMoreFoods(false);
+    else setSearching(false);
   }, [token]);
 
   const runSearch = useCallback(
-    async (overrides = {}) => {
+    async (overrides = {}, { append = false, offset = 0 } = {}) => {
       const nextQuery = overrides.query ?? query;
       const nextScope = overrides.scope ?? catalogScope;
       const nextProvider = overrides.provider ?? catalogProvider;
@@ -236,24 +259,40 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
         return;
       }
       const requestId = ++catalogRequestIdRef.current;
-      setSearching(true);
-      setHasSearched(true);
-      setShowingRecentFoods(false);
-      setFoods([]);
+      if (append) {
+        setLoadingMoreFoods(true);
+      } else {
+        setSearching(true);
+        setLoadingMoreFoods(false);
+        setHasSearched(true);
+        setShowingRecentFoods(false);
+        setFoods([]);
+        setCatalogHasMore(false);
+        setCatalogNextOffset(0);
+      }
       setCatalogFeedback('');
       setError('');
-      const options = { limit: maxVisibleCatalogResults + 1 };
+      const options = { limit: catalogPageSize + 1, offset };
       if (nextScope !== 'all') options.scope = nextScope;
       if (nextProvider.trim()) options.provider = nextProvider.trim();
       if (nextProvenance !== 'all') options.provenance = nextProvenance;
       const response = await searchFoods(normalizedQuery, token, options);
       if (requestId !== catalogRequestIdRef.current) return;
       if (response.ok) {
-        setFoods(await response.json());
+        const results = await response.json();
+        const page = results.slice(0, catalogPageSize);
+        setFoods((current) => {
+          if (!append) return page;
+          const loadedIds = new Set(current.map((food) => String(food.id)));
+          return [...current, ...page.filter((food) => !loadedIds.has(String(food.id)))];
+        });
+        setCatalogHasMore(results.length > catalogPageSize);
+        setCatalogNextOffset(offset + page.length);
       } else {
         setError(await responseError(response, 'Could not search the food catalog.'));
       }
-      setSearching(false);
+      if (append) setLoadingMoreFoods(false);
+      else setSearching(false);
     },
     [catalogProvider, catalogProvenance, catalogScope, loadRecentFoods, query, token],
   );
@@ -282,6 +321,13 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
       overrides.provenance = 'all';
     }
     runSearch(overrides);
+  };
+
+  const loadMoreCatalogFoods = () => {
+    if (!catalogHasMore || searching || loadingMoreFoods) return;
+    const pageOptions = { append: true, offset: catalogNextOffset };
+    if (showingRecentFoods) loadRecentFoods(pageOptions);
+    else runSearch({}, pageOptions);
   };
 
   useEffect(() => {
@@ -322,6 +368,9 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     setHasSearched(false);
     setShowingRecentFoods(false);
     setSearching(false);
+    setLoadingMoreFoods(false);
+    setCatalogHasMore(false);
+    setCatalogNextOffset(0);
     setError('');
     setDiscardOpen(false);
     setCatalogActionsAnchorEl(null);
@@ -700,14 +749,14 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                     flexWrap: 'wrap',
                   }}
                 >
-                  <Chip size="small" label="AI estimate" color="secondary" variant="outlined" />
                   {proposalContext.provider_name && (
                     <Chip size="small" label={proposalContext.provider_name} variant="outlined" />
                   )}
+                  <Chip size="small" label="AI Estimate" color="secondary" variant="outlined" />
                   {proposalContext.confidence_score != null && (
                     <Chip
                       size="small"
-                      label={`${Math.round(Number(proposalContext.confidence_score) * 100)}% confidence`}
+                      label={`${Math.round(Number(proposalContext.confidence_score) * 100)}% Confidence`}
                       variant="outlined"
                     />
                   )}
@@ -806,7 +855,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                         label={
                           showingRecentFoods
                             ? `${availableFoods.length} recent`
-                            : `${availableFoods.length} results`
+                            : `${availableFoods.length} shown`
                         }
                         size="small"
                         variant="outlined"
@@ -859,8 +908,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                   <Stack
                     direction={{ xs: 'column', sm: 'row' }}
                     spacing={1}
-                    sx={{ mt: 1 }}
-                    alignItems={{ sm: 'flex-start' }}
+                    sx={{ mt: 1, alignItems: { sm: 'flex-start' } }}
                   >
                     <TextField
                       select
@@ -916,9 +964,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       direction="row"
                       spacing={0.75}
                       useFlexGap
-                      flexWrap="wrap"
-                      alignItems="center"
-                      sx={{ mt: 1 }}
+                      sx={{ mt: 1, flexWrap: 'wrap', alignItems: 'center' }}
                       aria-label="Active catalog filters"
                     >
                       <Typography variant="caption" color="text.secondary">
@@ -958,14 +1004,35 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                         <Skeleton key={value} variant="rounded" height={92} />
                       ))}
                     </Stack>
-                  ) : availableFoods.length ? (
+                  ) : availableFoods.length || catalogHasMore ? (
                     <>
                       <List
                         disablePadding
                         aria-label="Food search results"
-                        sx={{ maxHeight: 360, mt: 1.5, overflow: 'auto' }}
+                        sx={{
+                          maxHeight: 360,
+                          mt: 1.5,
+                          pr: 1,
+                          overflowX: 'hidden',
+                          overflowY: 'auto',
+                          scrollbarGutter: 'stable',
+                          scrollbarWidth: 'thin',
+                          scrollbarColor: 'var(--atlas-border) transparent',
+                          '&::-webkit-scrollbar': {
+                            width: 10,
+                          },
+                          '&::-webkit-scrollbar-track': {
+                            bgcolor: 'transparent',
+                          },
+                          '&::-webkit-scrollbar-thumb': {
+                            bgcolor: 'var(--atlas-border)',
+                            border: '3px solid transparent',
+                            borderRadius: 999,
+                            backgroundClip: 'padding-box',
+                          },
+                        }}
                       >
-                        {visibleFoods.map((food) => {
+                        {availableFoods.map((food) => {
                           const version = food.current_version || {};
                           const source =
                             provenanceLabels[version.provenance] ||
@@ -985,56 +1052,53 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                               }}
                             >
                               <Stack
-                                direction={{ xs: 'column', sm: 'row' }}
+                                direction="row"
                                 sx={{
                                   justifyContent: 'space-between',
+                                  alignItems: 'flex-start',
                                   gap: 1,
                                 }}
                               >
-                                <Box sx={{ minWidth: 0 }}>
-                                  <Stack
-                                    direction="row"
-                                    spacing={0.75}
-                                    useFlexGap
-                                    sx={{
-                                      flexWrap: 'wrap',
-                                      mb: 0.5,
-                                    }}
-                                  >
-                                    <Chip size="small" label={source} variant="outlined" />
-                                    {version.confidence_score != null && (
-                                      <Chip
-                                        size="small"
-                                        label={`${Math.round(Number(version.confidence_score) * 100)}% confidence`}
-                                        variant="outlined"
-                                      />
-                                    )}
-                                    {food.provider_name && (
-                                      <Chip
-                                        size="small"
-                                        label={food.provider_name}
-                                        variant="outlined"
-                                      />
-                                    )}
-                                  </Stack>
+                                <Box sx={{ minWidth: 0, flex: 1 }}>
                                   <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
                                     {food.name}
                                   </Typography>
-                                  <Typography
-                                    variant="caption"
+                                  <Stack
+                                    direction="row"
+                                    spacing={0.5}
+                                    useFlexGap
                                     sx={{
+                                      alignItems: 'baseline',
+                                      flexWrap: 'wrap',
                                       color: 'text.secondary',
                                     }}
                                   >
-                                    {version.serving_label ||
-                                      `${formatAmount(version.serving_quantity)} ${version.serving_unit || 'serving'}`}
-                                  </Typography>
+                                    {food.provider_name && (
+                                      <Typography
+                                        component="span"
+                                        variant="caption"
+                                        sx={{ color: 'text.primary', fontWeight: 700 }}
+                                      >
+                                        {food.provider_name}
+                                      </Typography>
+                                    )}
+                                    {food.provider_name && (
+                                      <Typography component="span" variant="caption" aria-hidden>
+                                        ·
+                                      </Typography>
+                                    )}
+                                    <Typography component="span" variant="caption">
+                                      {version.serving_label ||
+                                        `${formatAmount(version.serving_quantity)} ${version.serving_unit || 'serving'}`}
+                                    </Typography>
+                                  </Stack>
                                 </Box>
                                 <Stack
                                   direction="row"
                                   spacing={1}
                                   sx={{
                                     alignItems: 'center',
+                                    flexShrink: 0,
                                   }}
                                 >
                                   <Button onClick={() => addFood(food)} startIcon={<AddIcon />}>
@@ -1057,8 +1121,17 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                                   </IconButton>
                                 </Stack>
                               </Stack>
+                              <Box sx={{ mt: 1 }}>
+                                <NutritionCards
+                                  values={nutrientValues(version.nutrients)}
+                                  ariaLabel={`${food.name} catalog nutrition`}
+                                  compact
+                                />
+                              </Box>
                               <Collapse in={catalogDetailFoodIds.has(food.id)} unmountOnExit>
                                 <Paper
+                                  role="region"
+                                  aria-label={`${food.name} estimate details`}
                                   elevation={0}
                                   sx={{
                                     mt: 0.75,
@@ -1074,18 +1147,18 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                                       flexWrap: 'wrap',
                                     }}
                                   >
-                                    <Chip size="small" label={source} variant="outlined" />
-                                    {version.confidence_score != null && (
-                                      <Chip
-                                        size="small"
-                                        label={`${Math.round(Number(version.confidence_score) * 100)}% confidence`}
-                                        variant="outlined"
-                                      />
-                                    )}
                                     {food.provider_name && (
                                       <Chip
                                         size="small"
                                         label={food.provider_name}
+                                        variant="outlined"
+                                      />
+                                    )}
+                                    <Chip size="small" label={source} variant="outlined" />
+                                    {version.confidence_score != null && (
+                                      <Chip
+                                        size="small"
+                                        label={`${Math.round(Number(version.confidence_score) * 100)}% Confidence`}
                                         variant="outlined"
                                       />
                                     )}
@@ -1124,28 +1197,35 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                                   )}
                                 </Paper>
                               </Collapse>
-                              <Box sx={{ mt: 1 }}>
-                                <NutritionCards
-                                  values={nutrientValues(version.nutrients)}
-                                  ariaLabel={`${food.name} catalog nutrition`}
-                                  compact
-                                />
-                              </Box>
                             </Paper>
                           );
                         })}
+                        {catalogHasMore && (
+                          <Box
+                            component="li"
+                            sx={{
+                              display: 'flex',
+                              justifyContent: 'center',
+                              listStyle: 'none',
+                              py: 0.25,
+                            }}
+                          >
+                            <Button
+                              size="small"
+                              variant="text"
+                              onClick={loadMoreCatalogFoods}
+                              disabled={loadingMoreFoods}
+                              startIcon={
+                                loadingMoreFoods ? <CircularProgress size={16} /> : undefined
+                              }
+                              endIcon={loadingMoreFoods ? undefined : <ExpandMoreIcon />}
+                              sx={{ fontWeight: 800 }}
+                            >
+                              {loadingMoreFoods ? 'Loading…' : `Show ${catalogPageSize} more`}
+                            </Button>
+                          </Box>
+                        )}
                       </List>
-                      {availableFoods.length > maxVisibleCatalogResults && (
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            color: 'text.secondary',
-                          }}
-                        >
-                          Showing the first {maxVisibleCatalogResults} results. Refine your search
-                          to find a specific food.
-                        </Typography>
-                      )}
                       <Menu
                         anchorEl={catalogActionsAnchorEl}
                         open={Boolean(catalogActionsAnchorEl && activeCatalogFood)}
@@ -1948,7 +2028,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                               {hasMealConfidence && (
                                 <Chip
                                   size="small"
-                                  label={`${Math.round(mealConfidence * 100)}% confidence`}
+                                  label={`${Math.round(mealConfidence * 100)}% Confidence`}
                                   sx={{
                                     bgcolor: 'var(--atlas-forest-soft)',
                                     color: 'var(--atlas-forest-dark)',

@@ -84,6 +84,7 @@ describe('mealApiClient', () => {
   test('combines catalog query and filter parameters', () => {
     searchFoods('apple', 'TOKEN', {
       limit: 26,
+      offset: 20,
       scope: 'personal',
       provider: 'Example Orchard',
       provenance: 'official',
@@ -91,7 +92,7 @@ describe('mealApiClient', () => {
     });
 
     expect(apiFetch).toHaveBeenCalledWith(
-      '/api/foods/?search=apple&limit=26&scope=personal&provider=Example+Orchard&provenance=official&origin_type=branded',
+      '/api/foods/?search=apple&limit=26&offset=20&scope=personal&provider=Example+Orchard&provenance=official&origin_type=branded',
       { headers: { Authorization: 'Bearer TOKEN' } },
     );
   });
