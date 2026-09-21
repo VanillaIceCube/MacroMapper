@@ -1,5 +1,5 @@
 import { apiFetch } from './requestClient';
-import { adjustMealProposal, createMeal, updateMeal } from './mealApiClient';
+import { adjustMealProposal, createMeal, searchFoods, updateMeal } from './mealApiClient';
 
 vi.mock('./requestClient', () => ({
   apiFetch: vi.fn(),
@@ -79,5 +79,20 @@ describe('mealApiClient', () => {
       },
       body: JSON.stringify(draft),
     });
+  });
+
+  test('combines catalog query and filter parameters', () => {
+    searchFoods('apple', 'TOKEN', {
+      limit: 26,
+      scope: 'personal',
+      provider: 'Example Orchard',
+      provenance: 'official',
+      originType: 'branded',
+    });
+
+    expect(apiFetch).toHaveBeenCalledWith(
+      '/api/foods/?search=apple&limit=26&scope=personal&provider=Example+Orchard&provenance=official&origin_type=branded',
+      { headers: { Authorization: 'Bearer TOKEN' } },
+    );
   });
 });

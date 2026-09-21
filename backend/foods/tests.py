@@ -469,6 +469,40 @@ class FoodApiTests(APITestCase):
             [self.shared_food.id],
         )
 
+    def test_catalog_filters_combine_with_search(self):
+        self.client.force_authenticate(user=self.owner)
+
+        shared_response = self.client.get(
+            "/api/foods/?search=apple&scope=shared&provider=orchard&provenance=official"
+        )
+        personal_response = self.client.get(
+            "/api/foods/?scope=personal&provenance=user_entered"
+        )
+        excluded_response = self.client.get("/api/foods/?search=apple&scope=personal")
+
+        self.assertEqual(
+            [item["id"] for item in shared_response.data], [self.shared_food.id]
+        )
+        self.assertEqual(
+            [item["id"] for item in personal_response.data], [self.personal_food.id]
+        )
+        self.assertEqual(excluded_response.data, [])
+
+    def test_catalog_search_matches_source_metadata(self):
+        self.client.force_authenticate(user=self.owner)
+
+        response = self.client.get("/api/foods/?search=Official%20apple%20data")
+
+        self.assertEqual([item["id"] for item in response.data], [self.shared_food.id])
+
+    def test_catalog_rejects_invalid_filter_values(self):
+        self.client.force_authenticate(user=self.owner)
+
+        response = self.client.get("/api/foods/?scope=everyone")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("scope", response.data)
+
     def test_catalog_limit_applies_after_recent_ordering(self):
         self.client.force_authenticate(user=self.owner)
 
