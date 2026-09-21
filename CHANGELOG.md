@@ -21,6 +21,10 @@ All notable changes to this project are documented in this file.
 - Replace the catalog's always-visible technical filters with quick food-type
   choices, a compact advanced Filters panel, and relevance, recency, or name
   sorting.
+- Add a user-specific Recently logged catalog sort and rename the name sort to
+  Alphabetically.
+- Separate catalog scope from food type so All, My Foods, and Shared can combine
+  with Common, Branded, or Restaurant filters.
 
 ## 2026-09-05
 

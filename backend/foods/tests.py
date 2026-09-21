@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 
 from django.contrib.admin.sites import AdminSite
@@ -8,6 +9,8 @@ from django.test import RequestFactory, TestCase
 from django.test.utils import CaptureQueriesContext
 from rest_framework import status
 from rest_framework.test import APITestCase
+
+from meals.models import MealEntry, MealItem
 
 from .admin import (
     FoodComponentAdmin,
@@ -500,11 +503,56 @@ class FoodApiTests(APITestCase):
             [exact_food.id, prefix_food.id],
         )
 
+    def test_catalog_recently_logged_sort_is_user_specific(self):
+        owner_shared_meal = MealEntry.objects.create(
+            owner=self.owner,
+            entry_date=date(2026, 8, 10),
+            name="Shared apple meal",
+        )
+        owner_personal_meal = MealEntry.objects.create(
+            owner=self.owner,
+            entry_date=date(2026, 8, 12),
+            name="Owner smoothie meal",
+        )
+        other_shared_meal = MealEntry.objects.create(
+            owner=self.other_user,
+            entry_date=date(2026, 8, 20),
+            name="Other user's shared apple meal",
+        )
+        for meal, food in (
+            (owner_shared_meal, self.shared_food),
+            (owner_personal_meal, self.personal_food),
+            (other_shared_meal, self.shared_food),
+        ):
+            version = food.current_version
+            MealItem.objects.create(
+                meal_entry=meal,
+                food_version=version,
+                servings=Decimal("1"),
+                food_name=food.name,
+                provider_name=food.provider_name,
+                serving_quantity=version.serving_quantity,
+                serving_unit=version.serving_unit,
+                serving_label=version.serving_label,
+            )
+        self.client.force_authenticate(user=self.owner)
+
+        response = self.client.get(
+            "/api/foods/?ordering=-has_logged,-last_logged_on,name,id"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [item["id"] for item in response.data],
+            [self.personal_food.id, self.shared_food.id],
+        )
+
     def test_catalog_filters_combine_with_search(self):
         self.client.force_authenticate(user=self.owner)
 
         shared_response = self.client.get(
-            "/api/foods/?search=apple&scope=shared&provider=orchard&provenance=official"
+            "/api/foods/?search=apple&scope=shared&origin_type=branded"
+            "&provider=orchard&provenance=official"
         )
         personal_response = self.client.get(
             "/api/foods/?scope=personal&provenance=user_entered"

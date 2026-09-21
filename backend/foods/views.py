@@ -1,7 +1,16 @@
 from collections import defaultdict
 
-from django.db.models import Case, IntegerField, Value, When
+from django.db.models import (
+    Case,
+    DateField,
+    IntegerField,
+    OuterRef,
+    Subquery,
+    Value,
+    When,
+)
 from django.utils import timezone
+from meals.models import MealItem
 from rest_framework import filters, viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -22,7 +31,15 @@ class FoodItemViewSet(viewsets.ModelViewSet):
         "current_version__sources__title",
         "current_version__sources__provider",
     ]
-    ordering_fields = ["id", "name", "created_at", "updated_at", "relevance"]
+    ordering_fields = [
+        "id",
+        "name",
+        "created_at",
+        "updated_at",
+        "relevance",
+        "has_logged",
+        "last_logged_on",
+    ]
     ordering = ["name", "id"]
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
@@ -32,6 +49,27 @@ class FoodItemViewSet(viewsets.ModelViewSet):
             .visible_to(self.request.user)
             .select_related("owner", "current_version")
             .prefetch_related("current_version__sources")
+        )
+        latest_log = (
+            MealItem.objects.filter(
+                meal_entry__owner=self.request.user,
+                food_version__food_item_id=OuterRef("pk"),
+            )
+            .order_by(
+                "-meal_entry__entry_date",
+                "-meal_entry__created_at",
+                "-id",
+            )
+            .values("meal_entry__entry_date")[:1]
+        )
+        queryset = queryset.annotate(
+            last_logged_on=Subquery(latest_log, output_field=DateField())
+        ).annotate(
+            has_logged=Case(
+                When(last_logged_on__isnull=False, then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField(),
+            )
         )
         search_query = self.request.query_params.get("search", "").strip()
         if search_query:

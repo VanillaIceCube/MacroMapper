@@ -91,9 +91,12 @@ const provenanceLabels = {
 };
 
 const catalogPageSize = 20;
-const catalogKindOptions = [
+const catalogScopeOptions = [
   { value: 'all', label: 'All' },
   { value: 'personal', label: 'My Foods' },
+  { value: 'shared', label: 'Shared' },
+];
+const catalogOriginTypeOptions = [
   { value: 'generic', label: 'Common' },
   { value: 'branded', label: 'Branded' },
   { value: 'restaurant', label: 'Restaurant' },
@@ -101,7 +104,8 @@ const catalogKindOptions = [
 const catalogSortOptions = [
   { value: 'recommended', label: 'Recommended' },
   { value: 'recent', label: 'Recently added' },
-  { value: 'name', label: 'Name A–Z' },
+  { value: 'logged', label: 'Recently logged' },
+  { value: 'name', label: 'Alphabetically' },
 ];
 const mealBuilderSurfaceRadius = 1.5;
 
@@ -190,7 +194,8 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
   const [adjustmentBusy, setAdjustmentBusy] = useState(false);
   const [adjustmentFeedback, setAdjustmentFeedback] = useState(null);
   const [query, setQuery] = useState('');
-  const [catalogKind, setCatalogKind] = useState('all');
+  const [catalogScope, setCatalogScope] = useState('all');
+  const [catalogOriginType, setCatalogOriginType] = useState('all');
   const [catalogSort, setCatalogSort] = useState('recommended');
   const [catalogFiltersOpen, setCatalogFiltersOpen] = useState(false);
   const [catalogProvider, setCatalogProvider] = useState('');
@@ -222,9 +227,14 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
   );
   const activeCatalogFood = availableFoods.find((food) => food.id === catalogActionsFoodId);
   const hasCatalogFilters =
-    catalogKind !== 'all' || Boolean(catalogProvider.trim()) || catalogProvenance !== 'all';
+    catalogScope !== 'all' ||
+    catalogOriginType !== 'all' ||
+    Boolean(catalogProvider.trim()) ||
+    catalogProvenance !== 'all';
   const advancedCatalogFilterCount =
-    Number(Boolean(catalogProvider.trim())) + Number(catalogProvenance !== 'all');
+    Number(catalogOriginType !== 'all') +
+    Number(Boolean(catalogProvider.trim())) +
+    Number(catalogProvenance !== 'all');
 
   const loadRecentFoods = useCallback(
     async ({ append = false, offset = 0 } = {}) => {
@@ -270,14 +280,22 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
   const runSearch = useCallback(
     async (overrides = {}, { append = false, offset = 0 } = {}) => {
       const nextQuery = overrides.query ?? query;
-      const nextKind = overrides.kind ?? catalogKind;
+      const nextScope = overrides.scope ?? catalogScope;
+      const nextOriginType = overrides.originType ?? catalogOriginType;
       const nextSort = overrides.sort ?? catalogSort;
       const nextProvider = overrides.provider ?? catalogProvider;
       const nextProvenance = overrides.provenance ?? catalogProvenance;
       const normalizedQuery = nextQuery.trim();
       const hasFilters =
-        nextKind !== 'all' || Boolean(nextProvider.trim()) || nextProvenance !== 'all';
-      if (!normalizedQuery && !hasFilters && nextSort !== 'name') {
+        nextScope !== 'all' ||
+        nextOriginType !== 'all' ||
+        Boolean(nextProvider.trim()) ||
+        nextProvenance !== 'all';
+      if (
+        !normalizedQuery &&
+        !hasFilters &&
+        (nextSort === 'recommended' || nextSort === 'recent')
+      ) {
         loadRecentFoods();
         return;
       }
@@ -301,12 +319,14 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
         ordering:
           nextSort === 'name'
             ? 'name,id'
-            : nextSort === 'recent' || !normalizedQuery
+            : nextSort === 'logged'
+              ? '-has_logged,-last_logged_on,name,id'
+              : nextSort === 'recent' || !normalizedQuery
               ? '-created_at,-id'
               : 'relevance,name,id',
       };
-      if (nextKind === 'personal') options.scope = 'personal';
-      else if (nextKind !== 'all') options.originType = nextKind;
+      if (nextScope !== 'all') options.scope = nextScope;
+      if (nextOriginType !== 'all') options.originType = nextOriginType;
       if (nextProvider.trim()) options.provider = nextProvider.trim();
       if (nextProvenance !== 'all') options.provenance = nextProvenance;
       const response = await searchFoods(normalizedQuery, token, options);
@@ -327,23 +347,40 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
       if (append) setLoadingMoreFoods(false);
       else setSearching(false);
     },
-    [catalogKind, catalogProvider, catalogProvenance, catalogSort, loadRecentFoods, query, token],
+    [
+      catalogOriginType,
+      catalogProvider,
+      catalogProvenance,
+      catalogScope,
+      catalogSort,
+      loadRecentFoods,
+      query,
+      token,
+    ],
   );
 
   const resetCatalogFilters = () => {
-    setCatalogKind('all');
+    setCatalogScope('all');
+    setCatalogOriginType('all');
     setCatalogProvider('');
     setCatalogProvenance('all');
     setCatalogFeedback('');
-    if (query.trim()) runSearch({ kind: 'all', provider: '', provenance: 'all' });
-    else loadRecentFoods();
+    if (query.trim() || catalogSort === 'name' || catalogSort === 'logged') {
+      runSearch({ scope: 'all', originType: 'all', provider: '', provenance: 'all' });
+    } else {
+      loadRecentFoods();
+    }
   };
 
   const clearCatalogFilter = (filter) => {
     const overrides = {};
-    if (filter === 'kind') {
-      setCatalogKind('all');
-      overrides.kind = 'all';
+    if (filter === 'scope') {
+      setCatalogScope('all');
+      overrides.scope = 'all';
+    }
+    if (filter === 'originType') {
+      setCatalogOriginType('all');
+      overrides.originType = 'all';
     }
     if (filter === 'provider') {
       setCatalogProvider('');
@@ -393,7 +430,8 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
       }),
     );
     setQuery('');
-    setCatalogKind('all');
+    setCatalogScope('all');
+    setCatalogOriginType('all');
     setCatalogSort('recommended');
     setCatalogFiltersOpen(false);
     setCatalogProvider('');
@@ -916,7 +954,11 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                         const nextQuery = event.target.value;
                         setQuery(nextQuery);
                         if (!nextQuery.trim()) {
-                          if (hasCatalogFilters || catalogSort === 'name') {
+                          if (
+                            hasCatalogFilters ||
+                            catalogSort === 'name' ||
+                            catalogSort === 'logged'
+                          ) {
                             runSearch({ query: '' });
                           } else {
                             loadRecentFoods();
@@ -953,13 +995,13 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       <ToggleButtonGroup
                         exclusive
                         size="small"
-                        value={catalogKind}
-                        onChange={(_event, nextKind) => {
-                          if (!nextKind) return;
-                          setCatalogKind(nextKind);
-                          runSearch({ kind: nextKind });
+                        value={catalogScope}
+                        onChange={(_event, nextScope) => {
+                          if (!nextScope) return;
+                          setCatalogScope(nextScope);
+                          runSearch({ scope: nextScope });
                         }}
-                        aria-label="Food type"
+                        aria-label="Catalog scope"
                         sx={{
                           whiteSpace: 'nowrap',
                           '& .MuiToggleButton-root': {
@@ -970,7 +1012,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                           },
                         }}
                       >
-                        {catalogKindOptions.map((option) => (
+                        {catalogScopeOptions.map((option) => (
                           <ToggleButton key={option.value} value={option.value}>
                             {option.label}
                           </ToggleButton>
@@ -1018,7 +1060,22 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       elevation={0}
                       sx={{ mt: 1, p: 1, border: '1px solid var(--atlas-border)' }}
                     >
-                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1}>
+                        <TextField
+                          select
+                          size="small"
+                          label="Food type"
+                          value={catalogOriginType}
+                          onChange={(event) => setCatalogOriginType(event.target.value)}
+                          sx={{ minWidth: { md: 150 } }}
+                        >
+                          <MenuItem value="all">Any food type</MenuItem>
+                          {catalogOriginTypeOptions.map((option) => (
+                            <MenuItem key={option.value} value={option.value}>
+                              {option.label}
+                            </MenuItem>
+                          ))}
+                        </TextField>
                         <TextField
                           size="small"
                           label="Provider or brand"
@@ -1077,6 +1134,13 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       <Typography variant="caption" color="text.secondary">
                         Active filters
                       </Typography>
+                      {catalogOriginType !== 'all' && (
+                        <Chip
+                          size="small"
+                          label={`Type: ${catalogOriginTypeOptions.find((option) => option.value === catalogOriginType)?.label}`}
+                          onDelete={() => clearCatalogFilter('originType')}
+                        />
+                      )}
                       {catalogProvider.trim() && (
                         <Chip
                           size="small"
