@@ -200,6 +200,9 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
   const [catalogFiltersOpen, setCatalogFiltersOpen] = useState(false);
   const [catalogProvider, setCatalogProvider] = useState('');
   const [catalogProvenance, setCatalogProvenance] = useState('all');
+  const [appliedCatalogOriginType, setAppliedCatalogOriginType] = useState('all');
+  const [appliedCatalogProvider, setAppliedCatalogProvider] = useState('');
+  const [appliedCatalogProvenance, setAppliedCatalogProvenance] = useState('all');
   const [catalogFeedback, setCatalogFeedback] = useState('');
   const [catalogError, setCatalogError] = useState('');
   const [catalogRetry, setCatalogRetry] = useState(null);
@@ -234,9 +237,9 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     Boolean(catalogProvider.trim()) ||
     catalogProvenance !== 'all';
   const advancedCatalogFilterCount =
-    Number(catalogOriginType !== 'all') +
-    Number(Boolean(catalogProvider.trim())) +
-    Number(catalogProvenance !== 'all');
+    Number(appliedCatalogOriginType !== 'all') +
+    Number(Boolean(appliedCatalogProvider.trim())) +
+    Number(appliedCatalogProvenance !== 'all');
 
   const loadRecentFoods = useCallback(
     async ({ append = false, offset = 0 } = {}) => {
@@ -246,6 +249,9 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
       } else {
         setSearching(true);
         setLoadingMoreFoods(false);
+        setAppliedCatalogOriginType('all');
+        setAppliedCatalogProvider('');
+        setAppliedCatalogProvenance('all');
         setHasSearched(false);
         setShowingRecentFoods(true);
         setFoods([]);
@@ -331,6 +337,11 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
       setCatalogFeedback('');
       setCatalogError('');
       setCatalogRetry(null);
+      if (!append) {
+        setAppliedCatalogOriginType(nextOriginType);
+        setAppliedCatalogProvider(nextProvider);
+        setAppliedCatalogProvenance(nextProvenance);
+      }
       const options = {
         limit: catalogPageSize + 1,
         offset,
@@ -438,15 +449,17 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     }
     if (filter === 'originType') {
       setCatalogOriginType('all');
-      overrides.originType = 'all';
     }
     if (filter === 'provider') {
       setCatalogProvider('');
-      overrides.provider = '';
     }
     if (filter === 'provenance') {
       setCatalogProvenance('all');
-      overrides.provenance = 'all';
+    }
+    if (filter !== 'scope') {
+      overrides.originType = filter === 'originType' ? 'all' : appliedCatalogOriginType;
+      overrides.provider = filter === 'provider' ? '' : appliedCatalogProvider;
+      overrides.provenance = filter === 'provenance' ? 'all' : appliedCatalogProvenance;
     }
     runSearch(overrides);
   };
@@ -494,6 +507,9 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     setCatalogFiltersOpen(false);
     setCatalogProvider('');
     setCatalogProvenance('all');
+    setAppliedCatalogOriginType('all');
+    setAppliedCatalogProvider('');
+    setAppliedCatalogProvenance('all');
     setCatalogFeedback('');
     setCatalogError('');
     setCatalogRetry(null);
@@ -1180,7 +1196,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                         <Button
                           size="small"
                           onClick={resetCatalogFilters}
-                          disabled={!hasCatalogFilters}
+                          disabled={!hasCatalogFilters && !advancedCatalogFilterCount}
                           sx={{ minHeight: 40, whiteSpace: 'nowrap' }}
                         >
                           Clear all
@@ -1199,24 +1215,24 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                         Active filters
                       </Typography>
-                      {catalogOriginType !== 'all' && (
+                      {appliedCatalogOriginType !== 'all' && (
                         <Chip
                           size="small"
-                          label={`Type: ${catalogOriginTypeOptions.find((option) => option.value === catalogOriginType)?.label}`}
+                          label={`Type: ${catalogOriginTypeOptions.find((option) => option.value === appliedCatalogOriginType)?.label}`}
                           onDelete={() => clearCatalogFilter('originType')}
                         />
                       )}
-                      {catalogProvider.trim() && (
+                      {appliedCatalogProvider.trim() && (
                         <Chip
                           size="small"
-                          label={`Provider: ${catalogProvider.trim()}`}
+                          label={`Provider: ${appliedCatalogProvider.trim()}`}
                           onDelete={() => clearCatalogFilter('provider')}
                         />
                       )}
-                      {catalogProvenance !== 'all' && (
+                      {appliedCatalogProvenance !== 'all' && (
                         <Chip
                           size="small"
-                          label={provenanceLabels[catalogProvenance]}
+                          label={provenanceLabels[appliedCatalogProvenance]}
                           onDelete={() => clearCatalogFilter('provenance')}
                         />
                       )}

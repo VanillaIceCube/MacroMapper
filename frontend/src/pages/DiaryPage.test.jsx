@@ -578,6 +578,33 @@ describe('DiaryPage', () => {
     expect(within(dialog).getByText('Apple added to Meal Items.')).toBeVisible();
   });
 
+  test('keeps active advanced catalog filters tied to the last applied search', async () => {
+    const user = userEvent.setup();
+    searchFoods.mockResolvedValue(response([apple]));
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    await within(dialog).findByText('Apple');
+    await user.click(within(dialog).getByRole('button', { name: 'Filters' }));
+    await user.type(within(dialog).getByRole('textbox', { name: 'Provider or brand' }), 'Orchard');
+    await user.click(within(dialog).getByRole('button', { name: 'Apply filters' }));
+
+    const activeFilters = within(dialog).getByLabelText('Active catalog filters');
+    expect(within(activeFilters).getByText('Provider: Orchard')).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: 'Filters (1)' })).toBeVisible();
+
+    await user.clear(within(dialog).getByRole('textbox', { name: 'Provider or brand' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Food type' }));
+    await user.click(screen.getByRole('option', { name: 'Branded' }));
+
+    expect(within(activeFilters).getByText('Provider: Orchard')).toBeVisible();
+    expect(within(activeFilters).queryByText('Type: Branded')).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Filters (1)' })).toBeVisible();
+  });
+
   test('isolates shared catalog foods', async () => {
     const user = userEvent.setup();
     searchFoods.mockResolvedValue(response([apple]));
