@@ -45,7 +45,7 @@ const fieldAtlasTheme = createTheme({
     divider: alpha(fieldAtlasTokens.ink, 0.18),
   },
   shape: {
-    borderRadius: 8,
+    borderRadius: 12,
   },
   typography: {
     fontFamily: utilityFont,
@@ -77,7 +77,7 @@ const fieldAtlasTheme = createTheme({
       styleOverrides: {
         root: {
           minHeight: 44,
-          borderRadius: 'var(--atlas-radius-surface)',
+          borderRadius: 12,
           paddingInline: 20,
         },
         containedPrimary: {
@@ -121,14 +121,14 @@ const fieldAtlasTheme = createTheme({
     },
     MuiChip: {
       styleOverrides: {
-        root: { borderRadius: 'var(--atlas-radius-pill)', fontWeight: 700 },
+        root: { borderRadius: 999, fontWeight: 700 },
       },
     },
     MuiAlert: {
       styleOverrides: {
         root: {
           border: `1px solid ${alpha(fieldAtlasTokens.ink, 0.18)}`,
-          borderRadius: 'var(--atlas-radius-surface)',
+          borderRadius: 12,
           color: fieldAtlasTokens.ink,
         },
         standardSuccess: { backgroundColor: '#E8F2EC' },
