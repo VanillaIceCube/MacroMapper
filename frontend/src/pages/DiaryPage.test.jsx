@@ -518,6 +518,46 @@ describe('DiaryPage', () => {
     expect(within(sharedResult).getByText('Shared')).toBeVisible();
   });
 
+  test('keeps the catalog result viewport mounted while changing scope', async () => {
+    const user = userEvent.setup();
+    const scopedResults = deferred();
+    const personalPear = {
+      ...apple,
+      id: 9,
+      name: 'Personal Pear',
+      current_version: { ...apple.current_version, id: 11 },
+    };
+    searchFoods.mockResolvedValueOnce(response([apple])).mockReturnValueOnce(scopedResults.promise);
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    await within(dialog).findByText('Apple');
+    const resultViewport = within(dialog).getByRole('list', { name: 'Food search results' });
+    resultViewport.scrollTop = 120;
+
+    await user.click(within(dialog).getByRole('button', { name: 'My Foods' }));
+
+    expect(within(dialog).getByRole('list', { name: 'Food search results' })).toBe(resultViewport);
+    expect(resultViewport).toHaveAttribute('aria-busy', 'true');
+    expect(resultViewport.scrollTop).toBe(120);
+    expect(within(dialog).getByText('Apple')).toBeVisible();
+
+    scopedResults.resolve(response([personalPear]));
+
+    expect(await within(dialog).findByText('Personal Pear')).toBeVisible();
+    expect(within(dialog).queryByText('Apple')).not.toBeInTheDocument();
+    expect(resultViewport).toHaveAttribute('aria-busy', 'false');
+    expect(searchFoods).toHaveBeenLastCalledWith('', 'access-token', {
+      limit: 21,
+      offset: 0,
+      ordering: '-created_at,-id',
+      scope: 'personal',
+    });
+  });
+
   test('sorts the catalog by foods the current user logged most recently', async () => {
     const user = userEvent.setup();
     searchFoods.mockResolvedValue(response([apple]));

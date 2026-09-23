@@ -3,6 +3,11 @@ All notable changes to this project are documented in this file.
 
 ## 2026-09-22
 
+### Fixed
+
+- Keep the existing Add from the Catalog results and scroll viewport in place
+  while switching between All, My Foods, and Shared.
+
 ### Changed
 
 - Standardize interface corners around compact, surface, prominent, and pill
