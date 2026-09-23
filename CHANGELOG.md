@@ -12,6 +12,8 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Upgrade the frontend lint toolchain to ESLint 10 and preserve React and JSX
+  accessibility coverage with ESLint 10-compatible plugins.
 - Use consistent title capitalization for the Daily Summary and Meal Log headings.
 - Center saved-meal calories, confidence, and provenance beside the complete
   Food & Servings context, with consistent heading capitalization.
