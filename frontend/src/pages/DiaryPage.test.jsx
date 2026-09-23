@@ -298,16 +298,16 @@ describe('DiaryPage', () => {
     renderWithProviders(<DiaryPage />);
 
     expect(await screen.findByRole('heading', { name: 'Breakfast' })).toBeInTheDocument();
-    const dailySummary = screen.getByRole('region', { name: 'Daily summary' });
+    const dailySummary = screen.getByRole('region', { name: 'Daily Summary' });
     expect(within(dailySummary).getByText('95', { selector: 'h5' })).toBeInTheDocument();
     expect(within(dailySummary).getByText('0.5', { selector: 'h5' })).toBeInTheDocument();
     const sugarTotal = within(dailySummary).getByRole('group', { name: 'Sugar daily total' });
     expect(within(sugarTotal).getByText('—')).toBeInTheDocument();
-    expect(screen.getByText('80% confidence')).toBeInTheDocument();
+    expect(screen.getByText('80% Confidence')).toBeInTheDocument();
     expect(screen.getByText('1 × Apple')).toBeInTheDocument();
     expect(screen.getByText('95 kcal')).toBeInTheDocument();
     expect(screen.getByText('Not scored')).toBeInTheDocument();
-    expect(screen.getByText('User entered')).toBeInTheDocument();
+    expect(screen.getByText('User Entered')).toBeInTheDocument();
 
     const nutritionColumns = screen.getByTestId('meal-11-nutrition-columns');
     const foodTable = within(nutritionColumns).getByRole('table', {
@@ -431,7 +431,7 @@ describe('DiaryPage', () => {
     expect(showSnackbar).toHaveBeenCalledWith('success', 'Meal added.');
   });
 
-  test('loads 20 recent foods by default and limits broad search results', async () => {
+  test('loads 20 recent foods and appends the next catalog page', async () => {
     const user = userEvent.setup();
     const recentResults = Array.from({ length: 20 }, (_, index) => ({
       ...apple,
@@ -439,15 +439,22 @@ describe('DiaryPage', () => {
       name: `Recent food ${String(index + 1).padStart(2, '0')}`,
       current_version: { ...apple.current_version, id: 70 + index },
     }));
-    const broadResults = Array.from({ length: 30 }, (_, index) => ({
+    const firstSearchPage = Array.from({ length: 21 }, (_, index) => ({
       ...apple,
       id: 100 + index,
       name: `Catalog food ${String(index + 1).padStart(2, '0')}`,
       current_version: { ...apple.current_version, id: 200 + index },
     }));
+    const secondSearchPage = Array.from({ length: 10 }, (_, index) => ({
+      ...apple,
+      id: 120 + index,
+      name: `Catalog food ${String(index + 21).padStart(2, '0')}`,
+      current_version: { ...apple.current_version, id: 220 + index },
+    }));
     searchFoods
       .mockResolvedValueOnce(response(recentResults))
-      .mockResolvedValueOnce(response(broadResults));
+      .mockResolvedValueOnce(response(firstSearchPage))
+      .mockResolvedValueOnce(response(secondSearchPage));
     fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
     renderWithProviders(<DiaryPage />);
 
@@ -459,22 +466,448 @@ describe('DiaryPage', () => {
     expect(within(dialog).getAllByRole('button', { name: 'Add' })).toHaveLength(20);
     expect(within(dialog).getByText('20 recent')).toBeVisible();
     expect(searchFoods).toHaveBeenCalledWith('', 'access-token', {
-      ordering: '-created_at',
-      limit: 20,
+      ordering: '-created_at,-id',
+      limit: 21,
+      offset: 0,
     });
 
     await user.type(within(dialog).getByRole('textbox', { name: 'Search catalog' }), 'catalog');
     await user.click(within(dialog).getByRole('button', { name: 'search foods' }));
 
     expect(await within(dialog).findByText('Catalog food 01')).toBeVisible();
-    expect(within(dialog).getAllByRole('button', { name: 'Add' })).toHaveLength(25);
-    expect(within(dialog).queryByText('Catalog food 26')).not.toBeInTheDocument();
+    expect(within(dialog).getAllByRole('button', { name: 'Add' })).toHaveLength(20);
+    expect(within(dialog).queryByText('Catalog food 21')).not.toBeInTheDocument();
+    expect(within(dialog).getByText('20 shown')).toBeVisible();
+    await user.click(within(dialog).getByRole('button', { name: 'Show 20 more' }));
+
+    expect(await within(dialog).findByText('Catalog food 30')).toBeVisible();
+    expect(within(dialog).getAllByRole('button', { name: 'Add' })).toHaveLength(30);
+    expect(within(dialog).getByText('30 shown')).toBeVisible();
+    expect(within(dialog).queryByRole('button', { name: 'Show 20 more' })).not.toBeInTheDocument();
+    expect(searchFoods).toHaveBeenLastCalledWith('catalog', 'access-token', {
+      limit: 21,
+      offset: 20,
+      ordering: 'relevance,name,id',
+    });
+  });
+
+  test('identifies personal and shared foods in catalog result metadata', async () => {
+    const user = userEvent.setup();
+    const sharedApple = {
+      ...apple,
+      id: 8,
+      name: 'Shared Apple',
+      scope: 'shared',
+      current_version: { ...apple.current_version, id: 10 },
+    };
+    searchFoods.mockResolvedValue(response([apple, sharedApple]));
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    const personalResult = (await within(dialog).findByRole('heading', { name: 'Apple' })).closest(
+      'li',
+    );
+    const sharedResult = within(dialog)
+      .getByRole('heading', { name: 'Shared Apple' })
+      .closest('li');
+
+    expect(within(personalResult).getByText('My Food')).toBeVisible();
+    expect(within(sharedResult).getByText('Shared')).toBeVisible();
+  });
+
+  test('keeps the catalog result viewport mounted while changing scope', async () => {
+    const user = userEvent.setup();
+    const scopedResults = deferred();
+    const personalPear = {
+      ...apple,
+      id: 9,
+      name: 'Personal Pear',
+      current_version: { ...apple.current_version, id: 11 },
+    };
+    searchFoods.mockResolvedValueOnce(response([apple])).mockReturnValueOnce(scopedResults.promise);
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    await within(dialog).findByText('Apple');
+    const resultViewport = within(dialog).getByRole('list', { name: 'Food search results' });
+    resultViewport.scrollTop = 120;
+
+    await user.click(within(dialog).getByRole('button', { name: 'My Foods' }));
+
+    expect(within(dialog).getByRole('list', { name: 'Food search results' })).toBe(resultViewport);
+    expect(resultViewport).toHaveAttribute('aria-busy', 'true');
+    expect(resultViewport.scrollTop).toBe(120);
+    expect(within(dialog).getByText('Apple')).toBeVisible();
+
+    scopedResults.resolve(response([personalPear]));
+
+    expect(await within(dialog).findByText('Personal Pear')).toBeVisible();
+    expect(within(dialog).queryByText('Apple')).not.toBeInTheDocument();
+    expect(resultViewport).toHaveAttribute('aria-busy', 'false');
+    expect(searchFoods).toHaveBeenLastCalledWith('', 'access-token', {
+      limit: 21,
+      offset: 0,
+      ordering: '-created_at,-id',
+      scope: 'personal',
+    });
+  });
+
+  test('sorts the catalog by foods the current user logged most recently', async () => {
+    const user = userEvent.setup();
+    searchFoods.mockResolvedValue(response([apple]));
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    await within(dialog).findByText('Apple');
+
+    await user.click(within(dialog).getByRole('combobox', { name: 'Sort' }));
+    expect(screen.getByRole('option', { name: 'Alphabetically' })).toBeVisible();
+    await user.click(screen.getByRole('option', { name: 'Recently logged' }));
+
+    await waitFor(() =>
+      expect(searchFoods).toHaveBeenLastCalledWith('', 'access-token', {
+        limit: 21,
+        offset: 0,
+        ordering: '-has_logged,-last_logged_on,name,id',
+      }),
+    );
+  });
+
+  test('combines catalog search filters and confirms an added result', async () => {
+    const user = userEvent.setup();
+    searchFoods.mockResolvedValue(response([apple]));
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    await within(dialog).findByText('Apple');
+    await user.type(within(dialog).getByRole('textbox', { name: 'Search catalog' }), 'apple');
+    await user.click(within(dialog).getByRole('button', { name: 'My Foods' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Filters' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Food type' }));
+    await user.click(screen.getByRole('option', { name: 'Branded' }));
+    await user.type(within(dialog).getByRole('textbox', { name: 'Provider or brand' }), 'Orchard');
+    await user.click(within(dialog).getByRole('combobox', { name: 'Provenance' }));
+    await user.click(screen.getByRole('option', { name: 'Official' }));
+    await user.click(within(dialog).getByRole('button', { name: 'search foods' }));
+
+    await waitFor(() =>
+      expect(searchFoods).toHaveBeenLastCalledWith('apple', 'access-token', {
+        limit: 21,
+        offset: 0,
+        ordering: 'relevance,name,id',
+        scope: 'personal',
+        originType: 'branded',
+        provider: 'Orchard',
+        provenance: 'official',
+      }),
+    );
+    expect(within(dialog).getByLabelText('Active catalog filters')).toBeVisible();
+    await user.click(await within(dialog).findByRole('button', { name: 'Add' }));
+    expect(within(dialog).getByText('Apple added to Meal Items.')).toBeVisible();
+  });
+
+  test('keeps active advanced catalog filters tied to the last applied search', async () => {
+    const user = userEvent.setup();
+    searchFoods.mockResolvedValue(response([apple]));
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    await within(dialog).findByText('Apple');
+    await user.click(within(dialog).getByRole('button', { name: 'Filters' }));
+    await user.type(within(dialog).getByRole('textbox', { name: 'Provider or brand' }), 'Orchard');
+    await user.click(within(dialog).getByRole('button', { name: 'Apply filters' }));
+
+    const activeFilters = within(dialog).getByLabelText('Active catalog filters');
+    expect(within(activeFilters).getByText('Provider: Orchard')).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: 'Filters (1)' })).toBeVisible();
+
+    await user.clear(within(dialog).getByRole('textbox', { name: 'Provider or brand' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Food type' }));
+    await user.click(screen.getByRole('option', { name: 'Branded' }));
+
+    expect(within(activeFilters).getByText('Provider: Orchard')).toBeVisible();
+    expect(within(activeFilters).queryByText('Type: Branded')).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Filters (1)' })).toBeVisible();
+  });
+
+  test('preserves applied criteria when scope and sorting change with unapplied drafts', async () => {
+    const user = userEvent.setup();
+    searchFoods.mockResolvedValue(response([apple]));
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    await within(dialog).findByText('Apple');
+    await user.click(within(dialog).getByRole('button', { name: 'My Foods' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Filters' }));
+    await user.type(within(dialog).getByRole('textbox', { name: 'Provider or brand' }), 'Orchard');
+    await user.click(within(dialog).getByRole('button', { name: 'Apply filters' }));
+
+    await user.type(within(dialog).getByRole('textbox', { name: 'Search catalog' }), 'pear');
+    await user.clear(within(dialog).getByRole('textbox', { name: 'Provider or brand' }));
+    await user.type(within(dialog).getByRole('textbox', { name: 'Provider or brand' }), 'Market');
+    await user.click(within(dialog).getByRole('combobox', { name: 'Food type' }));
+    await user.click(screen.getByRole('option', { name: 'Branded' }));
+
+    await user.click(within(dialog).getByRole('button', { name: 'All' }));
+    await waitFor(() =>
+      expect(searchFoods).toHaveBeenLastCalledWith('', 'access-token', {
+        limit: 21,
+        offset: 0,
+        ordering: '-created_at,-id',
+        provider: 'Orchard',
+      }),
+    );
+
+    await user.click(within(dialog).getByRole('combobox', { name: 'Sort' }));
+    await user.click(screen.getByRole('option', { name: 'Alphabetically' }));
+    await waitFor(() =>
+      expect(searchFoods).toHaveBeenLastCalledWith('', 'access-token', {
+        limit: 21,
+        offset: 0,
+        ordering: 'name,id',
+        provider: 'Orchard',
+      }),
+    );
+    const activeFilters = within(dialog).getByLabelText('Active catalog filters');
+    expect(within(activeFilters).getByText('Provider: Orchard')).toBeVisible();
+    expect(within(activeFilters).queryByText('Type: Branded')).not.toBeInTheDocument();
+  });
+
+  test('paginates with the exact applied criteria instead of unapplied drafts', async () => {
+    const user = userEvent.setup();
+    const catalogResults = Array.from({ length: 21 }, (_, index) => ({
+      ...apple,
+      id: 300 + index,
+      name: `Filtered food ${String(index + 1).padStart(2, '0')}`,
+      current_version: { ...apple.current_version, id: 400 + index },
+    }));
+    searchFoods.mockResolvedValue(response(catalogResults));
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    await within(dialog).findByText('Filtered food 01');
+    await user.click(within(dialog).getByRole('button', { name: 'My Foods' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Filters' }));
+    await user.type(within(dialog).getByRole('textbox', { name: 'Provider or brand' }), 'Orchard');
+    await user.click(within(dialog).getByRole('button', { name: 'Apply filters' }));
+
+    await user.clear(within(dialog).getByRole('textbox', { name: 'Provider or brand' }));
+    await user.type(within(dialog).getByRole('textbox', { name: 'Provider or brand' }), 'Market');
+    await user.click(within(dialog).getByRole('combobox', { name: 'Food type' }));
+    await user.click(screen.getByRole('option', { name: 'Branded' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Show 20 more' }));
+
+    await waitFor(() =>
+      expect(searchFoods).toHaveBeenLastCalledWith('', 'access-token', {
+        limit: 21,
+        offset: 20,
+        ordering: '-created_at,-id',
+        scope: 'personal',
+        provider: 'Orchard',
+      }),
+    );
+    const activeFilters = within(dialog).getByLabelText('Active catalog filters');
+    expect(within(activeFilters).getByText('Provider: Orchard')).toBeVisible();
+    expect(within(activeFilters).queryByText('Type: Branded')).not.toBeInTheDocument();
+  });
+
+  test('isolates shared catalog foods', async () => {
+    const user = userEvent.setup();
+    searchFoods.mockResolvedValue(response([apple]));
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    await within(dialog).findByText('Apple');
+    await user.click(within(dialog).getByRole('button', { name: 'Shared' }));
+
+    await waitFor(() =>
+      expect(searchFoods).toHaveBeenLastCalledWith('', 'access-token', {
+        limit: 21,
+        offset: 0,
+        ordering: '-created_at,-id',
+        scope: 'shared',
+      }),
+    );
+  });
+
+  test('retries a failed initial catalog load without showing an empty state', async () => {
+    const user = userEvent.setup();
+    searchFoods
+      .mockResolvedValueOnce(response({ detail: 'The catalog could not be loaded.' }, false))
+      .mockResolvedValueOnce(response([apple]));
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    expect(await within(dialog).findByText('The catalog could not be loaded.')).toBeVisible();
     expect(
-      within(dialog).getByText(
-        'Showing the first 25 results. Refine your search to find a specific food.',
+      within(dialog).queryByText(
+        'No recent foods are available yet. Search the catalog or create a personal food.',
+      ),
+    ).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Retry' }));
+
+    expect(await within(dialog).findByText('Apple')).toBeVisible();
+    expect(searchFoods).toHaveBeenLastCalledWith('', 'access-token', {
+      ordering: '-created_at,-id',
+      limit: 21,
+      offset: 0,
+    });
+  });
+
+  test('retries a failed catalog search with the exact request', async () => {
+    const user = userEvent.setup();
+    const berry = { ...apple, id: 12, name: 'Blueberry' };
+    searchFoods
+      .mockResolvedValueOnce(response([apple]))
+      .mockResolvedValueOnce(response({ detail: 'The catalog is temporarily unavailable.' }, false))
+      .mockResolvedValueOnce(response([berry]));
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    await within(dialog).findByText('Apple');
+    await user.type(within(dialog).getByRole('textbox', { name: 'Search catalog' }), 'berry');
+    await user.click(within(dialog).getByRole('button', { name: 'search foods' }));
+
+    expect(
+      await within(dialog).findByText('The catalog is temporarily unavailable.'),
+    ).toBeVisible();
+    await user.click(within(dialog).getByRole('button', { name: 'Retry' }));
+
+    expect(await within(dialog).findByText('Blueberry')).toBeVisible();
+    expect(searchFoods).toHaveBeenLastCalledWith('berry', 'access-token', {
+      limit: 21,
+      offset: 0,
+      ordering: 'relevance,name,id',
+    });
+    expect(
+      within(dialog).queryByText('The catalog is temporarily unavailable.'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('distinguishes an empty catalog from a search with no matches', async () => {
+    const user = userEvent.setup();
+    searchFoods.mockResolvedValue(response([]));
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    expect(
+      await within(dialog).findByText(
+        'No recent foods are available yet. Search the catalog or create a personal food.',
       ),
     ).toBeVisible();
-    expect(searchFoods).toHaveBeenLastCalledWith('catalog', 'access-token', { limit: 26 });
+
+    await user.type(within(dialog).getByRole('textbox', { name: 'Search catalog' }), 'durian');
+    await user.click(within(dialog).getByRole('button', { name: 'search foods' }));
+
+    expect(
+      await within(dialog).findByText(
+        'No foods matched this search and filter combination. Clear a filter or try another term.',
+      ),
+    ).toBeVisible();
+  });
+
+  test('clears catalog filters individually and resets them together', async () => {
+    const user = userEvent.setup();
+    searchFoods.mockResolvedValue(response([apple]));
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    await within(dialog).findByText('Apple');
+    await user.type(within(dialog).getByRole('textbox', { name: 'Search catalog' }), 'apple');
+    await user.click(within(dialog).getByRole('button', { name: 'My Foods' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Filters' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Food type' }));
+    await user.click(screen.getByRole('option', { name: 'Branded' }));
+    await user.type(within(dialog).getByRole('textbox', { name: 'Provider or brand' }), 'Orchard');
+    await user.click(within(dialog).getByRole('combobox', { name: 'Provenance' }));
+    await user.click(screen.getByRole('option', { name: 'Official' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Apply filters' }));
+
+    const activeFilters = within(dialog).getByLabelText('Active catalog filters');
+    const providerChip = within(activeFilters)
+      .getByText('Provider: Orchard')
+      .closest('.MuiChip-root');
+    await user.click(providerChip.querySelector('[data-testid="CancelIcon"]'));
+    await waitFor(() =>
+      expect(within(activeFilters).queryByText('Provider: Orchard')).not.toBeInTheDocument(),
+    );
+
+    await user.click(within(dialog).getByRole('button', { name: 'Clear all' }));
+    expect(within(dialog).getByRole('button', { name: 'All' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(within(dialog).getByRole('combobox', { name: 'Food type' })).toHaveTextContent(
+      'Any food type',
+    );
+    expect(within(dialog).getByRole('combobox', { name: 'Provenance' })).toHaveTextContent(
+      'Any provenance',
+    );
+    expect(within(dialog).getByRole('textbox', { name: 'Provider or brand' })).toHaveValue('');
+    expect(within(dialog).queryByLabelText('Active catalog filters')).not.toBeInTheDocument();
+    expect(searchFoods).toHaveBeenLastCalledWith('apple', 'access-token', {
+      limit: 21,
+      offset: 0,
+      ordering: 'relevance,name,id',
+    });
+  });
+
+  test('lays out catalog filters responsively', async () => {
+    const user = userEvent.setup();
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    await within(dialog).findByText('Apple');
+    await user.click(within(dialog).getByRole('button', { name: 'Filters' }));
+
+    const toolbarStyles = responsiveStylesFor(within(dialog).getByTestId('catalog-filter-toolbar'));
+    const advancedStyles = responsiveStylesFor(
+      within(dialog).getByTestId('catalog-advanced-filter-controls'),
+    );
+    expect(toolbarStyles).toMatch(/base .*flex-direction:\s*column/i);
+    expect(toolbarStyles).toMatch(/@media \(min-width:600px\).*flex-direction:\s*row/i);
+    expect(advancedStyles).toMatch(/base .*flex-direction:\s*column/i);
+    expect(advancedStyles).toMatch(/@media \(min-width:900px\).*flex-direction:\s*row/i);
   });
 
   test('leaves a new meal name blank for generation when saving', async () => {
@@ -523,8 +956,9 @@ describe('DiaryPage', () => {
     dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
     expect(await within(dialog).findByText('Apple')).toBeVisible();
     expect(searchFoods).toHaveBeenCalledWith('', 'access-token', {
-      ordering: '-created_at',
-      limit: 20,
+      ordering: '-created_at,-id',
+      limit: 21,
+      offset: 0,
     });
     expect(within(dialog).getByRole('region', { name: 'Meal Details' })).toBeVisible();
     expect(within(dialog).getByRole('region', { name: 'Meal macro breakdown' })).toBeVisible();
@@ -534,6 +968,24 @@ describe('DiaryPage', () => {
     await waitFor(() =>
       expect(within(dialog).getByRole('textbox', { name: 'Search catalog' })).toHaveFocus(),
     );
+  });
+
+  test('keeps the AI estimate dialog compact throughout a backdrop close', async () => {
+    const user = userEvent.setup();
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Map your Meal with AI' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map it with AI/ });
+    const backdrop = document.querySelector('.MuiBackdrop-root');
+
+    expect(backdrop).toBeInTheDocument();
+    await user.click(backdrop);
+
+    expect(dialog).toHaveTextContent('Map it with AI');
+    expect(dialog).not.toHaveTextContent('Meal Details');
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
   });
 
   test('keeps the meal-log actions grouped at the opposite edge of the toolbar', async () => {
@@ -828,9 +1280,9 @@ describe('DiaryPage', () => {
     );
     await user.click(within(dialog).getByRole('button', { name: 'search foods' }));
 
-    expect(await within(dialog).findByText('AI estimate')).toBeVisible();
-    expect(within(dialog).getByText('91% confidence')).toBeVisible();
-    expect(within(dialog).getByText('San Diego Taco Co.')).toBeVisible();
+    expect(await within(dialog).findByText('San Diego Taco Co.')).toBeVisible();
+    expect(within(dialog).queryByText('AI Estimate')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('91% Confidence')).not.toBeInTheDocument();
     expect(
       within(dialog).queryByRole('link', { name: 'Restaurant nutrition reference' }),
     ).not.toBeInTheDocument();
@@ -843,6 +1295,23 @@ describe('DiaryPage', () => {
         name: 'Show estimate details for Carne Asada Taco',
       }),
     );
+    const catalogDetails = within(dialog).getByRole('region', {
+      name: 'Carne Asada Taco estimate details',
+    });
+    const catalogProvider = within(catalogDetails).getByText('San Diego Taco Co.');
+    const catalogProvenance = within(catalogDetails).getByText('AI Estimate');
+    const catalogConfidence = within(catalogDetails).getByText('91% Confidence');
+    expect(catalogProvider.compareDocumentPosition(catalogProvenance)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(catalogProvenance.compareDocumentPosition(catalogConfidence)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(
+      within(dialog)
+        .getByLabelText('Carne Asada Taco catalog nutrition')
+        .compareDocumentPosition(catalogProvenance),
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(
       within(dialog).getByRole('link', { name: 'Restaurant nutrition reference' }),
     ).toHaveAttribute('href', 'https://example.com/taco-nutrition');
@@ -871,6 +1340,24 @@ describe('DiaryPage', () => {
     expect(
       screen.getByRole('menuitem', { name: 'Show estimate details for Carne Asada Taco' }),
     ).toBeVisible();
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Show estimate details for Carne Asada Taco' }),
+    );
+    const mealItemDetails = within(dialog).getByRole('region', {
+      name: 'Carne Asada Taco estimate details',
+    });
+    const mealItemProvider = within(mealItemDetails).getByText('San Diego Taco Co.');
+    const mealItemProvenance = within(mealItemDetails).getByText('AI Estimate');
+    const mealItemConfidence = within(mealItemDetails).getByText('91% Confidence');
+    expect(mealItemProvider.compareDocumentPosition(mealItemProvenance)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(mealItemProvenance.compareDocumentPosition(mealItemConfidence)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    await user.click(
+      within(dialog).getByRole('button', { name: 'More actions for Carne Asada Taco' }),
+    );
     await user.click(screen.getByRole('menuitem', { name: 'remove Carne Asada Taco' }));
 
     expect(await within(dialog).findByRole('button', { name: 'Add' })).toBeVisible();

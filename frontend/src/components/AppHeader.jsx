@@ -221,7 +221,7 @@ export default function AppHeader({ title, setDrawerOpen }) {
                   color: 'var(--atlas-ink)',
                   boxShadow: '0 18px 50px rgba(23, 50, 77, 0.14)',
                   border: '1px solid var(--atlas-border-strong)',
-                  borderRadius: 2,
+                  borderRadius: 'var(--atlas-radius-prominent)',
                   width: { xs: 320, sm: 380 },
                   maxWidth: 'calc(100vw - 24px)',
                 },
@@ -276,7 +276,7 @@ export default function AppHeader({ title, setDrawerOpen }) {
                         onClick={() => handleOpenNotification(notification)}
                         sx={{
                           alignItems: 'flex-start',
-                          borderRadius: 1,
+                          borderRadius: 'var(--atlas-radius-surface)',
                           bgcolor: notification.is_read
                             ? 'transparent'
                             : 'var(--atlas-mineral-soft)',
@@ -344,7 +344,7 @@ export default function AppHeader({ title, setDrawerOpen }) {
                   color: 'var(--atlas-ink)',
                   boxShadow: '0 18px 50px rgba(23, 50, 77, 0.14)',
                   border: '1px solid var(--atlas-border-strong)',
-                  borderRadius: 2,
+                  borderRadius: 'var(--atlas-radius-prominent)',
                   minWidth: 220,
                 },
               },

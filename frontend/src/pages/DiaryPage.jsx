@@ -14,6 +14,7 @@ import RestaurantMenuOutlinedIcon from '@mui/icons-material/RestaurantMenuOutlin
 import SearchIcon from '@mui/icons-material/Search';
 import SendIcon from '@mui/icons-material/Send';
 import TodayOutlinedIcon from '@mui/icons-material/TodayOutlined';
+import TuneIcon from '@mui/icons-material/Tune';
 import {
   Alert,
   Box,
@@ -35,6 +36,8 @@ import {
   Skeleton,
   Stack,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -81,14 +84,38 @@ import { randomMealEstimateExample } from '../mealEstimateExamples';
 
 const provenanceLabels = {
   official: 'Official',
-  community_estimate: 'Community',
-  ai_estimate: 'AI estimate',
-  user_modified_estimate: 'User adjusted',
-  user_entered: 'User entered',
+  community_estimate: 'Community Estimate',
+  ai_estimate: 'AI Estimate',
+  user_modified_estimate: 'User Adjusted',
+  user_entered: 'User Entered',
 };
 
-const maxVisibleCatalogResults = 25;
-const mealBuilderSurfaceRadius = 1.5;
+const catalogPageSize = 20;
+const initialCatalogRequest = {
+  query: '',
+  scope: 'all',
+  originType: 'all',
+  sort: 'recommended',
+  provider: '',
+  provenance: 'all',
+};
+const catalogScopeOptions = [
+  { value: 'all', label: 'All' },
+  { value: 'personal', label: 'My Foods' },
+  { value: 'shared', label: 'Shared' },
+];
+const catalogOriginTypeOptions = [
+  { value: 'generic', label: 'Common' },
+  { value: 'branded', label: 'Branded' },
+  { value: 'restaurant', label: 'Restaurant' },
+];
+const catalogSortOptions = [
+  { value: 'recommended', label: 'Recommended' },
+  { value: 'recent', label: 'Recently added' },
+  { value: 'logged', label: 'Recently logged' },
+  { value: 'name', label: 'Alphabetically' },
+];
+const mealBuilderSurfaceRadius = 'var(--atlas-radius-prominent)';
 
 const localDate = () => {
   const now = new Date();
@@ -175,10 +202,25 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
   const [adjustmentBusy, setAdjustmentBusy] = useState(false);
   const [adjustmentFeedback, setAdjustmentFeedback] = useState(null);
   const [query, setQuery] = useState('');
+  const [catalogScope, setCatalogScope] = useState('all');
+  const [catalogOriginType, setCatalogOriginType] = useState('all');
+  const [catalogSort, setCatalogSort] = useState('recommended');
+  const [catalogFiltersOpen, setCatalogFiltersOpen] = useState(false);
+  const [catalogProvider, setCatalogProvider] = useState('');
+  const [catalogProvenance, setCatalogProvenance] = useState('all');
+  const [appliedCatalogOriginType, setAppliedCatalogOriginType] = useState('all');
+  const [appliedCatalogProvider, setAppliedCatalogProvider] = useState('');
+  const [appliedCatalogProvenance, setAppliedCatalogProvenance] = useState('all');
+  const [catalogFeedback, setCatalogFeedback] = useState('');
+  const [catalogError, setCatalogError] = useState('');
+  const [catalogRetry, setCatalogRetry] = useState(null);
   const [foods, setFoods] = useState([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [showingRecentFoods, setShowingRecentFoods] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [loadingMoreFoods, setLoadingMoreFoods] = useState(false);
+  const [catalogHasMore, setCatalogHasMore] = useState(false);
+  const [catalogNextOffset, setCatalogNextOffset] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [discardOpen, setDiscardOpen] = useState(false);
@@ -188,6 +230,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
   const [baselineFingerprint, setBaselineFingerprint] = useState('');
   const catalogSearchRef = useRef(null);
   const catalogRequestIdRef = useRef(0);
+  const appliedCatalogRequestRef = useRef(initialCatalogRequest);
   const selectedFoodIds = useMemo(
     () => new Set(items.map((item) => String(item.food_item))),
     [items],
@@ -196,46 +239,276 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     () => foods.filter((food) => !selectedFoodIds.has(String(food.id))),
     [foods, selectedFoodIds],
   );
-  const visibleFoods = availableFoods.slice(0, maxVisibleCatalogResults);
-  const activeCatalogFood = visibleFoods.find((food) => food.id === catalogActionsFoodId);
+  const activeCatalogFood = availableFoods.find((food) => food.id === catalogActionsFoodId);
+  const hasCatalogFilters =
+    catalogScope !== 'all' ||
+    catalogOriginType !== 'all' ||
+    Boolean(catalogProvider.trim()) ||
+    catalogProvenance !== 'all';
+  const advancedCatalogFilterCount =
+    Number(appliedCatalogOriginType !== 'all') +
+    Number(Boolean(appliedCatalogProvider.trim())) +
+    Number(appliedCatalogProvenance !== 'all');
 
-  const loadRecentFoods = useCallback(async () => {
-    const requestId = ++catalogRequestIdRef.current;
-    setSearching(true);
-    setHasSearched(false);
-    setShowingRecentFoods(true);
-    setError('');
-    const response = await searchFoods('', token, { ordering: '-created_at', limit: 20 });
-    if (requestId !== catalogRequestIdRef.current) return;
-    if (response.ok) {
-      setFoods(await response.json());
-    } else {
-      setFoods([]);
-      setError(await responseError(response, 'Could not load recent catalog foods.'));
+  const loadRecentFoods = useCallback(
+    async ({ append = false, offset = 0 } = {}, appliedRequest = initialCatalogRequest) => {
+      const requestId = ++catalogRequestIdRef.current;
+      if (append) {
+        setLoadingMoreFoods(true);
+      } else {
+        setSearching(true);
+        setLoadingMoreFoods(false);
+        appliedCatalogRequestRef.current = appliedRequest;
+        setAppliedCatalogOriginType(appliedRequest.originType);
+        setAppliedCatalogProvider(appliedRequest.provider);
+        setAppliedCatalogProvenance(appliedRequest.provenance);
+        setHasSearched(false);
+        setShowingRecentFoods(true);
+      }
+      setCatalogError('');
+      setCatalogRetry(null);
+      try {
+        const response = await searchFoods('', token, {
+          ordering: '-created_at,-id',
+          limit: catalogPageSize + 1,
+          offset,
+        });
+        if (requestId !== catalogRequestIdRef.current) return;
+        if (response.ok) {
+          const results = await response.json();
+          if (requestId !== catalogRequestIdRef.current) return;
+          const page = results.slice(0, catalogPageSize);
+          setFoods((current) => {
+            if (!append) return page;
+            const loadedIds = new Set(current.map((food) => String(food.id)));
+            return [...current, ...page.filter((food) => !loadedIds.has(String(food.id)))];
+          });
+          setCatalogHasMore(results.length > catalogPageSize);
+          setCatalogNextOffset(offset + page.length);
+        } else {
+          const message = await responseError(response, 'Could not load recent catalog foods.');
+          if (requestId !== catalogRequestIdRef.current) return;
+          if (!append) {
+            setFoods([]);
+            setCatalogHasMore(false);
+            setCatalogNextOffset(0);
+          }
+          setCatalogError(message);
+          setCatalogRetry({
+            type: 'recent',
+            appliedRequest,
+            pageOptions: { append, offset },
+          });
+        }
+      } catch (_error) {
+        if (requestId !== catalogRequestIdRef.current) return;
+        if (!append) {
+          setFoods([]);
+          setCatalogHasMore(false);
+          setCatalogNextOffset(0);
+        }
+        setCatalogError('Could not load recent catalog foods.');
+        setCatalogRetry({
+          type: 'recent',
+          appliedRequest,
+          pageOptions: { append, offset },
+        });
+      } finally {
+        if (requestId === catalogRequestIdRef.current) {
+          if (append) setLoadingMoreFoods(false);
+          else setSearching(false);
+        }
+      }
+    },
+    [token],
+  );
+
+  const runSearch = useCallback(
+    async (overrides = {}, { append = false, offset = 0 } = {}) => {
+      const nextQuery = overrides.query ?? query;
+      const nextScope = overrides.scope ?? catalogScope;
+      const nextOriginType = overrides.originType ?? catalogOriginType;
+      const nextSort = overrides.sort ?? catalogSort;
+      const nextProvider = overrides.provider ?? catalogProvider;
+      const nextProvenance = overrides.provenance ?? catalogProvenance;
+      const appliedRequest = {
+        query: nextQuery,
+        scope: nextScope,
+        originType: nextOriginType,
+        sort: nextSort,
+        provider: nextProvider,
+        provenance: nextProvenance,
+      };
+      const normalizedQuery = nextQuery.trim();
+      const hasFilters =
+        nextScope !== 'all' ||
+        nextOriginType !== 'all' ||
+        Boolean(nextProvider.trim()) ||
+        nextProvenance !== 'all';
+      if (
+        !normalizedQuery &&
+        !hasFilters &&
+        (nextSort === 'recommended' || nextSort === 'recent')
+      ) {
+        loadRecentFoods({ append, offset }, appliedRequest);
+        return;
+      }
+      const requestId = ++catalogRequestIdRef.current;
+      if (append) {
+        setLoadingMoreFoods(true);
+      } else {
+        setSearching(true);
+        setLoadingMoreFoods(false);
+        setHasSearched(true);
+        setShowingRecentFoods(false);
+      }
+      setCatalogFeedback('');
+      setCatalogError('');
+      setCatalogRetry(null);
+      if (!append) {
+        appliedCatalogRequestRef.current = appliedRequest;
+        setAppliedCatalogOriginType(nextOriginType);
+        setAppliedCatalogProvider(nextProvider);
+        setAppliedCatalogProvenance(nextProvenance);
+      }
+      const options = {
+        limit: catalogPageSize + 1,
+        offset,
+        ordering:
+          nextSort === 'name'
+            ? 'name,id'
+            : nextSort === 'logged'
+              ? '-has_logged,-last_logged_on,name,id'
+              : nextSort === 'recent' || !normalizedQuery
+                ? '-created_at,-id'
+                : 'relevance,name,id',
+      };
+      if (nextScope !== 'all') options.scope = nextScope;
+      if (nextOriginType !== 'all') options.originType = nextOriginType;
+      if (nextProvider.trim()) options.provider = nextProvider.trim();
+      if (nextProvenance !== 'all') options.provenance = nextProvenance;
+      try {
+        const response = await searchFoods(normalizedQuery, token, options);
+        if (requestId !== catalogRequestIdRef.current) return;
+        if (response.ok) {
+          const results = await response.json();
+          if (requestId !== catalogRequestIdRef.current) return;
+          const page = results.slice(0, catalogPageSize);
+          setFoods((current) => {
+            if (!append) return page;
+            const loadedIds = new Set(current.map((food) => String(food.id)));
+            return [...current, ...page.filter((food) => !loadedIds.has(String(food.id)))];
+          });
+          setCatalogHasMore(results.length > catalogPageSize);
+          setCatalogNextOffset(offset + page.length);
+        } else {
+          const message = await responseError(response, 'Could not search the food catalog.');
+          if (requestId !== catalogRequestIdRef.current) return;
+          if (!append) {
+            setFoods([]);
+            setCatalogHasMore(false);
+            setCatalogNextOffset(0);
+          }
+          setCatalogError(message);
+          setCatalogRetry({
+            type: 'search',
+            overrides: appliedRequest,
+            pageOptions: { append, offset },
+          });
+        }
+      } catch (_error) {
+        if (requestId !== catalogRequestIdRef.current) return;
+        if (!append) {
+          setFoods([]);
+          setCatalogHasMore(false);
+          setCatalogNextOffset(0);
+        }
+        setCatalogError('Could not search the food catalog.');
+        setCatalogRetry({
+          type: 'search',
+          overrides: appliedRequest,
+          pageOptions: { append, offset },
+        });
+      } finally {
+        if (requestId === catalogRequestIdRef.current) {
+          if (append) setLoadingMoreFoods(false);
+          else setSearching(false);
+        }
+      }
+    },
+    [
+      catalogOriginType,
+      catalogProvider,
+      catalogProvenance,
+      catalogScope,
+      catalogSort,
+      loadRecentFoods,
+      query,
+      token,
+    ],
+  );
+
+  const runAppliedCatalogSearch = useCallback(
+    (overrides = {}, pageOptions = {}) =>
+      runSearch({ ...appliedCatalogRequestRef.current, ...overrides }, pageOptions),
+    [runSearch],
+  );
+
+  const retryCatalogRequest = () => {
+    if (!catalogRetry) return;
+    if (catalogRetry.type === 'recent') {
+      loadRecentFoods(catalogRetry.pageOptions, catalogRetry.appliedRequest);
+      return;
     }
-    setSearching(false);
-  }, [token]);
+    runSearch(catalogRetry.overrides, catalogRetry.pageOptions);
+  };
 
-  const runSearch = useCallback(async () => {
-    const normalizedQuery = query.trim();
-    if (!normalizedQuery) return;
-    const requestId = ++catalogRequestIdRef.current;
-    setSearching(true);
-    setHasSearched(true);
-    setShowingRecentFoods(false);
-    setFoods([]);
-    setError('');
-    const response = await searchFoods(normalizedQuery, token, {
-      limit: maxVisibleCatalogResults + 1,
+  const resetCatalogFilters = () => {
+    setCatalogScope('all');
+    setCatalogOriginType('all');
+    setCatalogProvider('');
+    setCatalogProvenance('all');
+    setCatalogFeedback('');
+    setCatalogError('');
+    setCatalogRetry(null);
+    runAppliedCatalogSearch({
+      scope: 'all',
+      originType: 'all',
+      provider: '',
+      provenance: 'all',
     });
-    if (requestId !== catalogRequestIdRef.current) return;
-    if (response.ok) {
-      setFoods(await response.json());
-    } else {
-      setError(await responseError(response, 'Could not search the food catalog.'));
+  };
+
+  const clearCatalogFilter = (filter) => {
+    const overrides = {};
+    if (filter === 'scope') {
+      setCatalogScope('all');
+      overrides.scope = 'all';
     }
-    setSearching(false);
-  }, [query, token]);
+    if (filter === 'originType') {
+      setCatalogOriginType('all');
+    }
+    if (filter === 'provider') {
+      setCatalogProvider('');
+    }
+    if (filter === 'provenance') {
+      setCatalogProvenance('all');
+    }
+    if (filter === 'originType') overrides.originType = 'all';
+    if (filter === 'provider') overrides.provider = '';
+    if (filter === 'provenance') overrides.provenance = 'all';
+    runAppliedCatalogSearch(overrides);
+  };
+
+  const loadMoreCatalogFoods = () => {
+    if (!catalogHasMore || searching || loadingMoreFoods) return;
+    const pageOptions = { append: true, offset: catalogNextOffset };
+    if (showingRecentFoods) {
+      loadRecentFoods(pageOptions, appliedCatalogRequestRef.current);
+    } else {
+      runAppliedCatalogSearch({}, pageOptions);
+    }
+  };
 
   useEffect(() => {
     if (!open) {
@@ -267,10 +540,26 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
       }),
     );
     setQuery('');
+    setCatalogScope('all');
+    setCatalogOriginType('all');
+    setCatalogSort('recommended');
+    setCatalogFiltersOpen(false);
+    setCatalogProvider('');
+    setCatalogProvenance('all');
+    setAppliedCatalogOriginType('all');
+    setAppliedCatalogProvider('');
+    setAppliedCatalogProvenance('all');
+    appliedCatalogRequestRef.current = initialCatalogRequest;
+    setCatalogFeedback('');
+    setCatalogError('');
+    setCatalogRetry(null);
     setFoods([]);
     setHasSearched(false);
     setShowingRecentFoods(false);
     setSearching(false);
+    setLoadingMoreFoods(false);
+    setCatalogHasMore(false);
+    setCatalogNextOffset(0);
     setError('');
     setDiscardOpen(false);
     setCatalogActionsAnchorEl(null);
@@ -334,6 +623,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
       if (current.some((item) => String(item.food_item) === String(food.id))) return current;
       return [...current, catalogFoodToMealItem(food)];
     });
+    setCatalogFeedback(`${food.name} added to Meal Items.`);
   };
 
   const closeCatalogActions = () => {
@@ -648,14 +938,14 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                     flexWrap: 'wrap',
                   }}
                 >
-                  <Chip size="small" label="AI estimate" color="secondary" variant="outlined" />
                   {proposalContext.provider_name && (
                     <Chip size="small" label={proposalContext.provider_name} variant="outlined" />
                   )}
+                  <Chip size="small" label="AI Estimate" color="secondary" variant="outlined" />
                   {proposalContext.confidence_score != null && (
                     <Chip
                       size="small"
-                      label={`${Math.round(Number(proposalContext.confidence_score) * 100)}% confidence`}
+                      label={`${Math.round(Number(proposalContext.confidence_score) * 100)}% Confidence`}
                       variant="outlined"
                     />
                   )}
@@ -754,7 +1044,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                         label={
                           showingRecentFoods
                             ? `${availableFoods.length} recent`
-                            : `${availableFoods.length} results`
+                            : `${availableFoods.length} shown`
                         }
                         size="small"
                         variant="outlined"
@@ -771,7 +1061,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                   </Stack>
                 </Stack>
                 <Collapse in={catalogPickerOpen} unmountOnExit>
-                  <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: 1.5 }}>
                     <TextField
                       inputRef={catalogSearchRef}
                       label="Search catalog"
@@ -780,7 +1070,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                         const nextQuery = event.target.value;
                         setQuery(nextQuery);
                         if (!nextQuery.trim()) {
-                          loadRecentFoods();
+                          runAppliedCatalogSearch({ query: '' });
                         }
                       }}
                       onKeyDown={(event) => {
@@ -793,8 +1083,8 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                     />
                     <Button
                       variant="outlined"
-                      onClick={runSearch}
-                      disabled={searching || !query.trim()}
+                      onClick={() => runSearch()}
+                      disabled={searching}
                       startIcon={searching ? <CircularProgress size={18} /> : <SearchIcon />}
                       aria-label="search foods"
                       sx={{ minWidth: { xs: 52, sm: 116 }, px: { xs: 1.5, sm: 2.5 } }}
@@ -804,24 +1094,255 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       </Box>
                     </Button>
                   </Stack>
-                  {searching ? (
+                  <Stack
+                    data-testid="catalog-filter-toolbar"
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    sx={{ mt: 1, alignItems: { sm: 'center' } }}
+                  >
+                    <Box sx={{ minWidth: 0, flex: 1, overflowX: 'auto' }}>
+                      <ToggleButtonGroup
+                        exclusive
+                        size="small"
+                        value={catalogScope}
+                        onChange={(_event, nextScope) => {
+                          if (!nextScope) return;
+                          setCatalogScope(nextScope);
+                          runAppliedCatalogSearch({ scope: nextScope });
+                        }}
+                        aria-label="Catalog scope"
+                        sx={{
+                          whiteSpace: 'nowrap',
+                          '& .MuiToggleButton-root': {
+                            px: 1.25,
+                            py: 0.75,
+                            fontWeight: 750,
+                            textTransform: 'none',
+                          },
+                        }}
+                      >
+                        {catalogScopeOptions.map((option) => (
+                          <ToggleButton key={option.value} value={option.value}>
+                            {option.label}
+                          </ToggleButton>
+                        ))}
+                      </ToggleButtonGroup>
+                    </Box>
+                    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
+                      <Button
+                        size="small"
+                        variant={
+                          catalogFiltersOpen || advancedCatalogFilterCount ? 'outlined' : 'text'
+                        }
+                        startIcon={<TuneIcon />}
+                        aria-expanded={catalogFiltersOpen}
+                        aria-controls="catalog-advanced-filters"
+                        onClick={() => setCatalogFiltersOpen((current) => !current)}
+                        sx={{ minHeight: 40, whiteSpace: 'nowrap' }}
+                      >
+                        Filters
+                        {advancedCatalogFilterCount ? ` (${advancedCatalogFilterCount})` : ''}
+                      </Button>
+                      <TextField
+                        select
+                        size="small"
+                        label="Sort"
+                        value={catalogSort}
+                        onChange={(event) => {
+                          const nextSort = event.target.value;
+                          setCatalogSort(nextSort);
+                          runAppliedCatalogSearch({ sort: nextSort });
+                        }}
+                        sx={{ minWidth: 150 }}
+                      >
+                        {catalogSortOptions.map((option) => (
+                          <MenuItem key={option.value} value={option.value}>
+                            {option.label}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Stack>
+                  </Stack>
+                  <Collapse in={catalogFiltersOpen} unmountOnExit>
+                    <Paper
+                      id="catalog-advanced-filters"
+                      elevation={0}
+                      sx={{ mt: 1, p: 1, border: '1px solid var(--atlas-border)' }}
+                    >
+                      <Stack
+                        data-testid="catalog-advanced-filter-controls"
+                        direction={{ xs: 'column', md: 'row' }}
+                        spacing={1}
+                      >
+                        <TextField
+                          select
+                          size="small"
+                          label="Food type"
+                          value={catalogOriginType}
+                          onChange={(event) => setCatalogOriginType(event.target.value)}
+                          sx={{ minWidth: { md: 150 } }}
+                        >
+                          <MenuItem value="all">Any food type</MenuItem>
+                          {catalogOriginTypeOptions.map((option) => (
+                            <MenuItem key={option.value} value={option.value}>
+                              {option.label}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                        <TextField
+                          size="small"
+                          label="Provider or brand"
+                          value={catalogProvider}
+                          onChange={(event) => setCatalogProvider(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault();
+                              runSearch();
+                            }
+                          }}
+                          sx={{ flex: 1, minWidth: { sm: 180 } }}
+                        />
+                        <TextField
+                          select
+                          size="small"
+                          label="Provenance"
+                          value={catalogProvenance}
+                          onChange={(event) => setCatalogProvenance(event.target.value)}
+                          sx={{ minWidth: { sm: 180 } }}
+                        >
+                          <MenuItem value="all">Any provenance</MenuItem>
+                          {Object.entries(provenanceLabels).map(([value, label]) => (
+                            <MenuItem key={value} value={value}>
+                              {label}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          onClick={() => runSearch()}
+                          sx={{ minHeight: 40, whiteSpace: 'nowrap' }}
+                        >
+                          Apply filters
+                        </Button>
+                        <Button
+                          size="small"
+                          onClick={resetCatalogFilters}
+                          disabled={!hasCatalogFilters && !advancedCatalogFilterCount}
+                          sx={{ minHeight: 40, whiteSpace: 'nowrap' }}
+                        >
+                          Clear all
+                        </Button>
+                      </Stack>
+                    </Paper>
+                  </Collapse>
+                  {advancedCatalogFilterCount > 0 && (
+                    <Stack
+                      direction="row"
+                      spacing={0.75}
+                      useFlexGap
+                      sx={{ mt: 1, flexWrap: 'wrap', alignItems: 'center' }}
+                      aria-label="Active catalog filters"
+                    >
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        Active filters
+                      </Typography>
+                      {appliedCatalogOriginType !== 'all' && (
+                        <Chip
+                          size="small"
+                          label={`Type: ${catalogOriginTypeOptions.find((option) => option.value === appliedCatalogOriginType)?.label}`}
+                          onDelete={() => clearCatalogFilter('originType')}
+                        />
+                      )}
+                      {appliedCatalogProvider.trim() && (
+                        <Chip
+                          size="small"
+                          label={`Provider: ${appliedCatalogProvider.trim()}`}
+                          onDelete={() => clearCatalogFilter('provider')}
+                        />
+                      )}
+                      {appliedCatalogProvenance !== 'all' && (
+                        <Chip
+                          size="small"
+                          label={provenanceLabels[appliedCatalogProvenance]}
+                          onDelete={() => clearCatalogFilter('provenance')}
+                        />
+                      )}
+                    </Stack>
+                  )}
+                  {catalogError && (
+                    <Alert
+                      severity="error"
+                      sx={{ mt: 1 }}
+                      action={
+                        <Button
+                          color="inherit"
+                          size="small"
+                          onClick={retryCatalogRequest}
+                          disabled={searching || loadingMoreFoods}
+                        >
+                          Retry
+                        </Button>
+                      }
+                    >
+                      {catalogError}
+                    </Alert>
+                  )}
+                  {catalogFeedback && (
+                    <Alert severity="success" sx={{ mt: 1 }} onClose={() => setCatalogFeedback('')}>
+                      {catalogFeedback}
+                    </Alert>
+                  )}
+                  {searching && !availableFoods.length ? (
                     <Stack spacing={1} sx={{ mt: 1.5 }} aria-label="Loading food results">
                       {[0, 1].map((value) => (
                         <Skeleton key={value} variant="rounded" height={92} />
                       ))}
                     </Stack>
-                  ) : availableFoods.length ? (
+                  ) : catalogError && !availableFoods.length ? null : availableFoods.length ||
+                    catalogHasMore ? (
                     <>
                       <List
                         disablePadding
                         aria-label="Food search results"
-                        sx={{ maxHeight: 360, mt: 1.5, overflow: 'auto' }}
+                        aria-busy={searching}
+                        sx={{
+                          maxHeight: 360,
+                          mt: 1.5,
+                          pr: 1,
+                          overflowX: 'hidden',
+                          overflowY: 'auto',
+                          opacity: searching ? 0.55 : 1,
+                          pointerEvents: searching ? 'none' : 'auto',
+                          transition: 'opacity 120ms ease',
+                          scrollbarGutter: 'stable',
+                          scrollbarWidth: 'thin',
+                          scrollbarColor: 'var(--atlas-border) transparent',
+                          '&::-webkit-scrollbar': {
+                            width: 10,
+                          },
+                          '&::-webkit-scrollbar-track': {
+                            bgcolor: 'transparent',
+                          },
+                          '&::-webkit-scrollbar-thumb': {
+                            bgcolor: 'var(--atlas-border)',
+                            border: '3px solid transparent',
+                            borderRadius: 'var(--atlas-radius-pill)',
+                            backgroundClip: 'padding-box',
+                          },
+                        }}
                       >
-                        {visibleFoods.map((food) => {
+                        {availableFoods.map((food) => {
                           const version = food.current_version || {};
                           const source =
                             provenanceLabels[version.provenance] ||
                             (food.scope === 'personal' ? 'Personal' : 'Catalog');
+                          const scopeLabel =
+                            food.scope === 'personal'
+                              ? 'My Food'
+                              : food.scope === 'shared'
+                                ? 'Shared'
+                                : 'Catalog';
                           return (
                             <Paper
                               component="li"
@@ -837,63 +1358,75 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                               }}
                             >
                               <Stack
-                                direction={{ xs: 'column', sm: 'row' }}
+                                direction="row"
                                 sx={{
                                   justifyContent: 'space-between',
+                                  alignItems: 'flex-start',
                                   gap: 1,
                                 }}
                               >
-                                <Box sx={{ minWidth: 0 }}>
-                                  <Stack
-                                    direction="row"
-                                    spacing={0.75}
-                                    useFlexGap
-                                    sx={{
-                                      flexWrap: 'wrap',
-                                      mb: 0.5,
-                                    }}
-                                  >
-                                    <Chip size="small" label={source} variant="outlined" />
-                                    {version.confidence_score != null && (
-                                      <Chip
-                                        size="small"
-                                        label={`${Math.round(Number(version.confidence_score) * 100)}% confidence`}
-                                        variant="outlined"
-                                      />
-                                    )}
-                                    {food.provider_name && (
-                                      <Chip
-                                        size="small"
-                                        label={food.provider_name}
-                                        variant="outlined"
-                                      />
-                                    )}
-                                  </Stack>
+                                <Box sx={{ minWidth: 0, flex: 1 }}>
                                   <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
                                     {food.name}
                                   </Typography>
-                                  <Typography
-                                    variant="caption"
+                                  <Stack
+                                    direction="row"
+                                    spacing={0.5}
+                                    useFlexGap
                                     sx={{
+                                      alignItems: 'baseline',
+                                      flexWrap: 'wrap',
                                       color: 'text.secondary',
                                     }}
                                   >
-                                    {version.serving_label ||
-                                      `${formatAmount(version.serving_quantity)} ${version.serving_unit || 'serving'}`}
-                                  </Typography>
+                                    {food.provider_name && (
+                                      <Typography
+                                        component="span"
+                                        variant="caption"
+                                        sx={{ color: 'text.primary', fontWeight: 700 }}
+                                      >
+                                        {food.provider_name}
+                                      </Typography>
+                                    )}
+                                    {food.provider_name && (
+                                      <Typography component="span" variant="caption" aria-hidden>
+                                        ·
+                                      </Typography>
+                                    )}
+                                    <Typography component="span" variant="caption">
+                                      {version.serving_label ||
+                                        `${formatAmount(version.serving_quantity)} ${version.serving_unit || 'serving'}`}
+                                    </Typography>
+                                    <Typography component="span" variant="caption" aria-hidden>
+                                      ·
+                                    </Typography>
+                                    <Typography
+                                      component="span"
+                                      variant="caption"
+                                      sx={{ color: 'text.primary', fontWeight: 700 }}
+                                    >
+                                      {scopeLabel}
+                                    </Typography>
+                                  </Stack>
                                 </Box>
                                 <Stack
                                   direction="row"
                                   spacing={1}
                                   sx={{
                                     alignItems: 'center',
+                                    flexShrink: 0,
                                   }}
                                 >
-                                  <Button onClick={() => addFood(food)} startIcon={<AddIcon />}>
+                                  <Button
+                                    onClick={() => addFood(food)}
+                                    disabled={searching}
+                                    startIcon={<AddIcon />}
+                                  >
                                     Add
                                   </Button>
                                   <IconButton
                                     size="small"
+                                    disabled={searching}
                                     aria-label={`More actions for ${food.name}`}
                                     aria-haspopup="menu"
                                     aria-expanded={
@@ -909,8 +1442,17 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                                   </IconButton>
                                 </Stack>
                               </Stack>
+                              <Box sx={{ mt: 1 }}>
+                                <NutritionCards
+                                  values={nutrientValues(version.nutrients)}
+                                  ariaLabel={`${food.name} catalog nutrition`}
+                                  compact
+                                />
+                              </Box>
                               <Collapse in={catalogDetailFoodIds.has(food.id)} unmountOnExit>
                                 <Paper
+                                  role="region"
+                                  aria-label={`${food.name} estimate details`}
                                   elevation={0}
                                   sx={{
                                     mt: 0.75,
@@ -926,18 +1468,18 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                                       flexWrap: 'wrap',
                                     }}
                                   >
-                                    <Chip size="small" label={source} variant="outlined" />
-                                    {version.confidence_score != null && (
-                                      <Chip
-                                        size="small"
-                                        label={`${Math.round(Number(version.confidence_score) * 100)}% confidence`}
-                                        variant="outlined"
-                                      />
-                                    )}
                                     {food.provider_name && (
                                       <Chip
                                         size="small"
                                         label={food.provider_name}
+                                        variant="outlined"
+                                      />
+                                    )}
+                                    <Chip size="small" label={source} variant="outlined" />
+                                    {version.confidence_score != null && (
+                                      <Chip
+                                        size="small"
+                                        label={`${Math.round(Number(version.confidence_score) * 100)}% Confidence`}
                                         variant="outlined"
                                       />
                                     )}
@@ -976,28 +1518,35 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                                   )}
                                 </Paper>
                               </Collapse>
-                              <Box sx={{ mt: 1 }}>
-                                <NutritionCards
-                                  values={nutrientValues(version.nutrients)}
-                                  ariaLabel={`${food.name} catalog nutrition`}
-                                  compact
-                                />
-                              </Box>
                             </Paper>
                           );
                         })}
+                        {catalogHasMore && (
+                          <Box
+                            component="li"
+                            sx={{
+                              display: 'flex',
+                              justifyContent: 'center',
+                              listStyle: 'none',
+                              py: 0.25,
+                            }}
+                          >
+                            <Button
+                              size="small"
+                              variant="text"
+                              onClick={loadMoreCatalogFoods}
+                              disabled={searching || loadingMoreFoods}
+                              startIcon={
+                                loadingMoreFoods ? <CircularProgress size={16} /> : undefined
+                              }
+                              endIcon={loadingMoreFoods ? undefined : <ExpandMoreIcon />}
+                              sx={{ fontWeight: 800 }}
+                            >
+                              {loadingMoreFoods ? 'Loading…' : `Show ${catalogPageSize} more`}
+                            </Button>
+                          </Box>
+                        )}
                       </List>
-                      {availableFoods.length > maxVisibleCatalogResults && (
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            color: 'text.secondary',
-                          }}
-                        >
-                          Showing the first {maxVisibleCatalogResults} results. Refine your search
-                          to find a specific food.
-                        </Typography>
-                      )}
                       <Menu
                         anchorEl={catalogActionsAnchorEl}
                         open={Boolean(catalogActionsAnchorEl && activeCatalogFood)}
@@ -1033,7 +1582,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                           ? 'Search by food or provider to see matching foods.'
                           : foods.length
                             ? 'All matching foods are already in this meal.'
-                            : 'No foods matched this search. Try another term or use AI estimation to add a meal.'}
+                            : 'No foods matched this search and filter combination. Clear a filter or try another term.'}
                     </Typography>
                   )}
                 </Collapse>
@@ -1086,7 +1635,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       textAlign: 'center',
                       bgcolor: 'var(--atlas-bone)',
                       border: '1px dashed var(--atlas-border-strong)',
-                      borderRadius: mealBuilderSurfaceRadius,
+                      borderRadius: 'var(--atlas-radius-surface)',
                     }}
                   >
                     <RestaurantMenuOutlinedIcon sx={{ color: 'var(--atlas-mineral-dark)' }} />
@@ -1410,7 +1959,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   bgcolor: 'var(--atlas-paper)',
                   color: 'var(--atlas-ink)',
                   border: '1px solid var(--atlas-border)',
-                  borderRadius: 999,
+                  borderRadius: 'var(--atlas-radius-pill)',
                 }}
               >
                 <Stack direction="row" spacing={0.125} sx={{ alignItems: 'center' }}>
@@ -1496,7 +2045,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
               p: { xs: 2, sm: 2.5 },
               bgcolor: 'var(--atlas-paper)',
               border: '1px solid var(--atlas-border)',
-              borderRadius: 2.5,
+              borderRadius: 'var(--atlas-radius-prominent)',
             }}
           >
             <Stack
@@ -1508,7 +2057,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
               }}
             >
               <Typography id="daily-totals-heading" component="h2" variant="h5">
-                Daily summary
+                Daily Summary
               </Typography>
               <Typography variant="body2" sx={{ color: 'var(--atlas-ink-muted)' }}>
                 Saved nutrition for {isToday ? 'today' : `${dateParts.weekday}, ${dateParts.date}`}
@@ -1534,7 +2083,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                     bgcolor: 'var(--atlas-paper)',
                     border: '1px solid var(--atlas-border)',
                     borderTop: `3px solid ${nutrient.color}`,
-                    borderRadius: 1.5,
+                    borderRadius: 'var(--atlas-radius-surface)',
                   }}
                 >
                   <Typography
@@ -1631,7 +2180,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   }}
                 >
                   <Typography id="meals-heading" component="h2" variant="h5">
-                    Meal log
+                    Meal Log
                   </Typography>
                   {!loading && (
                     <Stack direction="row" spacing={0.75}>
@@ -1698,7 +2247,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   bgcolor: 'var(--atlas-paper)',
                   color: 'var(--atlas-ink)',
                   border: '1px dashed var(--atlas-border-strong)',
-                  borderRadius: 2.5,
+                  borderRadius: 'var(--atlas-radius-prominent)',
                 }}
               >
                 <RestaurantMenuOutlinedIcon
@@ -1741,7 +2290,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                           p: 2,
                           bgcolor: 'var(--atlas-paper)',
                           border: '1px solid var(--atlas-border)',
-                          borderRadius: 2,
+                          borderRadius: 'var(--atlas-radius-surface)',
                         }}
                       >
                         <Stack
@@ -1800,7 +2349,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                               {hasMealConfidence && (
                                 <Chip
                                   size="small"
-                                  label={`${Math.round(mealConfidence * 100)}% confidence`}
+                                  label={`${Math.round(mealConfidence * 100)}% Confidence`}
                                   sx={{
                                     bgcolor: 'var(--atlas-forest-soft)',
                                     color: 'var(--atlas-forest-dark)',
@@ -1862,7 +2411,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                 aria-label={`${meal.name} food breakdown`}
                                 sx={{
                                   border: '1px solid var(--atlas-border)',
-                                  borderRadius: 0.75,
+                                  borderRadius: 'var(--atlas-radius-compact)',
                                   overflow: 'hidden',
                                 }}
                               >
@@ -1878,7 +2427,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                     borderBottom: '1px solid var(--atlas-border)',
                                   }}
                                 >
-                                  {['Foods & servings', 'Calories', 'Confidence', 'Provenance'].map(
+                                  {['Food & Servings', 'Calories', 'Confidence', 'Provenance'].map(
                                     (label) => (
                                       <Typography
                                         key={label}
@@ -1911,6 +2460,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                           sm: 'minmax(0, 1fr) 104px 92px 122px',
                                         },
                                         gap: { xs: 0.75, sm: 1 },
+                                        alignItems: { sm: 'center' },
                                         px: 1.25,
                                         py: 1,
                                         borderBottom:
@@ -1972,7 +2522,6 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                                 : 0
                                             }
                                             height={4}
-                                            borderRadius={999}
                                             wholeNumbers
                                           />
                                         </Box>
@@ -2023,7 +2572,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                     py: 1,
                                     bgcolor: 'var(--atlas-bone)',
                                     borderLeft: '3px solid var(--atlas-mineral)',
-                                    borderRadius: 1,
+                                    borderRadius: 'var(--atlas-radius-compact)',
                                   }}
                                 >
                                   <Typography
@@ -2078,7 +2627,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                       bgcolor: 'var(--atlas-paper)',
                                       border: '1px solid var(--atlas-border-strong)',
                                       borderTop: `2px solid ${color}`,
-                                      borderRadius: 1.25,
+                                      borderRadius: 'var(--atlas-radius-surface)',
                                     }}
                                   >
                                     <Typography variant="caption" sx={{ color, fontWeight: 800 }}>
@@ -2108,9 +2657,9 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
           open={mapYourMeal.open}
           token={token}
           launchMode={mapYourMeal.launchMode}
-          onClose={() => setMapYourMeal({ open: false, meal: null, launchMode: 'add' })}
+          onClose={() => setMapYourMeal((current) => ({ ...current, open: false }))}
           onSaved={async (message) => {
-            setMapYourMeal({ open: false, meal: null, launchMode: 'add' });
+            setMapYourMeal((current) => ({ ...current, open: false }));
             showSnackbar('success', message);
             await loadDiary();
           }}
