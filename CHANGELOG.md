@@ -10,6 +10,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Use consistent title capitalization for the Daily Summary and Meal Log headings.
 - Center saved-meal calories, confidence, and provenance beside the complete
   Food & Servings context, with consistent heading capitalization.
 - Standardize interface corners around compact, surface, prominent, and pill

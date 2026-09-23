@@ -298,7 +298,7 @@ describe('DiaryPage', () => {
     renderWithProviders(<DiaryPage />);
 
     expect(await screen.findByRole('heading', { name: 'Breakfast' })).toBeInTheDocument();
-    const dailySummary = screen.getByRole('region', { name: 'Daily summary' });
+    const dailySummary = screen.getByRole('region', { name: 'Daily Summary' });
     expect(within(dailySummary).getByText('95', { selector: 'h5' })).toBeInTheDocument();
     expect(within(dailySummary).getByText('0.5', { selector: 'h5' })).toBeInTheDocument();
     const sugarTotal = within(dailySummary).getByRole('group', { name: 'Sugar daily total' });

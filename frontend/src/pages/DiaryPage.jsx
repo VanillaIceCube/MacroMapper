@@ -2057,7 +2057,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
               }}
             >
               <Typography id="daily-totals-heading" component="h2" variant="h5">
-                Daily summary
+                Daily Summary
               </Typography>
               <Typography variant="body2" sx={{ color: 'var(--atlas-ink-muted)' }}>
                 Saved nutrition for {isToday ? 'today' : `${dateParts.weekday}, ${dateParts.date}`}
@@ -2180,7 +2180,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   }}
                 >
                   <Typography id="meals-heading" component="h2" variant="h5">
-                    Meal log
+                    Meal Log
                   </Typography>
                   {!loading && (
                     <Stack direction="row" spacing={0.75}>
