@@ -10,7 +10,6 @@ export default function MacroCalorieBar({
   values,
   widthPercentage = 100,
   height = 14,
-  borderRadius = 7,
   wholeNumbers = false,
 }) {
   const segments = macroCalorieSegments(values);
@@ -31,7 +30,7 @@ export default function MacroCalorieBar({
         minWidth: 0,
         width: '100%',
         bgcolor: 'var(--atlas-border)',
-        borderRadius,
+        borderRadius: 'var(--atlas-radius-pill)',
         overflow: 'hidden',
       }}
     >
@@ -41,7 +40,7 @@ export default function MacroCalorieBar({
           width: `${Math.max(widthPercentage, Number(values.calories) > 0 ? 2 : 0)}%`,
           display: 'flex',
           bgcolor: segments.length ? 'transparent' : 'var(--calorie-color)',
-          borderRadius,
+          borderRadius: 'var(--atlas-radius-pill)',
           overflow: 'hidden',
         }}
       >

@@ -115,7 +115,7 @@ const catalogSortOptions = [
   { value: 'logged', label: 'Recently logged' },
   { value: 'name', label: 'Alphabetically' },
 ];
-const mealBuilderSurfaceRadius = 1.5;
+const mealBuilderSurfaceRadius = 'var(--atlas-radius-prominent)';
 
 const localDate = () => {
   const now = new Date();
@@ -1311,7 +1311,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                           '&::-webkit-scrollbar-thumb': {
                             bgcolor: 'var(--atlas-border)',
                             border: '3px solid transparent',
-                            borderRadius: 999,
+                            borderRadius: 'var(--atlas-radius-pill)',
                             backgroundClip: 'padding-box',
                           },
                         }}
@@ -1614,7 +1614,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       textAlign: 'center',
                       bgcolor: 'var(--atlas-bone)',
                       border: '1px dashed var(--atlas-border-strong)',
-                      borderRadius: mealBuilderSurfaceRadius,
+                      borderRadius: 'var(--atlas-radius-surface)',
                     }}
                   >
                     <RestaurantMenuOutlinedIcon sx={{ color: 'var(--atlas-mineral-dark)' }} />
@@ -1938,7 +1938,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   bgcolor: 'var(--atlas-paper)',
                   color: 'var(--atlas-ink)',
                   border: '1px solid var(--atlas-border)',
-                  borderRadius: 999,
+                  borderRadius: 'var(--atlas-radius-pill)',
                 }}
               >
                 <Stack direction="row" spacing={0.125} sx={{ alignItems: 'center' }}>
@@ -2024,7 +2024,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
               p: { xs: 2, sm: 2.5 },
               bgcolor: 'var(--atlas-paper)',
               border: '1px solid var(--atlas-border)',
-              borderRadius: 2.5,
+              borderRadius: 'var(--atlas-radius-prominent)',
             }}
           >
             <Stack
@@ -2062,7 +2062,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                     bgcolor: 'var(--atlas-paper)',
                     border: '1px solid var(--atlas-border)',
                     borderTop: `3px solid ${nutrient.color}`,
-                    borderRadius: 1.5,
+                    borderRadius: 'var(--atlas-radius-surface)',
                   }}
                 >
                   <Typography
@@ -2226,7 +2226,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   bgcolor: 'var(--atlas-paper)',
                   color: 'var(--atlas-ink)',
                   border: '1px dashed var(--atlas-border-strong)',
-                  borderRadius: 2.5,
+                  borderRadius: 'var(--atlas-radius-prominent)',
                 }}
               >
                 <RestaurantMenuOutlinedIcon
@@ -2269,7 +2269,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                           p: 2,
                           bgcolor: 'var(--atlas-paper)',
                           border: '1px solid var(--atlas-border)',
-                          borderRadius: 2,
+                          borderRadius: 'var(--atlas-radius-surface)',
                         }}
                       >
                         <Stack
@@ -2390,7 +2390,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                 aria-label={`${meal.name} food breakdown`}
                                 sx={{
                                   border: '1px solid var(--atlas-border)',
-                                  borderRadius: 0.75,
+                                  borderRadius: 'var(--atlas-radius-compact)',
                                   overflow: 'hidden',
                                 }}
                               >
@@ -2500,7 +2500,6 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                                 : 0
                                             }
                                             height={4}
-                                            borderRadius={999}
                                             wholeNumbers
                                           />
                                         </Box>
@@ -2551,7 +2550,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                     py: 1,
                                     bgcolor: 'var(--atlas-bone)',
                                     borderLeft: '3px solid var(--atlas-mineral)',
-                                    borderRadius: 1,
+                                    borderRadius: 'var(--atlas-radius-compact)',
                                   }}
                                 >
                                   <Typography
@@ -2606,7 +2605,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                       bgcolor: 'var(--atlas-paper)',
                                       border: '1px solid var(--atlas-border-strong)',
                                       borderTop: `2px solid ${color}`,
-                                      borderRadius: 1.25,
+                                      borderRadius: 'var(--atlas-radius-surface)',
                                     }}
                                   >
                                     <Typography variant="caption" sx={{ color, fontWeight: 800 }}>

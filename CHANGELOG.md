@@ -1,6 +1,13 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 2026-09-22
+
+### Changed
+
+- Standardize interface corners around compact, surface, prominent, and pill
+  radius tokens, with sharper cards, controls, menus, and dialogs throughout.
+
 ## 2026-09-20
 
 ### Added

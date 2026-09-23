@@ -22,7 +22,7 @@ export default function AppNavigationDrawer({ open, setOpen }) {
   const navigationItemStyles = (active) => ({
     color: active ? 'var(--atlas-forest-dark)' : 'var(--atlas-ink)',
     bgcolor: active ? 'var(--atlas-forest-soft)' : 'transparent',
-    borderRadius: 1.5,
+    borderRadius: 'var(--atlas-radius-surface)',
     border: active ? '1px solid rgba(46, 107, 79, 0.2)' : '1px solid transparent',
     '&:hover': { bgcolor: active ? 'var(--atlas-forest-soft)' : 'var(--atlas-mineral-soft)' },
   });
@@ -42,8 +42,8 @@ export default function AppNavigationDrawer({ open, setOpen }) {
           bgcolor: 'var(--atlas-paper)',
           color: 'var(--atlas-ink)',
           borderLeft: '1px solid var(--atlas-border-strong)',
-          borderTopLeftRadius: 20,
-          borderBottomLeftRadius: 20,
+          borderTopLeftRadius: 'var(--atlas-radius-prominent)',
+          borderBottomLeftRadius: 'var(--atlas-radius-prominent)',
           boxShadow: '-18px 0 50px rgba(23, 50, 77, 0.12)',
         },
         '& .MuiListItemText-primary': { fontWeight: 'bold' },
