@@ -45,7 +45,7 @@ const fieldAtlasTheme = createTheme({
     divider: alpha(fieldAtlasTokens.ink, 0.18),
   },
   shape: {
-    borderRadius: 12,
+    borderRadius: 8,
   },
   typography: {
     fontFamily: utilityFont,
