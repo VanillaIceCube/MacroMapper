@@ -2657,9 +2657,9 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
           open={mapYourMeal.open}
           token={token}
           launchMode={mapYourMeal.launchMode}
-          onClose={() => setMapYourMeal({ open: false, meal: null, launchMode: 'add' })}
+          onClose={() => setMapYourMeal((current) => ({ ...current, open: false }))}
           onSaved={async (message) => {
-            setMapYourMeal({ open: false, meal: null, launchMode: 'add' });
+            setMapYourMeal((current) => ({ ...current, open: false }));
             showSnackbar('success', message);
             await loadDiary();
           }}

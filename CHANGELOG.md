@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Keep the compact Map it with AI dialog from flashing the full meal builder
+  while its backdrop-close animation finishes.
 - Keep the existing Add from the Catalog results and scroll viewport in place
   while switching between All, My Foods, and Shared.
 

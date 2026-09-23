@@ -970,6 +970,24 @@ describe('DiaryPage', () => {
     );
   });
 
+  test('keeps the AI estimate dialog compact throughout a backdrop close', async () => {
+    const user = userEvent.setup();
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Map your Meal with AI' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map it with AI/ });
+    const backdrop = document.querySelector('.MuiBackdrop-root');
+
+    expect(backdrop).toBeInTheDocument();
+    await user.click(backdrop);
+
+    expect(dialog).toHaveTextContent('Map it with AI');
+    expect(dialog).not.toHaveTextContent('Meal Details');
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+  });
+
   test('keeps the meal-log actions grouped at the opposite edge of the toolbar', async () => {
     fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
 
