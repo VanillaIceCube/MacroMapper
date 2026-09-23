@@ -1,6 +1,13 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 2026-09-22
+
+### Changed
+
+- Upgrade the frontend lint toolchain to ESLint 10 and preserve React and JSX
+  accessibility coverage with ESLint 10-compatible plugins.
+
 ## 2026-09-20
 
 ### Added
