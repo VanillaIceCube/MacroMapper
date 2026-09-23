@@ -10,6 +10,8 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Center saved-meal calories, confidence, and provenance beside the complete
+  Food & Servings context, with consistent heading capitalization.
 - Standardize interface corners around compact, surface, prominent, and pill
   radius tokens, with sharper cards, controls, menus, and dialogs throughout.
 

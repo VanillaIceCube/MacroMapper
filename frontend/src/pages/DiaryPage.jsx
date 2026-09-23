@@ -2427,7 +2427,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                     borderBottom: '1px solid var(--atlas-border)',
                                   }}
                                 >
-                                  {['Foods & servings', 'Calories', 'Confidence', 'Provenance'].map(
+                                  {['Food & Servings', 'Calories', 'Confidence', 'Provenance'].map(
                                     (label) => (
                                       <Typography
                                         key={label}
@@ -2460,6 +2460,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                           sm: 'minmax(0, 1fr) 104px 92px 122px',
                                         },
                                         gap: { xs: 0.75, sm: 1 },
+                                        alignItems: { sm: 'center' },
                                         px: 1.25,
                                         py: 1,
                                         borderBottom:
