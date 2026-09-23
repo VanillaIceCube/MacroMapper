@@ -115,7 +115,7 @@ const catalogSortOptions = [
   { value: 'logged', label: 'Recently logged' },
   { value: 'name', label: 'Alphabetically' },
 ];
-const mealBuilderSurfaceRadius = 1.5;
+const mealBuilderSurfaceRadius = 'var(--atlas-radius-prominent)';
 
 const localDate = () => {
   const now = new Date();
@@ -264,9 +264,6 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
         setAppliedCatalogProvenance(appliedRequest.provenance);
         setHasSearched(false);
         setShowingRecentFoods(true);
-        setFoods([]);
-        setCatalogHasMore(false);
-        setCatalogNextOffset(0);
       }
       setCatalogError('');
       setCatalogRetry(null);
@@ -291,7 +288,11 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
         } else {
           const message = await responseError(response, 'Could not load recent catalog foods.');
           if (requestId !== catalogRequestIdRef.current) return;
-          if (!append) setFoods([]);
+          if (!append) {
+            setFoods([]);
+            setCatalogHasMore(false);
+            setCatalogNextOffset(0);
+          }
           setCatalogError(message);
           setCatalogRetry({
             type: 'recent',
@@ -301,7 +302,11 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
         }
       } catch (_error) {
         if (requestId !== catalogRequestIdRef.current) return;
-        if (!append) setFoods([]);
+        if (!append) {
+          setFoods([]);
+          setCatalogHasMore(false);
+          setCatalogNextOffset(0);
+        }
         setCatalogError('Could not load recent catalog foods.');
         setCatalogRetry({
           type: 'recent',
@@ -356,9 +361,6 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
         setLoadingMoreFoods(false);
         setHasSearched(true);
         setShowingRecentFoods(false);
-        setFoods([]);
-        setCatalogHasMore(false);
-        setCatalogNextOffset(0);
       }
       setCatalogFeedback('');
       setCatalogError('');
@@ -402,6 +404,11 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
         } else {
           const message = await responseError(response, 'Could not search the food catalog.');
           if (requestId !== catalogRequestIdRef.current) return;
+          if (!append) {
+            setFoods([]);
+            setCatalogHasMore(false);
+            setCatalogNextOffset(0);
+          }
           setCatalogError(message);
           setCatalogRetry({
             type: 'search',
@@ -411,6 +418,11 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
         }
       } catch (_error) {
         if (requestId !== catalogRequestIdRef.current) return;
+        if (!append) {
+          setFoods([]);
+          setCatalogHasMore(false);
+          setCatalogNextOffset(0);
+        }
         setCatalogError('Could not search the food catalog.');
         setCatalogRetry({
           type: 'search',
@@ -1281,7 +1293,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       {catalogFeedback}
                     </Alert>
                   )}
-                  {searching ? (
+                  {searching && !availableFoods.length ? (
                     <Stack spacing={1} sx={{ mt: 1.5 }} aria-label="Loading food results">
                       {[0, 1].map((value) => (
                         <Skeleton key={value} variant="rounded" height={92} />
@@ -1293,12 +1305,16 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       <List
                         disablePadding
                         aria-label="Food search results"
+                        aria-busy={searching}
                         sx={{
                           maxHeight: 360,
                           mt: 1.5,
                           pr: 1,
                           overflowX: 'hidden',
                           overflowY: 'auto',
+                          opacity: searching ? 0.55 : 1,
+                          pointerEvents: searching ? 'none' : 'auto',
+                          transition: 'opacity 120ms ease',
                           scrollbarGutter: 'stable',
                           scrollbarWidth: 'thin',
                           scrollbarColor: 'var(--atlas-border) transparent',
@@ -1311,7 +1327,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                           '&::-webkit-scrollbar-thumb': {
                             bgcolor: 'var(--atlas-border)',
                             border: '3px solid transparent',
-                            borderRadius: 999,
+                            borderRadius: 'var(--atlas-radius-pill)',
                             backgroundClip: 'padding-box',
                           },
                         }}
@@ -1401,11 +1417,16 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                                     flexShrink: 0,
                                   }}
                                 >
-                                  <Button onClick={() => addFood(food)} startIcon={<AddIcon />}>
+                                  <Button
+                                    onClick={() => addFood(food)}
+                                    disabled={searching}
+                                    startIcon={<AddIcon />}
+                                  >
                                     Add
                                   </Button>
                                   <IconButton
                                     size="small"
+                                    disabled={searching}
                                     aria-label={`More actions for ${food.name}`}
                                     aria-haspopup="menu"
                                     aria-expanded={
@@ -1514,7 +1535,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                               size="small"
                               variant="text"
                               onClick={loadMoreCatalogFoods}
-                              disabled={loadingMoreFoods}
+                              disabled={searching || loadingMoreFoods}
                               startIcon={
                                 loadingMoreFoods ? <CircularProgress size={16} /> : undefined
                               }
@@ -1614,7 +1635,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                       textAlign: 'center',
                       bgcolor: 'var(--atlas-bone)',
                       border: '1px dashed var(--atlas-border-strong)',
-                      borderRadius: mealBuilderSurfaceRadius,
+                      borderRadius: 'var(--atlas-radius-surface)',
                     }}
                   >
                     <RestaurantMenuOutlinedIcon sx={{ color: 'var(--atlas-mineral-dark)' }} />
@@ -1938,7 +1959,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   bgcolor: 'var(--atlas-paper)',
                   color: 'var(--atlas-ink)',
                   border: '1px solid var(--atlas-border)',
-                  borderRadius: 999,
+                  borderRadius: 'var(--atlas-radius-pill)',
                 }}
               >
                 <Stack direction="row" spacing={0.125} sx={{ alignItems: 'center' }}>
@@ -2024,7 +2045,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
               p: { xs: 2, sm: 2.5 },
               bgcolor: 'var(--atlas-paper)',
               border: '1px solid var(--atlas-border)',
-              borderRadius: 2.5,
+              borderRadius: 'var(--atlas-radius-prominent)',
             }}
           >
             <Stack
@@ -2036,7 +2057,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
               }}
             >
               <Typography id="daily-totals-heading" component="h2" variant="h5">
-                Daily summary
+                Daily Summary
               </Typography>
               <Typography variant="body2" sx={{ color: 'var(--atlas-ink-muted)' }}>
                 Saved nutrition for {isToday ? 'today' : `${dateParts.weekday}, ${dateParts.date}`}
@@ -2062,7 +2083,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                     bgcolor: 'var(--atlas-paper)',
                     border: '1px solid var(--atlas-border)',
                     borderTop: `3px solid ${nutrient.color}`,
-                    borderRadius: 1.5,
+                    borderRadius: 'var(--atlas-radius-surface)',
                   }}
                 >
                   <Typography
@@ -2159,7 +2180,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   }}
                 >
                   <Typography id="meals-heading" component="h2" variant="h5">
-                    Meal log
+                    Meal Log
                   </Typography>
                   {!loading && (
                     <Stack direction="row" spacing={0.75}>
@@ -2226,7 +2247,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   bgcolor: 'var(--atlas-paper)',
                   color: 'var(--atlas-ink)',
                   border: '1px dashed var(--atlas-border-strong)',
-                  borderRadius: 2.5,
+                  borderRadius: 'var(--atlas-radius-prominent)',
                 }}
               >
                 <RestaurantMenuOutlinedIcon
@@ -2269,7 +2290,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                           p: 2,
                           bgcolor: 'var(--atlas-paper)',
                           border: '1px solid var(--atlas-border)',
-                          borderRadius: 2,
+                          borderRadius: 'var(--atlas-radius-surface)',
                         }}
                       >
                         <Stack
@@ -2390,7 +2411,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                 aria-label={`${meal.name} food breakdown`}
                                 sx={{
                                   border: '1px solid var(--atlas-border)',
-                                  borderRadius: 0.75,
+                                  borderRadius: 'var(--atlas-radius-compact)',
                                   overflow: 'hidden',
                                 }}
                               >
@@ -2406,7 +2427,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                     borderBottom: '1px solid var(--atlas-border)',
                                   }}
                                 >
-                                  {['Foods & servings', 'Calories', 'Confidence', 'Provenance'].map(
+                                  {['Food & Servings', 'Calories', 'Confidence', 'Provenance'].map(
                                     (label) => (
                                       <Typography
                                         key={label}
@@ -2439,6 +2460,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                           sm: 'minmax(0, 1fr) 104px 92px 122px',
                                         },
                                         gap: { xs: 0.75, sm: 1 },
+                                        alignItems: { sm: 'center' },
                                         px: 1.25,
                                         py: 1,
                                         borderBottom:
@@ -2500,7 +2522,6 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                                 : 0
                                             }
                                             height={4}
-                                            borderRadius={999}
                                             wholeNumbers
                                           />
                                         </Box>
@@ -2551,7 +2572,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                     py: 1,
                                     bgcolor: 'var(--atlas-bone)',
                                     borderLeft: '3px solid var(--atlas-mineral)',
-                                    borderRadius: 1,
+                                    borderRadius: 'var(--atlas-radius-compact)',
                                   }}
                                 >
                                   <Typography
@@ -2606,7 +2627,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                       bgcolor: 'var(--atlas-paper)',
                                       border: '1px solid var(--atlas-border-strong)',
                                       borderTop: `2px solid ${color}`,
-                                      borderRadius: 1.25,
+                                      borderRadius: 'var(--atlas-radius-surface)',
                                     }}
                                   >
                                     <Typography variant="caption" sx={{ color, fontWeight: 800 }}>
@@ -2636,9 +2657,9 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
           open={mapYourMeal.open}
           token={token}
           launchMode={mapYourMeal.launchMode}
-          onClose={() => setMapYourMeal({ open: false, meal: null, launchMode: 'add' })}
+          onClose={() => setMapYourMeal((current) => ({ ...current, open: false }))}
           onSaved={async (message) => {
-            setMapYourMeal({ open: false, meal: null, launchMode: 'add' });
+            setMapYourMeal((current) => ({ ...current, open: false }));
             showSnackbar('success', message);
             await loadDiary();
           }}

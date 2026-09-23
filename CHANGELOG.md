@@ -3,10 +3,22 @@ All notable changes to this project are documented in this file.
 
 ## 2026-09-22
 
+### Fixed
+
+- Keep the compact Map it with AI dialog from flashing the full meal builder
+  while its backdrop-close animation finishes.
+- Keep the existing Add from the Catalog results and scroll viewport in place
+  while switching between All, My Foods, and Shared.
+
 ### Changed
 
 - Upgrade the frontend lint toolchain to ESLint 10 and preserve React and JSX
   accessibility coverage with ESLint 10-compatible plugins.
+- Use consistent title capitalization for the Daily Summary and Meal Log headings.
+- Center saved-meal calories, confidence, and provenance beside the complete
+  Food & Servings context, with consistent heading capitalization.
+- Standardize interface corners around compact, surface, prominent, and pill
+  radius tokens, with sharper cards, controls, menus, and dialogs throughout.
 
 ## 2026-09-20
 

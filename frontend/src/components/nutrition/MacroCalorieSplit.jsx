@@ -26,7 +26,7 @@ export default function MacroCalorieSplit({
         m: 0,
         p: 1,
         border: '1px solid var(--atlas-border)',
-        borderRadius: 1.5,
+        borderRadius: 'var(--atlas-radius-surface)',
         bgcolor: 'var(--atlas-paper)',
         display: 'flex',
         flexDirection: 'column',
