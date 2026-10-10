@@ -20,16 +20,22 @@ export function removeMealItemFromTree(items, key) {
 
 export function changeMealItemServings(items, key, amount, item) {
   const activePortion = selectedPortion(item);
-  const multiplier = Number(activePortion.serving_multiplier);
-  const numericAmount = Number(amount);
+  const multiplier = Number(activePortion?.serving_multiplier);
+  const rawNumeric = Number(amount);
+  const numericAmount = Number.isFinite(rawNumeric) && rawNumeric < 0 ? 0 : rawNumeric;
+  const clampedAmount = Number.isFinite(rawNumeric) && rawNumeric < 0 ? '0' : amount;
+
   const servings =
-    amount === '' || !Number.isFinite(numericAmount) || !Number.isFinite(multiplier)
-      ? amount
-      : roundedNumberString(numericAmount * (multiplier > 0 ? multiplier : 1));
+    clampedAmount === '' || !Number.isFinite(numericAmount) || !Number.isFinite(multiplier)
+      ? clampedAmount
+      : typeof amount === 'string' && (multiplier === 1 || Math.abs(multiplier - 1) < 1e-9)
+        ? clampedAmount
+        : roundedNumberString(numericAmount * (multiplier > 0 ? multiplier : 1));
+
   return updateMealItemTree(items, key, (currentItem) => ({
     ...currentItem,
     servings,
-    selected_portion_key: activePortion.key,
+    selected_portion_key: activePortion?.key || 'base',
   }));
 }
 
@@ -52,12 +58,15 @@ const zeroNutrients = (item) => ({
 
 export const changeMealItemNutrient = (items, key, nutrient, totalValue) =>
   updateMealItemTree(items, key, (item) => {
-    const numeric = Number(totalValue);
+    const rawNumeric = Number(totalValue);
+    const numeric = Number.isFinite(rawNumeric) && rawNumeric < 0 ? 0 : rawNumeric;
+    const clampedTotalValue = Number.isFinite(rawNumeric) && rawNumeric < 0 ? '0' : totalValue;
+
     if (item.components?.length) {
       const currentCalories = itemNutrientTotal(item, 'calories');
       if (
         nutrient !== 'calories' ||
-        totalValue === '' ||
+        clampedTotalValue === '' ||
         !Number.isFinite(numeric) ||
         numeric < 0 ||
         !currentCalories
@@ -78,8 +87,8 @@ export const changeMealItemNutrient = (items, key, nutrient, totalValue) =>
     }
     const servings = servingsValue(item);
     const perServingValue =
-      totalValue === '' || !Number.isFinite(numeric) || !servings
-        ? totalValue
+      clampedTotalValue === '' || !Number.isFinite(numeric) || !servings
+        ? clampedTotalValue
         : String(numeric / servings);
     return {
       ...item,

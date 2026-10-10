@@ -16,6 +16,8 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Handle incomplete nutrition and portion data safely, clamp negative meal input,
+  and preserve decimal quantity entry and deterministic calorie chart ordering.
 - Reduce repeated food component and catalog-version queries and reuse complete
   saved meal component snapshots while preserving catalog filtering and pagination.
 - Save notification PATCH requests consistently while preserving existing read
