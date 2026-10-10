@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 
 from django.contrib.admin.sites import AdminSite
@@ -8,6 +9,8 @@ from django.test import RequestFactory, TestCase
 from django.test.utils import CaptureQueriesContext
 from rest_framework import status
 from rest_framework.test import APITestCase
+
+from meals.models import MealEntry, MealItem
 
 from .admin import (
     FoodComponentAdmin,
@@ -469,6 +472,116 @@ class FoodApiTests(APITestCase):
             [self.shared_food.id],
         )
 
+    def test_catalog_relevance_prefers_exact_then_prefix_name_matches(self):
+        self.client.force_authenticate(user=self.owner)
+        exact_food = create_food_item(
+            name="Apple",
+            scope=FoodItem.Scope.PERSONAL,
+            origin_type=FoodItem.OriginType.GENERIC,
+            provider_name="",
+            owner=self.owner,
+            definition=food_definition(calories="95", confidence=None),
+            created_by=self.owner,
+        )
+        prefix_food = create_food_item(
+            name="Apple slices",
+            scope=FoodItem.Scope.PERSONAL,
+            origin_type=FoodItem.OriginType.GENERIC,
+            provider_name="",
+            owner=self.owner,
+            definition=food_definition(calories="80", confidence=None),
+            created_by=self.owner,
+        )
+
+        response = self.client.get(
+            "/api/foods/?search=apple&ordering=relevance,name,id"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [item["id"] for item in response.data[:2]],
+            [exact_food.id, prefix_food.id],
+        )
+
+    def test_catalog_recently_logged_sort_is_user_specific(self):
+        owner_shared_meal = MealEntry.objects.create(
+            owner=self.owner,
+            entry_date=date(2026, 8, 10),
+            name="Shared apple meal",
+        )
+        owner_personal_meal = MealEntry.objects.create(
+            owner=self.owner,
+            entry_date=date(2026, 8, 12),
+            name="Owner smoothie meal",
+        )
+        other_shared_meal = MealEntry.objects.create(
+            owner=self.other_user,
+            entry_date=date(2026, 8, 20),
+            name="Other user's shared apple meal",
+        )
+        for meal, food in (
+            (owner_shared_meal, self.shared_food),
+            (owner_personal_meal, self.personal_food),
+            (other_shared_meal, self.shared_food),
+        ):
+            version = food.current_version
+            MealItem.objects.create(
+                meal_entry=meal,
+                food_version=version,
+                servings=Decimal("1"),
+                food_name=food.name,
+                provider_name=food.provider_name,
+                serving_quantity=version.serving_quantity,
+                serving_unit=version.serving_unit,
+                serving_label=version.serving_label,
+            )
+        self.client.force_authenticate(user=self.owner)
+
+        response = self.client.get(
+            "/api/foods/?ordering=-has_logged,-last_logged_on,name,id"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [item["id"] for item in response.data],
+            [self.personal_food.id, self.shared_food.id],
+        )
+
+    def test_catalog_filters_combine_with_search(self):
+        self.client.force_authenticate(user=self.owner)
+
+        shared_response = self.client.get(
+            "/api/foods/?search=apple&scope=shared&origin_type=branded"
+            "&provider=orchard&provenance=official"
+        )
+        personal_response = self.client.get(
+            "/api/foods/?scope=personal&provenance=user_entered"
+        )
+        excluded_response = self.client.get("/api/foods/?search=apple&scope=personal")
+
+        self.assertEqual(
+            [item["id"] for item in shared_response.data], [self.shared_food.id]
+        )
+        self.assertEqual(
+            [item["id"] for item in personal_response.data], [self.personal_food.id]
+        )
+        self.assertEqual(excluded_response.data, [])
+
+    def test_catalog_search_matches_source_metadata(self):
+        self.client.force_authenticate(user=self.owner)
+
+        response = self.client.get("/api/foods/?search=Official%20apple%20data")
+
+        self.assertEqual([item["id"] for item in response.data], [self.shared_food.id])
+
+    def test_catalog_rejects_invalid_filter_values(self):
+        self.client.force_authenticate(user=self.owner)
+
+        response = self.client.get("/api/foods/?scope=everyone")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("scope", response.data)
+
     def test_catalog_limit_applies_after_recent_ordering(self):
         self.client.force_authenticate(user=self.owner)
 
@@ -478,6 +591,14 @@ class FoodApiTests(APITestCase):
         self.assertEqual(
             [item["id"] for item in response.data], [self.personal_food.id]
         )
+
+    def test_catalog_offset_returns_the_next_ordered_page(self):
+        self.client.force_authenticate(user=self.owner)
+
+        response = self.client.get("/api/foods/?ordering=name,id&limit=1&offset=1")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([item["id"] for item in response.data], [self.shared_food.id])
 
     def test_catalog_list_uses_bulk_loaded_top_level_components(self):
         create_food_item(

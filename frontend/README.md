@@ -58,6 +58,10 @@ The same Map Your Meal editor and full set of nutrition, portion, catalog, and
 nested-component controls are used for AI-reviewed meals, manual mapping, and
 editing existing diary entries. Existing meals save back to the same entry
 rather than creating a duplicate.
+Add from the Catalog combines text search with personal/shared scope, provider,
+and provenance filters. Active filters can be cleared individually or reset,
+results retain serving/source/nutrition details, and adding a result leaves the
+builder open with an explicit confirmation.
 Official/verified, catalog-estimate, AI-estimate, and **AI estimate — adjusted
 by you** labels always accompany their sources and confidence rather than
 relying on color alone. Initial AI definitions are reusable shared catalog
