@@ -1,12 +1,31 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 2026-10-10
+
+### Fixed
+
+- Validate every saved meal component field and nested value before reusing a
+  snapshot, rebuilding incomplete or malformed legacy snapshots from saved versions.
+- Store component source access dates as ISO strings so dated sources can be
+  included in saved meal snapshots.
+- Reuse the complete reachable food component graph for catalog estimates and meal
+  snapshots, with shared nutrient calculations and queries batched by tree level.
+
 ## 2026-10-09
 
 ### Fixed
 
 - Handle incomplete nutrition and portion data safely, clamp negative meal input,
   and preserve decimal quantity entry and deterministic calorie chart ordering.
+- Reduce repeated food component and catalog-version queries and reuse complete
+  saved meal component snapshots while preserving catalog filtering and pagination.
+- Save notification PATCH requests consistently while preserving existing read
+  timestamps and handling empty notification bulk operations.
+- Normalize login email input and return clear authentication errors for duplicate
+  registrations and malformed password-reset identifiers.
+- Share API error extraction and safely handle non-JSON responses in the diary
+  and notification controls, including field validation errors.
 - Clear stale username and email values when a new authentication response omits
   profile information, and share error formatting across authentication pages.
 
