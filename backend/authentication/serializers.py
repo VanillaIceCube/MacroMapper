@@ -14,6 +14,9 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     def validate(self, attrs):
         email = attrs.get("email")
+        if isinstance(email, str):
+            email = email.strip().lower()
+            attrs["email"] = email
         username = attrs.get(self.username_field)
 
         if not email and not username:

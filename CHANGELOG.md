@@ -7,6 +7,10 @@ All notable changes to this project are documented in this file.
 
 - Save notification PATCH requests consistently while preserving existing read
   timestamps and handling empty notification bulk operations.
+- Normalize login email input and return clear authentication errors for duplicate
+  registrations and malformed password-reset identifiers.
+- Share API error extraction and safely handle non-JSON responses in the diary
+  and notification controls, including field validation errors.
 - Clear stale username and email values when a new authentication response omits
   profile information, and share error formatting across authentication pages.
 

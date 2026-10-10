@@ -9,6 +9,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
 from django.core.validators import validate_email
+from django.db import IntegrityError
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from rest_framework import status
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 def _build_unique_username(base_username):
-    base_username = base_username[:150]
+    base_username = (base_username or "").strip()[:150] or "user"
     candidate = base_username
     counter = 1
     while User.objects.filter(username=candidate).exists():
@@ -84,9 +85,15 @@ class RegisterView(APIView):
             base_username = email.split("@", 1)[0]
             username = _build_unique_username(base_username)
 
-        user = User.objects.create_user(
-            username=username, email=email, password=password
-        )
+        try:
+            user = User.objects.create_user(
+                username=username, email=email, password=password
+            )
+        except IntegrityError:
+            return Response(
+                {"error": "Email or username already exists."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         refresh = RefreshToken.for_user(user)
         return Response(
             {
@@ -181,6 +188,7 @@ class ResetPasswordView(APIView):
             ValueError,
             OverflowError,
             User.DoesNotExist,
+            ValidationError,
         ):
             user = None
 
