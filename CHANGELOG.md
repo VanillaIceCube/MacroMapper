@@ -9,11 +9,19 @@ All notable changes to this project are documented in this file.
   existing confidence and provider information when AI follow-up fields are absent.
 - Remove the meal-adjustment service's serializer import cycle while keeping
   response serialization inside the proposal cleanup boundary.
+- Validate every saved meal component field and nested value before reusing a
+  snapshot, rebuilding incomplete or malformed legacy snapshots from saved versions.
+- Store component source access dates as ISO strings so dated sources can be
+  included in saved meal snapshots.
+- Reuse the complete reachable food component graph for catalog estimates and meal
+  snapshots, with shared nutrient calculations and queries batched by tree level.
 
 ## 2026-10-09
 
 ### Fixed
 
+- Reduce repeated food component and catalog-version queries and reuse complete
+  saved meal component snapshots while preserving catalog filtering and pagination.
 - Save notification PATCH requests consistently while preserving existing read
   timestamps and handling empty notification bulk operations.
 - Normalize login email input and return clear authentication errors for duplicate
