@@ -2056,11 +2056,17 @@ def process_meal_adjustment(
     *,
     serializer,
     owner,
+    proposal_serializer,
     request=None,
     temporary=False,
     get_provider=None,
-    proposal_serializer_class=None,
 ):
+    """Process and serialize an adjustment within the proposal cleanup boundary.
+
+    The view supplies the response serializer so services do not import serializers
+    that already depend on this module.
+    """
+
     get_provider = get_provider or get_estimation_provider
     proposal = None
     try:
@@ -2080,14 +2086,10 @@ def process_meal_adjustment(
         )
         updated_proposal = outcome["proposal"]
         updated_proposal.refresh_from_db()
-        proposal_data = (
-            proposal_serializer_class(
-                updated_proposal,
-                context={"request": request},
-            ).data
-            if proposal_serializer_class
-            else {}
-        )
+        proposal_data = proposal_serializer(
+            updated_proposal,
+            context={"request": request},
+        ).data
         return {
             "applied": outcome["applied"],
             "message": outcome["message"],

@@ -1,4 +1,4 @@
-async function safeReadJson(response) {
+export async function safeReadJson(response) {
   try {
     return await response.json();
   } catch (_err) {
@@ -6,9 +6,38 @@ async function safeReadJson(response) {
   }
 }
 
+function extractErrorMessage(data) {
+  if (!data) return null;
+
+  if (typeof data === 'string') return data;
+
+  if (Array.isArray(data) && data.length > 0) {
+    return extractErrorMessage(data[0]);
+  }
+
+  if (typeof data === 'object') {
+    if (data.error) {
+      const msg = extractErrorMessage(data.error);
+      if (msg) return msg;
+    }
+    if (data.detail) {
+      const msg = extractErrorMessage(data.detail);
+      if (msg) return msg;
+    }
+    const firstValue = Object.values(data)[0];
+    if (firstValue !== undefined) {
+      const msg = extractErrorMessage(firstValue);
+      if (msg) return msg;
+    }
+  }
+
+  return null;
+}
+
 export async function getResponseErrorMessage(response, fallbackMessage) {
   const data = await safeReadJson(response);
-  return data?.error || data?.detail || fallbackMessage;
+  const message = extractErrorMessage(data);
+  return message || fallbackMessage;
 }
 
 export async function readOkJson(response, fallbackMessage) {
@@ -24,6 +53,15 @@ export async function readOkJson(response, fallbackMessage) {
   return data;
 }
 
+export function formatAuthErrorMessage(error, fallbackMessage = 'An unexpected error occurred.') {
+  const isNetworkError =
+    error instanceof TypeError || error?.message?.toLowerCase().includes('network');
+  if (isNetworkError) {
+    return 'Network error.';
+  }
+  return error?.message || fallbackMessage;
+}
+
 export function persistAuthSession(data) {
   if (!data?.access || !data?.refresh) {
     throw new Error('Auth response missing tokens.');
@@ -36,9 +74,14 @@ export function persistAuthSession(data) {
     // Profile info (app bar menu). Avoid storing "undefined".
     if (typeof data?.username === 'string' && data.username) {
       sessionStorage.setItem('username', data.username);
+    } else {
+      sessionStorage.removeItem('username');
     }
+
     if (typeof data?.email === 'string' && data.email) {
       sessionStorage.setItem('email', data.email);
+    } else {
+      sessionStorage.removeItem('email');
     }
   } catch (_err) {
     throw new Error('Unable to access browser session storage.');
