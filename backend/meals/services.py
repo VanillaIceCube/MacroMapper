@@ -6,6 +6,7 @@ from estimates.provider import EstimationProviderError, get_estimation_provider
 from foods.models import FoodItemVersion
 from foods.nutrients import NUTRIENT_FIELDS, NUTRIENT_METADATA
 from foods.portions import portion_options_for_serving
+from foods.services import build_component_map
 
 from .models import MealEntry, MealItem
 
@@ -32,17 +33,25 @@ def generate_meal_name(*, owner, entry_date, item_inputs):
     return normalized_name[:120] or fallback_name
 
 
-def _effective_nutrients(version, visited=None):
+def _effective_nutrients(
+    version, visited=None, *, component_map=None, nutrient_cache=None
+):
     visited = set(visited or ())
     if version.pk in visited:
         return {field: None for field in NUTRIENT_FIELDS}
+    if component_map is None:
+        component_map = build_component_map([version.pk])
+    if nutrient_cache is None:
+        nutrient_cache = {}
+    cache_key = (version.pk, frozenset(visited))
+    if cache_key in nutrient_cache:
+        return nutrient_cache[cache_key]
     path = visited | {version.pk}
 
     direct = {field: getattr(version, field) for field in NUTRIENT_FIELDS}
-    components = list(
-        version.components.select_related("child_version__food_item").all()
-    )
+    components = component_map.get(version.pk, ())
     if not components:
+        nutrient_cache[cache_key] = direct
         return direct
 
     # A composite food is a container for its component values. Prefer the
@@ -52,31 +61,43 @@ def _effective_nutrients(version, visited=None):
     totals = {field: Decimal("0") for field in NUTRIENT_FIELDS}
     has_known_value = {field: False for field in NUTRIENT_FIELDS}
     for component in components:
-        child_nutrients = _effective_nutrients(component.child_version, path)
+        child_nutrients = _effective_nutrients(
+            component.child_version,
+            path,
+            component_map=component_map,
+            nutrient_cache=nutrient_cache,
+        )
         for field, amount in child_nutrients.items():
             if amount is not None:
                 has_known_value[field] = True
                 totals[field] += amount * component.servings
-    return {
+    result = {
         field: totals[field] if has_known_value[field] else None
         for field in NUTRIENT_FIELDS
     }
+    nutrient_cache[cache_key] = result
+    return result
 
 
-def _component_tree(version, visited=None):
+def _component_tree(version, visited=None, *, component_map=None, nutrient_cache=None):
     visited = set(visited or ())
     if version.pk in visited:
         return []
+    if component_map is None:
+        component_map = build_component_map([version.pk])
+    if nutrient_cache is None:
+        nutrient_cache = {}
     path = visited | {version.pk}
 
     snapshots = []
-    for component in (
-        version.components.select_related("child_version__food_item")
-        .prefetch_related("child_version__sources")
-        .order_by("order", "id")
-    ):
+    for component in component_map.get(version.pk, ()):
         child = component.child_version
-        child_nutrients = _effective_nutrients(child, path)
+        child_nutrients = _effective_nutrients(
+            child,
+            path,
+            component_map=component_map,
+            nutrient_cache=nutrient_cache,
+        )
         snapshots.append(
             {
                 "food_item_id": child.food_item_id,
@@ -126,13 +147,22 @@ def _component_tree(version, visited=None):
                         "title": source.title,
                         "provider": source.provider,
                         "url": source.url,
-                        "accessed_on": source.accessed_on,
+                        "accessed_on": (
+                            source.accessed_on.isoformat()
+                            if source.accessed_on
+                            else None
+                        ),
                         "is_official": child.provenance
                         == FoodItemVersion.Provenance.OFFICIAL,
                     }
                     for source in child.sources.all()
                 ],
-                "components": _component_tree(child, path),
+                "components": _component_tree(
+                    child,
+                    path,
+                    component_map=component_map,
+                    nutrient_cache=nutrient_cache,
+                ),
             }
         )
     return snapshots
@@ -157,6 +187,13 @@ def replace_meal_items(*, meal_entry, item_inputs):
         ).select_related("food_item")
     }
     meal_entry.items.all().delete()
+    component_map = build_component_map(
+        [
+            version.pk
+            for version in [*pinned_versions.values(), *current_versions.values()]
+        ]
+    )
+    nutrient_cache = {}
 
     for item_input in item_inputs:
         food_item = item_input["food_item"]
@@ -173,10 +210,18 @@ def replace_meal_items(*, meal_entry, item_inputs):
             serving_quantity=version.serving_quantity,
             serving_unit=version.serving_unit,
             serving_label=version.serving_label,
-            component_snapshot=_component_tree(version),
+            component_snapshot=_component_tree(
+                version,
+                component_map=component_map,
+                nutrient_cache=nutrient_cache,
+            ),
             **{
                 field: amount * servings if amount is not None else None
-                for field, amount in _effective_nutrients(version).items()
+                for field, amount in _effective_nutrients(
+                    version,
+                    component_map=component_map,
+                    nutrient_cache=nutrient_cache,
+                ).items()
             },
         )
 
