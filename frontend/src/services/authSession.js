@@ -24,6 +24,15 @@ export async function readOkJson(response, fallbackMessage) {
   return data;
 }
 
+export function formatAuthErrorMessage(error, fallbackMessage = 'An unexpected error occurred.') {
+  const isNetworkError =
+    error instanceof TypeError || error?.message?.toLowerCase().includes('network');
+  if (isNetworkError) {
+    return 'Network error.';
+  }
+  return error?.message || fallbackMessage;
+}
+
 export function persistAuthSession(data) {
   if (!data?.access || !data?.refresh) {
     throw new Error('Auth response missing tokens.');
@@ -36,9 +45,14 @@ export function persistAuthSession(data) {
     // Profile info (app bar menu). Avoid storing "undefined".
     if (typeof data?.username === 'string' && data.username) {
       sessionStorage.setItem('username', data.username);
+    } else {
+      sessionStorage.removeItem('username');
     }
+
     if (typeof data?.email === 'string' && data.email) {
       sessionStorage.setItem('email', data.email);
+    } else {
+      sessionStorage.removeItem('email');
     }
   } catch (_err) {
     throw new Error('Unable to access browser session storage.');
