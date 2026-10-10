@@ -11,6 +11,7 @@ from estimates.provider import EstimationProviderError, get_estimation_provider
 from estimates.serializers import (
     MapYourMealAdjustmentSerializer,
     MapYourMealDraftSerializer,
+    MealProposalSerializer,
 )
 from estimates.services import process_meal_adjustment, save_meal_draft
 
@@ -95,6 +96,7 @@ class MealEntryViewSet(viewsets.ModelViewSet):
             response_data = process_meal_adjustment(
                 serializer=serializer,
                 owner=request.user,
+                proposal_serializer=MealProposalSerializer,
                 request=request,
                 temporary=True,
                 get_provider=get_estimation_provider,

@@ -111,6 +111,7 @@ class MealProposalViewSet(viewsets.ModelViewSet):
             response_data = process_meal_adjustment(
                 serializer=serializer,
                 owner=request.user,
+                proposal_serializer=MealProposalSerializer,
                 request=request,
                 temporary=False,
                 get_provider=get_estimation_provider,

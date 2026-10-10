@@ -1,12 +1,21 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## 2026-10-09
+## 2026-10-10
 
 ### Fixed
 
 - Clean up failed and temporary meal-adjustment proposals consistently and retain
   existing confidence and provider information when AI follow-up fields are absent.
+- Remove the meal-adjustment service's serializer import cycle while keeping
+  response serialization inside the proposal cleanup boundary.
+
+## 2026-10-09
+
+### Fixed
+
+- Share API error extraction and safely handle non-JSON responses in the diary
+  and notification controls, including field validation errors.
 - Clear stale username and email values when a new authentication response omits
   profile information, and share error formatting across authentication pages.
 
