@@ -96,10 +96,10 @@ class MealEntryViewSet(viewsets.ModelViewSet):
             response_data = process_meal_adjustment(
                 serializer=serializer,
                 owner=request.user,
-                proposal_serializer=MealProposalSerializer,
                 request=request,
                 temporary=True,
                 get_provider=get_estimation_provider,
+                proposal_serializer_class=MealProposalSerializer,
             )
             return Response(response_data, status=status.HTTP_200_OK)
         except EstimationProviderError:

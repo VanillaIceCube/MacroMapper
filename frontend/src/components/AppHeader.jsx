@@ -31,7 +31,6 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '../services/notificationApiClient';
-import { getResponseErrorMessage, safeReadJson } from '../services/authSession';
 import { logout } from '../services/requestClient';
 
 const AUTH_PATHS = ['/login', '/register', '/forgot-password', '/reset-password'];
@@ -76,15 +75,9 @@ export default function AppHeader({ title, setDrawerOpen }) {
     setNotificationError('');
     try {
       const response = await fetchNotifications(accessToken);
-      if (!response.ok) {
-        setNotificationError(
-          await getResponseErrorMessage(response, 'Notifications are unavailable right now.'),
-        );
-        setNotifications([]);
-      } else {
-        const data = await safeReadJson(response);
-        setNotifications(Array.isArray(data) ? data : []);
-      }
+      if (!response.ok) throw new Error('Unable to load notifications.');
+      const data = await response.json();
+      setNotifications(Array.isArray(data) ? data : []);
     } catch (_error) {
       setNotificationError('Notifications are unavailable right now.');
     } finally {
@@ -100,10 +93,7 @@ export default function AppHeader({ title, setDrawerOpen }) {
     setNotificationError('');
     try {
       const response = await operation(notificationId, accessToken);
-      if (!response.ok) {
-        setNotificationError(await getResponseErrorMessage(response, errorMessage));
-        return null;
-      }
+      if (!response.ok) throw new Error(errorMessage);
       return response;
     } catch (_error) {
       setNotificationError(errorMessage);
@@ -118,8 +108,7 @@ export default function AppHeader({ title, setDrawerOpen }) {
       'Could not update that notification.',
     );
     if (!response) return;
-    const updated = await safeReadJson(response);
-    if (!updated) return;
+    const updated = await response.json();
     setNotifications((current) =>
       current.map((notification) => (notification.id === updated.id ? updated : notification)),
     );
@@ -149,12 +138,7 @@ export default function AppHeader({ title, setDrawerOpen }) {
     setNotificationError('');
     try {
       const response = await markAllNotificationsRead(accessToken);
-      if (!response.ok) {
-        setNotificationError(
-          await getResponseErrorMessage(response, 'Could not update notifications.'),
-        );
-        return;
-      }
+      if (!response.ok) throw new Error();
       setNotifications((current) =>
         current.map((notification) => ({ ...notification, is_read: true })),
       );
@@ -167,12 +151,7 @@ export default function AppHeader({ title, setDrawerOpen }) {
     setNotificationError('');
     try {
       const response = await clearAllNotifications(accessToken);
-      if (!response.ok) {
-        setNotificationError(
-          await getResponseErrorMessage(response, 'Could not clear notifications.'),
-        );
-        return;
-      }
+      if (!response.ok) throw new Error();
       setNotifications([]);
     } catch (_error) {
       setNotificationError('Could not clear notifications.');
@@ -242,7 +221,7 @@ export default function AppHeader({ title, setDrawerOpen }) {
                   color: 'var(--atlas-ink)',
                   boxShadow: '0 18px 50px rgba(23, 50, 77, 0.14)',
                   border: '1px solid var(--atlas-border-strong)',
-                  borderRadius: 'var(--atlas-radius-prominent)',
+                  borderRadius: 2,
                   width: { xs: 320, sm: 380 },
                   maxWidth: 'calc(100vw - 24px)',
                 },
@@ -297,7 +276,7 @@ export default function AppHeader({ title, setDrawerOpen }) {
                         onClick={() => handleOpenNotification(notification)}
                         sx={{
                           alignItems: 'flex-start',
-                          borderRadius: 'var(--atlas-radius-surface)',
+                          borderRadius: 1,
                           bgcolor: notification.is_read
                             ? 'transparent'
                             : 'var(--atlas-mineral-soft)',
@@ -365,7 +344,7 @@ export default function AppHeader({ title, setDrawerOpen }) {
                   color: 'var(--atlas-ink)',
                   boxShadow: '0 18px 50px rgba(23, 50, 77, 0.14)',
                   border: '1px solid var(--atlas-border-strong)',
-                  borderRadius: 'var(--atlas-radius-prominent)',
+                  borderRadius: 2,
                   minWidth: 220,
                 },
               },

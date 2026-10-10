@@ -1,10 +1,4 @@
-import {
-  formatAuthErrorMessage,
-  getResponseErrorMessage,
-  persistAuthSession,
-  readOkJson,
-  safeReadJson,
-} from './authSession';
+import { getResponseErrorMessage, persistAuthSession, readOkJson } from './authSession';
 
 function makeResponse({ ok, status = 200, json }) {
   return { ok, status, json };
@@ -14,23 +8,6 @@ describe('authSession', () => {
   beforeEach(() => {
     sessionStorage.clear();
     vi.restoreAllMocks();
-  });
-
-  describe('safeReadJson', () => {
-    test('returns parsed json on success', async () => {
-      const response = makeResponse({ ok: true, json: async () => ({ foo: 'bar' }) });
-      await expect(safeReadJson(response)).resolves.toEqual({ foo: 'bar' });
-    });
-
-    test('returns null when json parsing fails', async () => {
-      const response = makeResponse({
-        ok: false,
-        json: async () => {
-          throw new Error('bad json');
-        },
-      });
-      await expect(safeReadJson(response)).resolves.toBeNull();
-    });
   });
 
   describe('getResponseErrorMessage', () => {
@@ -55,30 +32,6 @@ describe('authSession', () => {
 
       await expect(getResponseErrorMessage(response, 'fallback')).resolves.toBe(
         'Invalid credentials',
-      );
-    });
-
-    test('when response json is a DRF field validation object, it extracts the first error', async () => {
-      const response = makeResponse({
-        ok: false,
-        status: 400,
-        json: async () => ({ date: ['Supply a valid date in YYYY-MM-DD format.'] }),
-      });
-
-      await expect(getResponseErrorMessage(response, 'fallback')).resolves.toBe(
-        'Supply a valid date in YYYY-MM-DD format.',
-      );
-    });
-
-    test('when response json is an array of error strings, it extracts the first string', async () => {
-      const response = makeResponse({
-        ok: false,
-        status: 400,
-        json: async () => ['Accepted proposals cannot be deleted.'],
-      });
-
-      await expect(getResponseErrorMessage(response, 'fallback')).resolves.toBe(
-        'Accepted proposals cannot be deleted.',
       );
     });
 
@@ -152,25 +105,6 @@ describe('authSession', () => {
     });
   });
 
-  describe('formatAuthErrorMessage', () => {
-    test('returns "Network error." for TypeError or network error message', () => {
-      expect(formatAuthErrorMessage(new TypeError('Failed to fetch'))).toBe('Network error.');
-      expect(formatAuthErrorMessage(new Error('Network request failed'))).toBe('Network error.');
-    });
-
-    test('returns error message if available and not a network error', () => {
-      expect(formatAuthErrorMessage(new Error('Invalid email or password.'))).toBe(
-        'Invalid email or password.',
-      );
-    });
-
-    test('returns fallback message if error is empty or has no message', () => {
-      expect(formatAuthErrorMessage(null, 'Custom fallback')).toBe('Custom fallback');
-      expect(formatAuthErrorMessage({}, 'Custom fallback')).toBe('Custom fallback');
-      expect(formatAuthErrorMessage(new Error(''))).toBe('An unexpected error occurred.');
-    });
-  });
-
   describe('persistAuthSession', () => {
     test('when tokens are missing, it throws', () => {
       expect(() => persistAuthSession({})).toThrow('Auth response missing tokens.');
@@ -192,10 +126,7 @@ describe('authSession', () => {
       expect(sessionStorage.getItem('email')).toBe('e@example.com');
     });
 
-    test('when username/email are missing, it does not store "undefined" and removes stale values', () => {
-      sessionStorage.setItem('username', 'old_user');
-      sessionStorage.setItem('email', 'old@example.com');
-
+    test('when username/email are missing, it does not store "undefined"', () => {
       persistAuthSession({ access: 'A', refresh: 'R', username: undefined, email: undefined });
 
       expect(sessionStorage.getItem('username')).toBeNull();

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import AuthPageShell from '../../components/AuthPageShell';
 import { register } from '../../services/authApiClient';
-import { formatAuthErrorMessage, persistAuthSession, readOkJson } from '../../services/authSession';
+import { persistAuthSession, readOkJson } from '../../services/authSession';
 
 export default function Register({ showSnackbar }) {
   const [email, setEmail] = useState('');
@@ -25,7 +25,12 @@ export default function Register({ showSnackbar }) {
       showSnackbar('success', 'Account created! Welcome to MacroMapper!');
       navigate('/');
     } catch (error) {
-      showSnackbar('error', formatAuthErrorMessage(error, 'Registration failed.'));
+      const isNetworkError =
+        error instanceof TypeError || error?.message?.toLowerCase().includes('network');
+      showSnackbar(
+        'error',
+        isNetworkError ? 'Network error.' : error?.message || 'Registration failed.',
+      );
     }
   };
 
