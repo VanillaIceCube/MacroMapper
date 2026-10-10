@@ -5,6 +5,10 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Clean up failed and temporary meal-adjustment proposals consistently and retain
+  existing confidence and provider information when AI follow-up fields are absent.
+- Remove the meal-adjustment service's serializer import cycle while keeping
+  response serialization inside the proposal cleanup boundary.
 - Validate every saved meal component field and nested value before reusing a
   snapshot, rebuilding incomplete or malformed legacy snapshots from saved versions.
 - Store component source access dates as ISO strings so dated sources can be

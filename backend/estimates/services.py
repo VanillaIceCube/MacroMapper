@@ -1375,11 +1375,11 @@ def apply_proposal_follow_up(
 
     current_items = deepcopy(items)
     current_by_key = {item["key"]: item for item in current_items}
-    remove_keys = set(result["remove_keys"])
+    remove_keys = set(result.get("remove_keys") or [])
     serving_updates = {}
-    for update in result["serving_updates"]:
-        key = update["key"]
-        serving_updates[key] = update["servings"]
+    for update in result.get("serving_updates") or []:
+        if isinstance(update, dict) and "key" in update:
+            serving_updates[update["key"]] = update.get("servings")
 
     remove_keys &= set(current_by_key)
     serving_updates = {
@@ -1406,7 +1406,7 @@ def apply_proposal_follow_up(
     foods = _visible_catalog_foods(owner)
     pending_additions = []
     merged_addition = False
-    for index, item in enumerate(result["items_to_add"]):
+    for index, item in enumerate(result.get("items_to_add") or []):
         intent = _follow_up_search_intent(item)
         catalog_match = (
             _resolve_catalog_intent(intent=intent, user=owner, foods=foods)
@@ -1456,9 +1456,9 @@ def apply_proposal_follow_up(
         materialized_raw_additions = _shared_estimate_items(
             {
                 "items": raw_additions,
-                "provider_name": result["provider_name"],
-                "provider_model": result["provider_model"],
-                "provider_response_id": result["provider_response_id"],
+                "provider_name": result.get("provider_name") or "",
+                "provider_model": result.get("provider_model") or "",
+                "provider_response_id": result.get("provider_response_id") or "",
             }
         )
     materialized_raw = iter(materialized_raw_additions)
@@ -1488,29 +1488,37 @@ def apply_proposal_follow_up(
             "proposal": proposal,
         }
 
-    proposal.name = _brief_generated_meal_name(result["name"])
+    proposal.name = _brief_generated_meal_name(result.get("name") or proposal.name)
     if entry_date is not None:
         proposal.entry_date = entry_date
     if notes is not None:
         proposal.notes = notes
     proposal.items = normalize_items([*retained_items, *added_items])
     proposal.generator = MealProposal.Generator.OPENAI
-    provider_name = result["provider_name"]
-    if proposal.provider_name and provider_name not in proposal.provider_name:
+    provider_name = result.get("provider_name") or ""
+    if (
+        proposal.provider_name
+        and provider_name
+        and provider_name not in proposal.provider_name
+    ):
         proposal.provider_name = f"{proposal.provider_name} + {provider_name}"[:80]
     elif not proposal.provider_name:
         proposal.provider_name = provider_name
-    proposal.provider_model = result["provider_model"]
-    proposal.provider_response_id = result["provider_response_id"]
-    follow_up_confidence = _storage_decimal(
-        result["confidence_score"],
-        decimal_places=3,
+    proposal.provider_model = result.get("provider_model") or proposal.provider_model
+    proposal.provider_response_id = (
+        result.get("provider_response_id") or proposal.provider_response_id
     )
-    proposal.confidence_score = (
-        min(proposal.confidence_score, follow_up_confidence)
-        if proposal.confidence_score is not None
-        else follow_up_confidence
-    )
+    raw_confidence = result.get("confidence_score")
+    if raw_confidence is not None:
+        follow_up_confidence = _storage_decimal(
+            raw_confidence,
+            decimal_places=3,
+        )
+        proposal.confidence_score = (
+            min(proposal.confidence_score, follow_up_confidence)
+            if proposal.confidence_score is not None
+            else follow_up_confidence
+        )
     proposal.save(
         update_fields=[
             "name",
@@ -1530,11 +1538,11 @@ def apply_proposal_follow_up(
         kind=MealProposalRevision.Kind.AI_FOLLOW_UP,
         created_by=owner,
         follow_up=follow_up,
-        message=result["message"],
+        message=result.get("message") or "",
     )
     return {
         "applied": True,
-        "message": result["message"],
+        "message": result.get("message") or "",
         "proposal": proposal,
     }
 
@@ -2236,3 +2244,56 @@ def accept_proposal(*, proposal):
         created_by=proposal.owner,
     )
     return meal
+
+
+def process_meal_adjustment(
+    *,
+    serializer,
+    owner,
+    proposal_serializer,
+    request=None,
+    temporary=False,
+    get_provider=None,
+):
+    """Process and serialize an adjustment within the proposal cleanup boundary.
+
+    The view supplies the response serializer so services do not import serializers
+    that already depend on this module.
+    """
+
+    get_provider = get_provider or get_estimation_provider
+    proposal = None
+    try:
+        proposal = serializer.create_proposal()
+        result = get_provider().follow_up(
+            original_description="",
+            meal_name=proposal.name,
+            items=proposal.items,
+            follow_up=serializer.validated_data["adjustment"],
+        )
+        outcome = apply_proposal_follow_up(
+            proposal=proposal,
+            owner=owner,
+            follow_up=serializer.validated_data["adjustment"],
+            items=proposal.items,
+            result=result,
+        )
+        updated_proposal = outcome["proposal"]
+        updated_proposal.refresh_from_db()
+        proposal_data = proposal_serializer(
+            updated_proposal,
+            context={"request": request},
+        ).data
+        return {
+            "applied": outcome["applied"],
+            "message": outcome["message"],
+            "proposal": proposal_data,
+        }
+    except Exception:
+        if proposal is not None:
+            proposal.delete()
+            proposal = None
+        raise
+    finally:
+        if temporary and proposal is not None:
+            proposal.delete()
