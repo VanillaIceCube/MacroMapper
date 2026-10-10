@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import AuthPageShell from '../../components/AuthPageShell';
 import { resetPassword } from '../../services/authApiClient';
-import { formatAuthErrorMessage, readOkJson } from '../../services/authSession';
+import { readOkJson } from '../../services/authSession';
 
 export default function ResetPassword({ showSnackbar }) {
   const [password, setPassword] = useState('');
@@ -30,7 +30,12 @@ export default function ResetPassword({ showSnackbar }) {
       showSnackbar('success', data?.message || 'Password reset successful.');
       navigate('/login');
     } catch (error) {
-      showSnackbar('error', formatAuthErrorMessage(error, 'Password reset failed.'));
+      const isNetworkError =
+        error instanceof TypeError || error?.message?.toLowerCase().includes('network');
+      showSnackbar(
+        'error',
+        isNetworkError ? 'Network error.' : error?.message || 'Password reset failed.',
+      );
     }
   };
 

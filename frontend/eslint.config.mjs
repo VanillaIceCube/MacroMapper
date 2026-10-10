@@ -1,6 +1,7 @@
 import js from '@eslint/js';
-import eslintReact from '@eslint-react/eslint-plugin';
-import jsxA11y from 'eslint-plugin-jsx-a11y-x';
+import { fixupConfigRules, fixupPluginRules } from '@eslint/compat';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
+import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 
@@ -9,10 +10,14 @@ export default [
     ignores: ['coverage/**', 'dist/**', 'node_modules/**'],
   },
   js.configs.recommended,
-  eslintReact.configs.recommended,
+  ...fixupConfigRules(react.configs.flat.recommended),
+  ...fixupConfigRules(react.configs.flat['jsx-runtime']),
   reactHooks.configs.flat['recommended-latest'],
   {
-    ...jsxA11y.configs.recommended,
+    ...jsxA11y.flatConfigs.recommended,
+    plugins: {
+      'jsx-a11y': fixupPluginRules(jsxA11y),
+    },
   },
   {
     files: ['**/*.{js,jsx}'],
@@ -24,12 +29,15 @@ export default [
         vi: 'readonly',
       },
     },
+    settings: {
+      react: {
+        version: 'detect',
+      },
+    },
     rules: {
-      // Keep the migration behavior-neutral; revisit these stricter rules separately.
-      '@eslint-react/no-array-index-key': 'off',
-      '@eslint-react/purity': 'off',
-      '@eslint-react/set-state-in-effect': 'off',
-      'jsx-a11y-x/no-autofocus': 'off',
+      'react/react-in-jsx-scope': 'off',
+      'react/prop-types': 'off',
+      'jsx-a11y/no-autofocus': 'off',
       'no-unused-vars': [
         'error',
         { varsIgnorePattern: '^_', argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },

@@ -1,85 +1,6 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## 2026-10-10
-
-### Fixed
-
-- Validate every saved meal component field and nested value before reusing a
-  snapshot, rebuilding incomplete or malformed legacy snapshots from saved versions.
-- Store component source access dates as ISO strings so dated sources can be
-  included in saved meal snapshots.
-- Reuse the complete reachable food component graph for catalog estimates and meal
-  snapshots, with shared nutrient calculations and queries batched by tree level.
-
-## 2026-10-09
-
-### Fixed
-
-- Reduce repeated food component and catalog-version queries and reuse complete
-  saved meal component snapshots while preserving catalog filtering and pagination.
-- Save notification PATCH requests consistently while preserving existing read
-  timestamps and handling empty notification bulk operations.
-- Normalize login email input and return clear authentication errors for duplicate
-  registrations and malformed password-reset identifiers.
-- Share API error extraction and safely handle non-JSON responses in the diary
-  and notification controls, including field validation errors.
-- Clear stale username and email values when a new authentication response omits
-  profile information, and share error formatting across authentication pages.
-
-## 2026-09-22
-
-### Fixed
-
-- Keep the compact Map it with AI dialog from flashing the full meal builder
-  while its backdrop-close animation finishes.
-- Keep the existing Add from the Catalog results and scroll viewport in place
-  while switching between All, My Foods, and Shared.
-
-### Changed
-
-- Upgrade the frontend lint toolchain to ESLint 10 and preserve React and JSX
-  accessibility coverage with ESLint 10-compatible plugins.
-- Use consistent title capitalization for the Daily Summary and Meal Log headings.
-- Center saved-meal calories, confidence, and provenance beside the complete
-  Food & Servings context, with consistent heading capitalization.
-- Standardize interface corners around compact, surface, prominent, and pill
-  radius tokens, with sharper cards, controls, menus, and dialogs throughout.
-
-## 2026-09-20
-
-### Added
-
-- Add an in-context Retry action for failed catalog loads, searches, and
-  pagination requests while preserving the exact failed request.
-
-### Fixed
-
-- Keep pagination, scope changes, sorting, filter removal, and retries tied to
-  the last applied catalog request instead of silently applying draft criteria.
-- Keep catalog filter alignment and wrapping styles inside Material UI's supported
-  styling API instead of forwarding them to the browser DOM.
-
-### Changed
-
-- Reorganize Add from Catalog result cards around the food name first, with
-  provider and serving context beneath it while provenance and confidence stay
-  inside optional estimate details beneath the nutrition summary.
-- Standardize estimate metadata in catalog and Meal Item details as provider,
-  provenance, then confidence, using title-cased labels throughout.
-- Paginate the food catalog in 20-item pages with a compact in-list Show more
-  action that preserves the active search and filters, plus a dedicated scrollbar
-  gutter that keeps result cards clear of the scroll track.
-- Replace the catalog's always-visible technical filters with quick food-type
-  choices, a compact advanced Filters panel, and relevance, recency, or name
-  sorting.
-- Add a user-specific Recently logged catalog sort and rename the name sort to
-  Alphabetically.
-- Separate catalog scope from food type so All, My Foods, and Shared can combine
-  with Common, Branded, or Restaurant filters.
-- Identify My Food and Shared catalog results with restrained inline metadata
-  beside the serving information.
-
 ## 2026-09-05
 
 ### Added
@@ -107,11 +28,6 @@ All notable changes to this project are documented in this file.
   Home destination.
 
 ## 2026-08-30
-
-### Added
-
-- Add combinable catalog scope, provider, provenance, and source-aware search
-  filters to Map Your Meal, with visible active filters and add confirmation.
 
 ### Fixed
 

@@ -21,15 +21,12 @@ class NotificationViewSet(viewsets.ModelViewSet):
         )
 
     def perform_update(self, serializer):
-        if "is_read" in serializer.validated_data:
-            is_read = serializer.validated_data["is_read"]
-            notification = serializer.instance
-            if is_read is True and not notification.read_at:
-                serializer.save(read_at=timezone.now())
-            elif is_read is False:
-                serializer.save(read_at=None)
-            else:
-                serializer.save()
+        is_read = serializer.validated_data.get("is_read")
+        notification = serializer.instance
+        if is_read is True and not notification.read_at:
+            serializer.save(read_at=timezone.now())
+        elif is_read is False:
+            serializer.save(read_at=None)
         else:
             serializer.save()
 

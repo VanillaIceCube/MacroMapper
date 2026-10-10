@@ -1,10 +1,9 @@
-from datetime import date
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 from django.db import transaction
 from rest_framework import serializers
 
-from foods.models import FoodItem, FoodItemVersion
+from foods.models import FoodItem
 from foods.nutrients import NUTRIENT_METADATA
 from foods.portions import portion_options_for_serving
 
@@ -32,39 +31,6 @@ REQUIRED_SNAPSHOT_FIELDS = {
 }
 
 
-def _is_decimal_string(value, *, strict=False):
-    if not isinstance(value, str):
-        return False
-    try:
-        parsed = Decimal(value)
-    except InvalidOperation:
-        return False
-    return parsed.is_finite() and (parsed > 0 if strict else parsed >= 0)
-
-
-def _has_string_fields(value, fields):
-    return isinstance(value, dict) and all(
-        isinstance(value.get(field), str) for field in fields
-    )
-
-
-def _is_valid_source(source):
-    if not _has_string_fields(source, ("title", "provider", "url")):
-        return False
-    if "accessed_on" not in source or type(source.get("is_official")) is not bool:
-        return False
-    accessed_on = source["accessed_on"]
-    if accessed_on is None:
-        return True
-    if not isinstance(accessed_on, str):
-        return False
-    try:
-        date.fromisoformat(accessed_on)
-    except ValueError:
-        return False
-    return True
-
-
 def _is_valid_component_snapshot(components):
     if not isinstance(components, list):
         return False
@@ -73,60 +39,10 @@ def _is_valid_component_snapshot(components):
             return False
         if not REQUIRED_SNAPSHOT_FIELDS.issubset(component.keys()):
             return False
-        if any(
-            type(component[field]) is not int or component[field] <= 0
-            for field in ("food_item_id", "food_version_id")
-        ):
-            return False
-        if not _has_string_fields(
-            component, ("food_name", "provider_name", "serving_label")
-        ):
-            return False
-        for field, choices in (
-            ("origin_type", FoodItem.OriginType.values),
-            ("serving_unit", FoodItemVersion.ServingUnit.values),
-            ("provenance", FoodItemVersion.Provenance.values),
-        ):
-            if not isinstance(component[field], str) or component[field] not in choices:
-                return False
-        if any(
-            not _is_decimal_string(component[field], strict=True)
-            for field in ("servings", "serving_quantity")
-        ):
-            return False
-        if any(
-            component[field] is not None
-            and not _is_decimal_string(component[field], strict=True)
-            for field in ("serving_weight_grams", "serving_volume_ml")
-        ):
-            return False
-        confidence = component["confidence_score"]
-        if confidence is not None and (
-            not _is_decimal_string(confidence) or Decimal(confidence) > 1
-        ):
-            return False
-        options = component["portion_options"]
         if (
-            not isinstance(options, list)
-            or not options
-            or any(
-                not _has_string_fields(option, ("key", "label", "unit_label"))
-                or not _is_decimal_string(option.get("serving_multiplier"), strict=True)
-                for option in options
-            )
-        ):
-            return False
-        nutrients = component["nutrients"]
-        if not isinstance(nutrients, list) or any(
-            not _has_string_fields(nutrient, ("key", "name", "unit"))
-            or nutrient["key"] not in NUTRIENT_METADATA
-            or not _is_decimal_string(nutrient.get("amount"))
-            for nutrient in nutrients
-        ):
-            return False
-        sources = component["sources"]
-        if not isinstance(sources, list) or any(
-            not _is_valid_source(source) for source in sources
+            not isinstance(component["portion_options"], list)
+            or not isinstance(component["sources"], list)
+            or not isinstance(component["nutrients"], list)
         ):
             return False
         if not _is_valid_component_snapshot(component["components"]):

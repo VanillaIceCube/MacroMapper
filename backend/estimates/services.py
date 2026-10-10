@@ -19,7 +19,7 @@ from django.utils import timezone
 from foods.models import FoodItem, FoodItemVersion
 from foods.nutrients import NUTRIENT_FIELDS
 from foods.portions import portion_options_for_serving
-from foods.services import build_component_map, create_food_item
+from foods.services import create_food_item
 from meals.models import MealEntry
 from meals.services import _effective_nutrients, generate_meal_name, replace_meal_items
 
@@ -342,30 +342,10 @@ def _portion_options(item):
     )
 
 
-def _catalog_food(
-    version,
-    *,
-    servings="1",
-    key=None,
-    depth=0,
-    component_map=None,
-    nutrient_cache=None,
-    visited=None,
-):
-    visited = set(visited or ())
-    if component_map is None:
-        component_map = build_component_map([version.pk])
-    if nutrient_cache is None:
-        nutrient_cache = {}
+def _catalog_food(version, *, servings="1", key=None, depth=0):
     food = version.food_item
     item_key = key or f"catalog-{food.pk}"
-    nutrients = _effective_nutrients(
-        version,
-        visited,
-        component_map=component_map,
-        nutrient_cache=nutrient_cache,
-    )
-    path = visited | {version.pk}
+    nutrients = _effective_nutrients(version)
     portion_options = portion_options_for_serving(
         quantity=version.serving_quantity,
         unit=version.serving_unit,
@@ -426,12 +406,8 @@ def _catalog_food(
                 servings=component.servings,
                 key=f"{item_key}.{index}",
                 depth=depth + 1,
-                component_map=component_map,
-                nutrient_cache=nutrient_cache,
-                visited=path,
             )
-            for index, component in enumerate(component_map.get(version.pk, ()))
-            if component.child_version_id not in path
+            for index, component in enumerate(version.components.all())
         ],
     }
 
@@ -442,7 +418,14 @@ def _visible_catalog_foods(user):
         .visible_to(user)
         .filter(current_version__isnull=False)
         .select_related("current_version")
-        .prefetch_related("current_version__sources")
+        .prefetch_related(
+            "current_version__sources",
+            "current_version__components__child_version__food_item",
+            "current_version__components__child_version__sources",
+            "current_version__components__child_version__components",
+            "current_version__components__child_version__components__child_version__food_item",
+            "current_version__components__child_version__components__child_version__sources",
+        )
     )
 
 
@@ -1238,16 +1221,10 @@ def create_proposal(*, owner, description, entry_date):
         if intents:
             resolution = resolve_catalog_intents(intents=intents, user=owner)
     matches = resolution["matches"]
-    component_map = build_component_map(
-        [match["food"].current_version_id for match in matches]
-    )
-    nutrient_cache = {}
     catalog_items = [
         _catalog_food(
             match["food"].current_version,
             servings=match["servings"],
-            component_map=component_map,
-            nutrient_cache=nutrient_cache,
         )
         for match in matches
     ]
@@ -1566,7 +1543,12 @@ def _visible_catalog_versions_map(*, owner, pairs, allowed_version_ids=()):
     versions = (
         FoodItemVersion.objects.filter(query & visible)
         .select_related("food_item")
-        .prefetch_related("sources")
+        .prefetch_related(
+            "sources",
+            "components__child_version__food_item",
+            "components__child_version__sources",
+            "components__child_version__components",
+        )
     )
     return {(v.food_item_id, v.pk): v for v in versions}
 
@@ -1595,14 +1577,7 @@ def _visible_catalog_version(
 
 
 def secure_review_items(
-    *,
-    proposal,
-    owner,
-    items,
-    allowed_version_ids=(),
-    catalog_versions_map=None,
-    component_map=None,
-    nutrient_cache=None,
+    *, proposal, owner, items, allowed_version_ids=(), catalog_versions_map=None
 ):
     """Keep provenance immutable while accepting quantity and nutrient edits."""
 
@@ -1614,12 +1589,6 @@ def secure_review_items(
             allowed_version_ids=allowed_version_ids,
         )
 
-    if component_map is None:
-        component_map = build_component_map(
-            [version.pk for version in catalog_versions_map.values()]
-        )
-    if nutrient_cache is None:
-        nutrient_cache = {}
     existing = _items_by_key(proposal.items)
 
     def secure(item, *, depth=0):
@@ -1643,8 +1612,6 @@ def secure_review_items(
                 version,
                 servings=item["servings"],
                 key=item["key"],
-                component_map=component_map,
-                nutrient_cache=nutrient_cache,
             )
             aligned = _align_builder_item_keys(item, result)
             return secure_review_items(
@@ -1653,8 +1620,6 @@ def secure_review_items(
                 items=[aligned],
                 allowed_version_ids=allowed_version_ids,
                 catalog_versions_map=catalog_versions_map,
-                component_map=component_map,
-                nutrient_cache=nutrient_cache,
             )[0]
 
         result = dict(original)
@@ -1691,8 +1656,6 @@ def secure_review_items(
         owner=owner,
         allowed_version_ids=allowed_version_ids,
         catalog_versions_map=catalog_versions_map,
-        component_map=component_map,
-        nutrient_cache=nutrient_cache,
     )
 
 
@@ -1735,10 +1698,6 @@ def secure_builder_items(
 
     canonical_items = []
     aligned_items = []
-    component_map = build_component_map(
-        [version.pk for version in catalog_versions_map.values()]
-    )
-    nutrient_cache = {}
     for item in items:
         version = _visible_catalog_version(
             owner=owner,
@@ -1752,8 +1711,6 @@ def secure_builder_items(
             version,
             servings=item["servings"],
             key=item["key"],
-            component_map=component_map,
-            nutrient_cache=nutrient_cache,
         )
         canonical_items.append(canonical)
         aligned_items.append(_align_builder_item_keys(item, canonical))
@@ -1763,8 +1720,6 @@ def secure_builder_items(
         items=aligned_items,
         allowed_version_ids=allowed_version_ids,
         catalog_versions_map=catalog_versions_map,
-        component_map=component_map,
-        nutrient_cache=nutrient_cache,
     )
 
 
@@ -1840,14 +1795,8 @@ def _definition(item, components):
     }
 
 
-def _matches_catalog_nutrients(
-    item, version, *, component_map=None, nutrient_cache=None
-):
-    catalog_nutrients = _effective_nutrients(
-        version,
-        component_map=component_map,
-        nutrient_cache=nutrient_cache,
-    )
+def _matches_catalog_nutrients(item, version):
+    catalog_nutrients = _effective_nutrients(version)
     requested_nutrients = item.get("nutrients", {})
     for field in NUTRIENT_FIELDS:
         catalog_value = catalog_nutrients.get(field)
@@ -1871,17 +1820,8 @@ def _matches_catalog_value(value, stored, *, decimal_places):
     )
 
 
-def _matches_catalog_tree(item, version, *, component_map=None, nutrient_cache=None):
-    if component_map is None:
-        component_map = build_component_map([version.pk])
-    if nutrient_cache is None:
-        nutrient_cache = {}
-    if not _matches_catalog_nutrients(
-        item,
-        version,
-        component_map=component_map,
-        nutrient_cache=nutrient_cache,
-    ):
+def _matches_catalog_tree(item, version):
+    if not _matches_catalog_nutrients(item, version):
         return False
     if not _matches_catalog_value(
         item.get("serving_quantity"),
@@ -1907,7 +1847,9 @@ def _matches_catalog_tree(item, version, *, component_map=None, nutrient_cache=N
         return False
 
     requested_components = item.get("components", [])
-    catalog_components = component_map.get(version.pk, ())
+    catalog_components = list(
+        version.components.select_related("child_version__food_item").all()
+    )
     if len(requested_components) != len(catalog_components):
         return False
     for requested, catalog in zip(
@@ -1921,24 +1863,13 @@ def _matches_catalog_tree(item, version, *, component_map=None, nutrient_cache=N
             requested.get("servings"), catalog.servings, decimal_places=4
         ):
             return False
-        if not _matches_catalog_tree(
-            requested,
-            catalog.child_version,
-            component_map=component_map,
-            nutrient_cache=nutrient_cache,
-        ):
+        if not _matches_catalog_tree(requested, catalog.child_version):
             return False
     return True
 
 
 def _apply_review_attribution(
-    *,
-    items,
-    owner,
-    allowed_version_ids=(),
-    catalog_versions_map=None,
-    component_map=None,
-    nutrient_cache=None,
+    *, items, owner, allowed_version_ids=(), catalog_versions_map=None
 ):
     if catalog_versions_map is None:
         pairs = _collect_catalog_pairs(items)
@@ -1947,13 +1878,6 @@ def _apply_review_attribution(
             pairs=pairs,
             allowed_version_ids=allowed_version_ids,
         )
-
-    if component_map is None:
-        component_map = build_component_map(
-            [version.pk for version in catalog_versions_map.values()]
-        )
-    if nutrient_cache is None:
-        nutrient_cache = {}
 
     def annotate(item):
         item = dict(item)
@@ -1966,12 +1890,7 @@ def _apply_review_attribution(
             allowed_version_ids=allowed_version_ids,
             catalog_versions_map=catalog_versions_map,
         )
-        modified = version is not None and not _matches_catalog_tree(
-            item,
-            version,
-            component_map=component_map,
-            nutrient_cache=nutrient_cache,
-        )
+        modified = version is not None and not _matches_catalog_tree(item, version)
         item["is_user_modified"] = modified
         if modified:
             item["provenance"] = FoodItemVersion.Provenance.USER_MODIFIED_ESTIMATE
