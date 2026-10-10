@@ -14,6 +14,10 @@
   --atlas-mineral-soft: #e5f0f3;
   --atlas-border: rgba(23, 50, 77, 0.18);
   --atlas-border-strong: rgba(23, 50, 77, 0.38);
+  --atlas-radius-compact: 6px;
+  --atlas-radius-surface: 12px;
+  --atlas-radius-prominent: 18px;
+  --atlas-radius-pill: 999px;
   --calorie-color: var(--atlas-ink);
   --protein-color: var(--atlas-forest);
   --carbohydrate-color: var(--atlas-mineral-dark);
@@ -103,7 +107,7 @@ body {
 }
 
 .auth-link:focus-visible {
-  border-radius: 3px;
+  border-radius: var(--atlas-radius-compact);
   outline: 3px solid rgba(228, 107, 60, 0.35);
   outline-offset: 3px;
 }
