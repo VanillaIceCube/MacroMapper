@@ -1,6 +1,13 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 2026-10-09
+
+### Fixed
+
+- Clear stale username and email values when a new authentication response omits
+  profile information, and share error formatting across authentication pages.
+
 ## 2026-09-22
 
 ### Fixed
