@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Save notification PATCH requests consistently while preserving existing read
+  timestamps and handling empty notification bulk operations.
 - Normalize login email input and return clear authentication errors for duplicate
   registrations and malformed password-reset identifiers.
 - Share API error extraction and safely handle non-JSON responses in the diary

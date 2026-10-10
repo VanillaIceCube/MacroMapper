@@ -69,6 +69,51 @@ class NotificationApiTests(APITestCase):
         self.assertFalse(unread_response.data["is_read"])
         self.assertIsNone(unread_response.data["read_at"])
 
+    def test_remarking_already_read_notification_preserves_read_at(self):
+        self.client.force_authenticate(user=self.recipient)
+
+        read_response_1 = self.client.patch(
+            f"/api/notifications/{self.notification.id}/",
+            {"is_read": True},
+            format="json",
+        )
+        initial_read_at = read_response_1.data["read_at"]
+
+        read_response_2 = self.client.patch(
+            f"/api/notifications/{self.notification.id}/",
+            {"is_read": True},
+            format="json",
+        )
+        self.assertEqual(read_response_2.data["read_at"], initial_read_at)
+
+    def test_patch_without_is_read_field_leaves_read_at_unchanged(self):
+        self.client.force_authenticate(user=self.recipient)
+        self.assertIsNone(self.notification.read_at)
+
+        response = self.client.patch(
+            f"/api/notifications/{self.notification.id}/",
+            {},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.notification.refresh_from_db()
+        self.assertIsNone(self.notification.read_at)
+
+        read_response = self.client.patch(
+            f"/api/notifications/{self.notification.id}/",
+            {"is_read": True},
+            format="json",
+        )
+        read_at = read_response.data["read_at"]
+
+        response2 = self.client.patch(
+            f"/api/notifications/{self.notification.id}/",
+            {},
+            format="json",
+        )
+        self.assertEqual(response2.status_code, status.HTTP_200_OK)
+        self.assertEqual(response2.data["read_at"], read_at)
+
     def test_user_cannot_access_another_users_notification(self):
         self.client.force_authenticate(user=self.recipient)
 
@@ -119,3 +164,19 @@ class NotificationApiTests(APITestCase):
         self.assertTrue(
             Notification.objects.filter(pk=self.other_notification.pk).exists()
         )
+
+    def test_mark_all_read_returns_zero_when_nothing_unread(self):
+        self.client.force_authenticate(user=self.recipient)
+        self.client.patch("/api/notifications/mark-all-read/")
+
+        response = self.client.patch("/api/notifications/mark-all-read/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["updated"], 0)
+
+    def test_clear_all_returns_zero_when_no_notifications(self):
+        self.client.force_authenticate(user=self.recipient)
+        self.client.delete("/api/notifications/clear-all/")
+
+        response = self.client.delete("/api/notifications/clear-all/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["deleted"], 0)
