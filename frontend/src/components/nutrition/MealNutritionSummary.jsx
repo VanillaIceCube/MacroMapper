@@ -5,8 +5,11 @@ import { useState } from 'react';
 import CalorieContributionChart from './CalorieContributionChart';
 import MacroCalorieSplit from './MacroCalorieSplit';
 import { NutritionCards } from './NutritionCards';
-import { formatNutritionAmount } from '../../utils/nutritionFormatting';
-import { itemCalorieContributions, mealNutrientValues } from '../../domain/nutrition/calculations';
+import {
+  formatNutritionAmount,
+  itemCalorieContributions,
+  mealNutrientValues,
+} from './nutritionMath';
 
 export default function MealNutritionSummary({ items }) {
   const [open, setOpen] = useState(true);

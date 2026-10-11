@@ -24,15 +24,15 @@ import {
   portionOptionLabel,
   selectedPortion,
   servingAmountValue,
-} from '../domain/mealItem/portions';
+} from '../domain/mealItem';
 
 const sourceLabels = {
-  official_verified: { label: 'Official / Verified', color: 'success' },
-  catalog_estimate: { label: 'Catalog Estimate', color: 'info' },
-  community_estimate: { label: 'Community Estimate', color: 'info' },
-  ai_estimate: { label: 'AI Estimate', color: 'warning' },
-  user_modified_estimate: { label: 'AI Estimate — Adjusted by You', color: 'warning' },
-  user_entered: { label: 'User Entered', color: 'default' },
+  official_verified: { label: 'Official / verified', color: 'success' },
+  catalog_estimate: { label: 'Catalog estimate', color: 'info' },
+  community_estimate: { label: 'Community estimate', color: 'info' },
+  ai_estimate: { label: 'AI estimate', color: 'warning' },
+  user_modified_estimate: { label: 'AI estimate — adjusted by you', color: 'warning' },
+  user_entered: { label: 'User entered', color: 'default' },
 };
 
 export default function MealItemEditorRow({
@@ -144,20 +144,20 @@ export default function MealItemEditorRow({
               value={servingAmountValue(item)}
               onChange={(event) => onServings(item.key, event.target.value, item)}
               disabled={!canEditItem}
-              slotProps={{ htmlInput: { min: 0, step: 'any' } }}
+              slotProps={{ htmlInput: { min: 0, step: 1 } }}
               sx={{ gridArea: 'quantity', minWidth: 0, width: '100%' }}
             />
             <TextField
               select
               label="Unit"
               size="small"
-              value={activePortion?.key || 'base'}
+              value={activePortion.key}
               onChange={(event) => onPortionChange(item.key, event.target.value)}
               disabled={!canEditItem || options.length < 2}
               sx={{ gridArea: 'portion', minWidth: 0, width: '100%' }}
             >
               {options.map((option) => (
-                <MenuItem key={option.key || option.label} value={option.key || 'base'}>
+                <MenuItem key={option.key} value={option.key}>
                   {portionOptionLabel(option)}
                 </MenuItem>
               ))}
@@ -258,12 +258,7 @@ export default function MealItemEditorRow({
         </Box>
         {hasDetails && (
           <Collapse in={detailsOpen} unmountOnExit>
-            <Paper
-              role="region"
-              aria-label={`${item.name} estimate details`}
-              elevation={0}
-              sx={{ mt: 0.5, p: 0.75, border: '1px solid var(--atlas-border)' }}
-            >
+            <Paper elevation={0} sx={{ mt: 0.5, p: 0.75, border: '1px solid var(--atlas-border)' }}>
               <Stack
                 direction="row"
                 spacing={0.75}
@@ -273,16 +268,16 @@ export default function MealItemEditorRow({
                   mt: 0.25,
                 }}
               >
-                {item.provider_name && (
-                  <Chip size="small" label={item.provider_name} variant="outlined" />
-                )}
                 <Chip size="small" label={source.label} color={source.color} variant="outlined" />
                 {item.confidence_score != null && (
                   <Chip
                     size="small"
-                    label={`${Math.round(Number(item.confidence_score) * 100)}% Confidence`}
+                    label={`${Math.round(Number(item.confidence_score) * 100)}% confidence`}
                     variant="outlined"
                   />
+                )}
+                {item.provider_name && (
+                  <Chip size="small" label={item.provider_name} variant="outlined" />
                 )}
               </Stack>
               {!!item.sources?.length && (
@@ -292,7 +287,7 @@ export default function MealItemEditorRow({
                       <Link href={entry.url} target="_blank" rel="noopener noreferrer">
                         {entry.title}
                       </Link>
-                      {entry.is_official ? ' · Official Source' : ''}
+                      {entry.is_official ? ' · official source' : ''}
                     </Typography>
                   ))}
                 </Stack>

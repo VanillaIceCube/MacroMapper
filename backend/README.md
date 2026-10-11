@@ -17,7 +17,7 @@ snapshots. See the [product vision](../docs/PRODUCT_VISION.md) for the
 remaining roadmap.
 
 ## 🧭 Structure
-- `app/`: Django settings, URL routing, and the WSGI server entry point
+- `app/`: Django settings, URL routing, ASGI, and WSGI
 - `authentication/`: custom user, registration, login, refresh, password reset,
   and email delivery
 - `foods/`: reusable Food Items, immutable versions, components, nullable
@@ -31,10 +31,6 @@ remaining roadmap.
 - `environment.yml`: Conda environment definition
 - `requirements.txt`: pip dependencies used locally, in CI, and in Docker
 - `ruff.toml`: backend lint and formatting configuration
-
-Maintain the Python version in `environment.yml` and pip dependency versions in
-`requirements.txt` manually. Docker builds use both files; CI reads the Python
-version from `environment.yml` and installs dependencies from `requirements.txt`.
 
 Goals and activity remain separate planned apps. The `estimates` app uses the
 `foods` catalog, publishes deduplicated base AI definitions without proposal or
@@ -62,12 +58,7 @@ All food and nutrient endpoints require a JWT access token.
 
 - `GET /api/foods/`
   - Returns active shared foods plus personal foods owned by the current user.
-  - Accepts `?search=` for case-insensitive name, provider, and source lookup.
-  - Filters combine with search: `scope=personal|shared`, a partial `provider`,
-    one or more comma-separated `provenance` values, and
-    `origin_type=generic|branded|restaurant`.
-  - Accepts bounded `limit` and supported `ordering` parameters so catalog
-    browsing does not require loading the full visible catalog.
+  - Accepts `?search=` for case-insensitive name and provider lookup.
 - `GET /api/foods/{id}/`
   - Returns the current serving quantity/unit and human-readable serving label,
     provenance, confidence, nutrients, sources,

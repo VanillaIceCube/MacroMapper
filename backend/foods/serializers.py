@@ -47,9 +47,7 @@ def _portion_options(version):
 def _components_for_version(version, context):
     component_map = context.get("component_map")
     if component_map is None:
-        return version.components.select_related(
-            "child_version__food_item"
-        ).prefetch_related("child_version__sources")
+        return version.components.all()
     return component_map.get(version.pk, ())
 
 

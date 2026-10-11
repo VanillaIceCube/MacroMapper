@@ -1,10 +1,12 @@
 import {
+  decorateCalorieContributions,
   itemCalorieContributions,
   itemNutrientTotal,
-  mealNutrientTotal,
+  formatWholeNutritionAmount,
   macroCalorieSegments,
   mealNutrientValues,
-} from './calculations';
+  summarizeCalorieContributions,
+} from './nutritionMath';
 
 const leaf = (key, nutrients, servings = '1') => ({
   key,
@@ -14,7 +16,12 @@ const leaf = (key, nutrients, servings = '1') => ({
   components: [],
 });
 
-describe('nutrition calculations', () => {
+describe('nutritionMath', () => {
+  test('preserves missing whole nutrition amounts as unavailable', () => {
+    expect(formatWholeNutritionAmount(null)).toBe('—');
+    expect(formatWholeNutritionAmount('')).toBe('—');
+  });
+
   test('rolls recursive component nutrients into item and meal totals', () => {
     const composite = {
       key: 'sandwich',
@@ -48,6 +55,33 @@ describe('nutrition calculations', () => {
     expect(segments.reduce((total, segment) => total + segment.percentage, 0)).toBeCloseTo(100);
   });
 
+  test('groups overflow contribution rows and decorates them for a shared chart', () => {
+    const contributions = [10, 60, 20, 50, 30, 40].map((calories, index) => ({
+      key: `item-${index}`,
+      name: `Item ${index}`,
+      calories,
+      protein: calories / 4,
+      carbohydrates: null,
+      fat: null,
+    }));
+
+    const summarized = summarizeCalorieContributions(contributions, {
+      otherKey: 'other-foods',
+      otherLabel: (count) => `Other foods (${count})`,
+    });
+    const rows = decorateCalorieContributions(summarized);
+
+    expect(summarized).toHaveLength(5);
+    expect(summarized.at(-1)).toMatchObject({
+      key: 'other-foods',
+      name: 'Other foods (2)',
+      calories: 30,
+      protein: 7.5,
+    });
+    expect(rows[0]).toMatchObject({ name: 'Item 1', relativeBarWidth: 100 });
+    expect(rows.reduce((total, row) => total + row.percentage, 0)).toBeCloseTo(100);
+  });
+
   test('uses a composite food components as calorie contribution rows', () => {
     const composite = {
       key: 'plate',
@@ -64,45 +98,5 @@ describe('nutrition calculations', () => {
       expect.objectContaining({ key: 'protein', calories: 300, protein: 40 }),
       expect.objectContaining({ key: 'side', calories: 200, carbohydrates: 40 }),
     ]);
-  });
-
-  test('safely handles non-finite, null, or malformed inputs in calculations', () => {
-    expect(itemNutrientTotal(null, 'calories')).toBeNull();
-    expect(itemNutrientTotal({ nutrients: { calories: 'NaN' } }, 'calories')).toBeNull();
-    expect(
-      itemNutrientTotal({ nutrients: { calories: '100' }, servings: 'invalid' }, 'calories'),
-    ).toBe(0);
-    expect(
-      mealNutrientTotal(
-        [null, { nutrients: { calories: 'Infinity' } }, leaf('apple', { calories: '95' })],
-        'calories',
-      ),
-    ).toBe(95);
-  });
-
-  test('handles fallback key/name resolution and filters invalid calorie rows in itemCalorieContributions', () => {
-    const items = [
-      {
-        food_item_id: 42,
-        food_name: 'Fallback Item',
-        servings: '1',
-        nutrients: { calories: '150', protein: '10' },
-      },
-      { key: 'no-cals', name: 'Water', servings: '1', nutrients: { calories: null } },
-      { key: 'invalid-cals', name: 'Broken', servings: '1', nutrients: { calories: 'NaN' } },
-      null,
-    ];
-
-    expect(itemCalorieContributions(items)).toEqual([
-      {
-        key: '42',
-        name: 'Fallback Item',
-        calories: 150,
-        protein: 10,
-        carbohydrates: null,
-        fat: null,
-      },
-    ]);
-    expect(itemCalorieContributions(null)).toEqual([]);
   });
 });

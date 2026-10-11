@@ -3,9 +3,6 @@ node_modules/
 build/
 dist/
 
-# Frontend documentation and screenshots
-docs/
-
 # Docker configuration files
 Dockerfile
 .dockerignore

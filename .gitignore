@@ -35,7 +35,12 @@ staticfiles/
 docker-compose.override.yml
 
 # TLS certs (never commit private keys)
-/certs/
+certs/*.pem
+certs/*.key
+certs/*.crt
+certs/*.csr
+certs/*.pfx
+certs/*.der
 
 # Editor / OS-specific files
 .idea/
@@ -50,4 +55,4 @@ docker-compose.override.yml
 coverage/
 
 # Codex
-.codex-ticket-bodies/
+.codex-ticket-bodies/*

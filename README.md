@@ -68,25 +68,25 @@ Outside of that, I mean my goal was to get a good personal use application that 
 
 View your daily statistics.
 
-![MacroMapper daily nutrition summary with nutrient totals, macro balance, and calories by meal](frontend/docs/images/daily-nutrition-01.png)
+![MacroMapper daily nutrition summary with nutrient totals, macro balance, and calories by meal](docs/images/daily-nutrition-01.png)
 
 ### Daily Nutrition Page 02
 
 View your meal-by-meal stats as well as their confidence and provenance.
 
-![MacroMapper meal log with food-level nutrition, confidence, provenance, and macro charts](frontend/docs/images/daily-nutrition-02.png)
+![MacroMapper meal log with food-level nutrition, confidence, provenance, and macro charts](docs/images/daily-nutrition-02.png)
 
 ### Meal Estimation Page 01
 
 Estimate your meal with AI!
 
-![MacroMapper AI meal description dialog](frontend/docs/images/meal-estimation-01.png)
+![MacroMapper AI meal description dialog](docs/images/meal-estimation-01.png)
 
 ### Meal Estimation Page 02
 
 The nutritional information for your meal!
 
-![MacroMapper estimated meal editor with nutrition totals and meal items](frontend/docs/images/meal-estimation-02.png)
+![MacroMapper estimated meal editor with nutrition totals and meal items](docs/images/meal-estimation-02.png)
 
 ### Meal Estimation Page 03
 
@@ -94,13 +94,13 @@ Break down meal items by component for easy adjustments—like, “Oh! I actuall
 didn't have sour cream.” The app also displays the provenance, source, and
 confidence.
 
-![MacroMapper meal component editor with source, provenance, and confidence details](frontend/docs/images/meal-estimation-03.png)
+![MacroMapper meal component editor with source, provenance, and confidence details](docs/images/meal-estimation-03.png)
 
 ### Meal Estimation Page 04
 
 Manually add items from the catalog, or use AI to make adjustments!
 
-![MacroMapper catalog search and conversational AI adjustment controls](frontend/docs/images/meal-estimation-04.png)
+![MacroMapper catalog search and conversational AI adjustment controls](docs/images/meal-estimation-04.png)
 
 ## 📚 Documentation
 - Product vision and delivery roadmap: [`docs/PRODUCT_VISION.md`](docs/PRODUCT_VISION.md)
@@ -108,11 +108,16 @@ Manually add items from the catalog, or use AI to make adjustments!
 - Backend (API, auth, configuration): [`backend/README.md`](backend/README.md)
 - Frontend (routing, sessions, API base URL): [`frontend/README.md`](frontend/README.md)
 - Deployment (Docker, Nginx, Cloudflare, DigitalOcean): [`deploy/README.md`](deploy/README.md)
-- Local HTTPS certificate helper: [`scripts/create-local-certificate.ps1`](scripts/create-local-certificate.ps1)
-- GitHub Apps, Project, and repository settings: [`.github/GITHUB_SETUP.md`](.github/GITHUB_SETUP.md)
+- GitHub Apps, Project, and repository settings: [`docs/GITHUB_SETUP.md`](docs/GITHUB_SETUP.md)
 - CI/CD and automation: [`.github/README-WORKFLOWS.md`](.github/README-WORKFLOWS.md)
 - Changelog: [`CHANGELOG.md`](CHANGELOG.md)
 
 ## 📜 License
 This project is licensed under a **Modified MIT License (Non-Commercial Use
 Only)**. See [`LICENSE.md`](LICENSE.md) for full details.
+
+## 🙏 Acknowledgments
+This project includes code derived from
+[`conda_export.py`](https://github.com/andresberejnoi/Conda-Tools) by
+**Andres Berejnoi**, used under the terms of the original
+[MIT License](https://opensource.org/licenses/MIT).
