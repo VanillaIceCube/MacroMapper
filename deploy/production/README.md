@@ -5,6 +5,22 @@ every production release still requires separate explicit owner authorization.
 The authorized host operator performs production actions. Shared decisions:
 [Infrastructure #4](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/issues/4).
 
+## Shared implementation and app configuration
+
+Both apps use [release contract v1](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/blob/82909b6881d01b36b68edb2dc7f2ccd2503db7b4/docs/app-release-standard.md).
+`app.json` contains this app's service/container/domain/environment/network/DB
+and readiness policy; `compose.yml` defines its services. Common release and
+bundle code has no application-name branches. `deploy/shared-source.json` pins
+the versioned source; CI verifies exact common code/test copies and the generated
+workflow, failing on drift or unavailable source. The parity matrix and update
+procedure live in the standard. Run `python deploy/check_parity.py` locally;
+use `--sync` only after reviewing a coordinated pin update in both applications.
+
+The staged bundle includes `app.json` in its private checksum manifest. Release
+and rollback never download code or depend on an Infrastructure checkout.
+One transaction file keeps failure ordering and crash barriers reviewable;
+application policy and declarative readiness are separated from that state machine.
+
 ## Boundary and activation order
 
 The infrastructure gateway must already own ingress and pass its cutover

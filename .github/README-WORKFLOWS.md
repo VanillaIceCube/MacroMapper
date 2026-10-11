@@ -125,6 +125,8 @@ excludes auto-add workflows from Project copies, so configure the required
 auto-add workflows for the target repository in the GitHub UI.
 
 ## 🚀 Deployment
+The automation test gate verifies pinned shared-source parity before the common
+deployment tests; deployment builds also verify the standard before publishing.
 The production workflow runs on `env-prod` pushes or a manual dispatch selecting
 that branch. It serializes runs with `cancel-in-progress: false` and pins every
 external action, including checkout, to an immutable commit SHA. Merging `main`

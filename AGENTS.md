@@ -1,6 +1,10 @@
 # AGENTS.md
 
 Production release ownership: use the [app-only release/recovery guide](deploy/production/README.md).
+Common release code/tests and workflow stages are pinned to the Infrastructure
+release standard. Update the shared source, then synchronize both applications;
+CI's parity check rejects independent vendor edits. App policy lives in
+`deploy/production/app.json`; preserve its intentional network/readiness differences.
 
 MacroMapper uses manual setup steps; do not assume Django or Node dependencies are installed.
 
