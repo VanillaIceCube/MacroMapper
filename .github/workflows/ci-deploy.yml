@@ -6,18 +6,23 @@ on:
       - env-prod
   workflow_dispatch:
 
+concurrency:
+  group: macromapper-production-deploy
+  cancel-in-progress: false
+
 permissions:
   contents: read
   packages: write
 
 jobs:
   build-and-deploy:
+    if: github.ref == 'refs/heads/env-prod'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Validate deploy secrets
+      - name: Validate access and stage production bundle
         shell: bash
         env:
           DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
@@ -39,31 +44,26 @@ jobs:
           DJANGO_EMAIL_TIMEOUT: ${{ vars.DJANGO_EMAIL_TIMEOUT }}
           DJANGO_DEFAULT_FROM_EMAIL: ${{ vars.DJANGO_DEFAULT_FROM_EMAIL }}
           MACROMAPPER_OPENAI_API_KEY: ${{ secrets.MACROMAPPER_OPENAI_API_KEY }}
+          OPENAI_MEAL_ESTIMATION_MODEL: ${{ vars.OPENAI_MEAL_ESTIMATION_MODEL }}
+          OPENAI_MEAL_ESTIMATION_TIMEOUT: ${{ vars.OPENAI_MEAL_ESTIMATION_TIMEOUT }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
         run: |
-          missing=()
-          [ -z "$DEPLOY_HOST" ] && missing+=("DEPLOY_HOST")
-          [ -z "$DEPLOY_USER" ] && missing+=("DEPLOY_USER")
-          [ -z "$DEPLOY_SSH_KEY" ] && missing+=("DEPLOY_SSH_KEY")
-          [ -z "$DEPLOY_PATH" ] && missing+=("DEPLOY_PATH")
-          [ -z "$DJANGO_SECRET_KEY" ] && missing+=("DJANGO_SECRET_KEY")
-          [ -z "$DJANGO_ALLOWED_HOSTS" ] && missing+=("DJANGO_ALLOWED_HOSTS")
-          [ -z "$DJANGO_CORS_ALLOWED_ORIGINS" ] && missing+=("DJANGO_CORS_ALLOWED_ORIGINS")
-          [ -z "$DJANGO_CSRF_TRUSTED_ORIGINS" ] && missing+=("DJANGO_CSRF_TRUSTED_ORIGINS")
-          [ -z "$DJANGO_FRONTEND_BASE_URL" ] && missing+=("DJANGO_FRONTEND_BASE_URL")
-          [ -z "$DJANGO_EMAIL_BACKEND" ] && missing+=("DJANGO_EMAIL_BACKEND")
-          [ -z "$DJANGO_EMAIL_HOST_KEY" ] && missing+=("DJANGO_EMAIL_HOST_KEY")
-          [ -z "$DJANGO_DEFAULT_FROM_EMAIL" ] && missing+=("DJANGO_DEFAULT_FROM_EMAIL")
-          [ -z "$MACROMAPPER_OPENAI_API_KEY" ] && missing+=("MACROMAPPER_OPENAI_API_KEY")
-          if [ "$DJANGO_EMAIL_BACKEND" = "django.core.mail.backends.smtp.EmailBackend" ]; then
-            [ -z "$DJANGO_EMAIL_HOST" ] && missing+=("DJANGO_EMAIL_HOST")
-            [ -z "$DJANGO_EMAIL_PORT" ] && missing+=("DJANGO_EMAIL_PORT")
-            [ -z "$DJANGO_EMAIL_USE_TLS" ] && missing+=("DJANGO_EMAIL_USE_TLS")
-            [ -z "$DJANGO_EMAIL_HOST_USER" ] && missing+=("DJANGO_EMAIL_HOST_USER")
-          fi
-          if [ "${#missing[@]}" -gt 0 ]; then
-            echo "Missing required secrets: ${missing[*]}"
-            exit 1
-          fi
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, re, sys
+          missing = [key for key in ('DEPLOY_HOST', 'DEPLOY_USER', 'DEPLOY_PATH', 'DEPLOY_SSH_KEY') if not os.getenv(key)]
+          if missing:
+              sys.exit('Missing deployment access: ' + ', '.join(missing))
+          path = os.environ['DEPLOY_PATH']
+          if not re.fullmatch(r'/[A-Za-z0-9_/-]+', path) or '..' in path.split('/') or path == '/':
+              sys.exit('DEPLOY_PATH must be an absolute application directory with no shell characters.')
+          port = os.getenv('DEPLOY_PORT') or '22'
+          if not port.isdigit() or not 1 <= int(port) <= 65535:
+              sys.exit('DEPLOY_PORT must be a valid SSH port.')
+          PY
+          umask 077
+          python3 scripts/prepare-production-bundle.py deploy_bundle
 
       - name: Set image names
         id: image_names
@@ -105,7 +105,7 @@ jobs:
           file: ./frontend/Dockerfile
           push: true
           build-args: |
-            VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL }}
+            VITE_API_BASE_URL=
           tags: |
             ${{ steps.image_names.outputs.frontend_image }}:latest
             ${{ steps.image_names.outputs.frontend_image }}:sha-${{ github.sha }}
@@ -121,137 +121,46 @@ jobs:
           fi
           echo "deploy_port=$DEPLOY_PORT" >> "$GITHUB_OUTPUT"
 
-      - name: Stage deploy bundle (including TLS certs)
-        id: stage_bundle
-        shell: bash
+      - name: Prepare private application directory
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
-          CLOUDFLARE_ORIGIN_CERT_PEM: ${{ secrets.CLOUDFLARE_ORIGIN_CERT_PEM }}
-          CLOUDFLARE_ORIGIN_KEY_PEM: ${{ secrets.CLOUDFLARE_ORIGIN_KEY_PEM }}
-        run: |
-          set -euo pipefail
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+        with:
+          host: ${{ vars.DEPLOY_HOST }}
+          username: ${{ vars.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ steps.deploy_vars.outputs.deploy_port }}
+          envs: DEPLOY_PATH
+          script: |
+            set -eu
+            umask 077
+            test ! -L "$DEPLOY_PATH"
+            mkdir -p "$DEPLOY_PATH"
+            chmod 700 "$DEPLOY_PATH"
 
-          rm -rf deploy_bundle
-          mkdir -p deploy_bundle/certs
-
-          cp deploy/docker-compose.yml deploy_bundle/docker-compose.yml
-          cp deploy/nginx-proxy.conf deploy_bundle/nginx-proxy.conf
-
-          # Write certs into the bundle if secrets exist.
-          # Raw PEM is preferred here because ssh-action env vars don't reliably support multi-line values.
-          if [ -n "${CLOUDFLARE_ORIGIN_CERT_PEM:-}" ] && [ -n "${CLOUDFLARE_ORIGIN_KEY_PEM:-}" ]; then
-            if ! printf '%s' "$CLOUDFLARE_ORIGIN_CERT_PEM" | grep -q "BEGIN CERTIFICATE"; then
-              echo "CLOUDFLARE_ORIGIN_CERT_PEM is set but does not look like PEM (missing BEGIN CERTIFICATE)."
-              exit 1
-            fi
-            if ! printf '%s' "$CLOUDFLARE_ORIGIN_KEY_PEM" | grep -q "BEGIN .*PRIVATE KEY"; then
-              echo "CLOUDFLARE_ORIGIN_KEY_PEM is set but does not look like PEM (missing BEGIN PRIVATE KEY)."
-              exit 1
-            fi
-
-            printf '%s' "$CLOUDFLARE_ORIGIN_CERT_PEM" > deploy_bundle/certs/origin.pem
-            printf '%s' "$CLOUDFLARE_ORIGIN_KEY_PEM" > deploy_bundle/certs/origin.key
-            chmod 644 deploy_bundle/certs/origin.pem
-            chmod 600 deploy_bundle/certs/origin.key
-
-            echo "certs_present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "certs_present=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Upload deploy files
+      - name: Upload reviewed configuration and private environment
         uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1
         with:
           host: ${{ vars.DEPLOY_HOST }}
           username: ${{ vars.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ steps.deploy_vars.outputs.deploy_port }}
-          source: "deploy_bundle/docker-compose.yml,deploy_bundle/nginx-proxy.conf"
+          source: "deploy_bundle/docker-compose.yml,deploy_bundle/docker-compose.shared.yml,deploy_bundle/nginx-shared.conf,deploy_bundle/deploy-production.sh,deploy_bundle/.env.next,deploy_bundle/.backend.env.next"
           target: ${{ vars.DEPLOY_PATH }}
           strip_components: 1
           overwrite: true
 
-      - name: Upload TLS certs
-        if: ${{ steps.stage_bundle.outputs.certs_present == 'true' }}
-        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1
-        with:
-          host: ${{ vars.DEPLOY_HOST }}
-          username: ${{ vars.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ steps.deploy_vars.outputs.deploy_port }}
-          source: "deploy_bundle/certs/origin.pem,deploy_bundle/certs/origin.key"
-          target: ${{ vars.DEPLOY_PATH }}/certs
-          strip_components: 2
-          overwrite: true
-
-      - name: Deploy via SSH
+      - name: Deploy MacroMapper services via shared ingress
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
-          DJANGO_DEBUG: ${{ vars.DJANGO_DEBUG }}
-          DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
-          DJANGO_SQLITE_PATH: ${{ vars.DJANGO_SQLITE_PATH }}
-          DJANGO_ALLOWED_HOSTS: ${{ vars.DJANGO_ALLOWED_HOSTS }}
-          DJANGO_CORS_ALLOWED_ORIGINS: ${{ vars.DJANGO_CORS_ALLOWED_ORIGINS }}
-          DJANGO_CSRF_TRUSTED_ORIGINS: ${{ vars.DJANGO_CSRF_TRUSTED_ORIGINS }}
-          DJANGO_FORCE_SCRIPT_NAME: ${{ vars.DJANGO_FORCE_SCRIPT_NAME }}
-          DJANGO_FRONTEND_BASE_URL: ${{ vars.DJANGO_FRONTEND_BASE_URL }}
-          DJANGO_EMAIL_BACKEND: ${{ vars.DJANGO_EMAIL_BACKEND }}
-          DJANGO_EMAIL_HOST: ${{ vars.DJANGO_EMAIL_HOST }}
-          DJANGO_EMAIL_PORT: ${{ vars.DJANGO_EMAIL_PORT }}
-          DJANGO_EMAIL_USE_TLS: ${{ vars.DJANGO_EMAIL_USE_TLS }}
-          DJANGO_EMAIL_HOST_USER: ${{ vars.DJANGO_EMAIL_HOST_USER }}
-          DJANGO_EMAIL_HOST_KEY: ${{ secrets.DJANGO_EMAIL_HOST_KEY }}
-          DJANGO_EMAIL_TIMEOUT: ${{ vars.DJANGO_EMAIL_TIMEOUT }}
-          DJANGO_DEFAULT_FROM_EMAIL: ${{ vars.DJANGO_DEFAULT_FROM_EMAIL }}
-          MACROMAPPER_OPENAI_API_KEY: ${{ secrets.MACROMAPPER_OPENAI_API_KEY }}
-          OPENAI_MEAL_ESTIMATION_MODEL: ${{ vars.OPENAI_MEAL_ESTIMATION_MODEL }}
-          OPENAI_MEAL_ESTIMATION_TIMEOUT: ${{ vars.OPENAI_MEAL_ESTIMATION_TIMEOUT }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
         with:
           host: ${{ vars.DEPLOY_HOST }}
           username: ${{ vars.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ steps.deploy_vars.outputs.deploy_port }}
-          envs: DJANGO_DEBUG,DJANGO_SECRET_KEY,DJANGO_SQLITE_PATH,DJANGO_ALLOWED_HOSTS,DJANGO_CORS_ALLOWED_ORIGINS,DJANGO_CSRF_TRUSTED_ORIGINS,DJANGO_FORCE_SCRIPT_NAME,DJANGO_FRONTEND_BASE_URL,DJANGO_EMAIL_BACKEND,DJANGO_EMAIL_HOST,DJANGO_EMAIL_PORT,DJANGO_EMAIL_USE_TLS,DJANGO_EMAIL_HOST_USER,DJANGO_EMAIL_HOST_KEY,DJANGO_EMAIL_TIMEOUT,DJANGO_DEFAULT_FROM_EMAIL,MACROMAPPER_OPENAI_API_KEY,OPENAI_MEAL_ESTIMATION_MODEL,OPENAI_MEAL_ESTIMATION_TIMEOUT
+          envs: DEPLOY_PATH
           script: |
-            set -e
-            cd "${{ vars.DEPLOY_PATH }}"
-            : "${DJANGO_DEBUG:=0}"
-            : "${DJANGO_SQLITE_PATH:=/backend/db.sqlite3}"
-            : "${DJANGO_FORCE_SCRIPT_NAME:=}"
-            : "${OPENAI_MEAL_ESTIMATION_MODEL:=gpt-5.6-luna}"
-            : "${OPENAI_MEAL_ESTIMATION_TIMEOUT:=45}"
-
-            # TLS certs are uploaded as files (via SCP) to avoid multi-line env var issues.
-            if [ ! -f certs/origin.pem ] || [ ! -f certs/origin.key ]; then
-              echo "Missing TLS certs. Either provision certs/origin.pem + certs/origin.key on the server, or set GitHub Secrets CLOUDFLARE_ORIGIN_CERT_PEM and CLOUDFLARE_ORIGIN_KEY_PEM."
-              exit 1
-            fi
-            chmod 644 certs/origin.pem
-            chmod 600 certs/origin.key
-
-            cat > .env <<EOF
-            DJANGO_DEBUG=$DJANGO_DEBUG
-            DJANGO_SECRET_KEY=$DJANGO_SECRET_KEY
-            DJANGO_SQLITE_PATH=$DJANGO_SQLITE_PATH
-            DJANGO_ALLOWED_HOSTS=$DJANGO_ALLOWED_HOSTS
-            DJANGO_CORS_ALLOWED_ORIGINS=$DJANGO_CORS_ALLOWED_ORIGINS
-            DJANGO_CSRF_TRUSTED_ORIGINS=$DJANGO_CSRF_TRUSTED_ORIGINS
-            DJANGO_FORCE_SCRIPT_NAME=$DJANGO_FORCE_SCRIPT_NAME
-            DJANGO_FRONTEND_BASE_URL=$DJANGO_FRONTEND_BASE_URL
-            DJANGO_EMAIL_BACKEND=$DJANGO_EMAIL_BACKEND
-            DJANGO_EMAIL_HOST=$DJANGO_EMAIL_HOST
-            DJANGO_EMAIL_PORT=$DJANGO_EMAIL_PORT
-            DJANGO_EMAIL_USE_TLS=$DJANGO_EMAIL_USE_TLS
-            DJANGO_EMAIL_HOST_USER=$DJANGO_EMAIL_HOST_USER
-            DJANGO_EMAIL_HOST_KEY=$DJANGO_EMAIL_HOST_KEY
-            DJANGO_EMAIL_TIMEOUT=$DJANGO_EMAIL_TIMEOUT
-            DJANGO_DEFAULT_FROM_EMAIL=$DJANGO_DEFAULT_FROM_EMAIL
-            MACROMAPPER_OPENAI_API_KEY=$MACROMAPPER_OPENAI_API_KEY
-            OPENAI_MEAL_ESTIMATION_MODEL=$OPENAI_MEAL_ESTIMATION_MODEL
-            OPENAI_MEAL_ESTIMATION_TIMEOUT=$OPENAI_MEAL_ESTIMATION_TIMEOUT
-            MACROMAPPER_CERTS_DIR=./certs
-            EOF
-            docker system prune -af
-            docker compose pull
-            docker compose up -d --remove-orphans
-            docker compose up -d --force-recreate proxy
-            docker compose exec -T backend python manage.py migrate
+            set -eu
+            cd "$DEPLOY_PATH"
+            bash deploy-production.sh

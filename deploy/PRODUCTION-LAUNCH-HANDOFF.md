@@ -1,5 +1,24 @@
 # Codex handoff: minimum MacroMapper production launch
 
+## Repository implementation status
+
+Replacement [PR #239](https://github.com/VanillaIceCube/MacroMapper/pull/239)
+implements the approved repository prerequisites below. See
+[the deployment guide](README.md) for exact server commands, required variables
+and secrets, configuration files, recovery, and live acceptance.
+
+Implemented artifacts: `docker-compose.shared.yml`, `nginx-shared.conf`,
+`notoli.compose.override.yml`, `../scripts/prepare-production-bundle.py`, and
+`../scripts/deploy-production.sh`. The deployment workflow uses reviewed
+SHA-tagged images, private environment files, and pre-migration SQLite recovery.
+Django production settings and routing/recovery regression tests are included.
+
+The instructions below retain the approved scope and recorded host facts.
+They are not evidence of live deployment. Credentials, package access, installed
+override/TLS, deployed revision, and application/Notoli smoke tests remain for
+the deployment chat. Keep #238 and broader #236 open until their acceptance
+criteria are verified. Do not deploy or merge from this repository handoff.
+
 ## Task and authorization
 
 Prepare the minimum repository changes needed to launch the existing MacroMapper

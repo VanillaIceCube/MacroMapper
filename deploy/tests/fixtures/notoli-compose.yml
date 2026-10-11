@@ -1,0 +1,27 @@
+# Inspected Notoli ingress shape, retained here for the merge regression check.
+services:
+  proxy:
+    image: nginx:alpine
+    volumes:
+      - ./nginx-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    ports: ["80:80", "443:443"]
+    networks:
+      default:
+      backend_private:
+        ipv4_address: 172.30.88.2
+  backend:
+    image: ghcr.io/vanillaicecube/notoli-backend:latest
+    environment:
+      DJANGO_TRUSTED_PROXY_IPS: 172.30.88.2
+    networks: [backend_private, backend_egress]
+  frontend:
+    image: ghcr.io/vanillaicecube/notoli-frontend:latest
+    ports: ["3000:80"]
+networks:
+  backend_private:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.30.88.0/29
+  backend_egress:

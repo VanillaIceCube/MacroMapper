@@ -1,6 +1,21 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 2026-10-11
+### Added
+- Add shared production ingress artifacts that preserve Notoli's existing
+  networks and route MacroMapper through its public proxy.
+- Save consistent SQLite and release recovery files before production migrations
+  and test routing, Compose merges, database preservation, and failed migrations.
+### Fixed
+- Require explicit production secret/hosts, omit development origin defaults,
+  secure session/CSRF cookies, and overwrite untrusted forwarded protocol/host headers.
+### Changed
+- Deploy reviewed SHA-tagged images with private environment files and same-origin
+  frontend requests; document shared-host setup, recovery, and live acceptance.
+### Removed
+- Remove host-wide Docker pruning and separate TLS uploads from MacroMapper deployment.
+
 ## 2026-10-10
 ### Fixed
 - Ignore the entire local Codex ticket-body and TLS certificate folders so

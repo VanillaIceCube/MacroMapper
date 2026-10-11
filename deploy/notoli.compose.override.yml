@@ -1,0 +1,13 @@
+# Install once as /root/apps/notoli/docker-compose.override.yml.
+# Mapping merge retains default and backend_private, including 172.30.88.2.
+services:
+  proxy:
+    volumes:
+      - /opt/apps/macromapper/nginx-shared.conf:/etc/nginx/conf.d/macromapper.conf:ro
+    networks:
+      ingress:
+
+networks:
+  ingress:
+    external: true
+    name: macromapper-ingress

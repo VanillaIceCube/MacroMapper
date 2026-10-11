@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 import os
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -23,20 +24,28 @@ load_dotenv(BASE_DIR / ".env")
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
-SECRET_KEY = (
-    os.environ.get("DJANGO_SECRET_KEY")
-    or "macromapper-local-development-key-change-before-production-2026"
-)
 DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured("DJANGO_SECRET_KEY is required in production.")
+    SECRET_KEY = "macromapper-local-development-key-change-before-production-2026"
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "macromapper.localhost"]
 
-extra_hosts = os.getenv("DJANGO_ALLOWED_HOSTS")
-if extra_hosts:
-    ALLOWED_HOSTS.extend(extra_hosts.split(","))
+def environment_list(name):
+    return [value.strip() for value in os.getenv(name, "").split(",") if value.strip()]
+
+
+ALLOWED_HOSTS = environment_list("DJANGO_ALLOWED_HOSTS")
+if DEBUG:
+    ALLOWED_HOSTS += ["localhost", "127.0.0.1", "macromapper.localhost"]
+elif not ALLOWED_HOSTS:
+    raise ImproperlyConfigured("DJANGO_ALLOWED_HOSTS is required in production.")
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_HOST = False
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
 
 FORCE_SCRIPT_NAME = os.getenv("DJANGO_FORCE_SCRIPT_NAME")
 if FORCE_SCRIPT_NAME:
@@ -84,7 +93,9 @@ MIDDLEWARE = [
 ]
 
 
-CORS_ALLOWED_ORIGINS = [
+CORS_ALLOWED_ORIGINS = environment_list("DJANGO_CORS_ALLOWED_ORIGINS")
+CSRF_TRUSTED_ORIGINS = environment_list("DJANGO_CSRF_TRUSTED_ORIGINS")
+local_origins = [
     "http://localhost:3000",
     "http://macromapper.localhost:3000",
     "http://macromapper.localhost:3001",
@@ -92,21 +103,9 @@ CORS_ALLOWED_ORIGINS = [
     "https://macromapper.localhost:8443",
 ]
 
-extra_origins = os.getenv("DJANGO_CORS_ALLOWED_ORIGINS")
-if extra_origins:
-    CORS_ALLOWED_ORIGINS.extend(extra_origins.split(","))
-
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000",
-    "http://macromapper.localhost:3000",
-    "http://macromapper.localhost:3001",
-    "https://macromapper.localhost",
-    "https://macromapper.localhost:8443",
-]
-
-extra_csrf_origins = os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS")
-if extra_csrf_origins:
-    CSRF_TRUSTED_ORIGINS.extend(extra_csrf_origins.split(","))
+if DEBUG:
+    CORS_ALLOWED_ORIGINS += local_origins
+    CSRF_TRUSTED_ORIGINS += local_origins
 
 
 REST_FRAMEWORK = {
