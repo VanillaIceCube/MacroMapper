@@ -199,3 +199,5 @@ python -m unittest discover -s deploy/tests -v
 
 docker run --rm -v "${PWD}:/repo" --workdir /repo rhysd/actionlint:latest -color
 ```
+
+Production deployment pins every external action, including checkout v7, to an immutable commit SHA.
