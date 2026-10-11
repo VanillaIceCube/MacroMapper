@@ -128,9 +128,11 @@ Repository preparation does not execute them or change live Notoli.
    ```bash
    reviewed_checkout=/path/to/reviewed/MacroMapper
    install -m 644 "$reviewed_checkout/deploy/nginx-shared.conf" /opt/apps/macromapper/nginx-shared.conf
-   # Run this only when no override exists; otherwise merge the template manually.
-   test ! -e /root/apps/notoli/docker-compose.override.yml
-   install -m 644 "$reviewed_checkout/deploy/notoli.compose.override.yml" /root/apps/notoli/docker-compose.override.yml
+   if [ -e /root/apps/notoli/docker-compose.override.yml ]; then
+     echo 'Merge the template into the existing override manually.'
+   else
+     install -m 644 "$reviewed_checkout/deploy/notoli.compose.override.yml" /root/apps/notoli/docker-compose.override.yml
+   fi
    ```
 
 4. In `/root/apps/notoli`, validate the combined config with `docker compose
@@ -210,8 +212,7 @@ rather than Django. No warning is silenced. Missing secure cookies, weak keys,
 or unexpected warnings need investigation before launch. This work does not
 add HSTS coverage/preload policy or change model, quota, or rate-limit behavior.
 
-After successful migration the script starts only `macromapper-backend
-macromapper-frontend`, validates
+After successful migration the script starts MacroMapper's two app services, validates
 and reloads the existing public proxy, and records image references in
 `deployed-release.env`. A failed migration leaves the backend stopped and the
 recovery files intact; investigate or restore before reopening traffic.
