@@ -5,6 +5,7 @@ All notable changes to this project are documented in this file.
 ### Fixed
 - Allow slow meal estimates within coordinated two-minute server/proxy limits, with a shared 110-second AI deadline and controlled JSON errors instead of worker termination.
 - Bound SDK concurrency, disable automatic retries and serve ordinary API requests alongside AI waits; retain drafts and explain the two-minute wait.
+- Keep initial AI waits outside SQLite transactions while committing catalog publication and proposal revisions atomically, so concurrent writes are not held behind slow estimation.
 
 ## 2026-10-11
 ### Fixed

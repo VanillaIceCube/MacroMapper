@@ -90,6 +90,7 @@ class GunicornDeadlineTests(unittest.TestCase):
                     command, cwd=ROOT, env=env, stdout=log, stderr=log
                 )
                 try:
+                    status, body = 0, {}
                     for _ in range(100):
                         if process.poll() is not None:
                             log.seek(0)
