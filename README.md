@@ -1,4 +1,5 @@
 # 🥗 MacroMapper
+
 **A Source-Aware Nutrition and Activity Tracker**
 
 MacroMapper is a personal nutrition and activity tracker for people who want a
@@ -104,11 +105,9 @@ Manually add items from the catalog, or use AI to make adjustments!
 
 ## 📚 Documentation
 
-Production at `macromapper.judeandrewalaba.com` uses Notoli's public proxy with
-a persistent Compose override and a dedicated ingress network. MacroMapper
-deploys reviewed SHA-tagged images, keeps its SQLite file, and saves recovery
-files before migrations. See the [deployment guide](deploy/README.md) for
-one-time server setup, credentials, recovery, and pending live acceptance.
+Production configuration, releases and recovery are documented in the
+[production guide](deploy/production/README.md). For local Docker hot reload
+and standalone HTTPS, use the [local guide](deploy/README.md).
 
 - Product vision and delivery roadmap: [`docs/PRODUCT_VISION.md`](docs/PRODUCT_VISION.md)
 - Setup, environment variables, and common commands: [`AGENTS.md`](AGENTS.md)

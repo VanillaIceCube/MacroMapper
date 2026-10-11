@@ -1,4 +1,7 @@
 # 🎨 MacroMapper Frontend (React)
+
+Production release ownership: use the [app-only release/recovery guide](../deploy/production/README.md).
+
 MacroMapper's frontend is a Vite-powered React 19 single-page application built
 with Material UI and React Router 8. It will provide an individual meal and
 activity diary, source-aware GPT meal proposals, nutrition goals, and trend

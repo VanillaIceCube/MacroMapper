@@ -1,4 +1,7 @@
 # 🛠️ MacroMapper Backend (Django)
+
+Production release ownership: use the [app-only release/recovery guide](../deploy/production/README.md).
+
 MacroMapper is a personal nutrition and activity tracker. Its backend will
 support individual meal/activity histories, reusable Food Items and composite
 ingredient breakdowns, source-aware GPT estimates, and factual nutrition
@@ -315,8 +318,9 @@ DJANGO_DEFAULT_FROM_EMAIL=MacroMapper <no-reply@updates.judeandrewalaba.com>
 Resend requires `DJANGO_DEFAULT_FROM_EMAIL` to use a domain verified in the
 Resend account. The `.localhost` sender is only for console-email development
 and must not be used with `ResendApiEmailBackend`. See the
-[deployment guide](../deploy/README.md#resend-password-reset-delivery) for the
-production DNS and credential setup.
+[deployment guide](../deploy/production/README.md#ci-inputs-and-private-host-preparation) for the
+production credential setup. Sender-domain verification remains an operator
+prerequisite; app releases do not change DNS.
 
 SMTP-compatible backends can instead use the documented `DJANGO_EMAIL_HOST`,
 `DJANGO_EMAIL_PORT`, `DJANGO_EMAIL_USE_TLS`, and
