@@ -129,7 +129,7 @@ The PR #239 deployment implementation is an **unapproved candidate**. Its merge
 did not authorize its design or production use. See the
 [audit](../deploy/PR239-AUDIT.md) and [coordination handoff](../deploy/PRODUCTION-LAUNCH-HANDOFF.md).
 Shared-boundary changes require the reconciled owner-approved contract on
-[Notoli #904](https://github.com/VanillaIceCube/Notoli/issues/904).
+[Infrastructure #4](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/issues/4).
 Each PR merge and production action require separate owner authorization;
 moving `env-prod` or dispatching Deploy can immediately change production.
 
