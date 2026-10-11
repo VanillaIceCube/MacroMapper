@@ -16,6 +16,9 @@ All notable changes to this project are documented in this file.
 - Reuse the complete reachable food component graph for catalog estimates and meal
   snapshots, with shared nutrient calculations and queries batched by tree level.
 ### Changed
+- Organize frontend nutrition and meal-item logic into focused domain modules,
+  separate presentation metadata, and preserve existing calculations and editing
+  safeguards while migrating all consumers to the new paths.
 - Move the local HTTPS certificate helper into `scripts/` and update its
   documentation references.
 - Move frontend design documentation, mockups, and application screenshots into

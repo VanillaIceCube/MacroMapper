@@ -1,11 +1,16 @@
-import { catalogFoodToMealItem, savedMealItemToEditableMealItem } from './mealItemAdapters';
+import {
+  catalogFoodToMealItem,
+  mealItemToProposalItem,
+  proposalItemToMealItem,
+  savedMealItemToEditableMealItem,
+} from './adapters';
 import {
   changeMealItemNutrient,
   changeMealItemPortion,
   changeMealItemServings,
   removeMealItemFromTree,
-} from './mealItemTree';
-import { itemNutrientTotal } from './nutrition/nutritionMath';
+} from './tree';
+import { itemNutrientTotal } from '../nutrition/calculations';
 
 const editableLeaf = (overrides = {}) => ({
   key: 'food',
@@ -55,6 +60,19 @@ const catalogFood = {
 };
 
 describe('meal item tree operations', () => {
+  test('keeps decimal entry text and updates nested trees immutably', () => {
+    const child = editableLeaf({
+      key: 'child',
+      selected_portion_key: 'base',
+    });
+    const parent = editableLeaf({ key: 'parent', components: [child] });
+    const updated = changeMealItemServings([parent], 'child', '1.', child);
+
+    expect(updated[0].components[0].servings).toBe('1.');
+    expect(parent.components[0].servings).toBe('2');
+    expect(updated[0]).not.toBe(parent);
+    expect(updated[0].components[0]).not.toBe(child);
+  });
   test('updates serving amount and portion anywhere in the tree', () => {
     const parent = editableLeaf({
       key: 'parent',
@@ -135,6 +153,44 @@ describe('meal item tree operations', () => {
 });
 
 describe('meal item adapters', () => {
+  test('preserves proposal identifiers, provenance, confidence, and nested sources', () => {
+    const source = { title: 'Official source', url: 'https://example.com/food' };
+    const proposal = {
+      key: 'proposal',
+      food_item_id: 7,
+      food_version_id: 9,
+      name: 'Meal',
+      servings: '2',
+      provenance: 'user_modified_estimate',
+      source_kind: 'user_modified_estimate',
+      confidence_score: '0.87',
+      nutrients: { calories: '100' },
+      selected_portion_key: 'half',
+      portion_options: [
+        { key: 'base', label: 'one serving', serving_multiplier: '1' },
+        { key: 'half', label: 'half serving', serving_multiplier: '0.5' },
+      ],
+      sources: [source],
+      components: [
+        {
+          key: 'component',
+          food_item_id: 8,
+          food_version_id: 10,
+          servings: '1',
+          provenance: 'official',
+          confidence_score: null,
+          nutrients: { calories: '50' },
+          sources: [source],
+          components: [],
+        },
+      ],
+    };
+
+    const roundTrip = mealItemToProposalItem(proposalItemToMealItem(proposal));
+    expect(roundTrip).toMatchObject(proposal);
+    expect(roundTrip.sources).toEqual([source]);
+    expect(roundTrip.components[0].sources).toEqual([source]);
+  });
   test('normalizes catalog foods for the meal builder', () => {
     const mealItem = catalogFoodToMealItem(catalogFood);
 

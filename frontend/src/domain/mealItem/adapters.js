@@ -1,5 +1,5 @@
-import { portionOptions } from './mealItemPortions';
-import { nutrientArrayToValues } from './nutrition/nutritionMath';
+import { portionOptions } from './portions';
+import { nutrientArrayToValues } from '../nutrition/calculations';
 
 let mealItemSequence = 0;
 

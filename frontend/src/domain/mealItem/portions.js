@@ -1,4 +1,4 @@
-import { formatNutritionAmount } from './nutrition/nutritionMath';
+import { formatNutritionAmount } from '../../utils/nutritionFormatting';
 
 const servingDescription = (item = {}) => {
   if (item?.serving_label) return item.serving_label;

@@ -1,18 +1,4 @@
-import { MACRO_CALORIE_FIELDS, PRIMARY_NUTRIENT_FIELDS } from '../../domain/nutritionDefinitions';
-
-export const formatNutritionAmount = (amount) => {
-  if (amount === null || amount === undefined || amount === '') return '—';
-  const numeric = Number(amount);
-  return Number.isFinite(numeric)
-    ? numeric.toLocaleString(undefined, { maximumFractionDigits: 2 })
-    : '—';
-};
-
-export const formatWholeNutritionAmount = (amount) => {
-  if (amount === null || amount === undefined || amount === '') return '—';
-  const numeric = Number(amount);
-  return Number.isFinite(numeric) ? Math.round(numeric).toLocaleString() : '—';
-};
+import { MACRO_CALORIE_FIELDS, PRIMARY_NUTRIENT_FIELDS } from './definitions';
 
 export const nutrientArrayToValues = (nutrients = [], divisor = 1) => {
   const safeNutrients = Array.isArray(nutrients) ? nutrients : [];
@@ -95,17 +81,6 @@ export function macroCalorieSegments(values = {}) {
     : [];
 }
 
-export function macroDonutBackground(segments = []) {
-  if (!Array.isArray(segments) || !segments.length) return 'var(--atlas-border)';
-  let cursor = 0;
-  const stops = segments.map((segment) => {
-    const start = cursor;
-    cursor += segment.percentage || 0;
-    return `${segment.color} ${start}% ${cursor}%`;
-  });
-  return `conic-gradient(${stops.join(', ')})`;
-}
-
 export function summarizeCalorieContributions(
   contributions = [],
   { maxItems = 5, otherKey = 'other-items', otherLabel = (count) => `Other (${count})` } = {},
@@ -169,32 +144,6 @@ export function summarizeCalorieContributions(
       ),
     },
   ];
-}
-
-export function decorateCalorieContributions(contributions = []) {
-  const safeContributions = (Array.isArray(contributions) ? contributions : []).filter(
-    (item) => item && typeof item === 'object',
-  );
-  const totalCalories = safeContributions.reduce(
-    (total, item) => total + (Number.isFinite(Number(item.calories)) ? Number(item.calories) : 0),
-    0,
-  );
-  const highestCalories = Math.max(
-    ...safeContributions.map((item) =>
-      Number.isFinite(Number(item.calories)) ? Number(item.calories) : 0,
-    ),
-    0,
-  );
-
-  return safeContributions.map((item) => {
-    const itemCalories = Number.isFinite(Number(item.calories)) ? Number(item.calories) : 0;
-    return {
-      ...item,
-      percentage: totalCalories > 0 ? (itemCalories / totalCalories) * 100 : 0,
-      relativeBarWidth: highestCalories > 0 ? (itemCalories / highestCalories) * 100 : 0,
-      macroSegments: macroCalorieSegments(item),
-    };
-  });
 }
 
 export function itemCalorieContributions(items = []) {

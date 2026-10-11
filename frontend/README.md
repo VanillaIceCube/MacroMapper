@@ -33,6 +33,34 @@ excluded from Docker build contexts.
 See [`STYLE_GUIDE.md`](STYLE_GUIDE.md) before adding or restyling frontend
 components.
 
+## Domain architecture
+
+Reusable nutrition and meal-item logic lives under `src/domain/`:
+
+```text
+src/domain/
+├── nutrition/
+│   ├── definitions.js   # Nutrient keys, units, classifications, and energy ratios
+│   └── calculations.js  # Normalization, totals, macro calories, and aggregation
+└── mealItem/
+    ├── portions.js      # Portion selection and serving conversions
+    ├── adapters.js      # Catalog, proposal, and saved-meal transformations
+    └── tree.js          # Immutable nested meal edits and nutrient scaling
+```
+
+Components and pages import these modules directly. Domain modules depend only
+on other domain modules or neutral utilities; they never import React, Material
+UI, components, or pages. Locale-aware number formatting is shared through
+`src/utils/nutritionFormatting.js` because portion labels and UI displays use the
+same conventions.
+
+Nutrient labels, CSS colors, chart gradients, and chart decoration belong in
+`src/components/nutrition/nutritionPresentation.js`. It combines presentation
+metadata with the authoritative domain definitions and calculated values.
+Domain tests live alongside their modules, and the architecture tests check
+dependency direction and circular imports. All consumers use the new paths,
+so no compatibility re-export files are needed.
+
 ## 🧭 Routes
 - `/login`: email and password login
 - `/register`: account creation with an optional username

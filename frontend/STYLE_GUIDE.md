@@ -52,6 +52,13 @@
 
 ## Nutrition surfaces
 
+- Import nutrient definitions and calculations from `src/domain/nutrition/` and
+  meal-item portions, adapters, and tree operations from `src/domain/mealItem/`.
+  Keep domain modules independent of React, Material UI, components, and pages.
+- Keep labels, semantic colors, gradients, and chart decoration in
+  `components/nutrition/nutritionPresentation.js`. Share locale-aware number
+  formatting through `utils/nutritionFormatting.js`.
+
 - Present daily totals as bordered data cards with tabular numerals. Use the
   semantic calorie, protein, carbohydrate, and fat tokens; keep secondary
   nutrients on neutral paper surfaces. Calories use Midnight ink as a neutral

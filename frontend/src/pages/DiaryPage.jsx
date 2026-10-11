@@ -60,13 +60,13 @@ import {
   mealItemToProposalItem,
   proposalItemToMealItem,
   savedMealItemToEditableMealItem,
-} from '../components/mealItemAdapters';
+} from '../domain/mealItem/adapters';
 import {
   changeMealItemNutrient,
   changeMealItemPortion,
   changeMealItemServings,
   removeMealItemFromTree,
-} from '../components/mealItemTree';
+} from '../domain/mealItem/tree';
 import CalorieContributionChart from '../components/nutrition/CalorieContributionChart';
 import MacroCalorieBar from '../components/nutrition/MacroCalorieBar';
 import MacroCalorieSplit from '../components/nutrition/MacroCalorieSplit';
@@ -75,12 +75,12 @@ import { ItemNutritionCards, NutritionCards } from '../components/nutrition/Nutr
 import {
   MACRO_CALORIE_FIELDS as macroCalorieFields,
   NUTRIENT_FIELDS as launchNutrients,
-} from '../domain/nutritionDefinitions';
+} from '../components/nutrition/nutritionPresentation';
 import {
   formatNutritionAmount as formatAmount,
   formatWholeNutritionAmount as formatWholeAmount,
-  nutrientArrayToValues as nutrientValues,
-} from '../components/nutrition/nutritionMath';
+} from '../utils/nutritionFormatting';
+import { nutrientArrayToValues as nutrientValues } from '../domain/nutrition/calculations';
 import { randomMealEstimateExample } from '../mealEstimateExamples';
 
 const provenanceLabels = {
