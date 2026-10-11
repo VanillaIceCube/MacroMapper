@@ -127,6 +127,9 @@ production frontend image uses `nginx.conf` to serve Vite's `dist` directory
 and forward `/auth/`, `/api/`, and `/admin/` to the Compose backend service.
 
 ## Docker Hot Reload
+The development Compose file supplies frontend environment variables directly,
+including `VITE_API_BASE_URL`, so this setup requires no frontend `.env` file.
+
 From the repository root, run:
 
 ```powershell
@@ -142,6 +145,9 @@ default and can be changed with the `MACROMAPPER_DEV_*_PORT` variables
 in `deploy/.env`.
 
 ## 🧰 Checks
+The Vite configuration controls frontend builds and tests. Browser-target
+overrides belong in `vite.config.mjs` through `build.target`.
+
 ```powershell
 npm test
 npm run test:watch

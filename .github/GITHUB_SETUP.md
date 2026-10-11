@@ -60,25 +60,35 @@ workflows can group and update their managed issues:
 | `codex` | Work generated or assisted by Codex |
 
 ## 1. Create or recover the MacroMapper Project
+Reuse the existing MacroMapper Project whenever possible. Check the owner's
+Projects before creating a replacement so you do not duplicate the board.
 Authenticate GitHub CLI with repository and Projects access:
 
 ```powershell
 gh auth login
 gh auth refresh -s project
-powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/create-github-project.ps1 `
-  -Owner VanillaIceCube `
-  -Repository MacroMapper
+gh project list --owner VanillaIceCube
 ```
 
-The script uses Notoli's established Project structure as its source. It:
+Only when the board is missing, copy Notoli's established Project structure:
 
-1. Refuses to create a duplicate Project with the same title.
-2. Copies Notoli's views, custom fields, configured workflows, and insights
-   without copying its linked issues.
-3. Rewrites the Project description and README for the target repository.
-4. Links the copied Project to the target repository.
-5. Verifies the copied fields, views, and supported workflows against Notoli.
-6. Sets the target repository variable `SECURITY_ALERTS_PROJECT_ID`.
+```powershell
+gh project copy 8 --source-owner VanillaIceCube --target-owner VanillaIceCube --title MacroMapper
+```
+
+Link the copied or existing MacroMapper Project and set its repository variable:
+
+```powershell
+$macroMapperProjectNumber = Read-Host 'MacroMapper Project number'
+gh project link $macroMapperProjectNumber --owner VanillaIceCube --repo VanillaIceCube/MacroMapper
+$macroMapperProjectId = gh project view $macroMapperProjectNumber --owner VanillaIceCube --format json --jq '.id'
+if ($LASTEXITCODE -ne 0 -or -not $macroMapperProjectId) { throw 'Could not read the MacroMapper Project ID.' }
+gh variable set SECURITY_ALERTS_PROJECT_ID --repo VanillaIceCube/MacroMapper --body $macroMapperProjectId
+```
+
+Enter the actual numeric MacroMapper Project number when prompted. Update the
+Project description and README for MacroMapper in the GitHub UI, and verify
+the fields, views, and workflows there before running security aggregation.
 
 The copied fields match Notoli:
 
@@ -94,18 +104,16 @@ The copied views match Notoli's `Kanban`, `Detailed Kanban`, `New Issues`,
 `Updated Issues`, `Issue Picker`, and `Roadmap` layouts, including their visible
 fields, filters, grouping, and sorting.
 
-GitHub does not copy the repository-scoped `Auto-add to project` workflow.
-After the script completes, open the MacroMapper Project's **Workflows** page and
-configure `Auto-add to project` for the target repository. The remaining
-configured workflows, including `Auto-add sub-issues to project`, are copied
-and verified by the script.
+GitHub does not copy auto-add workflows. Open the MacroMapper Project's
+**Workflows** page and configure the required auto-add workflows for the
+target repository, including `Auto-add to project`. Verify the remaining
+copied workflows manually.
 GitHub documents this behavior in
 [Copying an existing project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/creating-projects/copying-an-existing-project).
 
-Notoli is the default source (`VanillaIceCube` Project `8`) because it owns the
-field, view, and workflow structure used by MacroMapper. A different recovery
-source can be supplied with `-SourceProjectOwner` and
-`-SourceProjectNumber`.
+Notoli (`VanillaIceCube` Project `8`) owns the field, view, and workflow
+structure used by MacroMapper. If recovering from a different source, change
+the source owner and Project number in the copy command.
 
 ## 2. Register the AI reviewer GitHub Apps
 Create three private GitHub Apps under the repository owner. Give each app only

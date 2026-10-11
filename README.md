@@ -108,7 +108,7 @@ Manually add items from the catalog, or use AI to make adjustments!
 - Backend (API, auth, configuration): [`backend/README.md`](backend/README.md)
 - Frontend (routing, sessions, API base URL): [`frontend/README.md`](frontend/README.md)
 - Deployment (Docker, Nginx, Cloudflare, DigitalOcean): [`deploy/README.md`](deploy/README.md)
-- GitHub Apps, Project, and repository settings: [`docs/GITHUB_SETUP.md`](docs/GITHUB_SETUP.md)
+- GitHub Apps, Project, and repository settings: [`.github/GITHUB_SETUP.md`](.github/GITHUB_SETUP.md)
 - CI/CD and automation: [`.github/README-WORKFLOWS.md`](.github/README-WORKFLOWS.md)
 - Changelog: [`CHANGELOG.md`](CHANGELOG.md)
 
