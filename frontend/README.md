@@ -158,6 +158,13 @@ Vite exposes client-side variables only when they use the `VITE_` prefix. The
 production frontend image uses `nginx.conf` to serve Vite's `dist` directory
 and forward `/auth/`, `/api/`, and `/admin/` to the Compose backend service.
 
+On the shared production host, Notoli's existing public Nginx routes the
+MacroMapper hostname to its private frontend and sends `/auth/`, `/api/`,
+`/admin/`, and Django static assets directly to the private backend. CI builds
+with `VITE_API_BASE_URL` empty; provider credentials belong only to Django's
+runtime environment. SPA deep links retain the existing frontend fallback.
+See the [deployment guide](../deploy/README.md) for both Compose overlays.
+
 ## Docker Hot Reload
 The development Compose file supplies frontend environment variables directly,
 including `VITE_API_BASE_URL`, so this setup requires no frontend `.env` file.
