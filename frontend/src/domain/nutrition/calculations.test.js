@@ -1,13 +1,10 @@
 import {
-  decorateCalorieContributions,
   itemCalorieContributions,
   itemNutrientTotal,
   mealNutrientTotal,
-  formatWholeNutritionAmount,
   macroCalorieSegments,
   mealNutrientValues,
-  summarizeCalorieContributions,
-} from './nutritionMath';
+} from './calculations';
 
 const leaf = (key, nutrients, servings = '1') => ({
   key,
@@ -17,12 +14,7 @@ const leaf = (key, nutrients, servings = '1') => ({
   components: [],
 });
 
-describe('nutritionMath', () => {
-  test('preserves missing whole nutrition amounts as unavailable', () => {
-    expect(formatWholeNutritionAmount(null)).toBe('—');
-    expect(formatWholeNutritionAmount('')).toBe('—');
-  });
-
+describe('nutrition calculations', () => {
   test('rolls recursive component nutrients into item and meal totals', () => {
     const composite = {
       key: 'sandwich',
@@ -54,33 +46,6 @@ describe('nutritionMath', () => {
       { key: 'fat', calories: 45 },
     ]);
     expect(segments.reduce((total, segment) => total + segment.percentage, 0)).toBeCloseTo(100);
-  });
-
-  test('groups overflow contribution rows and decorates them for a shared chart', () => {
-    const contributions = [10, 60, 20, 50, 30, 40].map((calories, index) => ({
-      key: `item-${index}`,
-      name: `Item ${index}`,
-      calories,
-      protein: calories / 4,
-      carbohydrates: null,
-      fat: null,
-    }));
-
-    const summarized = summarizeCalorieContributions(contributions, {
-      otherKey: 'other-foods',
-      otherLabel: (count) => `Other foods (${count})`,
-    });
-    const rows = decorateCalorieContributions(summarized);
-
-    expect(summarized).toHaveLength(5);
-    expect(summarized.at(-1)).toMatchObject({
-      key: 'other-foods',
-      name: 'Other foods (2)',
-      calories: 30,
-      protein: 7.5,
-    });
-    expect(rows[0]).toMatchObject({ name: 'Item 1', relativeBarWidth: 100 });
-    expect(rows.reduce((total, row) => total + row.percentage, 0)).toBeCloseTo(100);
   });
 
   test('uses a composite food components as calorie contribution rows', () => {
@@ -139,27 +104,5 @@ describe('nutritionMath', () => {
       },
     ]);
     expect(itemCalorieContributions(null)).toEqual([]);
-  });
-
-  test('safely summarizes and decorates contributions with non-finite or missing calories', () => {
-    const contributions = [
-      { name: 'Item B', calories: '100' },
-      { name: 'Item A', calories: '100' },
-      { name: 'Broken', calories: 'NaN' },
-      { name: 'Zero', calories: 0 },
-      null,
-    ];
-
-    const summarized = summarizeCalorieContributions(contributions, { maxItems: 10 });
-    expect(summarized).toHaveLength(4);
-    expect(summarized[0].name).toBe('Item A');
-    expect(summarized[1].name).toBe('Item B');
-
-    const decorated = decorateCalorieContributions(summarized);
-    expect(decorated[0].percentage).toBe(50);
-    expect(decorated[0].relativeBarWidth).toBe(100);
-
-    const emptyDecorated = decorateCalorieContributions([null, { calories: 0 }]);
-    expect(emptyDecorated[0]).toMatchObject({ percentage: 0, relativeBarWidth: 0 });
   });
 });

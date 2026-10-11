@@ -291,7 +291,7 @@ describe('MacroMapper theme styles', () => {
 
   test('uses semantic nutrition colors and numeric typography in the meal diary', () => {
     const diarySource = readSource('pages/DiaryPage.jsx');
-    const nutritionDefinitions = readSource('domain/nutritionDefinitions.js');
+    const nutritionDefinitions = readSource('components/nutrition/nutritionPresentation.js');
 
     expect(diarySource).toContain('var(--calorie-color)');
     expect(nutritionDefinitions).toContain('var(--protein-color)');

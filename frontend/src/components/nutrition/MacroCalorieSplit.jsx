@@ -1,9 +1,6 @@
 import { Box, Paper, Skeleton, Stack, Typography } from '@mui/material';
-import {
-  formatWholeNutritionAmount,
-  macroCalorieSegments,
-  macroDonutBackground,
-} from './nutritionMath';
+import { formatWholeNutritionAmount } from '../../utils/nutritionFormatting';
+import { macroCalorieSegments, macroDonutBackground } from './nutritionPresentation';
 
 export default function MacroCalorieSplit({
   values,

@@ -1,9 +1,6 @@
 import { Box } from '@mui/material';
-import {
-  formatNutritionAmount,
-  formatWholeNutritionAmount,
-  macroCalorieSegments,
-} from './nutritionMath';
+import { formatNutritionAmount, formatWholeNutritionAmount } from '../../utils/nutritionFormatting';
+import { macroCalorieSegments } from './nutritionPresentation';
 
 export default function MacroCalorieBar({
   name,

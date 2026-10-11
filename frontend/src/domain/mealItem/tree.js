@@ -1,5 +1,5 @@
-import { itemNutrientTotal, servingsValue } from './nutrition/nutritionMath';
-import { roundedNumberString, selectedPortion } from './mealItemPortions';
+import { itemNutrientTotal, servingsValue } from '../nutrition/calculations';
+import { roundedNumberString, selectedPortion } from './portions';
 
 export function updateMealItemTree(items, key, update) {
   return items.map((item) =>

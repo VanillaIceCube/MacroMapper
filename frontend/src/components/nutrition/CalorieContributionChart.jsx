@@ -1,10 +1,7 @@
 import { Box, Paper, Skeleton, Stack, Tooltip, Typography } from '@mui/material';
-import {
-  decorateCalorieContributions,
-  formatNutritionAmount,
-  formatWholeNutritionAmount,
-  summarizeCalorieContributions,
-} from './nutritionMath';
+import { decorateCalorieContributions } from './nutritionPresentation';
+import { formatNutritionAmount, formatWholeNutritionAmount } from '../../utils/nutritionFormatting';
+import { summarizeCalorieContributions } from '../../domain/nutrition/calculations';
 import MacroCalorieBar from './MacroCalorieBar';
 
 function OtherTooltipContent({ items, format }) {
