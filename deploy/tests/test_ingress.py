@@ -145,13 +145,12 @@ class SharedIngressTests(unittest.TestCase):
                         return response.read(), response.headers
 
                 def wait_for_request(path, host="macromapper.judeandrewalaba.com"):
-                    for attempt in range(30):
+                    for _ in range(29):
                         try:
                             return request(path, host)
                         except (urllib.error.URLError, TimeoutError):
-                            if attempt == 29:
-                                raise
                             time.sleep(1)
+                    return request(path, host)
 
                 self.assertEqual(
                     json.loads(wait_for_request("/", "notoli.test")[0])["service"],
