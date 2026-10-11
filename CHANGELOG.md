@@ -2,9 +2,9 @@
 All notable changes to this project are documented in this file.
 
 ## 2026-10-10
-
 ### Fixed
-
+- Ignore the entire local Codex ticket-body and TLS certificate folders so
+  VS Code can apply its ignored-resource color to the folders and their contents.
 - Clean up failed and temporary meal-adjustment proposals consistently and retain
   existing confidence and provider information when AI follow-up fields are absent.
 - Remove the meal-adjustment service's serializer import cycle while keeping
@@ -15,11 +15,30 @@ All notable changes to this project are documented in this file.
   included in saved meal snapshots.
 - Reuse the complete reachable food component graph for catalog estimates and meal
   snapshots, with shared nutrient calculations and queries batched by tree level.
+### Changed
+- Move the local HTTPS certificate helper into `scripts/` and update its
+  documentation references.
+- Move frontend design documentation, mockups, and application screenshots into
+  `frontend/docs/`, update their links, and exclude them from Docker build contexts.
+- Move GitHub setup and recovery documentation into `.github/` alongside the
+  workflow guide, and update documentation links.
+### Removed
+- Remove unused YAML dependencies and the unused catalog-match wrapper from
+  the backend.
+- Remove the unused ASGI server entry point; backend deployment uses Gunicorn
+  with WSGI.
+- Remove the unused Conda environment export helper, its command reference,
+  acknowledgment, and third-party license notice; maintain backend environment
+  and dependency definitions manually.
+- Remove unused frontend test helpers, the retired catalog-to-proposal adapter,
+  and the legacy Create React App `browserslist` configuration.
+- Remove the unused frontend environment example; Docker development supplies
+  frontend configuration through the development Compose file.
+- Remove the optional GitHub Project setup script and document manual Project
+  creation, linking, and recovery with GitHub CLI and the GitHub UI.
 
 ## 2026-10-09
-
 ### Fixed
-
 - Handle incomplete nutrition and portion data safely, clamp negative meal input,
   and preserve decimal quantity entry and deterministic calorie chart ordering.
 - Reduce repeated food component and catalog-version queries and reuse complete
@@ -34,16 +53,12 @@ All notable changes to this project are documented in this file.
   profile information, and share error formatting across authentication pages.
 
 ## 2026-09-22
-
 ### Fixed
-
 - Keep the compact Map it with AI dialog from flashing the full meal builder
   while its backdrop-close animation finishes.
 - Keep the existing Add from the Catalog results and scroll viewport in place
   while switching between All, My Foods, and Shared.
-
 ### Changed
-
 - Upgrade the frontend lint toolchain to ESLint 10 and preserve React and JSX
   accessibility coverage with ESLint 10-compatible plugins.
 - Use consistent title capitalization for the Daily Summary and Meal Log headings.
@@ -53,21 +68,15 @@ All notable changes to this project are documented in this file.
   radius tokens, with sharper cards, controls, menus, and dialogs throughout.
 
 ## 2026-09-20
-
 ### Added
-
 - Add an in-context Retry action for failed catalog loads, searches, and
   pagination requests while preserving the exact failed request.
-
 ### Fixed
-
 - Keep pagination, scope changes, sorting, filter removal, and retries tied to
   the last applied catalog request instead of silently applying draft criteria.
 - Keep catalog filter alignment and wrapping styles inside Material UI's supported
   styling API instead of forwarding them to the browser DOM.
-
 ### Changed
-
 - Reorganize Add from Catalog result cards around the food name first, with
   provider and serving context beneath it while provenance and confidence stay
   inside optional estimate details beneath the nutrition summary.
@@ -87,17 +96,13 @@ All notable changes to this project are documented in this file.
   beside the serving information.
 
 ## 2026-09-05
-
 ### Added
-
 - Add the author's personal motivation to the README.
 - Add a captioned six-image tour of the daily nutrition and AI meal-estimation
   experiences to the README.
 
 ## 2026-08-31
-
 ### Fixed
-
 - Complete the Material UI 9 layout migration across the frontend so meal-log
   actions, navigation, editor controls, nutrition summaries, charts, and dialogs
   retain their intended alignment and wrapping.
@@ -106,21 +111,15 @@ All notable changes to this project are documented in this file.
   return-to-today action only after navigating away from today.
 - Restore centered authentication layouts and keep the meal-diary date controls
   compact and correctly positioned after the Material UI 9 upgrade.
-
 ### Changed
-
 - Open the Meal Diary directly for signed-in users and remove the redundant
   Home destination.
 
 ## 2026-08-30
-
 ### Added
-
 - Add combinable catalog scope, provider, provenance, and source-aware search
   filters to Map Your Meal, with visible active filters and add confirmation.
-
 ### Fixed
-
 - Preserve personal-food provenance, validated meal dates, and intentionally
   removed recipe components throughout AI-adjusted meal drafts.
 - Preserve reviewed meal dates and notes even when an AI follow-up produces no
@@ -130,9 +129,7 @@ All notable changes to this project are documented in this file.
 - Ignore stale catalog responses when a newer food search has started.
 - Allow AI adjustments to reuse archived food versions already pinned to the
   existing meal being edited.
-
 ### Changed
-
 - Make AI Adjustments available while editing existing diary entries. AI
   changes remain a reviewable modal draft until the user saves the meal.
 - Use one complete Map Your Meal draft for AI review, manual mapping, and
@@ -141,20 +138,14 @@ All notable changes to this project are documented in this file.
   place.
 
 ## 2026-08-29
-
 ### Added
-
 - Rotate the Map it with AI input placeholder across 100 examples covering
   everyday meals, restaurants, cuisines, quantities, drinks, substitutions,
   leftovers, and uncertain descriptions.
-
 ### Fixed
-
 - Keep broad catalog searches responsive by rendering at most the first 25
   matches.
-
 ### Changed
-
 - Load the 20 most recently created visible foods when Map Your Meal opens,
   while keeping broader catalog searches explicitly limited in the interface.
 - Rename the Add meal modal to Map Your Meal.
@@ -188,21 +179,15 @@ All notable changes to this project are documented in this file.
   tags above each food result.
 - Add an AI-style estimate-details action to catalog foods for reviewing their
   metadata and supporting source links.
-
 ### Removed
-
 - Remove personal-food creation from Map Your Meal; existing personal foods
   remain available through catalog search.
 
 ## 2026-08-24
-
 ### Added
-
 - Included each user's original Adjust with AI follow-up request in the saved
   meal Context, while retaining AI result messages separately in revision history.
-
 ### Changed
-
 - Redesigned manual meal entry as a responsive meal-building workflow that
   mirrors estimate review with editable meal details, catalog nutrition and
   provenance, portion-aware item controls, live meal totals and
@@ -217,15 +202,11 @@ All notable changes to this project are documented in this file.
   thicker stacked bars, and whole-number macro-split values.
 
 ## 2026-08-23
-
 ### Added
-
 - Added conversational AI follow-ups to meal-estimate review so users can add
   forgotten foods or request clear removals and serving corrections while
   preserving the current editable draft, provenance, and revision history.
-
 ### Fixed
-
 - Preserved concise AI-generated meal titles for mixed catalog and estimated
   foods, using a brief company-and-food naming format instead of diary prose.
 - Rolled up known daily nutrient values even when another saved food lacks that
@@ -241,9 +222,7 @@ All notable changes to this project are documented in this file.
   globally visible; unsafe or instruction-like metadata is rejected atomically.
 - Kept meal review usable after an AI follow-up request fails by preserving the
   draft and request, showing a retryable error, and always unlocking the dialog.
-
 ### Changed
-
 - Redesigned the meal diary as a Quick Logbook with date and nutrition
   summaries at the top, macro calorie-split and calories-by-meal charts, compact
   color-coded daily nutrient cards, parallel estimate/manual entry paths, and
@@ -259,9 +238,7 @@ All notable changes to this project are documented in this file.
   tightly cropped artwork across the application shell and install icons.
 
 ## 2026-08-22
-
 ### Added
-
 - Added typo-tolerant multi-food catalog resolution that extracts quantities,
   prefers complete composites, groups duplicate identities, and sends only
   unmatched foods to GPT.
@@ -276,9 +253,7 @@ All notable changes to this project are documented in this file.
 - Added consistently abbreviated portion-option dropdowns that pair a concise
   natural serving with appropriate weight or volume conversions for every
   GPT-estimated item.
-
 ### Fixed
-
 - Prevented a partial catalog hit from dropping other requested foods or
   silently resetting their requested counts to one.
 - Normalized GPT nutrient totals back to their declared base serving so a
@@ -305,9 +280,7 @@ All notable changes to this project are documented in this file.
   reused composites remain uniquely editable.
 - Removed the invalid root-level Docker Dependabot scan and documented that
   Docker dependency checks run from the backend and frontend directories.
-
 ### Changed
-
 - Kept unchanged AI definitions shared while saving substantive nutrient or
   component edits as private user-modified versions derived from the shared
   base, with explicit adjusted-by-user attribution in the review UI.
@@ -343,9 +316,7 @@ All notable changes to this project are documented in this file.
   tightened the spacing between those controls so nutrient cards stay aligned.
 
 ## 2026-08-16
-
 ### Added
-
 - Added owner-scoped, catalog-first GPT meal proposals with structured OpenAI
   web research, persisted sources/confidence/provider metadata, editable
   component review, and acceptance into durable private diary snapshots.
@@ -363,9 +334,7 @@ All notable changes to this project are documented in this file.
   launch-nutrient totals, and delete confirmation.
 - Added backend authorization and historical-value regression coverage plus frontend
   create, edit, delete, and daily-total tests.
-
 ### Fixed
-
 - Made native AI `REQUEST_CHANGES` verdicts fail their corresponding required
   reviewer checks, including repeated blocking verdicts, while approvals and
   non-blocking comments continue to pass.
@@ -380,9 +349,7 @@ All notable changes to this project are documented in this file.
   seeded nutrient definitions and saved nutrient values.
 - Allowed existing meals to retain and resize archived personal foods through
   their pinned historical versions without making those foods newly selectable.
-
 ### Changed
-
 - Replaced the inherited dark, pale-yellow, amber, and gray placeholder styling
   across the application shell, authentication screens, dashboard, menus,
   notifications, forms, feedback states, manifest, and application mark with
@@ -449,7 +416,6 @@ All notable changes to this project are documented in this file.
 - Kept generated dependency lockfile payloads out of AI reviewer prompts so
   large lockfile migrations do not crowd out source, build, and security review.
 ### Removed
-
 - Removed the reusable application initializer and the remaining starter,
   generated-repository, Lorem Ipsum, and fake-profile placeholders.
 - Removed Create React App, its Jest runtime, the `react-router-dom`
@@ -524,6 +490,7 @@ All notable changes to this project are documented in this file.
 ### Removed
 - Removed the shared multi-application local-ingress scripts and configuration;
   MacroMapper now uses its own application proxy like Notoli.
+
 ## 2026-07-26
 ### Added
 - Added a shared local TLS ingress that routes Notoli, MacroMapper, and

@@ -12,9 +12,13 @@ and release sequence.
 ## 🧭 Visual system
 
 The frontend uses the Field Atlas direction described in
-[`docs/design/FIELD_ATLAS.md`](../docs/design/FIELD_ATLAS.md). Shared theme
+[`docs/design/FIELD_ATLAS.md`](docs/design/FIELD_ATLAS.md). Shared theme
 configuration lives in `src/theme.js`, with matching semantic CSS tokens in
 `src/App.css`.
+
+Design mockups live alongside the guide in `docs/design/`, and the root README's
+application screenshots live in `docs/images/`. These documentation files are
+excluded from Docker build contexts.
 
 - Bone and warm paper surfaces keep the application calm and editorial.
 - Midnight ink provides text and structural contrast.
@@ -127,6 +131,9 @@ production frontend image uses `nginx.conf` to serve Vite's `dist` directory
 and forward `/auth/`, `/api/`, and `/admin/` to the Compose backend service.
 
 ## Docker Hot Reload
+The development Compose file supplies frontend environment variables directly,
+including `VITE_API_BASE_URL`, so this setup requires no frontend `.env` file.
+
 From the repository root, run:
 
 ```powershell
@@ -142,6 +149,9 @@ default and can be changed with the `MACROMAPPER_DEV_*_PORT` variables
 in `deploy/.env`.
 
 ## 🧰 Checks
+The Vite configuration controls frontend builds and tests. Browser-target
+overrides belong in `vite.config.mjs` through `build.target`.
+
 ```powershell
 npm test
 npm run test:watch

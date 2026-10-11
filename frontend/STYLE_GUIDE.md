@@ -7,7 +7,7 @@
 - Use the centralized Material UI theme in `src/theme.js` and the matching CSS
   custom properties in `src/App.css`; do not introduce one-off brand colors.
 - Follow the Field Atlas direction documented in
-  `../docs/design/FIELD_ATLAS.md`: warm paper surfaces, ink structure, restrained
+  [`docs/design/FIELD_ATLAS.md`](docs/design/FIELD_ATLAS.md): warm paper surfaces, ink structure, restrained
   cartographic details, and factual rather than clinical language.
 - Use Bone `#F6F1E7` for the canvas, Midnight ink `#17324D` for text and
   structure, Forest `#2E6B4F` for confirmed states and primary actions,

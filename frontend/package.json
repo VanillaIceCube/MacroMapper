@@ -43,17 +43,5 @@
     "lint:strict": "eslint \"src/**/*.{js,jsx}\" --max-warnings=0",
     "format": "prettier . --write",
     "format:check": "prettier . --check"
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
   }
 }

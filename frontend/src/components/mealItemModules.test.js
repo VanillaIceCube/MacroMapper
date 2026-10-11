@@ -1,8 +1,4 @@
-import {
-  catalogFoodToMealItem,
-  catalogFoodToProposalItem,
-  savedMealItemToEditableMealItem,
-} from './mealItemAdapters';
+import { catalogFoodToMealItem, savedMealItemToEditableMealItem } from './mealItemAdapters';
 import {
   changeMealItemNutrient,
   changeMealItemPortion,
@@ -139,9 +135,8 @@ describe('meal item tree operations', () => {
 });
 
 describe('meal item adapters', () => {
-  test('normalizes catalog foods for the meal builder and proposal payloads', () => {
+  test('normalizes catalog foods for the meal builder', () => {
     const mealItem = catalogFoodToMealItem(catalogFood);
-    const proposal = catalogFoodToProposalItem(catalogFood);
 
     expect(mealItem).toMatchObject({
       food_item: 7,
@@ -158,17 +153,6 @@ describe('meal item adapters', () => {
     });
     expect(itemNutrientTotal(mealItem.components[0], 'calories')).toBe(95);
     expect(itemNutrientTotal(mealItem, 'calories')).toBe(95);
-    expect(proposal).toMatchObject({
-      food_item_id: 7,
-      food_version_id: 9,
-      source_kind: 'official_verified',
-    });
-    expect(proposal.components[0]).toMatchObject({
-      food_item_id: 8,
-      food_version_id: 10,
-      nutrients: { calories: '95' },
-    });
-    expect(proposal.sources[0].is_official).toBe(true);
   });
 
   test('normalizes saved total nutrients back to per-serving editor values', () => {

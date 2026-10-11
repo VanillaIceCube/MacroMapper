@@ -18,7 +18,7 @@ scanner. The `dependencies`, `codeql`, `vulnerability`, `malware`, and `codex`
 labels are used by the alert and operational automation. If repository settings
 are recovered or rebuilt, restore these settings, labels, and the
 `SECURITY_ALERTS_TOKEN` secret; see
-[`docs/GITHUB_SETUP.md`](../docs/GITHUB_SETUP.md).
+[`GITHUB_SETUP.md`](GITHUB_SETUP.md).
 
 ## ✅ Pull-Request CI
 `.github/workflows/ci-orchestrator.yml` coordinates:
@@ -89,7 +89,7 @@ Required repository secrets:
 - `ROBOCOP_PRIVATE_KEY`
 
 Install the Apps on the MacroMapper repository with the permissions in
-[`docs/GITHUB_SETUP.md`](../docs/GITHUB_SETUP.md). Store the same four review
+[`GITHUB_SETUP.md`](GITHUB_SETUP.md). Store the same four review
 secrets in both the Actions and Dependabot secret stores. Dependabot workflows
 receive only Dependabot secrets, so this duplication lets their pull requests
 run the required reviewers. Fork pull requests never receive either store's
@@ -117,12 +117,11 @@ The Project must contain:
 - Numeric `Estimate`
 - `Start date` and `End date`
 
-`scripts/create-github-project.ps1` copies Notoli's Project structure, links it
-to the target repository, verifies its fields, views, and supported workflows,
-and sets `SECURITY_ALERTS_PROJECT_ID`. GitHub excludes the repository-scoped
-`Auto-add to project` workflow from Project copies, so configure it for the
-target repository in the GitHub UI as described in
-[`docs/GITHUB_SETUP.md`](../docs/GITHUB_SETUP.md).
+Create or recover the board with the manual GitHub CLI and UI steps in
+[`GITHUB_SETUP.md`](GITHUB_SETUP.md). Link it to MacroMapper,
+verify its fields and views, and set `SECURITY_ALERTS_PROJECT_ID`. GitHub
+excludes auto-add workflows from Project copies, so configure the required
+auto-add workflows for the target repository in the GitHub UI.
 
 ## 🚀 Deployment
 `.github/workflows/ci-deploy.yml` runs on `env-prod` pushes or manually. It:
