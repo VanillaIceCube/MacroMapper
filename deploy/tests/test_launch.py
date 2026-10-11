@@ -183,7 +183,9 @@ class ComposeTests(unittest.TestCase):
 
 @unittest.skipIf(os.name == "nt", "Deployment shell runs on the Linux Droplet")
 class DeploymentScriptTests(unittest.TestCase):
-    def run_deployment(self, database="existing", fail_migration=False, legacy=False):
+    def run_deployment(
+        self, database="existing", fail_migration=False, legacy=False, real_backup=False
+    ):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         target = Path(self.directory.name) / "bundle"
@@ -199,7 +201,7 @@ class DeploymentScriptTests(unittest.TestCase):
         executable = target / "docker"
         executable.write_text(
             f"#!{sys.executable}\n"
-            + """import json, os, sqlite3, sys
+            + """import json, os, sqlite3, subprocess, sys
 from pathlib import Path
 args = sys.argv[1:]
 with open('commands.jsonl', 'a') as stream: stream.write(json.dumps(args) + '\\n')
@@ -207,8 +209,14 @@ if args[:2] == ['inspect', 'notoli-proxy']: print(str(Path.cwd() / 'nginx-shared
 if args[:2] == ['inspect', 'macromapper-backend']: print('backend' if os.getenv('LEGACY') == '1' else 'macromapper-backend')
 if 'run' in args and args[-2:] == ['python', '-']:
     mount = args[args.index('-v') + 1].rsplit(':', 1)[0]
-    with sqlite3.connect('db.sqlite3') as source:
-        with sqlite3.connect(Path(mount) / 'db.sqlite3') as destination: source.backup(destination)
+    if os.getenv('REAL_DOCKER'):
+        command = [os.environ['REAL_DOCKER'], 'run', '--rm']
+        if '--user' in args: command += ['--user', args[args.index('--user') + 1]]
+        command += ['-v', str(Path.cwd() / 'db.sqlite3') + ':/backend/db.sqlite3:ro', '-v', mount + ':/recovery', 'python:3.12-alpine', 'python', '-']
+        subprocess.run(command, input=sys.stdin.read(), text=True, check=True)
+    else:
+        with sqlite3.connect('db.sqlite3') as source:
+            with sqlite3.connect(Path(mount) / 'db.sqlite3') as destination: source.backup(destination)
 if 'migrate' in args and os.getenv('FAIL_MIGRATION') == '1': sys.exit(1)
 """
         )
@@ -221,6 +229,7 @@ if 'migrate' in args and os.getenv('FAIL_MIGRATION') == '1': sys.exit(1)
                 "PATH": str(target) + os.pathsep + os.environ["PATH"],
                 "FAIL_MIGRATION": "1" if fail_migration else "0",
                 "LEGACY": "1" if legacy else "0",
+                "REAL_DOCKER": shutil.which("docker") if real_backup else "",
             },
             capture_output=True,
             text=True,
@@ -280,6 +289,25 @@ if 'migrate' in args and os.getenv('FAIL_MIGRATION') == '1': sys.exit(1)
         self.assertFalse((target / "backups").exists())
         self.assertFalse(any("compose" in args for args in commands))
         with sqlite3.connect(target / "db.sqlite3") as db:
+            self.assertEqual(
+                db.execute("SELECT value FROM preserved").fetchone()[0], "meal-history"
+            )
+
+    @unittest.skipUnless(
+        shutil.which("docker"), "Docker is needed for the ownership regression"
+    )
+    def test_real_recovery_file_is_owned_by_nonroot_deployment_user(self):
+        if os.geteuid() == 0:
+            self.skipTest(
+                "Run as a non-root Docker user to exercise the ownership boundary"
+            )
+        target, result, _ = self.run_deployment(real_backup=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        recovery = next((target / "backups").glob("*/db.sqlite3"))
+        self.assertEqual(recovery.stat().st_uid, os.getuid())
+        self.assertEqual(recovery.stat().st_gid, os.getgid())
+        self.assertEqual(recovery.stat().st_mode & 0o777, 0o600)
+        with sqlite3.connect(recovery) as db:
             self.assertEqual(
                 db.execute("SELECT value FROM preserved").fetchone()[0], "meal-history"
             )

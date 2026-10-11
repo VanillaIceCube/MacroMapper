@@ -59,7 +59,8 @@ done
 # Stop writers before taking a consistent SQLite backup and running migrations.
 compose_next stop macromapper-backend
 if [ -s db.sqlite3 ]; then
-  compose_next run --rm --no-deps -T -v "$PWD/backups/$recovery:/recovery" macromapper-backend python - <<'PY'
+  compose_next run --rm --no-deps -T --user "$(id -u):$(id -g)" \
+    -v "$PWD/backups/$recovery:/recovery" macromapper-backend python - <<'PY'
 import sqlite3
 with sqlite3.connect("file:/backend/db.sqlite3?mode=ro", uri=True) as source:
     with sqlite3.connect("/recovery/db.sqlite3") as destination:

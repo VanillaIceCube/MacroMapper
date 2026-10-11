@@ -202,6 +202,10 @@ before migrations. Application directories/backups are `0700`; environment and
 database files are `0600`. There is no host-wide Docker pruning or Notoli
 container recreation in MacroMapper's deployment workflow.
 
+The backup container runs as the deployment user's UID/GID so that the recovery
+file remains owned by that user, including when deployment uses a non-root
+Docker-group account. No server account or SSH policy changes are required.
+
 The script rejects a running/existing backend container with the old generic
 Compose service label before touching the database or stopping services. Complete
 the one-time legacy-stack preservation/retirement step first if this check fails.
