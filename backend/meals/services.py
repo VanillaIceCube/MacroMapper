@@ -11,20 +11,21 @@ from foods.services import build_component_map
 from .models import MealEntry, MealItem
 
 
-def generate_meal_name(*, owner, entry_date, item_inputs):
+def generate_meal_name(*, owner, entry_date, item_inputs=(), selected_foods=None):
     meal_number = MealEntry.objects.filter(
         owner=owner,
         entry_date=entry_date,
     ).count()
     fallback_name = f"Meal-{meal_number:02d}"
-    selected_foods = [
-        {
-            "name": item["food_item"].name,
-            "provider_name": item["food_item"].provider_name,
-            "servings": str(item["servings"]),
-        }
-        for item in sorted(item_inputs, key=lambda item: item["order"])
-    ]
+    if selected_foods is None:
+        selected_foods = [
+            {
+                "name": item["food_item"].name,
+                "provider_name": item["food_item"].provider_name,
+                "servings": str(item["servings"]),
+            }
+            for item in sorted(item_inputs, key=lambda item: item["order"])
+        ]
     try:
         generated_name = get_estimation_provider().generate_name(selected_foods)
     except EstimationProviderError:

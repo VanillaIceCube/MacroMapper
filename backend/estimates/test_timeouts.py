@@ -1,19 +1,23 @@
 import time
 from concurrent.futures import ThreadPoolExecutor
+from decimal import Decimal
 from threading import BoundedSemaphore, Event
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.db import connections
 from django.test import SimpleTestCase, TestCase, TransactionTestCase, override_settings
+from django.utils import timezone
 from rest_framework.test import APIClient
 
-from foods.models import FoodItem
+from foods.models import FoodItem, FoodItemVersion
+from foods.services import create_food_item
 
 from .models import MealProposal
 from .provider import EstimationProviderError, OpenAIMealEstimationProvider
-from .services import create_proposal
+from .services import _catalog_food, create_proposal, save_meal_draft
 
 
 @override_settings(OPENAI_API_KEY="test-key", OPENAI_MEAL_ESTIMATION_TIMEOUT=110)
@@ -111,6 +115,83 @@ class DeadlineResponseTests(TestCase):
 
 
 class EstimationTransactionTests(TransactionTestCase):
+    def _draft(self):
+        owner = get_user_model().objects.create_user(
+            username="draft-owner", email="draft-owner@example.com"
+        )
+        food = create_food_item(
+            name="Toast",
+            scope=FoodItem.Scope.PERSONAL,
+            owner=owner,
+            origin_type=FoodItem.OriginType.GENERIC,
+            provider_name="",
+            definition={
+                "serving_quantity": Decimal("1"),
+                "serving_unit": FoodItemVersion.ServingUnit.ITEM,
+                "serving_label": "1 toast",
+                "provenance": FoodItemVersion.Provenance.USER_ENTERED,
+                "confidence_score": None,
+                "nutrients": {"calories": Decimal("100")},
+                "sources": [],
+                "components": [],
+            },
+            created_by=owner,
+        )
+        return (
+            owner,
+            food,
+            {
+                "owner": owner,
+                "meal": None,
+                "entry_date": "2026-10-11",
+                "name": "",
+                "notes": "",
+                "items": [_catalog_food(food.current_version, servings=Decimal("1"))],
+            },
+        )
+
+    def test_blank_name_wait_allows_a_concurrent_database_write(self):
+        _, _, draft = self._draft()
+
+        def ordinary_write():
+            try:
+                get_user_model().objects.create_user(
+                    username="name-concurrent", email="name-concurrent@example.com"
+                )
+            finally:
+                connections.close_all()
+
+        def generate_name(selected_foods):
+            self.assertFalse(connections["default"].in_atomic_block)
+            self.assertEqual(selected_foods[0]["name"], "Toast")
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                executor.submit(ordinary_write).result(timeout=2)
+            return "Named toast"
+
+        provider = Mock()
+        provider.generate_name.side_effect = generate_name
+        with patch("meals.services.get_estimation_provider", return_value=provider):
+            meal = save_meal_draft(**draft)
+        self.assertEqual(meal.name, "Named toast")
+        self.assertEqual(meal.items.count(), 1)
+        self.assertTrue(
+            get_user_model().objects.filter(username="name-concurrent").exists()
+        )
+
+    def test_blank_name_draft_revalidates_food_archived_during_ai_wait(self):
+        _, food, draft = self._draft()
+
+        def generate_name(selected_foods):
+            FoodItem.objects.filter(pk=food.pk).update(archived_at=timezone.now())
+            return "Named toast"
+
+        provider = Mock()
+        provider.generate_name.side_effect = generate_name
+        with patch("meals.services.get_estimation_provider", return_value=provider):
+            with self.assertRaises(ValidationError):
+                save_meal_draft(**draft)
+        self.assertFalse(draft["owner"].meal_entries.exists())
+
     def test_publication_and_proposal_roll_back_if_revision_fails(self):
         owner = get_user_model().objects.create_user(
             username="rollback-owner", email="rollback@example.com"

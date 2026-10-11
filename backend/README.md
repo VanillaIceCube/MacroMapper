@@ -279,6 +279,9 @@ preserves the editable frontend draft. ORM work stays on the request thread.
 Initial catalog reads and AI waits happen outside a database transaction; the
 catalog publication, proposal and revision are committed together afterward.
 This avoids holding SQLite read locks while other request threads save data.
+Blank-name draft saves also generate the name before opening the write
+transaction, then revalidate catalog visibility and reviewed items before
+materializing and saving the meal together with its items.
 Production Gunicorn uses one worker with four request threads and a 120-second
 worker-liveness timeout; the AI budget bounds request wait time.
 
