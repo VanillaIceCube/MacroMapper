@@ -44,8 +44,8 @@ Outside of that, I mean my goal was to get a good personal use application that 
   and factual daily, weekly, and monthly reporting
 - **Same-origin routing:** React at `/`, authentication at `/auth/`, application
   APIs at `/api/`, and Django admin at `/admin/`
-- **Dockerized deployment:** frontend, backend, and Nginx reverse proxy with
-  local HTTPS and production-oriented configuration
+- **Dockerized deployment:** local HTTP hot reload or standalone HTTPS;
+  production frontend/backend stay private behind the existing shared Nginx
 
 ## 🚀 Tech Stack
 - **Backend:** Django + Django REST Framework
@@ -103,6 +103,13 @@ Manually add items from the catalog, or use AI to make adjustments!
 ![MacroMapper catalog search and conversational AI adjustment controls](frontend/docs/images/meal-estimation-04.png)
 
 ## 📚 Documentation
+
+Production at `macromapper.judeandrewalaba.com` uses Notoli's public proxy with
+a persistent Compose override and a dedicated ingress network. MacroMapper
+deploys reviewed SHA-tagged images, keeps its SQLite file, and saves recovery
+files before migrations. See the [deployment guide](deploy/README.md) for
+one-time server setup, credentials, recovery, and pending live acceptance.
+
 - Product vision and delivery roadmap: [`docs/PRODUCT_VISION.md`](docs/PRODUCT_VISION.md)
 - Setup, environment variables, and common commands: [`AGENTS.md`](AGENTS.md)
 - Backend (API, auth, configuration): [`backend/README.md`](backend/README.md)

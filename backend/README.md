@@ -268,7 +268,17 @@ that request fails, the meal is saved with a sequential name such as `Meal-00`.
 
 The default database is `backend/db.sqlite3`. Override it with
 `DJANGO_SQLITE_PATH`. The `macromapper.localhost` host is accepted by
-default.
+default while `DJANGO_DEBUG=1`.
+
+With `DJANGO_DEBUG=0`, startup requires an explicit `DJANGO_SECRET_KEY` and
+`DJANGO_ALLOWED_HOSTS`; local host/origin defaults are omitted. Session and
+CSRF cookies require HTTPS. Django accepts the Host header rather than
+`X-Forwarded-Host`; production Nginx overwrites `X-Forwarded-Proto` with its
+trusted HTTPS value. Do not expose the backend directly to the internet.
+The shared production overlay supplies a private raw environment file,
+retains the SQLite bind mount and outbound provider access, and runs deployment
+checks/migrations before starting Gunicorn. See the
+[production configuration and recovery guide](../deploy/README.md).
 
 ## Docker Hot Reload
 The development Compose workflow builds `backend/Dockerfile.dev`, mounts the

@@ -52,6 +52,10 @@ jobs:
               - 'backend/**'
               - '.github/actions/read-versions/**'
             automation:
+              - 'deploy/**'
+              - 'scripts/prepare-production-bundle.py'
+              - 'scripts/deploy-production.sh'
+              - '.github/workflows/ci-deploy.yml'
               - '.github/actions/collect-codeql-evidence/**'
               - '.github/actions/collect-prior-ai-reviews/**'
               - '.github/actions/collect-upstream-major-upgrade-evidence/**'
@@ -244,6 +248,8 @@ jobs:
             .github/actions/publish-ai-review/publish-ai-review.test.js \
             .github/actions/security-alerts/sync-security-alerts.test.js \
             2>&1 | tee automation_test_output.txt || status=$?
+          python3 -m unittest discover -s deploy/tests -v \
+            2>&1 | tee -a automation_test_output.txt || status=$?
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
 
       - name: Test summary

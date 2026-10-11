@@ -28,6 +28,7 @@ are recovered or rebuilt, restore these settings, labels, and the
 - React/Vitest tests and the Vite production build
 - Django tests
 - Node tests for repository automation
+- Deployment configuration, SQLite recovery, and disposable Nginx routing tests
 - CodeQL for Python, JavaScript/TypeScript, and GitHub Actions
 - GitHub dependency review at high/critical severity, with detailed findings retained in the check logs and annotations
 - npm malware advisory review for changed lockfile packages, including initial lockfile additions against an empty dependency baseline and batched `package@version` advisory queries
@@ -124,21 +125,34 @@ excludes auto-add workflows from Project copies, so configure the required
 auto-add workflows for the target repository in the GitHub UI.
 
 ## 🚀 Deployment
-`.github/workflows/ci-deploy.yml` runs on `env-prod` pushes or manually. It:
+`.github/workflows/ci-deploy.yml` runs on `env-prod` pushes or manual dispatch
+selecting that branch. Deployments are serialized. It:
 
-1. Builds and pushes `macromapper-backend` and `macromapper-frontend` to GHCR.
-2. Uploads Docker Compose, Nginx, and optional Cloudflare origin certificates.
-3. Connects over SSH, writes the backend environment, recreates the stack, and runs Django migrations.
+1. Validates required access, application credentials, and same-origin routing;
+   stages private raw environment files without printing secrets.
+2. Builds and publishes both GHCR images for the selected full SHA.
+3. Uploads the shared-ingress configuration and private staged environment.
+4. Pulls `sha-<commit>` images, stops MacroMapper's backend, saves consistent
+   SQLite/release recovery files, checks production settings, and migrates.
+5. Starts only MacroMapper's backend/frontend and reloads Notoli's existing
+   proxy. It neither recreates Notoli nor prunes host-wide Docker resources.
+
+One-time server setup installs the persistent Notoli override and external
+ingress network. The workflow fails if that prerequisite is missing. It uses
+the existing Notoli TLS mount and does not upload certificates/private keys.
 
 Repository variables:
 
 - `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PATH`, optional `DEPLOY_PORT`
-- `DJANGO_DEBUG`, `DJANGO_SQLITE_PATH`
 - `DJANGO_ALLOWED_HOSTS`, `DJANGO_CORS_ALLOWED_ORIGINS`, `DJANGO_CSRF_TRUSTED_ORIGINS`
 - optional `DJANGO_FORCE_SCRIPT_NAME`
 - `DJANGO_FRONTEND_BASE_URL`, `DJANGO_EMAIL_BACKEND`, `DJANGO_EMAIL_TIMEOUT`, `DJANGO_DEFAULT_FROM_EMAIL`
 - `OPENAI_MEAL_ESTIMATION_MODEL`, `OPENAI_MEAL_ESTIMATION_TIMEOUT`
-- optional `VITE_API_BASE_URL`
+- optional SMTP settings `DJANGO_EMAIL_HOST`, `DJANGO_EMAIL_PORT`,
+  `DJANGO_EMAIL_USE_TLS`, `DJANGO_EMAIL_HOST_USER`
+- `VITE_API_BASE_URL` must be empty
+
+The bundle fixes `DJANGO_DEBUG=0` and `DJANGO_SQLITE_PATH=/backend/db.sqlite3`.
 
 Repository secrets:
 
@@ -146,9 +160,12 @@ Repository secrets:
 - `DJANGO_SECRET_KEY`
 - `DJANGO_EMAIL_HOST_KEY`
 - `MACROMAPPER_OPENAI_API_KEY` (separate from the AI-review credential)
-- optional automated TLS secrets `CLOUDFLARE_ORIGIN_CERT_PEM` and `CLOUDFLARE_ORIGIN_KEY_PEM`
 
 See `deploy/README.md` for server and Cloudflare details.
+
+The host's deployment user separately needs GHCR package-read access. Publishing
+uses `GITHUB_TOKEN`; SSH uses `DEPLOY_SSH_KEY`; runtime OpenAI and Resend keys
+remain MacroMapper-specific and separate from review/Notoli credentials.
 
 ## 📦 Dependabot
 `.github/dependabot.yml` checks npm, pip, GitHub Actions, and Docker dependencies
@@ -199,5 +216,7 @@ the first CI run when creating or recovering the ruleset.
 ## 🧰 Local Automation Checks
 ```powershell
 node --test .github/actions/collect-upstream-major-upgrade-evidence/collect-upstream-major-upgrade-evidence.test.js .github/actions/collect-codeql-evidence/collect-codeql-evidence.test.js .github/actions/publish-ai-review/publish-ai-review.test.js .github/actions/security-alerts/sync-security-alerts.test.js
+python -m unittest discover -s deploy/tests -v
+
 docker run --rm -v "${PWD}:/repo" --workdir /repo rhysd/actionlint:latest -color
 ```

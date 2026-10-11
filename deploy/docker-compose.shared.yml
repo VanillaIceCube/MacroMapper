@@ -1,0 +1,43 @@
+# Merge with docker-compose.yml on the shared Droplet (Compose >= 2.30).
+services:
+  proxy:
+    profiles: [standalone]
+  backend:
+    profiles: [standalone]
+  frontend:
+    profiles: [standalone]
+
+  # Compose adds service-name DNS aliases automatically. Unique service names
+  # prevent collisions with Notoli's backend/frontend on its other networks.
+  macromapper-backend:
+    extends:
+      file: docker-compose.yml
+      service: backend
+    image: ${MACROMAPPER_BACKEND_IMAGE:?Set a reviewed backend image reference}
+    ports: !reset []
+    env_file: !override
+      - path: ${MACROMAPPER_BACKEND_ENV_FILE:-.backend.env}
+        format: raw
+    networks:
+      default:
+        aliases: [backend]
+      ingress:
+        aliases: [macromapper-backend]
+  macromapper-frontend:
+    extends:
+      file: docker-compose.yml
+      service: frontend
+    image: ${MACROMAPPER_FRONTEND_IMAGE:?Set a reviewed frontend image reference}
+    ports: !reset []
+    depends_on: !override
+      macromapper-backend:
+        condition: service_started
+    networks:
+      default:
+      ingress:
+        aliases: [macromapper-frontend]
+
+networks:
+  ingress:
+    external: true
+    name: macromapper-ingress
