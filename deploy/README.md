@@ -194,7 +194,7 @@ and the API key as password. See the official
 
 CI uploads reviewed files and private `.env.next`/`.backend.env.next` files into
 the application directory. `deploy-production.sh` checks the network/vhost
-mount, validates Nginx/Compose, and pulls both revision-tagged images before
+mount and proxy network membership, validates Nginx/Compose, and pulls both revision-tagged images before
 stopping the MacroMapper backend. It initializes `db.sqlite3` only when missing,
 refuses a directory/symlink at that path, and saves the previous release,
 credentials, and a consistent SQLite backup under `backups/<timestamp>-<pid>/`

@@ -184,7 +184,12 @@ class ComposeTests(unittest.TestCase):
 @unittest.skipIf(os.name == "nt", "Deployment shell runs on the Linux Droplet")
 class DeploymentScriptTests(unittest.TestCase):
     def run_deployment(
-        self, database="existing", fail_migration=False, legacy=False, real_backup=False
+        self,
+        database="existing",
+        fail_migration=False,
+        legacy=False,
+        real_backup=False,
+        missing_ingress=False,
     ):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
@@ -205,7 +210,10 @@ class DeploymentScriptTests(unittest.TestCase):
 from pathlib import Path
 args = sys.argv[1:]
 with open('commands.jsonl', 'a') as stream: stream.write(json.dumps(args) + '\\n')
-if args[:2] == ['inspect', 'notoli-proxy']: print(str(Path.cwd() / 'nginx-shared.conf'))
+if args[:2] == ['inspect', 'notoli-proxy']:
+    if '.NetworkSettings.Networks' in args[-1]:
+        if os.getenv('MISSING_INGRESS') != '1': print('connected')
+    else: print(str(Path.cwd() / 'nginx-shared.conf'))
 if args[:2] == ['inspect', 'macromapper-backend']: print('backend' if os.getenv('LEGACY') == '1' else 'macromapper-backend')
 if 'run' in args and args[-2:] == ['python', '-']:
     mount = args[args.index('-v') + 1].rsplit(':', 1)[0]
@@ -230,6 +238,7 @@ if 'migrate' in args and os.getenv('FAIL_MIGRATION') == '1': sys.exit(1)
                 "FAIL_MIGRATION": "1" if fail_migration else "0",
                 "LEGACY": "1" if legacy else "0",
                 "REAL_DOCKER": shutil.which("docker") if real_backup else "",
+                "MISSING_INGRESS": "1" if missing_ingress else "0",
             },
             capture_output=True,
             text=True,
@@ -308,6 +317,17 @@ if 'migrate' in args and os.getenv('FAIL_MIGRATION') == '1': sys.exit(1)
         self.assertEqual(recovery.stat().st_gid, os.getgid())
         self.assertEqual(recovery.stat().st_mode & 0o777, 0o600)
         with sqlite3.connect(recovery) as db:
+            self.assertEqual(
+                db.execute("SELECT value FROM preserved").fetchone()[0], "meal-history"
+            )
+
+    def test_missing_proxy_ingress_is_rejected_before_stack_changes(self):
+        target, result, commands = self.run_deployment(missing_ingress=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Connect Notoli proxy to macromapper-ingress", result.stdout)
+        self.assertFalse((target / "backups").exists())
+        self.assertFalse(any("compose" in args for args in commands))
+        with sqlite3.connect(target / "db.sqlite3") as db:
             self.assertEqual(
                 db.execute("SELECT value FROM preserved").fetchone()[0], "meal-history"
             )

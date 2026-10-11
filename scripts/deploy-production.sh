@@ -29,6 +29,11 @@ docker inspect notoli-proxy --format '{{range .Mounts}}{{if eq .Destination "/et
     echo 'Install the persistent Notoli override with the correct vhost path first.'
     exit 1
   }
+docker inspect notoli-proxy --format '{{if index .NetworkSettings.Networks "macromapper-ingress"}}connected{{end}}' \
+  | grep -Fx connected >/dev/null || {
+    echo 'Connect Notoli proxy to macromapper-ingress using the persistent override first.'
+    exit 1
+  }
 docker exec notoli-proxy nginx -t
 
 compose_next() {
