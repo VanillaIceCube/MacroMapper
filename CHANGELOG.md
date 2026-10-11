@@ -6,9 +6,11 @@ All notable changes to this project are documented in this file.
 - Add app-only production Compose, immutable digest bundles, protected maintenance/app locks, complete configuration/image/environment/SQLite recovery, explicit rollback and bounded readiness checks.
 - Validate raw credentials and Compose boundaries with disposable containers, and exercise SQLite/failure recovery and lock contention on Linux.
 ### Changed
+- Consolidate production instructions in `deploy/production/README.md`; focus `deploy/README.md` on local Docker and link other guides to the canonical instructions.
 - Pin every external production deployment action, including checkout, to an immutable commit SHA.
 - Serialize production releases and stage each CI attempt privately; activate only after the approved host-owned ingress cutover.
 ### Removed
+- Move PR-specific audit and coordination documents into issue #240, preserving their history outside the permanent deployment guides.
 - Remove obsolete shared-proxy/Notoli-override source files; retain historical versions in Git and preserve the local hot-reload stack.
 - Remove shared Nginx/certificate lifecycle and mutable production image selection from the app deployment workflow.
 

@@ -1,12 +1,5 @@
 # 🥗 MacroMapper
 
-Production release ownership: use the [app-only release/recovery guide](deploy/production/README.md).
-The new pipeline uses immutable image digests, protected staging/locks, full
-recovery and bounded readiness. Shared Nginx/certificates belong to the
-infrastructure repository. This supersedes legacy proxy-owning production
-instructions; local standalone development remains supported. Activation follows
-approved gateway cutover and separate merge/deployment authorization.
-
 **A Source-Aware Nutrition and Activity Tracker**
 
 MacroMapper is a personal nutrition and activity tracker for people who want a
@@ -112,16 +105,9 @@ Manually add items from the catalog, or use AI to make adjustments!
 
 ## 📚 Documentation
 
-The production implementation for `macromapper.judeandrewalaba.com` uses
-host-owned shared ingress from the infrastructure repository and independent
-app releases with immutable image digests and verified SQLite recovery.
-Architecture v2 is owner-approved; each PR merge and production activation
-still requires separate approval. PR #239's earlier bridge was merged without
-owner authorization and is historical context, documented in
-[the audit](deploy/PR239-AUDIT.md). The
-[coordination handoff](deploy/PRODUCTION-LAUNCH-HANDOFF.md) and
-[deployment guide](deploy/production/README.md) describe current ownership,
-gateway-first activation and the remaining operational gates.
+Production configuration, releases and recovery are documented in the
+[production guide](deploy/production/README.md). For local Docker hot reload
+and standalone HTTPS, use the [local guide](deploy/README.md).
 
 - Product vision and delivery roadmap: [`docs/PRODUCT_VISION.md`](docs/PRODUCT_VISION.md)
 - Setup, environment variables, and common commands: [`AGENTS.md`](AGENTS.md)

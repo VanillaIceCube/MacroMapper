@@ -125,26 +125,13 @@ excludes auto-add workflows from Project copies, so configure the required
 auto-add workflows for the target repository in the GitHub UI.
 
 ## 🚀 Deployment
-The production workflow now builds SHA-tagged images and deploys their immutable
-digests through the app-only staged transaction in
-[deploy/production](../deploy/production/README.md). It runs only for reviewed
-`env-prod` pushes or an explicitly authorized manual dispatch of that branch.
-Concurrency is serialized per repository with `cancel-in-progress: false`.
+The production workflow runs on `env-prod` pushes or a manual dispatch selecting
+that branch. It serializes runs with `cancel-in-progress: false` and pins every
+external action, including checkout, to an immutable commit SHA. Merging `main`
+does not activate it; production activation requires separate owner approval.
 
-It uploads into a unique private incoming directory; host/app locks protect
-recovery capture, SQLite backup/restore validation, migration and readiness.
-No app release ships TLS/vhosts, provisions networks, operates shared Nginx,
-runs cross-project cleanup, or selects `latest`. Old proxy-owning workflow
-behavior is superseded. Required access now includes a verified
-`DEPLOY_HOST_FINGERPRINT` and operator-provisioned private directories/locks.
-Full variables, stage/failure states and rollback commands are in the guide.
-
-Activate only after the approved host-ingress cutover. Shared decisions and
-the three-PR matrix live on [Infrastructure #4](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/issues/4).
-Architecture approval is recorded; each PR merge and each production plan still
-need separate explicit owner approval. Do not move `env-prod` or dispatch Deploy
-until the owner authorizes the exact production plan and gateway acceptance is
-recorded. Architecture approval alone never authorizes workflow activation.
+See the [canonical production guide](../deploy/production/README.md) for required
+variables/secrets, host preparation, activation order, release behavior and recovery.
 
 ## 📦 Dependabot
 `.github/dependabot.yml` checks npm, pip, GitHub Actions, and Docker dependencies
@@ -199,5 +186,3 @@ python -m unittest discover -s deploy/tests -v
 
 docker run --rm -v "${PWD}:/repo" --workdir /repo rhysd/actionlint:latest -color
 ```
-
-Production deployment pins every external action, including checkout v7, to an immutable commit SHA.

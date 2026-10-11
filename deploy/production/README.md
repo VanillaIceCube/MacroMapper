@@ -2,7 +2,7 @@
 
 This is the implementation of approved architecture v2. Every PR merge and
 every production release still requires separate explicit owner authorization.
-Agent 3 is the sole production operator. Shared decisions:
+The authorized host operator performs production actions. Shared decisions:
 [Infrastructure #4](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/issues/4).
 
 ## Boundary and activation order
@@ -19,9 +19,18 @@ Nginx, runs a whole-project down/remove-orphans, or prunes host images.
 
 The owner-approved sequence is gateway transfer, Notoli release and independent
 repeat verification, then MacroMapper release and repeat verification.
-MacroMapper no longer supplies a Notoli override or shared vhost. Source bridge
-source is removed from the repository (retained in Git history); preserve installed live copies until
-approved transfer/recovery is verified. Old script entrypoints now fail closed.
+MacroMapper no longer supplies a Notoli override or shared vhost. The retired
+bridge remains in Git history; preserve installed live copies until approved
+transfer/recovery is verified.
+
+The retired `scripts/deploy-production.sh` and
+`scripts/prepare-production-bundle.py` remain fail-closed compatibility stubs.
+No current checked-in workflow invokes them, but old release branches, external
+automation or operator commands could still do so. Remove them only after the
+host operator inventories those callers, disables or migrates every legacy
+caller, verifies the new release and recovery path, and confirms retained
+rollback procedures do not invoke them. Record that evidence in the deployment
+issue before removal; never restore the old shared-proxy behavior.
 
 ## CI inputs and private host preparation
 

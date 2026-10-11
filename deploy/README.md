@@ -1,15 +1,7 @@
-# Deployment guide
+# Local Docker development
 
-Production uses the [app-only release and recovery guide](production/README.md).
-The host-owned ingress implementation lives in JudeAndrewAlabaInfrastructure;
-MacroMapper releases manage only their backend/frontend, immutable images,
-private configuration and SQLite recovery. Activate after the separately
-approved gateway and Notoli transition under architecture v2.
-
-The [PR #239 audit](PR239-AUDIT.md) and [earlier handoff](PRODUCTION-LAUNCH-HANDOFF.md)
-are historical preparation. Obsolete bridge source is removed; Git history retains it.
-Do not run the retired scripts or standalone Compose on the shared host. Installed
-live bridge files remain in place until Agent 3's approved cutover and recovery.
+For shared-host deployment, use the [production release and recovery guide](production/README.md).
+The commands below operate local development stacks.
 
 ## Local Docker with `macromapper.localhost`
 
@@ -46,14 +38,22 @@ proxy and defaults to ports 80/443/8000/3000; override its `MACROMAPPER_*_PORT`
 variables when another local app owns those ports. Do not use this standalone
 command on the shared production host.
 
-## Routing and persistence
+## Local persistence and troubleshooting
 
-The host ingress routes `/` and SPA deep links to the frontend; `/auth/`, `/api/`,
-`/admin/` and Django static files go directly to the backend. Neither production
-app service publishes a host port. Both retain their existing private/egress
-networks, and unique ingress aliases prevent cross-app DNS collisions.
+Both local stacks use `deploy/db.sqlite3`; keep it when restarting containers.
+The hot-reload stack mounts the backend and frontend source trees. Ordinary
+source edits are picked up by Django/Vite; rebuild after dependency or Dockerfile
+changes. Never replace an existing database with an empty file during setup.
 
-SQLite remains `deploy/db.sqlite3` locally and `/opt/apps/macromapper/db.sqlite3`
-on the server. Keep one backend replica; use the production guide's explicit
-snapshot/restore transaction for recovery. Registration, email, AI and data-write
-acceptance require the separately approved operational test scope.
+Inspect the hot-reload stack from the repository root:
+
+```powershell
+docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml ps
+docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml logs --tail 100 backend frontend
+```
+
+If a port is occupied, set the `MACROMAPPER_DEV_*_PORT` variables above and
+recreate the local stack. For standalone HTTPS, use its `MACROMAPPER_*_PORT`
+variables instead and verify that the ignored certificate files exist. If the
+browser does not resolve `macromapper.localhost`, add a local hosts entry for
+`127.0.0.1 macromapper.localhost`.

@@ -1,11 +1,6 @@
 # 🛠️ MacroMapper Backend (Django)
 
 Production release ownership: use the [app-only release/recovery guide](../deploy/production/README.md).
-The new pipeline uses immutable image digests, protected staging/locks, full
-recovery and bounded readiness. Shared Nginx/certificates belong to the
-infrastructure repository. This supersedes legacy proxy-owning production
-instructions; local standalone development remains supported. Activation follows
-approved gateway cutover and separate merge/deployment authorization.
 
 MacroMapper is a personal nutrition and activity tracker. Its backend will
 support individual meal/activity histories, reusable Food Items and composite
