@@ -1,4 +1,4 @@
-import { MACRO_CALORIE_FIELDS, PRIMARY_NUTRIENT_FIELDS } from './nutritionDefinitions';
+import { MACRO_CALORIE_FIELDS, PRIMARY_NUTRIENT_FIELDS } from '../../domain/nutritionDefinitions';
 
 export const formatNutritionAmount = (amount) => {
   if (amount === null || amount === undefined || amount === '') return '—';

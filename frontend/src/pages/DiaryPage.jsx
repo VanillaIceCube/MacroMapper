@@ -75,7 +75,7 @@ import { ItemNutritionCards, NutritionCards } from '../components/nutrition/Nutr
 import {
   MACRO_CALORIE_FIELDS as macroCalorieFields,
   NUTRIENT_FIELDS as launchNutrients,
-} from '../components/nutrition/nutritionDefinitions';
+} from '../domain/nutritionDefinitions';
 import {
   formatNutritionAmount as formatAmount,
   formatWholeNutritionAmount as formatWholeAmount,
