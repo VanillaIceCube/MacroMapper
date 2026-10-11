@@ -1,7 +1,15 @@
 # Deployment guide
 
-Production uses Cloudflare → **Notoli's existing Nginx** → MacroMapper's private
-frontend/backend containers at `https://macromapper.judeandrewalaba.com`.
+The candidate bridge uses Cloudflare → **Notoli's existing Nginx** → MacroMapper's
+private frontend/backend at `https://macromapper.judeandrewalaba.com`.
+PR #239 was merged without owner authorization; these files and commands are
+**unapproved candidate procedures**, not evidence of current production state.
+[The audit](PR239-AUDIT.md) records recommendations and release/recovery gaps.
+[The coordination handoff](PRODUCTION-LAUNCH-HANDOFF.md) defines the required
+VM audit, contract review and separate owner approvals. The target is host-owned
+ingress outside both app release lifecycles, discussed on
+[Notoli #904](https://github.com/VanillaIceCube/Notoli/issues/904), with app work
+on [MacroMapper #240](https://github.com/VanillaIceCube/MacroMapper/issues/240).
 [#238](https://github.com/VanillaIceCube/MacroMapper/issues/238) covers the minimum
 launch prerequisites. Repository preparation and live acceptance are separate.
 
@@ -27,14 +35,17 @@ docker compose -f docker-compose.yml -f docker-compose.shared.yml logs --tail=10
 
 Use Compose **2.30 or newer**, including `!reset`/`!override` merge support and
 [`env_file.format: raw`](https://docs.docker.com/reference/compose-file/services/#env_file).
-The recorded Droplet version is 2.40.3. Raw environment files preserve literal
+An earlier handoff reported Droplet version 2.40.3; Agent 3 must verify it.
+Raw environment files preserve literal
 `$` and quotes in credentials. Do not source `.backend.env` in a shell.
 
 ## GitHub deployment settings
 
 The **Deploy** workflow runs on `env-prod` pushes, or manual dispatch selecting
-`env-prod`. Update that branch only from reviewed `main`; do not dispatch this
-PR's draft branch. It builds both images for that workflow's full commit SHA
+`env-prod`. Updating that branch can deploy immediately: obtain separate owner
+production authorization before updating it or dispatching Deploy. Review or
+merge approval alone does not authorize deployment. It builds both images for
+that workflow's full commit SHA
 and deploys `:sha-<commit>` references. Published `latest` tags are not selected
 by the deployment script.
 
@@ -95,8 +106,10 @@ Do not print credentials or reuse Notoli's application credentials.
 
 ## One-time setup on the existing Droplet
 
-These commands are for the deployment chat/operator after reviewing this PR.
-Repository preparation does not execute them or change live Notoli.
+This historical bridge procedure awaits the reconciled contract and an
+owner-approved deployment plan. PR review alone does not authorize these
+commands. Agent 3 is the sole production operator and must obtain explicit
+approval for the specific host changes before executing them.
 
 1. Confirm the existing Docker/Compose versions, deployment user, GHCR access,
    MacroMapper database location, and Origin CA files. Preserve any existing
@@ -163,9 +176,10 @@ live acceptance. Do not edit Notoli's source files or private-network setup.
 
 ## Cloudflare and TLS
 
-The proxied MacroMapper DNS record and **Full (strict)** were reported configured.
-The existing Origin CA certificate at `/root/apps/notoli/certs/origin.pem` and
-key at `origin.key` cover the application hostname. Confirm validity and mount
+An earlier handoff reported the proxied MacroMapper DNS record and **Full (strict)**.
+It also reported an Origin CA certificate at `/root/apps/notoli/certs/origin.pem`
+and key at `origin.key` covering the application hostname. Agent 3 must verify
+current DNS/TLS mode, certificate coverage, validity and mount
 before launch; keep the key owner-readable only (`0600`) and retain the existing
 Notoli TLS mount. MacroMapper CI does not upload TLS files, require Cloudflare
 TLS secrets, or replace Notoli's certificate.
@@ -200,7 +214,11 @@ refuses a directory/symlink at that path, and saves the previous release,
 credentials, and a consistent SQLite backup under `backups/<timestamp>-<pid>/`
 before migrations. Application directories/backups are `0700`; environment and
 database files are `0600`. There is no host-wide Docker pruning or Notoli
-container recreation in MacroMapper's deployment workflow.
+container recreation in MacroMapper's deployment workflow. However, the workflow
+uploads the vhost mounted in Notoli's proxy and the script reloads that shared
+proxy. These operations couple app releases to ingress and must be replaced
+after the shared contract is approved. Recovery currently omits old Compose,
+script and vhost files; retain the matching reviewed configuration separately.
 
 The backup container runs as the deployment user's UID/GID so that the recovery
 file remains owned by that user, including when deployment uses a non-root

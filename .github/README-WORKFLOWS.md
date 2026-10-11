@@ -125,6 +125,14 @@ excludes auto-add workflows from Project copies, so configure the required
 auto-add workflows for the target repository in the GitHub UI.
 
 ## 🚀 Deployment
+The PR #239 deployment implementation is an **unapproved candidate**. Its merge
+did not authorize its design or production use. See the
+[audit](../deploy/PR239-AUDIT.md) and [coordination handoff](../deploy/PRODUCTION-LAUNCH-HANDOFF.md).
+Shared-boundary changes require the reconciled owner-approved contract on
+[Notoli #904](https://github.com/VanillaIceCube/Notoli/issues/904).
+Each PR merge and production action require separate owner authorization;
+moving `env-prod` or dispatching Deploy can immediately change production.
+
 `.github/workflows/ci-deploy.yml` runs on `env-prod` pushes or manual dispatch
 selecting that branch. Deployments are serialized. It:
 
@@ -137,7 +145,11 @@ selecting that branch. Deployments are serialized. It:
 5. Starts only MacroMapper's backend/frontend and reloads Notoli's existing
    proxy. It neither recreates Notoli nor prunes host-wide Docker resources.
 
-One-time server setup installs the persistent Notoli override and external
+The current workflow uploads a vhost used by Notoli's proxy and reloads that
+proxy. This dependency must be replaced after contract approval to make app
+releases independent of the shared ingress lifecycle.
+
+The historical bridge setup installs the persistent Notoli override and external
 ingress network. The workflow fails if that prerequisite is missing. It uses
 the existing Notoli TLS mount and does not upload certificates/private keys.
 

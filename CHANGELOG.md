@@ -3,6 +3,17 @@ All notable changes to this project are documented in this file.
 
 ## 2026-10-11
 ### Added
+- Document the PR #239 component audit, release/recovery gaps, local evidence,
+  and reconciliation of the VM audit for MacroMapper #240 and Notoli #904.
+### Fixed
+- Correct deployment documentation that treated unauthorized PR #239 as approved
+  implementation or historical host reports as verified current production facts.
+### Changed
+- Consolidate the launch handoff into coordination checkpoints and distinguish
+  architecture, PR merge, and production authorization.
+
+## 2026-10-11
+### Added
 - Add shared production ingress artifacts that preserve Notoli's existing
   networks and route MacroMapper through its public proxy.
 - Save consistent SQLite and release recovery files before production migrations

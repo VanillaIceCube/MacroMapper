@@ -104,11 +104,14 @@ Manually add items from the catalog, or use AI to make adjustments!
 
 ## 📚 Documentation
 
-Production at `macromapper.judeandrewalaba.com` uses Notoli's public proxy with
-a persistent Compose override and a dedicated ingress network. MacroMapper
-deploys reviewed SHA-tagged images, keeps its SQLite file, and saves recovery
-files before migrations. See the [deployment guide](deploy/README.md) for
-one-time server setup, credentials, recovery, and pending live acceptance.
+The production candidate for `macromapper.judeandrewalaba.com` uses a bridge to
+Notoli's public proxy, SHA-tagged images, and pre-migration SQLite recovery.
+PR #239 was merged without owner authorization; it is not an approved design
+or proof of a live launch. [The audit](deploy/PR239-AUDIT.md) and
+[coordination handoff](deploy/PRODUCTION-LAUNCH-HANDOFF.md) track review against
+the target of host-owned shared ingress and independently deployable apps.
+See the [deployment guide](deploy/README.md) for candidate configuration and
+the separate architecture, merge and production approval gates.
 
 - Product vision and delivery roadmap: [`docs/PRODUCT_VISION.md`](docs/PRODUCT_VISION.md)
 - Setup, environment variables, and common commands: [`AGENTS.md`](AGENTS.md)
