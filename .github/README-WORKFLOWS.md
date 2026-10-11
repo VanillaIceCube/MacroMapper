@@ -125,47 +125,15 @@ excludes auto-add workflows from Project copies, so configure the required
 auto-add workflows for the target repository in the GitHub UI.
 
 ## 🚀 Deployment
-`.github/workflows/ci-deploy.yml` runs on `env-prod` pushes or manual dispatch
-selecting that branch. Deployments are serialized. It:
+The automation test gate verifies pinned shared-source parity before the common
+deployment tests; deployment builds also verify the standard before publishing.
+The production workflow runs on `env-prod` pushes or a manual dispatch selecting
+that branch. It serializes runs with `cancel-in-progress: false` and pins every
+external action, including checkout, to an immutable commit SHA. Merging `main`
+does not activate it; production activation requires separate owner approval.
 
-1. Validates required access, application credentials, and same-origin routing;
-   stages private raw environment files without printing secrets.
-2. Builds and publishes both GHCR images for the selected full SHA.
-3. Uploads the shared-ingress configuration and private staged environment.
-4. Pulls `sha-<commit>` images, stops MacroMapper's backend, saves consistent
-   SQLite/release recovery files, checks production settings, and migrates.
-5. Starts only MacroMapper's backend/frontend and reloads Notoli's existing
-   proxy. It neither recreates Notoli nor prunes host-wide Docker resources.
-
-One-time server setup installs the persistent Notoli override and external
-ingress network. The workflow fails if that prerequisite is missing. It uses
-the existing Notoli TLS mount and does not upload certificates/private keys.
-
-Repository variables:
-
-- `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PATH`, optional `DEPLOY_PORT`
-- `DJANGO_ALLOWED_HOSTS`, `DJANGO_CORS_ALLOWED_ORIGINS`, `DJANGO_CSRF_TRUSTED_ORIGINS`
-- optional `DJANGO_FORCE_SCRIPT_NAME`
-- `DJANGO_FRONTEND_BASE_URL`, `DJANGO_EMAIL_BACKEND`, `DJANGO_EMAIL_TIMEOUT`, `DJANGO_DEFAULT_FROM_EMAIL`
-- `OPENAI_MEAL_ESTIMATION_MODEL`, `OPENAI_MEAL_ESTIMATION_TIMEOUT`
-- optional SMTP settings `DJANGO_EMAIL_HOST`, `DJANGO_EMAIL_PORT`,
-  `DJANGO_EMAIL_USE_TLS`, `DJANGO_EMAIL_HOST_USER`
-- `VITE_API_BASE_URL` must be empty
-
-The bundle fixes `DJANGO_DEBUG=0` and `DJANGO_SQLITE_PATH=/backend/db.sqlite3`.
-
-Repository secrets:
-
-- `DEPLOY_SSH_KEY`
-- `DJANGO_SECRET_KEY`
-- `DJANGO_EMAIL_HOST_KEY`
-- `MACROMAPPER_OPENAI_API_KEY` (separate from the AI-review credential)
-
-See `deploy/README.md` for server and Cloudflare details.
-
-The host's deployment user separately needs GHCR package-read access. Publishing
-uses `GITHUB_TOKEN`; SSH uses `DEPLOY_SSH_KEY`; runtime OpenAI and Resend keys
-remain MacroMapper-specific and separate from review/Notoli credentials.
+See the [canonical production guide](../deploy/production/README.md) for required
+variables/secrets, host preparation, activation order, release behavior and recovery.
 
 ## 📦 Dependabot
 `.github/dependabot.yml` checks npm, pip, GitHub Actions, and Docker dependencies
@@ -220,3 +188,9 @@ python -m unittest discover -s deploy/tests -v
 
 docker run --rm -v "${PWD}:/repo" --workdir /repo rhysd/actionlint:latest -color
 ```
+
+AI review context includes bounded recent owner/collaborator reviews and replies to prior findings as discussion evidence. Prior bot verdicts must be rechecked against current source/scanners; the diff legend distinguishes active added/context lines from deleted old code. This does not change reviewer verdict rules or authorize merges/deployments.
+
+External GitHub Actions use immutable commit SHAs with version comments.
+Keep that convention when updating workflows or composite actions; preserve
+review/scanner failure gates and do not treat action updates as deployment approval.

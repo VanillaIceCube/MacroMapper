@@ -2,6 +2,51 @@
 All notable changes to this project are documented in this file.
 
 ## 2026-10-11
+### Fixed
+- Adopt the shared release client identity so Cloudflare accepts public readiness probes without changing edge protections or response checks.
+
+## 2026-10-11
+### Fixed
+- Pin remaining external CI/composite actions to their existing version commits without upgrading action versions or changing gates.
+- Remove stale production proxy instructions from agent guidance, align operator authorization and verify tracked documentation links and anchors.
+
+## 2026-10-11
+### Added
+- Enforce pinned shared-source parity for release tools, workflow stages and five equivalent deployment test modules.
+- Verify app-specific readiness/configuration, offline recovery packaging and rejection of shared code/test/workflow drift.
+### Fixed
+- Include owner/reviewer replies and explicit deleted-line context when reconciling prior AI findings; preserve independent scanner and review gates.
+### Changed
+- Isolate deployment policy in `app.json`; remove unreachable cross-application branches while preserving transaction and recovery safeguards.
+- Use one canonical production guide and retain local Docker instructions separately.
+
+## 2026-10-11
+### Added
+- Add app-only production Compose, immutable digest bundles, protected maintenance/app locks, complete configuration/image/environment/SQLite recovery, explicit rollback and bounded readiness checks.
+- Validate raw credentials and Compose boundaries with disposable containers, and exercise SQLite/failure recovery and lock contention on Linux.
+### Changed
+- Consolidate production instructions in `deploy/production/README.md`; focus `deploy/README.md` on local Docker and link other guides to the canonical instructions.
+- Pin every external production deployment action, including checkout, to an immutable commit SHA.
+- Serialize production releases and stage each CI attempt privately; activate only after the approved host-owned ingress cutover.
+### Removed
+- Move PR-specific audit and coordination documents into issue #240, preserving their history outside the permanent deployment guides.
+- Remove obsolete shared-proxy/Notoli-override source files; retain historical versions in Git and preserve the local hot-reload stack.
+- Remove shared Nginx/certificate lifecycle and mutable production image selection from the app deployment workflow.
+
+## 2026-10-11
+### Added
+- Document the PR #239 component audit, release/recovery gaps, local evidence,
+  and reconciliation of the VM audit for MacroMapper #240 and Notoli #904.
+### Fixed
+- Correct deployment documentation that treated unauthorized PR #239 as approved
+  implementation or historical host reports as verified current production facts.
+### Changed
+- Move shared coordination to Infrastructure #4 and record Agent 5 ownership,
+  the refreshed Agent 3 audit and proposed v2 contract without implying approval.
+- Consolidate the launch handoff into coordination checkpoints and distinguish
+  architecture, PR merge, and production authorization.
+
+## 2026-10-11
 ### Added
 - Add shared production ingress artifacts that preserve Notoli's existing
   networks and route MacroMapper through its public proxy.

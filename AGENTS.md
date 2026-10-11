@@ -1,4 +1,11 @@
 # AGENTS.md
+
+Production release ownership: use the [app-only release/recovery guide](deploy/production/README.md).
+Common release code/tests and workflow stages are pinned to the Infrastructure
+release standard. Update the shared source, then synchronize both applications;
+CI's parity check rejects independent vendor edits. App policy lives in
+`deploy/production/app.json`; preserve its intentional network/readiness differences.
+
 MacroMapper uses manual setup steps; do not assume Django or Node dependencies are installed.
 
 When setup, routing, environment variables, deployment, or CI/CD changes, update the relevant documentation:
@@ -87,7 +94,12 @@ Cloudflare and an origin Nginx proxy.
 - GHCR images: `macromapper-backend` and `macromapper-frontend`
 - Deployment path: `/opt/apps/macromapper`
 
-Review `deploy/nginx-proxy.conf`, the deploy workflow, Cloudflare settings, and all allowlist/base-URL variables whenever domains or routes change.
+For production domain or route changes, review the Infrastructure gateway/vhosts,
+the app release configuration and allowlist/base-URL variables.
+`deploy/nginx-proxy.conf` and `deploy/docker-compose.yml` are local/legacy-only;
+use the [local Docker guide](deploy/README.md) for hot reload and standalone HTTPS.
+Production operations follow only the [app release guide](deploy/production/README.md)
+and the separately authorized Infrastructure plan.
 
 ## GitHub automation
 MacroMapper automation includes lint, tests, CodeQL, dependency review, npm
@@ -95,3 +107,7 @@ malware review, Dependabot auto-merge, AI PR reviewers, deployment, and
 scheduled security-alert aggregation.
 
 Secret-dependent workflows must fail visibly when their credentials are unavailable. Keep GitHub App permissions and the credential separation described in `.github/README-WORKFLOWS.md`.
+
+External GitHub Actions use immutable commit SHAs with version comments.
+Keep that convention when updating workflows or composite actions; preserve
+review/scanner failure gates and do not treat action updates as deployment approval.
