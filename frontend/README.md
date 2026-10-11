@@ -12,9 +12,13 @@ and release sequence.
 ## 🧭 Visual system
 
 The frontend uses the Field Atlas direction described in
-[`docs/design/FIELD_ATLAS.md`](../docs/design/FIELD_ATLAS.md). Shared theme
+[`docs/design/FIELD_ATLAS.md`](docs/design/FIELD_ATLAS.md). Shared theme
 configuration lives in `src/theme.js`, with matching semantic CSS tokens in
 `src/App.css`.
+
+Design mockups live alongside the guide in `docs/design/`, and the root README's
+application screenshots live in `docs/images/`. These documentation files are
+excluded from Docker build contexts.
 
 - Bone and warm paper surfaces keep the application calm and editorial.
 - Midnight ink provides text and structural contrast.
