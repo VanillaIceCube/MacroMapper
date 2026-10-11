@@ -18,20 +18,16 @@ services:
       - backend
 
   backend:
-    image: ghcr.io/vanillaicecube/macromapper-backend:latest
+    image: ${MACROMAPPER_BACKEND_IMAGE:-ghcr.io/vanillaicecube/macromapper-backend:latest}
     container_name: macromapper-backend
     volumes:
       - ./db.sqlite3:/backend/db.sqlite3
-    ports:
-      - "${MACROMAPPER_BACKEND_PORT:-8000}:8000"
     env_file: .env
     restart: always
 
   frontend:
-    image: ghcr.io/vanillaicecube/macromapper-frontend:latest
+    image: ${MACROMAPPER_FRONTEND_IMAGE:-ghcr.io/vanillaicecube/macromapper-frontend:latest}
     container_name: macromapper-frontend
-    ports:
-      - "${MACROMAPPER_FRONTEND_PORT:-3000}:80"
     restart: always
     depends_on:
       - backend

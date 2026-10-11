@@ -116,3 +116,11 @@ Manually add items from the catalog, or use AI to make adjustments!
 ## 📜 License
 This project is licensed under a **Modified MIT License (Non-Commercial Use
 Only)**. See [`LICENSE.md`](LICENSE.md) for full details.
+
+## Production launch
+
+The initial production release keeps the current stack and features. See
+[the deployment runbook](deploy/README.md#production-safety-and-rollback) for
+private container ports, required production settings, AI request limits,
+SQLite backups, and rollback. A shared Droplet needs a hostname route through
+its existing Nginx ingress before this application can be exposed.

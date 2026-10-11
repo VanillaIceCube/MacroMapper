@@ -384,10 +384,17 @@ class OpenAIMealEstimationProvider:
         self.client = client or OpenAI(
             api_key=settings.OPENAI_API_KEY,
             timeout=settings.OPENAI_MEAL_ESTIMATION_TIMEOUT,
+            max_retries=0,
         )
+
+    def _reserve_request(self):
+        from .limits import reserve_ai_request
+
+        reserve_ai_request()
 
     def extract_intents(self, description: str) -> dict:
         try:
+            self._reserve_request()
             response = self.client.responses.parse(
                 model=self.model,
                 input=[
@@ -403,6 +410,8 @@ class OpenAIMealEstimationProvider:
                 ],
                 text_format=MealSearchPlan,
                 store=False,
+                max_output_tokens=settings.OPENAI_MEAL_ESTIMATION_MAX_OUTPUT_TOKENS,
+                max_tool_calls=2,
             )
             parsed = response.output_parsed
             if parsed is None:
@@ -425,6 +434,7 @@ class OpenAIMealEstimationProvider:
 
     def generate_name(self, items: list[dict]) -> str:
         try:
+            self._reserve_request()
             response = self.client.responses.parse(
                 model=self.model,
                 input=[
@@ -440,6 +450,8 @@ class OpenAIMealEstimationProvider:
                 ],
                 text_format=GeneratedMealName,
                 store=False,
+                max_output_tokens=settings.OPENAI_MEAL_ESTIMATION_MAX_OUTPUT_TOKENS,
+                max_tool_calls=2,
             )
             parsed = response.output_parsed
             if parsed is None:
@@ -456,6 +468,7 @@ class OpenAIMealEstimationProvider:
 
     def estimate(self, description: str) -> dict:
         try:
+            self._reserve_request()
             response = self.client.responses.parse(
                 model=self.model,
                 tools=[{"type": "web_search"}],
@@ -465,6 +478,8 @@ class OpenAIMealEstimationProvider:
                 ],
                 text_format=EstimatedMeal,
                 store=False,
+                max_output_tokens=settings.OPENAI_MEAL_ESTIMATION_MAX_OUTPUT_TOKENS,
+                max_tool_calls=2,
             )
             parsed = response.output_parsed
             if parsed is None:
@@ -504,6 +519,7 @@ class OpenAIMealEstimationProvider:
             "follow_up_request": follow_up,
         }
         try:
+            self._reserve_request()
             response = self.client.responses.parse(
                 model=self.model,
                 tools=[{"type": "web_search"}],
@@ -520,6 +536,8 @@ class OpenAIMealEstimationProvider:
                 ],
                 text_format=EstimatedMealFollowUp,
                 store=False,
+                max_output_tokens=settings.OPENAI_MEAL_ESTIMATION_MAX_OUTPUT_TOKENS,
+                max_tool_calls=2,
             )
             parsed = response.output_parsed
             if parsed is None:

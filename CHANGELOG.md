@@ -2,7 +2,14 @@
 All notable changes to this project are documented in this file.
 
 ## 2026-10-10
+### Added
+- Add a persistent daily AI request budget, bounded AI output/tool calls,
+  authentication throttling, and a verified SQLite backup helper.
 ### Fixed
+- Keep production frontend/backend ports private, overwrite forwarded protocol
+  headers at Nginx, and enforce production HTTPS/cookie settings and allowlists.
+- Pin deployments to the release commit, serialize releases, restrict secret
+  file access, initialize SQLite safely, and back up before migrations.
 - Ignore the entire local Codex ticket-body and TLS certificate folders so
   VS Code can apply its ignored-resource color to the folders and their contents.
 - Clean up failed and temporary meal-adjustment proposals consistently and retain
@@ -26,6 +33,7 @@ All notable changes to this project are documented in this file.
 - Move GitHub setup and recovery documentation into `.github/` alongside the
   workflow guide, and update documentation links.
 ### Removed
+- Remove deployment's host-wide Docker prune operation.
 - Remove unused YAML dependencies and the unused catalog-match wrapper from
   the backend.
 - Remove the unused ASGI server entry point; backend deployment uses Gunicorn

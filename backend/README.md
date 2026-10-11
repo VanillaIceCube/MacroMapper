@@ -318,3 +318,13 @@ python backend/manage.py test
 ruff check backend
 ruff format backend --check
 ```
+
+## Production safeguards
+
+With `DJANGO_DEBUG=0`, provide an explicit `DJANGO_ALLOWED_HOSTS` and a strong
+`DJANGO_SECRET_KEY` (50+ characters). HTTPS redirects and secure cookies are
+enabled. Authentication is limited to 10 requests/minute per origin-visible IP.
+AI attempts use a persisted site-wide 200/day budget, with output and tool-call
+caps and no automatic retries. The usage-table migration is required. See
+[the deployment runbook](../deploy/README.md#production-safety-and-rollback)
+for limits, deliberate HSTS choices, and recovery.

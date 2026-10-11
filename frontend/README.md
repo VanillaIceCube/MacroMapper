@@ -187,3 +187,9 @@ npm run lint:strict
 npm run format:check
 npm run build
 ```
+
+## Production ingress
+
+Keep `VITE_API_BASE_URL` empty for same-origin production. The frontend has
+no public host port in production Compose; use the Nginx ingress. API keys
+belong only to the backend environment. See [deployment](../deploy/README.md).

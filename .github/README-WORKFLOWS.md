@@ -201,3 +201,12 @@ the first CI run when creating or recovering the ruleset.
 node --test .github/actions/collect-upstream-major-upgrade-evidence/collect-upstream-major-upgrade-evidence.test.js .github/actions/collect-codeql-evidence/collect-codeql-evidence.test.js .github/actions/publish-ai-review/publish-ai-review.test.js .github/actions/security-alerts/sync-security-alerts.test.js
 docker run --rm -v "${PWD}:/repo" --workdir /repo rhysd/actionlint:latest -color
 ```
+
+## Deployment safety
+
+Deployments are serialized, use commit-tagged GHCR images, force production
+settings, run Django deployment checks, and stop writes for an SQLite-consistent
+pre-migration backup. Secrets and TLS keys are permission-restricted; no
+host-wide Docker pruning runs. A missing database is initialized without
+truncating persisted data. `deployed-sha` records the revision. See
+[the recovery runbook](../deploy/README.md#production-safety-and-rollback).

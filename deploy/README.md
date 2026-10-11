@@ -99,7 +99,8 @@ variables so they can be changed without rebuilding application code.
    ```
 
 The deployment workflow uploads Compose, Nginx, and TLS files; writes `.env`;
-pulls the latest GHCR images; recreates containers; and runs migrations.
+pulls GHCR images tagged with the reviewed commit SHA; checks production settings;
+backs up an existing database with writes stopped; runs migrations; and recreates containers.
 DigitalOcean’s current production guidance recommends SSH key authentication,
 a non-root sudo user, cloud firewalls, monitoring, and backups:
 [production-ready Droplet setup](https://docs.digitalocean.com/products/droplets/getting-started/recommended-droplet-setup/).
@@ -218,13 +219,12 @@ to the repository's ignored `certs/` folder. It is optional for HTTP development
 Open `https://macromapper.localhost`.
 
 The Compose project is named `macromapper`. Defaults are ports
-80/443/8000/3000. MacroMapper owns its own proxy and can be run
+80/443. MacroMapper owns its own proxy and can be run
 independently of other application repositories.
 
 Open `https://macromapper.localhost` after starting the stack. If another
-application already owns ports 80/443, override this application's proxy,
-backend, and frontend host ports in `deploy/.env` and use that application's
-direct host ports instead.
+application already owns ports 80/443, use a shared Nginx hostname route or an explicitly configured internal origin.
+Do not publish the frontend or backend directly to work around an ingress conflict.
 
 ## Routing and persistence
 Nginx routes:
@@ -237,3 +237,82 @@ SQLite persists at `deploy/db.sqlite3` locally and in the deployment directory
 on the server. Back up that file before destructive server maintenance. Replace
 SQLite with a managed database before scaling MacroMapper to multiple backend
 replicas.
+
+## Production safety and rollback
+
+Only the proxy publishes host ports. Backend and frontend communicate on the
+Compose network. Nginx overwrites forwarded protocol/client headers, and adds
+`Cache-Control: no-store` to authentication, API, and admin responses. Cloudflare
+must also bypass caching these routes. Production forces `DJANGO_DEBUG=0`,
+requires an explicit hostname allowlist and a secret of at least 50 characters,
+enables HTTPS redirects and secure cookies, and starts HSTS at one hour.
+HSTS does not extend to subdomains and is not preloaded; Django warnings W005
+and W021 are intentionally silenced for those two choices only.
+
+Authentication requests share a limit of 10/minute per origin-visible client
+IP. It uses Django's process-local cache with the existing single Gunicorn
+worker; a restart resets the short-term authentication limit. When configuring
+Cloudflare client IP restoration, trust only verified Cloudflare proxy ranges,
+never arbitrary request headers. Without client IP restoration this limit is
+shared by users arriving from the same Cloudflare edge IP.
+
+All four AI operations share a persisted, site-wide budget of 200 provider
+attempts per UTC day. Failed attempts count. Set
+`OPENAI_MEAL_ESTIMATION_DAILY_REQUEST_LIMIT` in the server environment to adjust
+it (0 disables the cap; do not disable it for a public release). Each response
+is capped at 8192 output/reasoning tokens and two built-in tool calls; SDK
+automatic retries are disabled. `OPENAI_MEAL_ESTIMATION_MAX_OUTPUT_TOKENS`
+adjusts the output cap. Catalog/manual logging remains available when the
+budget is exhausted. Set project spending alerts separately in OpenAI.
+
+The workflow serializes deployments, pins both images to `sha-COMMIT`, records
+`deployed-sha`, sets restrictive secret/key permissions, initializes a missing
+database file without truncating an existing one, and never prunes Docker.
+Deployments have a brief write outage while the backend is stopped for backup
+and migrations. A failed migration can leave the backend stopped; use the
+recovery procedure before reopening access.
+
+A pre-deployment SQLite backup is created in `backups/`. To make a consistent
+manual backup, stop writes first (the existing single-file bind mount does not
+share SQLite journal sidecars with the host), then use the SQLite backup API:
+
+```bash
+cd /opt/apps/macromapper
+docker compose stop backend
+python3 sqlite-backup.py db.sqlite3 "backups/manual-$(date -u +%Y%m%dT%H%M%S).sqlite3"
+docker compose up -d backend
+```
+
+For an automatic daily backup, schedule the same sequence through a root-owned
+systemd service/timer or cron, with failure reporting. Transfer each verified
+backup to independent storage using an administrator-configured backup target.
+A local backup alone does not satisfy disaster recovery. Test a restore into an
+isolated stack before release, and record the off-host destination and schedule.
+Neither an independent backup destination nor a production schedule is assumed
+by the deployment workflow.
+
+For rollback, keep a copy of the previous release's Compose/Nginx configuration
+and restricted `.env`. Stop the stack, retain a backup of its current database,
+restore the matching pre-deployment database if migrations changed the schema,
+and set `MACROMAPPER_BACKEND_IMAGE` and `MACROMAPPER_FRONTEND_IMAGE` to the
+previous `sha-COMMIT` tags. Restore the matching configuration, pull the images,
+and run `docker compose up -d`. Never run `down -v` or overwrite a live database.
+Restoring a database discards writes made since that snapshot; make that decision
+explicitly. Verify logs, routing, login, and diary data before reopening traffic.
+
+## Initial Droplet assessment (2026-10-10)
+
+The existing `jude-droplet` at `64.23.173.170` can be considered for reuse. It has
+2 GiB RAM and approximately 17 GiB free disk at assessment time. Notoli's Docker
+Nginx already owns 80/443, so the standalone MacroMapper proxy cannot bind those
+ports. Add a reviewed hostname route to the shared ingress before deployment;
+keep the apps' backend networks and secrets separate. The existing Origin CA
+certificate includes `*.judeandrewalaba.com` and is valid through 2041.
+
+At assessment time, MacroMapper DNS did not resolve, the `deploy` account and
+application directory were absent, no `env-prod` branch or backend `latest`
+GHCR manifest was found, and MacroMapper integration credentials were not
+available in a local environment file. Infrastructure account settings (cloud
+firewall, backups, monitoring, Full strict mode, Resend domain verification,
+Actions variables/secrets and branch protection) still require verification.
+This assessment is not a production release record.

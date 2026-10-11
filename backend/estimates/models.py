@@ -116,3 +116,10 @@ class MealProposalRevision(models.Model):
 
     def __str__(self):
         return f"{self.proposal} revision {self.revision_number}"
+
+
+class DailyAIUsage(models.Model):
+    """Persistent site-wide request budget, including failed provider attempts."""
+
+    date = models.DateField(primary_key=True)
+    requests = models.PositiveIntegerField(default=0)

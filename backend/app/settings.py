@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 import os
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -33,10 +34,36 @@ ALLOWED_HOSTS = ["localhost", "127.0.0.1", "macromapper.localhost"]
 
 extra_hosts = os.getenv("DJANGO_ALLOWED_HOSTS")
 if extra_hosts:
-    ALLOWED_HOSTS.extend(extra_hosts.split(","))
+    ALLOWED_HOSTS.extend(
+        host.strip() for host in extra_hosts.split(",") if host.strip()
+    )
+
+if not DEBUG:
+    if not os.environ.get("DJANGO_SECRET_KEY") or len(SECRET_KEY) < 50:
+        raise ImproperlyConfigured(
+            "Production requires a DJANGO_SECRET_KEY of at least 50 characters."
+        )
+    ALLOWED_HOSTS = [
+        host.strip() for host in (extra_hosts or "").split(",") if host.strip()
+    ]
+    if not ALLOWED_HOSTS or "*" in ALLOWED_HOSTS:
+        raise ImproperlyConfigured("Production requires explicit DJANGO_ALLOWED_HOSTS.")
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_HOST = False
+
+# Nginx overwrites the protocol header and only Nginx can reach the backend.
+SECURE_SSL_REDIRECT = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SECURE_HSTS_SECONDS = int(
+    os.getenv("DJANGO_SECURE_HSTS_SECONDS", "3600" if not DEBUG else "0")
+)
+# Do not apply HSTS to sibling applications or request browser preloading.
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+SECURE_HSTS_PRELOAD = False
+# Preloading and extending HSTS beyond this application are deliberate opt-outs.
+SILENCED_SYSTEM_CHECKS = ["security.W005", "security.W021"]
 
 FORCE_SCRIPT_NAME = os.getenv("DJANGO_FORCE_SCRIPT_NAME")
 if FORCE_SCRIPT_NAME:
@@ -95,6 +122,10 @@ CORS_ALLOWED_ORIGINS = [
 extra_origins = os.getenv("DJANGO_CORS_ALLOWED_ORIGINS")
 if extra_origins:
     CORS_ALLOWED_ORIGINS.extend(extra_origins.split(","))
+if not DEBUG:
+    CORS_ALLOWED_ORIGINS = [
+        origin.strip() for origin in (extra_origins or "").split(",") if origin.strip()
+    ]
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
@@ -107,6 +138,12 @@ CSRF_TRUSTED_ORIGINS = [
 extra_csrf_origins = os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS")
 if extra_csrf_origins:
     CSRF_TRUSTED_ORIGINS.extend(extra_csrf_origins.split(","))
+if not DEBUG:
+    CSRF_TRUSTED_ORIGINS = [
+        origin.strip()
+        for origin in (extra_csrf_origins or "").split(",")
+        if origin.strip()
+    ]
 
 
 REST_FRAMEWORK = {
@@ -219,3 +256,20 @@ OPENAI_MEAL_ESTIMATION_MODEL = os.getenv("OPENAI_MEAL_ESTIMATION_MODEL", "gpt-5.
 OPENAI_MEAL_ESTIMATION_TIMEOUT = float(
     os.getenv("OPENAI_MEAL_ESTIMATION_TIMEOUT", "45")
 )
+
+# A site-wide persisted budget prevents signup churn and restarts bypassing cost limits.
+OPENAI_MEAL_ESTIMATION_DAILY_REQUEST_LIMIT = int(
+    os.getenv("OPENAI_MEAL_ESTIMATION_DAILY_REQUEST_LIMIT", "200" if not DEBUG else "0")
+)
+OPENAI_MEAL_ESTIMATION_MAX_OUTPUT_TOKENS = int(
+    os.getenv("OPENAI_MEAL_ESTIMATION_MAX_OUTPUT_TOKENS", "8192")
+)
+
+REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = [
+    "authentication.throttles.AuthenticationThrottle",
+]
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {"auth": "10/min"}
+# Ignore supplied X-Forwarded-For when identifying authentication clients.
+REST_FRAMEWORK["NUM_PROXIES"] = 0
+
+AUTHENTICATION_THROTTLE_ENABLED = not DEBUG
