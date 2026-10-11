@@ -7,7 +7,7 @@ private configuration and SQLite recovery. Activate after the separately
 approved gateway and Notoli transition under architecture v2.
 
 The [PR #239 audit](PR239-AUDIT.md) and [earlier handoff](PRODUCTION-LAUNCH-HANDOFF.md)
-are historical preparation. Retired bridge configuration lives in [legacy/](legacy/README.md).
+are historical preparation. Obsolete bridge source is removed; Git history retains it.
 Do not run the retired scripts or standalone Compose on the shared host. Installed
 live bridge files remain in place until Agent 3's approved cutover and recovery.
 
