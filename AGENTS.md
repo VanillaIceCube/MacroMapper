@@ -1,4 +1,12 @@
 # AGENTS.md
+
+Production release ownership: use the [app-only release/recovery guide](deploy/production/README.md).
+The new pipeline uses immutable image digests, protected staging/locks, full
+recovery and bounded readiness. Shared Nginx/certificates belong to the
+infrastructure repository. This supersedes legacy proxy-owning production
+instructions; local standalone development remains supported. Activation follows
+approved gateway cutover and separate merge/deployment authorization.
+
 MacroMapper uses manual setup steps; do not assume Django or Node dependencies are installed.
 
 When setup, routing, environment variables, deployment, or CI/CD changes, update the relevant documentation:

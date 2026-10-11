@@ -125,59 +125,24 @@ excludes auto-add workflows from Project copies, so configure the required
 auto-add workflows for the target repository in the GitHub UI.
 
 ## 🚀 Deployment
-The PR #239 deployment implementation is an **unapproved candidate**. Its merge
-did not authorize its design or production use. See the
-[audit](../deploy/PR239-AUDIT.md) and [coordination handoff](../deploy/PRODUCTION-LAUNCH-HANDOFF.md).
-Shared-boundary changes require the reconciled owner-approved contract on
-[Infrastructure #4](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/issues/4).
-Each PR merge and production action require separate owner authorization;
-moving `env-prod` or dispatching Deploy can immediately change production.
+The production workflow now builds SHA-tagged images and deploys their immutable
+digests through the app-only staged transaction in
+[deploy/production](../deploy/production/README.md). It runs only for reviewed
+`env-prod` pushes or an explicitly authorized manual dispatch of that branch.
+Concurrency is serialized per repository with `cancel-in-progress: false`.
 
-`.github/workflows/ci-deploy.yml` runs on `env-prod` pushes or manual dispatch
-selecting that branch. Deployments are serialized. It:
+It uploads into a unique private incoming directory; host/app locks protect
+recovery capture, SQLite backup/restore validation, migration and readiness.
+No app release ships TLS/vhosts, provisions networks, operates shared Nginx,
+runs cross-project cleanup, or selects `latest`. Old proxy-owning workflow
+behavior is superseded. Required access now includes a verified
+`DEPLOY_HOST_FINGERPRINT` and operator-provisioned private directories/locks.
+Full variables, stage/failure states and rollback commands are in the guide.
 
-1. Validates required access, application credentials, and same-origin routing;
-   stages private raw environment files without printing secrets.
-2. Builds and publishes both GHCR images for the selected full SHA.
-3. Uploads the shared-ingress configuration and private staged environment.
-4. Pulls `sha-<commit>` images, stops MacroMapper's backend, saves consistent
-   SQLite/release recovery files, checks production settings, and migrates.
-5. Starts only MacroMapper's backend/frontend and reloads Notoli's existing
-   proxy. It neither recreates Notoli nor prunes host-wide Docker resources.
-
-The current workflow uploads a vhost used by Notoli's proxy and reloads that
-proxy. This dependency must be replaced after contract approval to make app
-releases independent of the shared ingress lifecycle.
-
-The historical bridge setup installs the persistent Notoli override and external
-ingress network. The workflow fails if that prerequisite is missing. It uses
-the existing Notoli TLS mount and does not upload certificates/private keys.
-
-Repository variables:
-
-- `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PATH`, optional `DEPLOY_PORT`
-- `DJANGO_ALLOWED_HOSTS`, `DJANGO_CORS_ALLOWED_ORIGINS`, `DJANGO_CSRF_TRUSTED_ORIGINS`
-- optional `DJANGO_FORCE_SCRIPT_NAME`
-- `DJANGO_FRONTEND_BASE_URL`, `DJANGO_EMAIL_BACKEND`, `DJANGO_EMAIL_TIMEOUT`, `DJANGO_DEFAULT_FROM_EMAIL`
-- `OPENAI_MEAL_ESTIMATION_MODEL`, `OPENAI_MEAL_ESTIMATION_TIMEOUT`
-- optional SMTP settings `DJANGO_EMAIL_HOST`, `DJANGO_EMAIL_PORT`,
-  `DJANGO_EMAIL_USE_TLS`, `DJANGO_EMAIL_HOST_USER`
-- `VITE_API_BASE_URL` must be empty
-
-The bundle fixes `DJANGO_DEBUG=0` and `DJANGO_SQLITE_PATH=/backend/db.sqlite3`.
-
-Repository secrets:
-
-- `DEPLOY_SSH_KEY`
-- `DJANGO_SECRET_KEY`
-- `DJANGO_EMAIL_HOST_KEY`
-- `MACROMAPPER_OPENAI_API_KEY` (separate from the AI-review credential)
-
-See `deploy/README.md` for server and Cloudflare details.
-
-The host's deployment user separately needs GHCR package-read access. Publishing
-uses `GITHUB_TOKEN`; SSH uses `DEPLOY_SSH_KEY`; runtime OpenAI and Resend keys
-remain MacroMapper-specific and separate from review/Notoli credentials.
+Activate only after the approved host-ingress cutover. Shared decisions and
+the three-PR matrix live on [Infrastructure #4](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/issues/4).
+Architecture approval is recorded; each PR merge and each production plan still
+need separate explicit owner approval. Moving `env-prod` can deploy immediately.
 
 ## 📦 Dependabot
 `.github/dependabot.yml` checks npm, pip, GitHub Actions, and Docker dependencies
