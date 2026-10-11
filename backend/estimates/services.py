@@ -795,16 +795,6 @@ def resolve_catalog_matches(*, description, user):
     }
 
 
-def find_catalog_matches(*, description, user):
-    return [
-        match["food"]
-        for match in resolve_catalog_matches(
-            description=description,
-            user=user,
-        )["matches"]
-    ]
-
-
 def _recalculate_item(item):
     item = dict(item)
     item["servings"] = str(_decimal(item.get("servings"), default="1"))

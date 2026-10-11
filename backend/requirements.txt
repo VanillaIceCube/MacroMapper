@@ -6,6 +6,4 @@ gunicorn==26.2.0
 python-dotenv==1.2.4
 openai==3.24.0
 pydantic==2.13.5
-PyYAML==6.0.3
-ruamel.yaml==0.19.1
 whitenoise==6.12.0

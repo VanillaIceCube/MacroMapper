@@ -19,6 +19,13 @@ All notable changes to this project are documented in this file.
 - Move GitHub setup and recovery documentation into `.github/` alongside the
   workflow guide, and update documentation links.
 ### Removed
+- Remove unused YAML dependencies and the unused catalog-match wrapper from
+  the backend.
+- Remove the unused ASGI server entry point; backend deployment uses Gunicorn
+  with WSGI.
+- Remove the unused Conda environment export helper, its command reference,
+  acknowledgment, and third-party license notice; maintain backend environment
+  and dependency definitions manually.
 - Remove unused frontend test helpers, the retired catalog-to-proposal adapter,
   and the legacy Create React App `browserslist` configuration.
 - Remove the unused frontend environment example; Docker development supplies

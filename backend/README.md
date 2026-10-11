@@ -17,7 +17,7 @@ snapshots. See the [product vision](../docs/PRODUCT_VISION.md) for the
 remaining roadmap.
 
 ## 🧭 Structure
-- `app/`: Django settings, URL routing, ASGI, and WSGI
+- `app/`: Django settings, URL routing, and the WSGI server entry point
 - `authentication/`: custom user, registration, login, refresh, password reset,
   and email delivery
 - `foods/`: reusable Food Items, immutable versions, components, nullable
@@ -31,6 +31,10 @@ remaining roadmap.
 - `environment.yml`: Conda environment definition
 - `requirements.txt`: pip dependencies used locally, in CI, and in Docker
 - `ruff.toml`: backend lint and formatting configuration
+
+Maintain the Python version in `environment.yml` and pip dependency versions in
+`requirements.txt` manually. Docker builds use both files; CI reads the Python
+version from `environment.yml` and installs dependencies from `requirements.txt`.
 
 Goals and activity remain separate planned apps. The `estimates` app uses the
 `foods` catalog, publishes deduplicated base AI definitions without proposal or

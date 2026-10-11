@@ -115,9 +115,3 @@ Manually add items from the catalog, or use AI to make adjustments!
 ## 📜 License
 This project is licensed under a **Modified MIT License (Non-Commercial Use
 Only)**. See [`LICENSE.md`](LICENSE.md) for full details.
-
-## 🙏 Acknowledgments
-This project includes code derived from
-[`conda_export.py`](https://github.com/andresberejnoi/Conda-Tools) by
-**Andres Berejnoi**, used under the terms of the original
-[MIT License](https://opensource.org/licenses/MIT).
