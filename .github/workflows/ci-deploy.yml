@@ -6,6 +6,10 @@ on:
       - env-prod
   workflow_dispatch:
 
+concurrency:
+  group: macromapper-production-deploy
+  cancel-in-progress: false
+
 permissions:
   contents: read
   packages: write
@@ -135,6 +139,7 @@ jobs:
 
           cp deploy/docker-compose.yml deploy_bundle/docker-compose.yml
           cp deploy/nginx-proxy.conf deploy_bundle/nginx-proxy.conf
+          cp deploy/sqlite-backup.py deploy_bundle/sqlite-backup.py
 
           # Write certs into the bundle if secrets exist.
           # Raw PEM is preferred here because ssh-action env vars don't reliably support multi-line values.
@@ -165,7 +170,7 @@ jobs:
           username: ${{ vars.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ steps.deploy_vars.outputs.deploy_port }}
-          source: "deploy_bundle/docker-compose.yml,deploy_bundle/nginx-proxy.conf"
+          source: "deploy_bundle/docker-compose.yml,deploy_bundle/nginx-proxy.conf,deploy_bundle/sqlite-backup.py"
           target: ${{ vars.DEPLOY_PATH }}
           strip_components: 1
           overwrite: true
@@ -212,9 +217,10 @@ jobs:
           port: ${{ steps.deploy_vars.outputs.deploy_port }}
           envs: DJANGO_DEBUG,DJANGO_SECRET_KEY,DJANGO_SQLITE_PATH,DJANGO_ALLOWED_HOSTS,DJANGO_CORS_ALLOWED_ORIGINS,DJANGO_CSRF_TRUSTED_ORIGINS,DJANGO_FORCE_SCRIPT_NAME,DJANGO_FRONTEND_BASE_URL,DJANGO_EMAIL_BACKEND,DJANGO_EMAIL_HOST,DJANGO_EMAIL_PORT,DJANGO_EMAIL_USE_TLS,DJANGO_EMAIL_HOST_USER,DJANGO_EMAIL_HOST_KEY,DJANGO_EMAIL_TIMEOUT,DJANGO_DEFAULT_FROM_EMAIL,MACROMAPPER_OPENAI_API_KEY,OPENAI_MEAL_ESTIMATION_MODEL,OPENAI_MEAL_ESTIMATION_TIMEOUT
           script: |
-            set -e
+            set -eu
+            umask 077
             cd "${{ vars.DEPLOY_PATH }}"
-            : "${DJANGO_DEBUG:=0}"
+            DJANGO_DEBUG=0
             : "${DJANGO_SQLITE_PATH:=/backend/db.sqlite3}"
             : "${DJANGO_FORCE_SCRIPT_NAME:=}"
             : "${OPENAI_MEAL_ESTIMATION_MODEL:=gpt-5.6-luna}"
@@ -229,29 +235,42 @@ jobs:
             chmod 600 certs/origin.key
 
             cat > .env <<EOF
-            DJANGO_DEBUG=$DJANGO_DEBUG
-            DJANGO_SECRET_KEY=$DJANGO_SECRET_KEY
-            DJANGO_SQLITE_PATH=$DJANGO_SQLITE_PATH
-            DJANGO_ALLOWED_HOSTS=$DJANGO_ALLOWED_HOSTS
-            DJANGO_CORS_ALLOWED_ORIGINS=$DJANGO_CORS_ALLOWED_ORIGINS
-            DJANGO_CSRF_TRUSTED_ORIGINS=$DJANGO_CSRF_TRUSTED_ORIGINS
-            DJANGO_FORCE_SCRIPT_NAME=$DJANGO_FORCE_SCRIPT_NAME
-            DJANGO_FRONTEND_BASE_URL=$DJANGO_FRONTEND_BASE_URL
-            DJANGO_EMAIL_BACKEND=$DJANGO_EMAIL_BACKEND
-            DJANGO_EMAIL_HOST=$DJANGO_EMAIL_HOST
-            DJANGO_EMAIL_PORT=$DJANGO_EMAIL_PORT
-            DJANGO_EMAIL_USE_TLS=$DJANGO_EMAIL_USE_TLS
-            DJANGO_EMAIL_HOST_USER=$DJANGO_EMAIL_HOST_USER
-            DJANGO_EMAIL_HOST_KEY=$DJANGO_EMAIL_HOST_KEY
-            DJANGO_EMAIL_TIMEOUT=$DJANGO_EMAIL_TIMEOUT
-            DJANGO_DEFAULT_FROM_EMAIL=$DJANGO_DEFAULT_FROM_EMAIL
-            MACROMAPPER_OPENAI_API_KEY=$MACROMAPPER_OPENAI_API_KEY
-            OPENAI_MEAL_ESTIMATION_MODEL=$OPENAI_MEAL_ESTIMATION_MODEL
-            OPENAI_MEAL_ESTIMATION_TIMEOUT=$OPENAI_MEAL_ESTIMATION_TIMEOUT
+            DJANGO_DEBUG=${DJANGO_DEBUG:-}
+            DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-}
+            DJANGO_SQLITE_PATH=${DJANGO_SQLITE_PATH:-}
+            DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-}
+            DJANGO_CORS_ALLOWED_ORIGINS=${DJANGO_CORS_ALLOWED_ORIGINS:-}
+            DJANGO_CSRF_TRUSTED_ORIGINS=${DJANGO_CSRF_TRUSTED_ORIGINS:-}
+            DJANGO_FORCE_SCRIPT_NAME=${DJANGO_FORCE_SCRIPT_NAME:-}
+            DJANGO_FRONTEND_BASE_URL=${DJANGO_FRONTEND_BASE_URL:-}
+            DJANGO_EMAIL_BACKEND=${DJANGO_EMAIL_BACKEND:-}
+            DJANGO_EMAIL_HOST=${DJANGO_EMAIL_HOST:-}
+            DJANGO_EMAIL_PORT=${DJANGO_EMAIL_PORT:-}
+            DJANGO_EMAIL_USE_TLS=${DJANGO_EMAIL_USE_TLS:-}
+            DJANGO_EMAIL_HOST_USER=${DJANGO_EMAIL_HOST_USER:-}
+            DJANGO_EMAIL_HOST_KEY=${DJANGO_EMAIL_HOST_KEY:-}
+            DJANGO_EMAIL_TIMEOUT=${DJANGO_EMAIL_TIMEOUT:-}
+            DJANGO_DEFAULT_FROM_EMAIL=${DJANGO_DEFAULT_FROM_EMAIL:-}
+            MACROMAPPER_OPENAI_API_KEY=${MACROMAPPER_OPENAI_API_KEY:-}
+            OPENAI_MEAL_ESTIMATION_MODEL=${OPENAI_MEAL_ESTIMATION_MODEL:-}
+            OPENAI_MEAL_ESTIMATION_TIMEOUT=${OPENAI_MEAL_ESTIMATION_TIMEOUT:-}
+            MACROMAPPER_BACKEND_IMAGE=${{ steps.image_names.outputs.backend_image }}:sha-${{ github.sha }}
+            MACROMAPPER_FRONTEND_IMAGE=${{ steps.image_names.outputs.frontend_image }}:sha-${{ github.sha }}
             MACROMAPPER_CERTS_DIR=./certs
             EOF
-            docker system prune -af
+            # A missing file bind mount would otherwise become a directory.
+            if [ ! -e db.sqlite3 ]; then touch db.sqlite3; fi
+            test -f db.sqlite3
+            chmod 600 .env db.sqlite3
             docker compose pull
+            docker compose run --rm backend python manage.py check --deploy --fail-level WARNING
+            # Stop writes so rollback snapshots include the journal state.
+            docker compose stop backend
+            if [ -s db.sqlite3 ]; then
+              python3 sqlite-backup.py db.sqlite3 "backups/predeploy-$(date -u +%Y%m%dT%H%M%S)-${{ github.sha }}.sqlite3"
+            fi
+            docker compose run --rm backend python manage.py migrate
             docker compose up -d --remove-orphans
             docker compose up -d --force-recreate proxy
-            docker compose exec -T backend python manage.py migrate
+            docker compose exec -T proxy nginx -t
+            printf '%s\n' '${{ github.sha }}' > deployed-sha
