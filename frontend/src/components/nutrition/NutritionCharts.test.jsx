@@ -189,4 +189,17 @@ describe('shared nutrition charts', () => {
     });
     expect(within(summary).getByText('95 kcal')).toBeVisible();
   });
+
+  test('renders empty state safely when contributions are empty or zero', () => {
+    renderWithProviders(
+      <CalorieContributionChart
+        contributions={[]}
+        title="Calories by Meal Item"
+        emptyText="No calorie contribution data."
+      />,
+    );
+
+    const figure = screen.getByRole('figure', { name: 'Calories by Meal Item' });
+    expect(within(figure).getByText('No calorie contribution data.')).toBeInTheDocument();
+  });
 });

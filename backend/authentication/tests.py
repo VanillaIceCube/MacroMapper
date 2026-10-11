@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import EmailMessage, get_connection
+from django.db import IntegrityError
 from django.test import override_settings
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
@@ -91,6 +92,25 @@ class RegistrationTests(APITestCase):
         self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(duplicate.data["error"], "Email already exists.")
 
+    @patch("authentication.views.User.objects.create_user")
+    def test_register_handles_integrity_error(self, mock_create_user):
+        mock_create_user.side_effect = IntegrityError("UNIQUE constraint failed")
+
+        response = self.client.post(
+            "/auth/register/",
+            {"email": "race@example.com", "password": "test_password"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["error"], "Email or username already exists.")
+
+    def test_register_handles_empty_local_part_username(self):
+        from authentication.views import _build_unique_username
+
+        self.assertEqual(_build_unique_username(""), "user")
+        self.assertEqual(_build_unique_username("   "), "user")
+
 
 class LoginAndRefreshTests(APITestCase):
     def setUp(self):
@@ -112,6 +132,16 @@ class LoginAndRefreshTests(APITestCase):
         self.assertTrue(response.data["refresh"])
         self.assertEqual(response.data["username"], "mapper")
         self.assertEqual(response.data["email"], "mapper@example.com")
+
+    def test_login_normalizes_email_whitespace(self):
+        response = self.client.post(
+            "/auth/login/",
+            {"email": "  mapper@example.com  ", "password": "test_password"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["username"], "mapper")
 
     def test_login_rejects_bad_credentials(self):
         response = self.client.post(
@@ -191,6 +221,22 @@ class PasswordResetTests(APITestCase):
         response = self.client.post(
             "/auth/reset-password/",
             {"uid": "invalid", "token": "invalid", "password": "new_password_123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["error"], "Invalid or expired reset link.")
+
+    def test_reset_password_rejects_non_integer_decoded_uid(self):
+        non_int_uid = urlsafe_base64_encode(force_bytes("not-an-int"))
+
+        response = self.client.post(
+            "/auth/reset-password/",
+            {
+                "uid": non_int_uid,
+                "token": "invalid-token",
+                "password": "new_password_123!",
+            },
             format="json",
         )
 

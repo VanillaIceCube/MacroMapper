@@ -12,9 +12,13 @@ and release sequence.
 ## 🧭 Visual system
 
 The frontend uses the Field Atlas direction described in
-[`docs/design/FIELD_ATLAS.md`](../docs/design/FIELD_ATLAS.md). Shared theme
+[`docs/design/FIELD_ATLAS.md`](docs/design/FIELD_ATLAS.md). Shared theme
 configuration lives in `src/theme.js`, with matching semantic CSS tokens in
 `src/App.css`.
+
+Design mockups live alongside the guide in `docs/design/`, and the root README's
+application screenshots live in `docs/images/`. These documentation files are
+excluded from Docker build contexts.
 
 - Bone and warm paper surfaces keep the application calm and editorial.
 - Midnight ink provides text and structural contrast.
@@ -28,6 +32,34 @@ configuration lives in `src/theme.js`, with matching semantic CSS tokens in
 
 See [`STYLE_GUIDE.md`](STYLE_GUIDE.md) before adding or restyling frontend
 components.
+
+## Domain architecture
+
+Reusable nutrition and meal-item logic lives under `src/domain/`:
+
+```text
+src/domain/
+├── nutrition/
+│   ├── definitions.js   # Nutrient keys, units, classifications, and energy ratios
+│   └── calculations.js  # Normalization, totals, macro calories, and aggregation
+└── mealItem/
+    ├── portions.js      # Portion selection and serving conversions
+    ├── adapters.js      # Catalog, proposal, and saved-meal transformations
+    └── tree.js          # Immutable nested meal edits and nutrient scaling
+```
+
+Components and pages import these modules directly. Domain modules depend only
+on other domain modules or neutral utilities; they never import React, Material
+UI, components, or pages. Locale-aware number formatting is shared through
+`src/utils/nutritionFormatting.js` because portion labels and UI displays use the
+same conventions.
+
+Nutrient labels, CSS colors, chart gradients, and chart decoration belong in
+`src/components/nutrition/nutritionPresentation.js`. It combines presentation
+metadata with the authoritative domain definitions and calculated values.
+Domain tests live alongside their modules, and the architecture tests check
+dependency direction and circular imports. All consumers use the new paths,
+so no compatibility re-export files are needed.
 
 ## 🧭 Routes
 - `/login`: email and password login
@@ -58,6 +90,10 @@ The same Map Your Meal editor and full set of nutrition, portion, catalog, and
 nested-component controls are used for AI-reviewed meals, manual mapping, and
 editing existing diary entries. Existing meals save back to the same entry
 rather than creating a duplicate.
+Add from the Catalog combines text search with personal/shared scope, provider,
+and provenance filters. Active filters can be cleared individually or reset,
+results retain serving/source/nutrition details, and adding a result leaves the
+builder open with an explicit confirmation.
 Official/verified, catalog-estimate, AI-estimate, and **AI estimate — adjusted
 by you** labels always accompany their sources and confidence rather than
 relying on color alone. Initial AI definitions are reusable shared catalog
@@ -123,6 +159,9 @@ production frontend image uses `nginx.conf` to serve Vite's `dist` directory
 and forward `/auth/`, `/api/`, and `/admin/` to the Compose backend service.
 
 ## Docker Hot Reload
+The development Compose file supplies frontend environment variables directly,
+including `VITE_API_BASE_URL`, so this setup requires no frontend `.env` file.
+
 From the repository root, run:
 
 ```powershell
@@ -138,6 +177,9 @@ default and can be changed with the `MACROMAPPER_DEV_*_PORT` variables
 in `deploy/.env`.
 
 ## 🧰 Checks
+The Vite configuration controls frontend builds and tests. Browser-target
+overrides belong in `vite.config.mjs` through `build.target`.
+
 ```powershell
 npm test
 npm run test:watch

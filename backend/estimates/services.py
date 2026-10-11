@@ -19,7 +19,7 @@ from django.utils import timezone
 from foods.models import FoodItem, FoodItemVersion
 from foods.nutrients import NUTRIENT_FIELDS
 from foods.portions import portion_options_for_serving
-from foods.services import create_food_item
+from foods.services import build_component_map, create_food_item
 from meals.models import MealEntry
 from meals.services import _effective_nutrients, generate_meal_name, replace_meal_items
 
@@ -342,10 +342,30 @@ def _portion_options(item):
     )
 
 
-def _catalog_food(version, *, servings="1", key=None, depth=0):
+def _catalog_food(
+    version,
+    *,
+    servings="1",
+    key=None,
+    depth=0,
+    component_map=None,
+    nutrient_cache=None,
+    visited=None,
+):
+    visited = set(visited or ())
+    if component_map is None:
+        component_map = build_component_map([version.pk])
+    if nutrient_cache is None:
+        nutrient_cache = {}
     food = version.food_item
     item_key = key or f"catalog-{food.pk}"
-    nutrients = _effective_nutrients(version)
+    nutrients = _effective_nutrients(
+        version,
+        visited,
+        component_map=component_map,
+        nutrient_cache=nutrient_cache,
+    )
+    path = visited | {version.pk}
     portion_options = portion_options_for_serving(
         quantity=version.serving_quantity,
         unit=version.serving_unit,
@@ -406,8 +426,12 @@ def _catalog_food(version, *, servings="1", key=None, depth=0):
                 servings=component.servings,
                 key=f"{item_key}.{index}",
                 depth=depth + 1,
+                component_map=component_map,
+                nutrient_cache=nutrient_cache,
+                visited=path,
             )
-            for index, component in enumerate(version.components.all())
+            for index, component in enumerate(component_map.get(version.pk, ()))
+            if component.child_version_id not in path
         ],
     }
 
@@ -418,12 +442,7 @@ def _visible_catalog_foods(user):
         .visible_to(user)
         .filter(current_version__isnull=False)
         .select_related("current_version")
-        .prefetch_related(
-            "current_version__sources",
-            "current_version__components__child_version__food_item",
-            "current_version__components__child_version__sources",
-            "current_version__components__child_version__components",
-        )
+        .prefetch_related("current_version__sources")
     )
 
 
@@ -774,16 +793,6 @@ def resolve_catalog_matches(*, description, user):
         "unmatched_description": " + ".join(unmatched_descriptions),
         "unmatched_descriptions": unmatched_descriptions,
     }
-
-
-def find_catalog_matches(*, description, user):
-    return [
-        match["food"]
-        for match in resolve_catalog_matches(
-            description=description,
-            user=user,
-        )["matches"]
-    ]
 
 
 def _recalculate_item(item):
@@ -1219,10 +1228,16 @@ def create_proposal(*, owner, description, entry_date):
         if intents:
             resolution = resolve_catalog_intents(intents=intents, user=owner)
     matches = resolution["matches"]
+    component_map = build_component_map(
+        [match["food"].current_version_id for match in matches]
+    )
+    nutrient_cache = {}
     catalog_items = [
         _catalog_food(
             match["food"].current_version,
             servings=match["servings"],
+            component_map=component_map,
+            nutrient_cache=nutrient_cache,
         )
         for match in matches
     ]
@@ -1350,11 +1365,11 @@ def apply_proposal_follow_up(
 
     current_items = deepcopy(items)
     current_by_key = {item["key"]: item for item in current_items}
-    remove_keys = set(result["remove_keys"])
+    remove_keys = set(result.get("remove_keys") or [])
     serving_updates = {}
-    for update in result["serving_updates"]:
-        key = update["key"]
-        serving_updates[key] = update["servings"]
+    for update in result.get("serving_updates") or []:
+        if isinstance(update, dict) and "key" in update:
+            serving_updates[update["key"]] = update.get("servings")
 
     remove_keys &= set(current_by_key)
     serving_updates = {
@@ -1381,7 +1396,7 @@ def apply_proposal_follow_up(
     foods = _visible_catalog_foods(owner)
     pending_additions = []
     merged_addition = False
-    for index, item in enumerate(result["items_to_add"]):
+    for index, item in enumerate(result.get("items_to_add") or []):
         intent = _follow_up_search_intent(item)
         catalog_match = (
             _resolve_catalog_intent(intent=intent, user=owner, foods=foods)
@@ -1431,9 +1446,9 @@ def apply_proposal_follow_up(
         materialized_raw_additions = _shared_estimate_items(
             {
                 "items": raw_additions,
-                "provider_name": result["provider_name"],
-                "provider_model": result["provider_model"],
-                "provider_response_id": result["provider_response_id"],
+                "provider_name": result.get("provider_name") or "",
+                "provider_model": result.get("provider_model") or "",
+                "provider_response_id": result.get("provider_response_id") or "",
             }
         )
     materialized_raw = iter(materialized_raw_additions)
@@ -1463,29 +1478,37 @@ def apply_proposal_follow_up(
             "proposal": proposal,
         }
 
-    proposal.name = _brief_generated_meal_name(result["name"])
+    proposal.name = _brief_generated_meal_name(result.get("name") or proposal.name)
     if entry_date is not None:
         proposal.entry_date = entry_date
     if notes is not None:
         proposal.notes = notes
     proposal.items = normalize_items([*retained_items, *added_items])
     proposal.generator = MealProposal.Generator.OPENAI
-    provider_name = result["provider_name"]
-    if proposal.provider_name and provider_name not in proposal.provider_name:
+    provider_name = result.get("provider_name") or ""
+    if (
+        proposal.provider_name
+        and provider_name
+        and provider_name not in proposal.provider_name
+    ):
         proposal.provider_name = f"{proposal.provider_name} + {provider_name}"[:80]
     elif not proposal.provider_name:
         proposal.provider_name = provider_name
-    proposal.provider_model = result["provider_model"]
-    proposal.provider_response_id = result["provider_response_id"]
-    follow_up_confidence = _storage_decimal(
-        result["confidence_score"],
-        decimal_places=3,
+    proposal.provider_model = result.get("provider_model") or proposal.provider_model
+    proposal.provider_response_id = (
+        result.get("provider_response_id") or proposal.provider_response_id
     )
-    proposal.confidence_score = (
-        min(proposal.confidence_score, follow_up_confidence)
-        if proposal.confidence_score is not None
-        else follow_up_confidence
-    )
+    raw_confidence = result.get("confidence_score")
+    if raw_confidence is not None:
+        follow_up_confidence = _storage_decimal(
+            raw_confidence,
+            decimal_places=3,
+        )
+        proposal.confidence_score = (
+            min(proposal.confidence_score, follow_up_confidence)
+            if proposal.confidence_score is not None
+            else follow_up_confidence
+        )
     proposal.save(
         update_fields=[
             "name",
@@ -1505,20 +1528,58 @@ def apply_proposal_follow_up(
         kind=MealProposalRevision.Kind.AI_FOLLOW_UP,
         created_by=owner,
         follow_up=follow_up,
-        message=result["message"],
+        message=result.get("message") or "",
     )
     return {
         "applied": True,
-        "message": result["message"],
+        "message": result.get("message") or "",
         "proposal": proposal,
     }
 
 
-def _visible_catalog_version(*, owner, item, allowed_version_ids=()):
+def _collect_catalog_pairs(items, pairs=None):
+    pairs = pairs if pairs is not None else set()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        food_item_id = item.get("food_item_id")
+        version_id = item.get("food_version_id")
+        if food_item_id and version_id:
+            pairs.add((food_item_id, version_id))
+        _collect_catalog_pairs(item.get("components", []), pairs=pairs)
+    return pairs
+
+
+def _visible_catalog_versions_map(*, owner, pairs, allowed_version_ids=()):
+    if not pairs:
+        return {}
+    query = Q()
+    for food_item_id, version_id in pairs:
+        query |= Q(pk=version_id, food_item_id=food_item_id)
+    visible = Q(food_item__archived_at__isnull=True) & (
+        Q(food_item__scope=FoodItem.Scope.SHARED) | Q(food_item__owner=owner)
+    )
+    if allowed_version_ids:
+        visible |= Q(pk__in=allowed_version_ids)
+    versions = (
+        FoodItemVersion.objects.filter(query & visible)
+        .select_related("food_item")
+        .prefetch_related("sources")
+    )
+    return {(v.food_item_id, v.pk): v for v in versions}
+
+
+def _visible_catalog_version(
+    *, owner, item, allowed_version_ids=(), catalog_versions_map=None
+):
     food_item_id = item.get("food_item_id")
     version_id = item.get("food_version_id")
     if not food_item_id or not version_id:
         return None
+    if catalog_versions_map is not None:
+        version = catalog_versions_map.get((food_item_id, version_id))
+        if version is not None:
+            return version
     queryset = FoodItemVersion.objects.filter(
         pk=version_id,
         food_item_id=food_item_id,
@@ -1531,9 +1592,32 @@ def _visible_catalog_version(*, owner, item, allowed_version_ids=()):
     return queryset.filter(visible).select_related("food_item").first()
 
 
-def secure_review_items(*, proposal, owner, items, allowed_version_ids=()):
+def secure_review_items(
+    *,
+    proposal,
+    owner,
+    items,
+    allowed_version_ids=(),
+    catalog_versions_map=None,
+    component_map=None,
+    nutrient_cache=None,
+):
     """Keep provenance immutable while accepting quantity and nutrient edits."""
 
+    if catalog_versions_map is None:
+        pairs = _collect_catalog_pairs(proposal.items) | _collect_catalog_pairs(items)
+        catalog_versions_map = _visible_catalog_versions_map(
+            owner=owner,
+            pairs=pairs,
+            allowed_version_ids=allowed_version_ids,
+        )
+
+    if component_map is None:
+        component_map = build_component_map(
+            [version.pk for version in catalog_versions_map.values()]
+        )
+    if nutrient_cache is None:
+        nutrient_cache = {}
     existing = _items_by_key(proposal.items)
 
     def secure(item, *, depth=0):
@@ -1547,6 +1631,7 @@ def secure_review_items(*, proposal, owner, items, allowed_version_ids=()):
                 owner=owner,
                 item=item,
                 allowed_version_ids=allowed_version_ids,
+                catalog_versions_map=catalog_versions_map,
             )
             if version is None:
                 raise ValidationError(
@@ -1556,6 +1641,8 @@ def secure_review_items(*, proposal, owner, items, allowed_version_ids=()):
                 version,
                 servings=item["servings"],
                 key=item["key"],
+                component_map=component_map,
+                nutrient_cache=nutrient_cache,
             )
             aligned = _align_builder_item_keys(item, result)
             return secure_review_items(
@@ -1563,6 +1650,9 @@ def secure_review_items(*, proposal, owner, items, allowed_version_ids=()):
                 owner=owner,
                 items=[aligned],
                 allowed_version_ids=allowed_version_ids,
+                catalog_versions_map=catalog_versions_map,
+                component_map=component_map,
+                nutrient_cache=nutrient_cache,
             )[0]
 
         result = dict(original)
@@ -1598,6 +1688,9 @@ def secure_review_items(*, proposal, owner, items, allowed_version_ids=()):
         items=reviewed,
         owner=owner,
         allowed_version_ids=allowed_version_ids,
+        catalog_versions_map=catalog_versions_map,
+        component_map=component_map,
+        nutrient_cache=nutrient_cache,
     )
 
 
@@ -1627,14 +1720,29 @@ def _align_builder_item_keys(requested, canonical):
     return aligned
 
 
-def secure_builder_items(*, owner, items, allowed_version_ids=()):
+def secure_builder_items(
+    *, owner, items, allowed_version_ids=(), catalog_versions_map=None
+):
+    if catalog_versions_map is None:
+        pairs = _collect_catalog_pairs(items)
+        catalog_versions_map = _visible_catalog_versions_map(
+            owner=owner,
+            pairs=pairs,
+            allowed_version_ids=allowed_version_ids,
+        )
+
     canonical_items = []
     aligned_items = []
+    component_map = build_component_map(
+        [version.pk for version in catalog_versions_map.values()]
+    )
+    nutrient_cache = {}
     for item in items:
         version = _visible_catalog_version(
             owner=owner,
             item=item,
             allowed_version_ids=allowed_version_ids,
+            catalog_versions_map=catalog_versions_map,
         )
         if version is None:
             raise ValidationError("Meal foods must come from your visible catalog.")
@@ -1642,6 +1750,8 @@ def secure_builder_items(*, owner, items, allowed_version_ids=()):
             version,
             servings=item["servings"],
             key=item["key"],
+            component_map=component_map,
+            nutrient_cache=nutrient_cache,
         )
         canonical_items.append(canonical)
         aligned_items.append(_align_builder_item_keys(item, canonical))
@@ -1650,6 +1760,9 @@ def secure_builder_items(*, owner, items, allowed_version_ids=()):
         owner=owner,
         items=aligned_items,
         allowed_version_ids=allowed_version_ids,
+        catalog_versions_map=catalog_versions_map,
+        component_map=component_map,
+        nutrient_cache=nutrient_cache,
     )
 
 
@@ -1725,8 +1838,14 @@ def _definition(item, components):
     }
 
 
-def _matches_catalog_nutrients(item, version):
-    catalog_nutrients = _effective_nutrients(version)
+def _matches_catalog_nutrients(
+    item, version, *, component_map=None, nutrient_cache=None
+):
+    catalog_nutrients = _effective_nutrients(
+        version,
+        component_map=component_map,
+        nutrient_cache=nutrient_cache,
+    )
     requested_nutrients = item.get("nutrients", {})
     for field in NUTRIENT_FIELDS:
         catalog_value = catalog_nutrients.get(field)
@@ -1750,8 +1869,17 @@ def _matches_catalog_value(value, stored, *, decimal_places):
     )
 
 
-def _matches_catalog_tree(item, version):
-    if not _matches_catalog_nutrients(item, version):
+def _matches_catalog_tree(item, version, *, component_map=None, nutrient_cache=None):
+    if component_map is None:
+        component_map = build_component_map([version.pk])
+    if nutrient_cache is None:
+        nutrient_cache = {}
+    if not _matches_catalog_nutrients(
+        item,
+        version,
+        component_map=component_map,
+        nutrient_cache=nutrient_cache,
+    ):
         return False
     if not _matches_catalog_value(
         item.get("serving_quantity"),
@@ -1777,9 +1905,7 @@ def _matches_catalog_tree(item, version):
         return False
 
     requested_components = item.get("components", [])
-    catalog_components = list(
-        version.components.select_related("child_version__food_item").all()
-    )
+    catalog_components = component_map.get(version.pk, ())
     if len(requested_components) != len(catalog_components):
         return False
     for requested, catalog in zip(
@@ -1793,12 +1919,40 @@ def _matches_catalog_tree(item, version):
             requested.get("servings"), catalog.servings, decimal_places=4
         ):
             return False
-        if not _matches_catalog_tree(requested, catalog.child_version):
+        if not _matches_catalog_tree(
+            requested,
+            catalog.child_version,
+            component_map=component_map,
+            nutrient_cache=nutrient_cache,
+        ):
             return False
     return True
 
 
-def _apply_review_attribution(*, items, owner, allowed_version_ids=()):
+def _apply_review_attribution(
+    *,
+    items,
+    owner,
+    allowed_version_ids=(),
+    catalog_versions_map=None,
+    component_map=None,
+    nutrient_cache=None,
+):
+    if catalog_versions_map is None:
+        pairs = _collect_catalog_pairs(items)
+        catalog_versions_map = _visible_catalog_versions_map(
+            owner=owner,
+            pairs=pairs,
+            allowed_version_ids=allowed_version_ids,
+        )
+
+    if component_map is None:
+        component_map = build_component_map(
+            [version.pk for version in catalog_versions_map.values()]
+        )
+    if nutrient_cache is None:
+        nutrient_cache = {}
+
     def annotate(item):
         item = dict(item)
         item["components"] = [
@@ -1808,8 +1962,14 @@ def _apply_review_attribution(*, items, owner, allowed_version_ids=()):
             owner=owner,
             item=item,
             allowed_version_ids=allowed_version_ids,
+            catalog_versions_map=catalog_versions_map,
         )
-        modified = version is not None and not _matches_catalog_tree(item, version)
+        modified = version is not None and not _matches_catalog_tree(
+            item,
+            version,
+            component_map=component_map,
+            nutrient_cache=nutrient_cache,
+        )
         item["is_user_modified"] = modified
         if modified:
             item["provenance"] = FoodItemVersion.Provenance.USER_MODIFIED_ESTIMATE
@@ -1844,13 +2004,24 @@ def _matches_materialized_components(version, components):
     return True
 
 
-def _materialize_item(*, owner, item, allowed_version_ids=()):
+def _materialize_item(
+    *, owner, item, allowed_version_ids=(), catalog_versions_map=None
+):
+    if catalog_versions_map is None:
+        pairs = _collect_catalog_pairs([item])
+        catalog_versions_map = _visible_catalog_versions_map(
+            owner=owner,
+            pairs=pairs,
+            allowed_version_ids=allowed_version_ids,
+        )
+
     components = []
     for order, component_item in enumerate(item.get("components", [])):
         child_food, child_version = _materialize_item(
             owner=owner,
             item=component_item,
             allowed_version_ids=allowed_version_ids,
+            catalog_versions_map=catalog_versions_map,
         )
         components.append(
             {
@@ -1869,6 +2040,7 @@ def _materialize_item(*, owner, item, allowed_version_ids=()):
         owner=owner,
         item=item,
         allowed_version_ids=allowed_version_ids,
+        catalog_versions_map=catalog_versions_map,
     )
     if (
         catalog_version is not None
@@ -1928,15 +2100,23 @@ def save_meal_draft(*, owner, meal, entry_date, name, notes, items):
     if meal is not None:
         meal = MealEntry.objects.select_for_update().get(pk=meal.pk, owner=owner)
     allowed_version_ids = saved_meal_version_ids(meal) if meal is not None else set()
+    pairs = _collect_catalog_pairs(items)
+    catalog_versions_map = _visible_catalog_versions_map(
+        owner=owner,
+        pairs=pairs,
+        allowed_version_ids=allowed_version_ids,
+    )
     secured_items = secure_builder_items(
         owner=owner,
         items=items,
         allowed_version_ids=allowed_version_ids,
+        catalog_versions_map=catalog_versions_map,
     )
     reviewed_items = _apply_review_attribution(
         items=secured_items,
         owner=owner,
         allowed_version_ids=allowed_version_ids,
+        catalog_versions_map=catalog_versions_map,
     )
     item_inputs = []
     for order, item in enumerate(reviewed_items):
@@ -1944,6 +2124,7 @@ def save_meal_draft(*, owner, meal, entry_date, name, notes, items):
             owner=owner,
             item=item,
             allowed_version_ids=allowed_version_ids,
+            catalog_versions_map=catalog_versions_map,
         )
         item_inputs.append(
             {
@@ -1984,8 +2165,15 @@ def accept_proposal(*, proposal):
     proposal = MealProposal.objects.select_for_update().get(pk=proposal.pk)
     if proposal.status != MealProposal.Status.DRAFT:
         raise ValidationError("This proposal has already been accepted.")
+    pairs = _collect_catalog_pairs(proposal.items)
+    catalog_versions_map = _visible_catalog_versions_map(
+        owner=proposal.owner,
+        pairs=pairs,
+    )
     items = _apply_review_attribution(
-        items=normalize_items(proposal.items), owner=proposal.owner
+        items=normalize_items(proposal.items),
+        owner=proposal.owner,
+        catalog_versions_map=catalog_versions_map,
     )
     if not items:
         raise ValidationError("Add at least one food before saving this meal.")
@@ -2017,7 +2205,11 @@ def accept_proposal(*, proposal):
     )
     item_inputs = []
     for order, item in enumerate(items):
-        food, version = _materialize_item(owner=proposal.owner, item=item)
+        food, version = _materialize_item(
+            owner=proposal.owner,
+            item=item,
+            catalog_versions_map=catalog_versions_map,
+        )
         item_inputs.append(
             {
                 "food_item": food,
@@ -2042,3 +2234,56 @@ def accept_proposal(*, proposal):
         created_by=proposal.owner,
     )
     return meal
+
+
+def process_meal_adjustment(
+    *,
+    serializer,
+    owner,
+    proposal_serializer,
+    request=None,
+    temporary=False,
+    get_provider=None,
+):
+    """Process and serialize an adjustment within the proposal cleanup boundary.
+
+    The view supplies the response serializer so services do not import serializers
+    that already depend on this module.
+    """
+
+    get_provider = get_provider or get_estimation_provider
+    proposal = None
+    try:
+        proposal = serializer.create_proposal()
+        result = get_provider().follow_up(
+            original_description="",
+            meal_name=proposal.name,
+            items=proposal.items,
+            follow_up=serializer.validated_data["adjustment"],
+        )
+        outcome = apply_proposal_follow_up(
+            proposal=proposal,
+            owner=owner,
+            follow_up=serializer.validated_data["adjustment"],
+            items=proposal.items,
+            result=result,
+        )
+        updated_proposal = outcome["proposal"]
+        updated_proposal.refresh_from_db()
+        proposal_data = proposal_serializer(
+            updated_proposal,
+            context={"request": request},
+        ).data
+        return {
+            "applied": outcome["applied"],
+            "message": outcome["message"],
+            "proposal": proposal_data,
+        }
+    except Exception:
+        if proposal is not None:
+            proposal.delete()
+            proposal = None
+        raise
+    finally:
+        if temporary and proposal is not None:
+            proposal.delete()

@@ -1,6 +1,7 @@
 import { Box, InputAdornment, Paper, Stack, TextField, Typography } from '@mui/material';
-import { PRIMARY_NUTRIENT_FIELDS } from './nutritionDefinitions';
-import { formatNutritionAmount, itemNutrientTotal } from './nutritionMath';
+import { PRIMARY_NUTRIENT_FIELDS } from './nutritionPresentation';
+import { formatNutritionAmount } from '../../utils/nutritionFormatting';
+import { itemNutrientTotal } from '../../domain/nutrition/calculations';
 
 export function NutritionCards({
   values,

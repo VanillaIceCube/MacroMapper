@@ -1,5 +1,18 @@
-## 2026-09-16 - Meal Item Domain Consolidation
+## 2026-10-10 — Frontend Domain Boundaries
 
-**Learning:** Frontend domain logic for meal items (portion helpers, tree transformations, and API/snapshot adapters) was previously scattered across component files (`components/mealItemPortions.js`, `components/mealItemAdapters.js`, `components/mealItemTree.js`). Consolidating them under `frontend/src/domain/mealItem.js` clarifies responsibility boundaries while leaving backward-compatible re-exports in place for component compatibility.
+### Learning
 
-**Action:** Future Nora runs inspecting frontend domain boundaries should look for business logic embedded inside `src/components/` and move it into `src/domain/` with clean re-exports where necessary.
+Meal-item portions, adapters, and tree operations belong in focused modules under
+`frontend/src/domain/mealItem/`. Shared nutrition definitions and calculations
+belong under `frontend/src/domain/nutrition/`. Domain logic must not import from
+UI components; nutrient display metadata and chart decoration stay in the
+presentation layer. The original consolidation proposal was rebuilt from current
+`main` to preserve later validation fixes and cleanup.
+
+### Action
+
+Use current behavior as the source of truth during architectural refactors.
+Migrate consumers directly and remove obsolete wrappers when no consumers remain.
+Keep numeric formatting shared through neutral utilities where both domain
+labels and UI displays use it, and verify dependency direction, cycles, and
+existing functionality with the frontend tests.

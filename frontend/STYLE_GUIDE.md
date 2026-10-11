@@ -7,7 +7,7 @@
 - Use the centralized Material UI theme in `src/theme.js` and the matching CSS
   custom properties in `src/App.css`; do not introduce one-off brand colors.
 - Follow the Field Atlas direction documented in
-  `../docs/design/FIELD_ATLAS.md`: warm paper surfaces, ink structure, restrained
+  [`docs/design/FIELD_ATLAS.md`](docs/design/FIELD_ATLAS.md): warm paper surfaces, ink structure, restrained
   cartographic details, and factual rather than clinical language.
 - Use Bone `#F6F1E7` for the canvas, Midnight ink `#17324D` for text and
   structure, Forest `#2E6B4F` for confirmed states and primary actions,
@@ -51,6 +51,13 @@
   language for ordinary settings and account actions.
 
 ## Nutrition surfaces
+
+- Import nutrient definitions and calculations from `src/domain/nutrition/` and
+  meal-item portions, adapters, and tree operations from `src/domain/mealItem/`.
+  Keep domain modules independent of React, Material UI, components, and pages.
+- Keep labels, semantic colors, gradients, and chart decoration in
+  `components/nutrition/nutritionPresentation.js`. Share locale-aware number
+  formatting through `utils/nutritionFormatting.js`.
 
 - Present daily totals as bordered data cards with tabular numerals. Use the
   semantic calorie, protein, carbohydrate, and fat tokens; keep secondary

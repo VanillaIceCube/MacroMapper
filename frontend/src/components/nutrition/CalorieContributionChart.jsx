@@ -1,10 +1,7 @@
 import { Box, Paper, Skeleton, Stack, Tooltip, Typography } from '@mui/material';
-import {
-  decorateCalorieContributions,
-  formatNutritionAmount,
-  formatWholeNutritionAmount,
-  summarizeCalorieContributions,
-} from './nutritionMath';
+import { decorateCalorieContributions } from './nutritionPresentation';
+import { formatNutritionAmount, formatWholeNutritionAmount } from '../../utils/nutritionFormatting';
+import { summarizeCalorieContributions } from '../../domain/nutrition/calculations';
 import MacroCalorieBar from './MacroCalorieBar';
 
 function OtherTooltipContent({ items, format }) {
@@ -74,7 +71,7 @@ export default function CalorieContributionChart({
         m: 0,
         p: dashboard ? { xs: 1.25, sm: 1.5 } : 1,
         border: '1px solid var(--atlas-border)',
-        borderRadius: dashboard ? 1.5 : undefined,
+        borderRadius: 'var(--atlas-radius-surface)',
         bgcolor: 'var(--atlas-paper)',
       }}
     >
@@ -166,7 +163,6 @@ export default function CalorieContributionChart({
                       values={item}
                       widthPercentage={item.relativeBarWidth}
                       height={dashboard ? 20 : 14}
-                      borderRadius={dashboard ? 10 : 7}
                       wholeNumbers={dashboard}
                     />
                   </Box>
