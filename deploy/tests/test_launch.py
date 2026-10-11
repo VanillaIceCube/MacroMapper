@@ -210,7 +210,7 @@ if args[:2] == ['inspect', 'macromapper-backend']: print('backend' if os.getenv(
 if 'run' in args and args[-2:] == ['python', '-']:
     mount = args[args.index('-v') + 1].rsplit(':', 1)[0]
     if os.getenv('REAL_DOCKER'):
-        command = [os.environ['REAL_DOCKER'], 'run', '--rm']
+        command = [os.environ['REAL_DOCKER'], 'run', '--rm', '-i']
         if '--user' in args: command += ['--user', args[args.index('--user') + 1]]
         command += ['-v', str(Path.cwd() / 'db.sqlite3') + ':/backend/db.sqlite3:ro', '-v', mount + ':/recovery', 'python:3.12-alpine', 'python', '-']
         subprocess.run(command, input=sys.stdin.read(), text=True, check=True)
