@@ -16,6 +16,13 @@ if [ -e db.sqlite3 ] && [ ! -f db.sqlite3 ]; then
   echo 'db.sqlite3 must be a regular file, not a directory.'
   exit 1
 fi
+if docker inspect macromapper-backend >/dev/null 2>&1; then
+  service="$(docker inspect macromapper-backend --format '{{index .Config.Labels "com.docker.compose.service"}}')"
+  if [ "$service" != macromapper-backend ]; then
+    echo 'Preserve the database and retire the older MacroMapper stack before shared deployment.'
+    exit 1
+  fi
+fi
 docker network inspect macromapper-ingress >/dev/null
 docker inspect notoli-proxy --format '{{range .Mounts}}{{if eq .Destination "/etc/nginx/conf.d/macromapper.conf"}}{{.Source}}{{end}}{{end}}' \
   | grep -Fx "$PWD/nginx-shared.conf" >/dev/null || {

@@ -122,6 +122,17 @@ Repository preparation does not execute them or change live Notoli.
    exists, merge these additions into it instead of overwriting it. If the
    application directory differs, update the absolute vhost source path in
    the override to match `DEPLOY_PATH`.
+
+   For a reviewed checkout available on the server, the file installation is:
+
+   ```bash
+   reviewed_checkout=/path/to/reviewed/MacroMapper
+   install -m 644 "$reviewed_checkout/deploy/nginx-shared.conf" /opt/apps/macromapper/nginx-shared.conf
+   # Run this only when no override exists; otherwise merge the template manually.
+   test ! -e /root/apps/notoli/docker-compose.override.yml
+   install -m 644 "$reviewed_checkout/deploy/notoli.compose.override.yml" /root/apps/notoli/docker-compose.override.yml
+   ```
+
 4. In `/root/apps/notoli`, validate the combined config with `docker compose
    config --quiet` and inspect its non-secret ports/network fields. Retain
    public ports 80/443, the existing default network and private network,
@@ -188,6 +199,10 @@ credentials, and a consistent SQLite backup under `backups/<timestamp>-<pid>/`
 before migrations. Application directories/backups are `0700`; environment and
 database files are `0600`. There is no host-wide Docker pruning or Notoli
 container recreation in MacroMapper's deployment workflow.
+
+The script rejects a running/existing backend container with the old generic
+Compose service label before touching the database or stopping services. Complete
+the one-time legacy-stack preservation/retirement step first if this check fails.
 
 Django's deployment check runs before migration. Assess its warnings: `W004`
 reflects the deferred HSTS policy; `W008` reflects HTTPS redirection at Nginx

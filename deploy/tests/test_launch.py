@@ -183,7 +183,7 @@ class ComposeTests(unittest.TestCase):
 
 @unittest.skipIf(os.name == "nt", "Deployment shell runs on the Linux Droplet")
 class DeploymentScriptTests(unittest.TestCase):
-    def run_deployment(self, database="existing", fail_migration=False):
+    def run_deployment(self, database="existing", fail_migration=False, legacy=False):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         target = Path(self.directory.name) / "bundle"
@@ -204,6 +204,7 @@ from pathlib import Path
 args = sys.argv[1:]
 with open('commands.jsonl', 'a') as stream: stream.write(json.dumps(args) + '\\n')
 if args[:2] == ['inspect', 'notoli-proxy']: print(str(Path.cwd() / 'nginx-shared.conf'))
+if args[:2] == ['inspect', 'macromapper-backend']: print('backend' if os.getenv('LEGACY') == '1' else 'macromapper-backend')
 if 'run' in args and args[-2:] == ['python', '-']:
     mount = args[args.index('-v') + 1].rsplit(':', 1)[0]
     with sqlite3.connect('db.sqlite3') as source:
@@ -219,6 +220,7 @@ if 'migrate' in args and os.getenv('FAIL_MIGRATION') == '1': sys.exit(1)
                 **os.environ,
                 "PATH": str(target) + os.pathsep + os.environ["PATH"],
                 "FAIL_MIGRATION": "1" if fail_migration else "0",
+                "LEGACY": "1" if legacy else "0",
             },
             capture_output=True,
             text=True,
@@ -270,6 +272,17 @@ if 'migrate' in args and os.getenv('FAIL_MIGRATION') == '1': sys.exit(1)
         self.assertNotEqual(result.returncode, 0)
         self.assertTrue(list((target / "backups").glob("*/db.sqlite3")))
         self.assertFalse(any("up" in args for args in commands))
+
+    def test_older_stack_is_rejected_before_database_or_service_changes(self):
+        target, result, commands = self.run_deployment(legacy=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("retire the older MacroMapper stack", result.stdout)
+        self.assertFalse((target / "backups").exists())
+        self.assertFalse(any("compose" in args for args in commands))
+        with sqlite3.connect(target / "db.sqlite3") as db:
+            self.assertEqual(
+                db.execute("SELECT value FROM preserved").fetchone()[0], "meal-history"
+            )
 
 
 if __name__ == "__main__":
