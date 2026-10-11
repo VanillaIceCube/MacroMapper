@@ -1210,7 +1210,6 @@ def _semantic_food_identity(item):
     )
 
 
-@transaction.atomic
 def create_proposal(*, owner, description, entry_date):
     description = description.strip()
     resolution = resolve_catalog_matches(description=description, user=owner)
@@ -1247,18 +1246,67 @@ def create_proposal(*, owner, description, entry_date):
             for match in matches
             if match["food"].current_version.confidence_score is not None
         ]
+        with transaction.atomic():
+            proposal = MealProposal.objects.create(
+                owner=owner,
+                description=description,
+                entry_date=entry_date,
+                name=(
+                    intent_name
+                    or (
+                        matches[0]["food"].name
+                        if len(matches) == 1
+                        else description[:120]
+                    )
+                ),
+                generator=MealProposal.Generator.CATALOG,
+                provider_name="MacroMapper catalog",
+                confidence_score=(
+                    min(confidence_values) if confidence_values else None
+                ),
+                items=catalog_items,
+            )
+            create_proposal_revision(
+                proposal=proposal,
+                kind=MealProposalRevision.Kind.GENERATED,
+                created_by=None,
+            )
+            return proposal
+
+    provider = provider or get_estimation_provider()
+    estimate = provider.estimate(resolution["unmatched_description"] or description)
+    with transaction.atomic():
+        estimated_items = _shared_estimate_items(estimate)
+        catalog_identities = {_semantic_food_identity(item) for item in catalog_items}
+        estimated_items = [
+            item
+            for item in estimated_items
+            if _semantic_food_identity(item) not in catalog_identities
+        ]
+        items = [*catalog_items, *estimated_items]
+        confidence_values = [
+            *[
+                match["food"].current_version.confidence_score
+                for match in matches
+                if match["food"].current_version.confidence_score is not None
+            ],
+            estimate["confidence_score"],
+        ]
         proposal = MealProposal.objects.create(
             owner=owner,
             description=description,
             entry_date=entry_date,
-            name=(
-                intent_name
-                or (matches[0]["food"].name if len(matches) == 1 else description[:120])
+            name=intent_name or _brief_generated_meal_name(estimate["name"]),
+            generator=MealProposal.Generator.OPENAI,
+            provider_name=(
+                f"MacroMapper catalog + {estimate['provider_name']}"
+                if catalog_items
+                else estimate["provider_name"]
             ),
-            generator=MealProposal.Generator.CATALOG,
-            provider_name="MacroMapper catalog",
-            confidence_score=(min(confidence_values) if confidence_values else None),
-            items=catalog_items,
+            provider_model=estimate["provider_model"],
+            provider_response_id=estimate["provider_response_id"],
+            confidence_score=min(confidence_values),
+            items=items,
         )
         create_proposal_revision(
             proposal=proposal,
@@ -1266,47 +1314,6 @@ def create_proposal(*, owner, description, entry_date):
             created_by=None,
         )
         return proposal
-
-    provider = provider or get_estimation_provider()
-    estimate = provider.estimate(resolution["unmatched_description"] or description)
-    estimated_items = _shared_estimate_items(estimate)
-    catalog_identities = {_semantic_food_identity(item) for item in catalog_items}
-    estimated_items = [
-        item
-        for item in estimated_items
-        if _semantic_food_identity(item) not in catalog_identities
-    ]
-    items = [*catalog_items, *estimated_items]
-    confidence_values = [
-        *[
-            match["food"].current_version.confidence_score
-            for match in matches
-            if match["food"].current_version.confidence_score is not None
-        ],
-        estimate["confidence_score"],
-    ]
-    proposal = MealProposal.objects.create(
-        owner=owner,
-        description=description,
-        entry_date=entry_date,
-        name=intent_name or _brief_generated_meal_name(estimate["name"]),
-        generator=MealProposal.Generator.OPENAI,
-        provider_name=(
-            f"MacroMapper catalog + {estimate['provider_name']}"
-            if catalog_items
-            else estimate["provider_name"]
-        ),
-        provider_model=estimate["provider_model"],
-        provider_response_id=estimate["provider_response_id"],
-        confidence_score=min(confidence_values),
-        items=items,
-    )
-    create_proposal_revision(
-        proposal=proposal,
-        kind=MealProposalRevision.Kind.GENERATED,
-        created_by=None,
-    )
-    return proposal
 
 
 def _follow_up_identity(item):
@@ -2095,8 +2102,48 @@ def saved_meal_version_ids(meal):
     return version_ids
 
 
-@transaction.atomic
 def save_meal_draft(*, owner, meal, entry_date, name, notes, items):
+    if meal is None and not name:
+        catalog_versions_map = _visible_catalog_versions_map(
+            owner=owner, pairs=_collect_catalog_pairs(items)
+        )
+        secured_items = secure_builder_items(
+            owner=owner, items=items, catalog_versions_map=catalog_versions_map
+        )
+        reviewed_items = _apply_review_attribution(
+            items=secured_items,
+            owner=owner,
+            catalog_versions_map=catalog_versions_map,
+        )
+        name = generate_meal_name(
+            owner=owner,
+            entry_date=entry_date,
+            selected_foods=[
+                {
+                    "name": item["name"],
+                    "provider_name": item.get("provider_name", ""),
+                    "servings": str(
+                        _storage_decimal(
+                            item.get("servings"), decimal_places=4, default="1"
+                        )
+                    ),
+                }
+                for item in reviewed_items
+            ],
+        )
+    # Revalidate inside the write transaction after the potentially long wait.
+    return _save_meal_draft(
+        owner=owner,
+        meal=meal,
+        entry_date=entry_date,
+        name=name,
+        notes=notes,
+        items=items,
+    )
+
+
+@transaction.atomic
+def _save_meal_draft(*, owner, meal, entry_date, name, notes, items):
     if meal is not None:
         meal = MealEntry.objects.select_for_update().get(pk=meal.pk, owner=owner)
     allowed_version_ids = saved_meal_version_ids(meal) if meal is not None else set()
@@ -2141,14 +2188,7 @@ def save_meal_draft(*, owner, meal, entry_date, name, notes, items):
         meal = MealEntry.objects.create(
             owner=owner,
             entry_date=entry_date,
-            name=(
-                name
-                or generate_meal_name(
-                    owner=owner,
-                    entry_date=entry_date,
-                    item_inputs=item_inputs,
-                )
-            ),
+            name=name,
             notes=notes,
         )
     else:

@@ -3,6 +3,12 @@ All notable changes to this project are documented in this file.
 
 ## 2026-10-11
 ### Fixed
+- Allow slow meal estimates within coordinated two-minute server/proxy limits, with a shared 110-second AI deadline and controlled JSON errors instead of worker termination.
+- Bound SDK concurrency, disable automatic retries and serve ordinary API requests alongside AI waits; retain drafts and explain the two-minute wait.
+- Keep estimation and blank-name meal naming waits outside SQLite transactions while committing catalog/proposal or meal/item writes atomically, so concurrent writes are not held behind slow AI calls.
+
+## 2026-10-11
+### Fixed
 - Adopt the shared release client identity so Cloudflare accepts public readiness probes without changing edge protections or response checks.
 
 ## 2026-10-11
