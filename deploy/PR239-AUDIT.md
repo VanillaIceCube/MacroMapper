@@ -111,7 +111,9 @@ bridge is not endorsed as a permanent design.
    downtime, recovery inputs and post-restore checks with the VM operator.
 5. **Operational prerequisites:** Local backup creation does not provide
    recurring off-host backup, retention, restore evidence, resource headroom,
-   or full certificate/cache verification. Those remain open in #904/#240/#236/#238.
+   or full certificate/cache verification. Track shared operational prerequisites
+   on [Infrastructure #4](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/issues/4);
+   retain app acceptance work in MacroMapper #240/#236/#238.
 6. **Forwarded client addresses:** The candidate vhost appends client-supplied
    `X-Forwarded-For` with `$proxy_add_x_forwarded_for`. Agent 3 observed this
    mounted configuration; Notoli instead overwrites it with `$remote_addr`.
