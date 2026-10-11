@@ -1,15 +1,41 @@
 # PR #239 audit for MacroMapper #240
 
-Audit date: 2026-10-11. Status: **source audit and VM report reconciled;
-conditional v1 contract review posted; feasibility/clarifications pending**.
+Audit date: 2026-10-11. Status: **Agent 5 resumed the source audit;
+refreshed VM report reconciled; v2 proposed, owner approval pending**.
 [PR #239](https://github.com/VanillaIceCube/MacroMapper/pull/239) was merged
 without owner authorization. Its contents are candidate implementation, not an
 approved architecture or evidence of production deployment.
 
-Shared decisions belong on [Notoli #904](https://github.com/VanillaIceCube/Notoli/issues/904).
+Shared decisions belong on [Infrastructure #4](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/issues/4).
 App implementation belongs on [MacroMapper #240](https://github.com/VanillaIceCube/MacroMapper/issues/240).
 Architecture approval, each PR merge, and each production action require
 separate explicit owner authorization. Agent 3 is the sole production operator.
+
+## Agent 5 continuation
+
+The owner consolidated repository work into Agent 5; historical Agent 1/2
+reviews below are retained as evidence, not active ownership assignments.
+Infrastructure now has a selected source repository,
+`VanillaIceCube/JudeAndrewAlabaInfrastructure`; the website stays independent.
+Agent 3's [refreshed audit at 09:49–09:53 PDT](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/issues/4#issuecomment-6111383750)
+confirms unchanged topology/images, Engine 28.2.2, Compose 2.40.3, linux/amd64
+images and all four namespaced upstreams resolving from the current proxy.
+External-network syntax passes; actual cutover/recovery is not tested.
+
+[Proposed contract v2](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/issues/4#issuecomment-6111397179)
+incorporates the staging clarification: unique private incoming directories,
+stable per-app locks, a coordinated maintenance lock, complete prior
+configuration/environment/image/DB recovery, and bounded read-only readiness
+before writing the success record. It adopts existing route networks and
+preserves both already-running apps. No image/schema changes accompany the
+ingress transfer. Agent 5 agrees with the keep/simplify/replace recommendations
+below; no wholesale revert is recommended.
+
+VM feasibility and explicit owner architecture approval remain gates before
+finalizing shared-interface implementation. Port-3000 consumers, Cloudflare
+policy, deployment identity/permissions, peak capacity, backup destination and
+restore evidence remain production prerequisites. The advanced infrastructure
+automation stack is deferred; no merge or production authorization is implied.
 
 ## Evidence and limits
 
@@ -28,9 +54,10 @@ separate explicit owner authorization. Agent 3 is the sole production operator.
   VM feasibility and release-lock clarification remain pending at this
   checkpoint; no contract endorsement is implied.
 - No SSH, host changes, DNS/TLS changes, production dispatch, merge, or
-  deployment was performed by Agent 2. Current Compose version, Cloudflare
+  deployment was performed by Agent 2. Compose version was unverified at that
+  checkpoint; the refreshed report above supplies it. Cloudflare
   mode/cache/firewall rules and production credential capabilities remain
-  unverified in the available report.
+  unverified.
 
 ## Component recommendations
 
@@ -151,9 +178,10 @@ The v1 contract proposes host-owned ingress, preserving these upstreams and
 route-facing networks in place, overwritten client-address headers, separate
 release/rollback ownership and sequential cutover. Agent 2's conditional review
 finds these compatible, with staging/lock scope and bounded health checks to
-clarify. Agent 2 must read the VM feasibility review before endorsement.
-Infra ownership, maintenance window, backup destination, port-3000 consumers
-and capacity policy remain owner decisions; no proposed name is approved.
+clarify. This is historical v1 review; the Agent 5 continuation above supersedes
+its ownership and coordination status. Infrastructure repository ownership is
+now selected. Maintenance window, backup destination, port-3000 consumers and
+capacity policy still require owner decisions; v2 is not approved.
 
 ## Local verification on 2026-10-11
 

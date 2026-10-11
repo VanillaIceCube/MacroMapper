@@ -9,6 +9,8 @@ All notable changes to this project are documented in this file.
 - Correct deployment documentation that treated unauthorized PR #239 as approved
   implementation or historical host reports as verified current production facts.
 ### Changed
+- Move shared coordination to Infrastructure #4 and record Agent 5 ownership,
+  the refreshed Agent 3 audit and proposed v2 contract without implying approval.
 - Consolidate the launch handoff into coordination checkpoints and distinguish
   architecture, PR merge, and production authorization.
 

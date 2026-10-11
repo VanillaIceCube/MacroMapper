@@ -8,7 +8,7 @@ PR #239 was merged without owner authorization; these files and commands are
 [The coordination handoff](PRODUCTION-LAUNCH-HANDOFF.md) defines the required
 VM audit, contract review and separate owner approvals. The target is host-owned
 ingress outside both app release lifecycles, discussed on
-[Notoli #904](https://github.com/VanillaIceCube/Notoli/issues/904), with app work
+[Infrastructure #4](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/issues/4), with app work
 on [MacroMapper #240](https://github.com/VanillaIceCube/MacroMapper/issues/240).
 [#238](https://github.com/VanillaIceCube/MacroMapper/issues/238) covers the minimum
 launch prerequisites. Repository preparation and live acceptance are separate.
