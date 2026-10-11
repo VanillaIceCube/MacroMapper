@@ -76,7 +76,23 @@ Optional SMTP settings: `DJANGO_EMAIL_HOST`, `DJANGO_EMAIL_PORT`,
 `DJANGO_EMAIL_USE_TLS`, `DJANGO_EMAIL_HOST_USER`, `DJANGO_EMAIL_TIMEOUT`.
 Defaults remain Resend SMTP, port 587, TLS, user resend, timeout 10 seconds.
 Optional `OPENAI_MEAL_ESTIMATION_MODEL` and `OPENAI_MEAL_ESTIMATION_TIMEOUT`
-retain the existing model and 45-second defaults. No product/provider behavior changes.
+default to the existing model and a 110-second total AI budget. The timeout must
+be greater than zero and at most 110 seconds; it covers sequential provider calls,
+with SDK retries disabled. Gunicorn uses four request threads in one worker and
+an explicit 120-second worker-liveness timeout. At most two SDK calls run at once;
+timed-out calls retain their slots until they finish, and excess AI requests
+return a safe JSON 503. See [backend behavior](../../backend/README.md).
+
+The Infrastructure MacroMapper backend vhost must have `proxy_read_timeout 120s`
+to avoid its former 60-second default terminating estimates. This gateway change
+belongs to the separately authorized Infrastructure release; deploy it before
+the app change. The local frontend/standalone proxies use the same 120-second
+API read limit. The 110-second AI budget leaves response headroom within both
+the gateway limit and [Cloudflare's default 125-second proxy read timeout](https://developers.cloudflare.com/fundamentals/reference/connection-limits/).
+Confirm the zone's effective limit during rollout. Verify a delayed estimate
+and an ordinary authenticated API read concurrently, then a controlled timeout
+returning JSON 503 without a worker restart or late proposal write.
+No shared release code or parity pin changes are needed for this app policy.
 Canonical production host/origin/debug/DB settings are set by the app's
 `build_bundle.py`; incompatible explicit overrides fail. Values are single-line
 raw env files, so dollar signs, hashes and quotes retain their literal bytes.

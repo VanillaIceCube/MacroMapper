@@ -36,6 +36,9 @@ Outside of that, I mean my goal was to get a good personal use application that 
   corrections stay within the editable, source-aware proposal with explicit
   provenance, immutable review revisions, and confidence requiring review
   before saving.
+- **Bounded AI requests:** meal estimation allows up to two minutes at the server
+  and proxy, with a 110-second total AI budget and safe errors that retain drafts.
+  Ordinary API requests can continue while the model checks sources.
 - **Reusable Food Items:** authenticated catalog APIs for standalone and
   composite foods with portions, nutrients, provenance, sources, and confidence
 - **Catalog separation:** initial AI definitions become deduplicated shared

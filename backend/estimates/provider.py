@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import json
+import time
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from decimal import Decimal
+from threading import BoundedSemaphore
 from typing import Literal
 
 from django.conf import settings
@@ -16,6 +20,12 @@ from foods.portions import portion_options_for_serving
 
 class EstimationProviderError(Exception):
     """A safe, user-facing failure from the configured estimation provider."""
+
+
+# Only SDK I/O runs here; ORM work stays on the request thread. Retain a slot
+# until an abandoned call actually finishes, so slow calls cannot grow a queue.
+_PROVIDER_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="meal-ai")
+_PROVIDER_SLOTS = BoundedSemaphore(2)
 
 
 class EstimatedSource(BaseModel):
@@ -381,14 +391,44 @@ class OpenAIMealEstimationProvider:
                 "Meal estimation is not configured. Add an OpenAI API key or use a catalog food."
             )
         self.model = settings.OPENAI_MEAL_ESTIMATION_MODEL
+        self.deadline = time.monotonic() + settings.OPENAI_MEAL_ESTIMATION_TIMEOUT
         self.client = client or OpenAI(
             api_key=settings.OPENAI_API_KEY,
             timeout=settings.OPENAI_MEAL_ESTIMATION_TIMEOUT,
+            max_retries=0,
         )
+
+    def _parse(self, **kwargs):
+        remaining = self.deadline - time.monotonic()
+        if remaining <= 0:
+            raise EstimationProviderError("The meal estimation time limit was reached.")
+        slots = _PROVIDER_SLOTS
+        if not slots.acquire(blocking=False):
+            raise EstimationProviderError("The meal estimation service is busy.")
+        try:
+            future = _PROVIDER_EXECUTOR.submit(
+                self.client.responses.parse, timeout=remaining, **kwargs
+            )
+        except BaseException:
+            slots.release()
+            raise
+        future.add_done_callback(lambda _: slots.release())
+        try:
+            # SDK timeouts bound individual network operations, not wall time.
+            # This wait bounds the entire call, including slow response reads.
+            response = future.result(timeout=max(0, self.deadline - time.monotonic()))
+        except FutureTimeoutError as error:
+            future.cancel()
+            raise EstimationProviderError(
+                "The meal estimation time limit was reached."
+            ) from error
+        if time.monotonic() >= self.deadline:
+            raise EstimationProviderError("The meal estimation time limit was reached.")
+        return response
 
     def extract_intents(self, description: str) -> dict:
         try:
-            response = self.client.responses.parse(
+            response = self._parse(
                 model=self.model,
                 input=[
                     {"role": "system", "content": INTENT_EXTRACTION_SYSTEM_PROMPT},
@@ -425,7 +465,7 @@ class OpenAIMealEstimationProvider:
 
     def generate_name(self, items: list[dict]) -> str:
         try:
-            response = self.client.responses.parse(
+            response = self._parse(
                 model=self.model,
                 input=[
                     {"role": "system", "content": MEAL_NAMING_SYSTEM_PROMPT},
@@ -456,7 +496,7 @@ class OpenAIMealEstimationProvider:
 
     def estimate(self, description: str) -> dict:
         try:
-            response = self.client.responses.parse(
+            response = self._parse(
                 model=self.model,
                 tools=[{"type": "web_search"}],
                 input=[
@@ -504,7 +544,7 @@ class OpenAIMealEstimationProvider:
             "follow_up_request": follow_up,
         }
         try:
-            response = self.client.responses.parse(
+            response = self._parse(
                 model=self.model,
                 tools=[{"type": "web_search"}],
                 input=[
