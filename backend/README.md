@@ -242,6 +242,10 @@ python backend/manage.py migrate
 python backend/manage.py runserver 8000
 ```
 
+Maintain dependency pins directly in `requirements.txt`. Docker uses
+`environment.yml` to select Python and install the same requirements through
+Conda; CI reads its Python version pin. No environment-export helper is needed.
+
 Optional `backend/.env` values are loaded automatically:
 
 ```env

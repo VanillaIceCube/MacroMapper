@@ -103,6 +103,13 @@ Manually add items from the catalog, or use AI to make adjustments!
 ![MacroMapper catalog search and conversational AI adjustment controls](docs/images/meal-estimation-04.png)
 
 ## 📚 Documentation
+
+Application dependencies are maintained in `backend/requirements.txt` and
+`frontend/package.json` with its lockfile. Local setup and Docker development
+use those definitions directly; generated build output and lint caches are
+not source files. GitHub Project recovery uses the manual steps in
+`docs/GITHUB_SETUP.md`.
+
 - Product vision and delivery roadmap: [`docs/PRODUCT_VISION.md`](docs/PRODUCT_VISION.md)
 - Setup, environment variables, and common commands: [`AGENTS.md`](AGENTS.md)
 - Backend (API, auth, configuration): [`backend/README.md`](backend/README.md)
@@ -115,9 +122,3 @@ Manually add items from the catalog, or use AI to make adjustments!
 ## 📜 License
 This project is licensed under a **Modified MIT License (Non-Commercial Use
 Only)**. See [`LICENSE.md`](LICENSE.md) for full details.
-
-## 🙏 Acknowledgments
-This project includes code derived from
-[`conda_export.py`](https://github.com/andresberejnoi/Conda-Tools) by
-**Andres Berejnoi**, used under the terms of the original
-[MIT License](https://opensource.org/licenses/MIT).

@@ -198,6 +198,12 @@ localhost only. Set `MACROMAPPER_DEV_FRONTEND_PORT` or
 ports. It does not require a certificate, Nginx proxy, or shared local
 ingress. Open `http://macromapper.localhost:3000`.
 
+Maintain backend dependency pins in `backend/requirements.txt`; both backend
+Dockerfiles install them through `backend/environment.yml`. Rebuild the
+affected development image after changing dependencies. Source-only edits use
+the mounted development servers without a rebuild. Docker build contexts
+exclude generated build output and local lint/test caches.
+
 Use the production-shaped commands below when testing HTTPS, Nginx, or the
 deployment image path.
 

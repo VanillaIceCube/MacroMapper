@@ -8,8 +8,7 @@ dependencies:
   - pip:
       - -r requirements.txt
 
-# Update env + requirements.txt (pip packages go into requirements.txt)
-# `python environment_manager.py export -o environment.yml`
+# Maintain pip dependencies directly in requirements.txt.
 # Overwrite environment from yaml
 # `conda env update --file environment.yml --prune`
 # Fresh create from yaml

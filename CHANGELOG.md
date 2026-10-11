@@ -16,6 +16,19 @@ All notable changes to this project are documented in this file.
 - Reuse the complete reachable food component graph for catalog estimates and meal
   snapshots, with shared nutrient calculations and queries batched by tree level.
 
+### Changed
+
+- Maintain backend dependency pins directly and document manual GitHub Project
+  recovery instead of relying on repository setup/export scripts.
+- Exclude local lint/test caches and Python environments from Docker build contexts.
+
+### Removed
+
+- Remove the optional GitHub Project bootstrap script, legacy Conda export helper,
+  unused YAML dependencies, frontend environment example, and inherited agent journals.
+- Remove unused catalog-matching and meal-item adapters, unused test helpers, and
+  the obsolete Create React App browser-target configuration.
+
 ## 2026-10-09
 
 ### Fixed

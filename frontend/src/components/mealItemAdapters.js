@@ -148,32 +148,3 @@ export const savedMealItemToEditableMealItem = (item) => {
     components: (item.component_snapshot || []).map(componentSnapshotToMealItem),
   });
 };
-
-export const catalogFoodToProposalItem = (food) => {
-  const version = food.current_version || {};
-  const sourceKind = sourceKindForProvenance(version.provenance);
-  return withPortionSelection({
-    key: nextKey('catalog-added', food.id),
-    food_item_id: food.id,
-    food_version_id: version.id,
-    name: food.name,
-    provider_name: food.provider_name,
-    origin_type: food.origin_type,
-    servings: '1',
-    serving_quantity: version.serving_quantity,
-    serving_unit: version.serving_unit,
-    serving_label: version.serving_label,
-    portion_options: version.portion_options || [],
-    provenance: version.provenance,
-    source_kind: sourceKind,
-    confidence_score: version.confidence_score,
-    nutrients: nutrientArrayToValues(version.nutrients),
-    sources: (version.sources || []).map((source) => ({
-      ...source,
-      is_official: sourceKind === 'official_verified',
-    })),
-    components: (version.components || [])
-      .map(componentSnapshotToMealItem)
-      .map(mealItemToProposalItem),
-  });
-};

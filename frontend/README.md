@@ -119,6 +119,11 @@ Open the development frontend at
 VITE_API_BASE_URL=http://localhost:8000
 ```
 
+Set this in your shell or an ignored `frontend/.env.local` file. Vite loads
+its standard `.env` files; there is no separate `frontend.env` setup file.
+Browser build targets are configured through Vite, rather than the former
+Create React App `browserslist` field.
+
 Production builds should normally leave `VITE_API_BASE_URL` blank so
 `/auth/...` and `/api/...` requests use the current origin.
 
@@ -142,6 +147,11 @@ default and can be changed with the `MACROMAPPER_DEV_*_PORT` variables
 in `deploy/.env`.
 
 ## 🧰 Checks
+
+`dist/` is generated production output and can be removed and rebuilt.
+The former `build/` output and lint caches are disposable. Keep `node_modules/`
+for local development, or recreate it with `npm ci`.
+
 ```powershell
 npm test
 npm run test:watch

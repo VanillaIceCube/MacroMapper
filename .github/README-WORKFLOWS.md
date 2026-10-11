@@ -117,12 +117,11 @@ The Project must contain:
 - Numeric `Estimate`
 - `Start date` and `End date`
 
-`scripts/create-github-project.ps1` copies Notoli's Project structure, links it
-to the target repository, verifies its fields, views, and supported workflows,
-and sets `SECURITY_ALERTS_PROJECT_ID`. GitHub excludes the repository-scoped
-`Auto-add to project` workflow from Project copies, so configure it for the
-target repository in the GitHub UI as described in
-[`docs/GITHUB_SETUP.md`](../docs/GITHUB_SETUP.md).
+Create or recover the board with the manual GitHub CLI and UI steps in
+[`docs/GITHUB_SETUP.md`](../docs/GITHUB_SETUP.md). Link it to MacroMapper,
+verify its fields and views, and set `SECURITY_ALERTS_PROJECT_ID`. GitHub
+excludes auto-add workflows from Project copies, so configure the required
+auto-add workflows for the target repository in the GitHub UI.
 
 ## 🚀 Deployment
 `.github/workflows/ci-deploy.yml` runs on `env-prod` pushes or manually. It:
