@@ -934,6 +934,12 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                 nutrition data, while unmatched foods are estimated by GPT with web sources and
                 remain editable before saving.
               </Typography>
+              {estimating && (
+                <Typography role="status" variant="body2" sx={{ color: 'var(--atlas-ink-muted)' }}>
+                  Estimation can take up to two minutes. Keep this dialog open while we check
+                  sources.
+                </Typography>
+              )}
             </Stack>
           ) : (
             <Stack spacing={1.25}>

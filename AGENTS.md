@@ -62,7 +62,7 @@ Optional backend variables:
 - `DJANGO_DEFAULT_FROM_EMAIL`
 - `MACROMAPPER_OPENAI_API_KEY` (required for GPT estimates that do not match the catalog)
 - `OPENAI_MEAL_ESTIMATION_MODEL` (default: `gpt-5.6-luna`)
-- `OPENAI_MEAL_ESTIMATION_TIMEOUT` (default: `45` seconds)
+- `OPENAI_MEAL_ESTIMATION_TIMEOUT` (total AI budget; default/max: `110` seconds)
 
 Optional frontend variable:
 

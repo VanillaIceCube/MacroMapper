@@ -3,6 +3,11 @@
 For shared-host deployment, use the [production release and recovery guide](production/README.md).
 The commands below operate local development stacks.
 
+API proxies in standalone HTTPS and the frontend image allow 120 seconds for
+an upstream response. The backend's default 110-second total AI budget leaves
+time to return a controlled error. Production uses the separately owned
+Infrastructure gateway with the same 120-second API read timeout.
+
 ## Local Docker with `macromapper.localhost`
 
 For source iteration, copy `backend.env` to `deploy/.env` only if you do not

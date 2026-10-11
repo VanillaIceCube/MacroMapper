@@ -12,6 +12,11 @@ private meal diary, and GPT-assisted estimate-review flow. See the
 [product vision](../docs/PRODUCT_VISION.md) for the remaining user experience
 and release sequence.
 
+AI estimation can take up to two minutes; the dialog explains the wait and keeps
+the description when the backend returns a safe timeout error. Both the local
+frontend image's API proxy and the production Infrastructure gateway allow
+120 seconds, with a 110-second total AI budget in Django.
+
 ## 🧭 Visual system
 
 The frontend uses the Field Atlas direction described in

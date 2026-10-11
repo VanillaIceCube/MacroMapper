@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
+import math
 import os
 from pathlib import Path
 
@@ -216,5 +217,11 @@ DEFAULT_FROM_EMAIL = (
 OPENAI_API_KEY = os.getenv("MACROMAPPER_OPENAI_API_KEY", "")
 OPENAI_MEAL_ESTIMATION_MODEL = os.getenv("OPENAI_MEAL_ESTIMATION_MODEL", "gpt-5.6-luna")
 OPENAI_MEAL_ESTIMATION_TIMEOUT = float(
-    os.getenv("OPENAI_MEAL_ESTIMATION_TIMEOUT", "45")
+    os.getenv("OPENAI_MEAL_ESTIMATION_TIMEOUT", "110")
 )
+if not math.isfinite(OPENAI_MEAL_ESTIMATION_TIMEOUT) or not (
+    0 < OPENAI_MEAL_ESTIMATION_TIMEOUT <= 110
+):
+    raise ImproperlyConfigured(
+        "OPENAI_MEAL_ESTIMATION_TIMEOUT must be greater than 0 and at most 110 seconds."
+    )

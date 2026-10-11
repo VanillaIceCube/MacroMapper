@@ -260,7 +260,7 @@ DJANGO_CSRF_TRUSTED_ORIGINS=http://macromapper.localhost:3000
 DJANGO_FRONTEND_BASE_URL=http://macromapper.localhost:3000
 MACROMAPPER_OPENAI_API_KEY=<openai-project-api-key>
 OPENAI_MEAL_ESTIMATION_MODEL=gpt-5.6-luna
-OPENAI_MEAL_ESTIMATION_TIMEOUT=45
+OPENAI_MEAL_ESTIMATION_TIMEOUT=110
 ```
 
 The OpenAI key is optional for local catalog/manual workflows. An unmatched
@@ -268,6 +268,22 @@ description returns `503 Service Unavailable` with a safe explanation when the
 key is absent or the provider cannot respond. Saving a meal with a blank name
 asks the configured model for a concise name based on its selected foods; if
 that request fails, the meal is saved with a sequential name such as `Meal-00`.
+
+`OPENAI_MEAL_ESTIMATION_TIMEOUT` is the total wall-clock AI budget, shared by
+intent extraction and nutrition estimation; default 110 seconds, allowed range
+greater than 0 through 110. SDK retries are disabled. SDK-only calls run in a
+bounded pool of two threads; if a timed-out call is still completing, its slot
+remains occupied and additional AI requests fail safely rather than queueing.
+Late results cannot publish database records. The existing JSON 503 response
+preserves the editable frontend draft. ORM work stays on the request thread.
+Initial catalog reads and AI waits happen outside a database transaction; the
+catalog publication, proposal and revision are committed together afterward.
+This avoids holding SQLite read locks while other request threads save data.
+Blank-name draft saves also generate the name before opening the write
+transaction, then revalidate catalog visibility and reviewed items before
+materializing and saving the meal together with its items.
+Production Gunicorn uses one worker with four request threads and a 120-second
+worker-liveness timeout; the AI budget bounds request wait time.
 
 The default database is `backend/db.sqlite3`. Override it with
 `DJANGO_SQLITE_PATH`. The `macromapper.localhost` host is accepted by

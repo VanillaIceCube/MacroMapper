@@ -3,6 +3,12 @@ MacroMapper's CI/CD and security automation validates the application,
 publishes its images, deploys production, reviews pull requests, and keeps
 security work synchronized with the MacroMapper Project.
 
+Production bundles default `OPENAI_MEAL_ESTIMATION_TIMEOUT` to 110 seconds for
+the entire AI operation, with retries disabled. An optional repository variable
+can shorten this budget (greater than zero, at most 110). The two-minute
+Infrastructure API proxy change must be released before the app image change;
+passing CI does not authorize either production operation.
+
 ## ⚙️ Repository Settings Baseline
 The live MacroMapper repository uses least-privilege settings: auto-merge is
 enabled; merge commits, squash
