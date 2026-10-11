@@ -1,7 +1,10 @@
 # PR #239 audit for MacroMapper #240
 
-Audit date: 2026-10-11. Status: **Agent 5 resumed the source audit;
-refreshed VM report reconciled; v2 proposed, owner approval pending**.
+Audit date: 2026-10-11. Historical preparation findings are retained below.
+Current status: **[architecture v2 approved](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/issues/4#issuecomment-6111586759);
+implementation merges and production deployment not authorized**. Use the
+[current handoff](PRODUCTION-LAUNCH-HANDOFF.md) and [release guide](production/README.md).
+Preparation PR #241 is subsumed by standalone implementation #242.
 [PR #239](https://github.com/VanillaIceCube/MacroMapper/pull/239) was merged
 without owner authorization. Its contents are candidate implementation, not an
 approved architecture or evidence of production deployment.
@@ -35,8 +38,8 @@ Agent 3's [v2 feasibility review](https://github.com/VanillaIceCube/JudeAndrewAl
 finds no required interface change. It requires final recovery capture under
 the release hold, correct legacy bind paths, app-only rollback, protected
 stable locks, digest consistency and disposable handoff/reversal tests.
-Explicit owner architecture approval remains required before finalizing
-shared-interface implementation. Port-3000 consumers, Cloudflare
+The owner subsequently approved v2; implementation is in #242. Separate
+PR-merge and production approvals remain required. Port-3000 consumers, Cloudflare
 policy, deployment identity/permissions, peak capacity, backup destination and
 restore evidence remain production prerequisites. The advanced infrastructure
 automation stack is deferred; no merge or production authorization is implied.
@@ -157,7 +160,7 @@ environment, effective Compose/vhosts, network topology and exact image digests
 before an authorized cutover. The VM checkout head differs from the running
 image SHA; runtime/container evidence governs what is installed.
 
-## Inputs for the proposed contract
+## Historical inputs for the proposed contract
 
 Candidate upstreams: `macromapper-frontend:80` and `macromapper-backend:8000`.
 Current external network: `macromapper-ingress`. Both services also join
@@ -187,7 +190,8 @@ finds these compatible, with staging/lock scope and bounded health checks to
 clarify. This is historical v1 review; the Agent 5 continuation above supersedes
 its ownership and coordination status. Infrastructure repository ownership is
 now selected. Maintenance window, backup destination, port-3000 consumers and
-capacity policy still require owner decisions; v2 is not approved.
+capacity policy still required owner decisions at that proposal checkpoint.
+V2 was subsequently approved; live operational decisions remain outstanding.
 
 ## Local verification on 2026-10-11
 
