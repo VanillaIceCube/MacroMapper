@@ -2,7 +2,10 @@
 
 This is the implementation of approved architecture v2. Every PR merge and
 every production release still requires separate explicit owner authorization.
-The authorized host operator performs production actions. Shared decisions:
+Only the operator designated in coordination #4 may perform production actions
+under its separately approved plan. For the coordinated ingress migration, the
+owner designated Agent 3 as the sole production operator; source approval does
+not authorize any agent to operate the host. Shared decisions:
 [Infrastructure #4](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/issues/4).
 
 ## Shared implementation and app configuration
@@ -41,8 +44,9 @@ transfer/recovery is verified.
 
 The retired `scripts/deploy-production.sh` and
 `scripts/prepare-production-bundle.py` remain fail-closed compatibility stubs.
-No current checked-in workflow invokes them, but old release branches, external
-automation or operator commands could still do so. Remove them only after the
+No workflow on this implementation branch invokes them. Legacy `env-prod`
+workflow history still invokes the bundle builder and deployment script;
+external automation or operator commands may also do so. Remove them only after the
 host operator inventories those callers, disables or migrates every legacy
 caller, verifies the new release and recovery path, and confirms retained
 rollback procedures do not invoke them. Record that evidence in the deployment
