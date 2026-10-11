@@ -112,14 +112,16 @@ Manually add items from the catalog, or use AI to make adjustments!
 
 ## 📚 Documentation
 
-The production candidate for `macromapper.judeandrewalaba.com` uses a bridge to
-Notoli's public proxy, SHA-tagged images, and pre-migration SQLite recovery.
-PR #239 was merged without owner authorization; it is not an approved design
-or proof of a live launch. [The audit](deploy/PR239-AUDIT.md) and
-[coordination handoff](deploy/PRODUCTION-LAUNCH-HANDOFF.md) track review against
-the target of host-owned shared ingress and independently deployable apps.
-See the [deployment guide](deploy/README.md) for candidate configuration and
-the separate architecture, merge and production approval gates.
+The production implementation for `macromapper.judeandrewalaba.com` uses
+host-owned shared ingress from the infrastructure repository and independent
+app releases with immutable image digests and verified SQLite recovery.
+Architecture v2 is owner-approved; each PR merge and production activation
+still requires separate approval. PR #239's earlier bridge was merged without
+owner authorization and is historical context, documented in
+[the audit](deploy/PR239-AUDIT.md). The
+[coordination handoff](deploy/PRODUCTION-LAUNCH-HANDOFF.md) and
+[deployment guide](deploy/production/README.md) describe current ownership,
+gateway-first activation and the remaining operational gates.
 
 - Product vision and delivery roadmap: [`docs/PRODUCT_VISION.md`](docs/PRODUCT_VISION.md)
 - Setup, environment variables, and common commands: [`AGENTS.md`](AGENTS.md)
