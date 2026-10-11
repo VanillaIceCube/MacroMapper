@@ -16,6 +16,8 @@ All notable changes to this project are documented in this file.
 - Reuse the complete reachable food component graph for catalog estimates and meal
   snapshots, with shared nutrient calculations and queries batched by tree level.
 ### Changed
+- Move the local HTTPS certificate helper into `scripts/` and update its
+  documentation references.
 - Move frontend design documentation, mockups, and application screenshots into
   `frontend/docs/`, update their links, and exclude them from Docker build contexts.
 - Move GitHub setup and recovery documentation into `.github/` alongside the

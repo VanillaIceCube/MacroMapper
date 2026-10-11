@@ -204,13 +204,16 @@ deployment image path.
 ```powershell
 Copy-Item deploy/backend.env deploy/.env
 New-Item -ItemType File -Path deploy/db.sqlite3 -Force
-./deploy/create-local-certificate.ps1
+./scripts/create-local-certificate.ps1
 docker build -t ghcr.io/vanillaicecube/macromapper-backend:latest ./backend
 docker build -t ghcr.io/vanillaicecube/macromapper-frontend:latest ./frontend
 Set-Location deploy
 docker compose up -d
 docker compose exec -T backend python manage.py migrate
 ```
+
+The certificate helper lives in `scripts/` and writes `origin.pem` and `origin.key`
+to the repository's ignored `certs/` folder. It is optional for HTTP development.
 
 Open `https://macromapper.localhost`.
 
