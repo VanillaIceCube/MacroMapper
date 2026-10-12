@@ -34,6 +34,22 @@ class Notification(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     read_at = models.DateTimeField(null=True, blank=True)
 
+    def mark_as_read(self, save=True, when=None):
+        from django.utils import timezone
+
+        if not self.is_read or not self.read_at:
+            self.is_read = True
+            self.read_at = when or timezone.now()
+            if save:
+                self.save(update_fields=["is_read", "read_at"])
+
+    def mark_as_unread(self, save=True):
+        if self.is_read or self.read_at is not None:
+            self.is_read = False
+            self.read_at = None
+            if save:
+                self.save(update_fields=["is_read", "read_at"])
+
     def __str__(self):
         return self.title
 
