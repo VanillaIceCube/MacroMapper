@@ -59,19 +59,24 @@ class ResendApiEmailBackend(BaseEmailBackend):
             method="POST",
         )
         timeout = getattr(settings, "EMAIL_TIMEOUT", None)
-        with request.urlopen(http_request, timeout=timeout) as response:
-            status = response.getcode()
-            if 200 <= status < 300:
-                return
+        try:
+            with request.urlopen(http_request, timeout=timeout) as response:
+                status = response.getcode()
+                if 200 <= status < 300:
+                    return
 
-            response_body = response.read().decode("utf-8", errors="replace")
-            raise error.HTTPError(
-                self.api_url,
-                status,
-                response_body,
-                response.headers,
-                None,
-            )
+                response_body = response.read().decode("utf-8", errors="replace")
+                raise error.HTTPError(
+                    self.api_url,
+                    status,
+                    response_body,
+                    response.headers,
+                    None,
+                )
+        except error.HTTPError:
+            raise
+        except (error.URLError, TimeoutError, OSError) as exc:
+            raise error.URLError(exc) from exc
 
     def _get_html_body(self, message):
         if not isinstance(message, EmailMultiAlternatives):
