@@ -66,7 +66,14 @@ browser does not resolve `macromapper.localhost`, add a local hosts entry for
 ## 🔑 Local estimation key
 
 Set `MACROMAPPER_OPENAI_API_KEY` in ignored `deploy/.env` to the
-`Local · Application · AI Estimate` key from `MacroMapper Development`. Restart
-the backend container after changing it. Never add a real key to the tracked
+`Local · Application · AI Estimate` key from `MacroMapper Development`. Recreate
+the backend container after changing it; a plain restart does not reload env-file
+values:
+
+```powershell
+docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml up -d --force-recreate backend
+```
+
+Never add a real key to the tracked
 `deploy/backend.env` example. Production uses a separate key and the approved
 release procedure; see the [credential migration guide](../.github/README-WORKFLOWS.md#-independent-estimation-credentials).
