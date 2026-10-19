@@ -241,3 +241,11 @@ app release. Full sign-in, password-reset delivery, catalog/meal/user-isolation 
 reboot, off-host restores, monitoring and resource evidence are operator
 acceptance work, not inferred from these tests. Keep the implementation issues
 open until that evidence exists.
+
+The shared release pin includes template-policy regression coverage coordinated
+with [FullStackTemplate #217](https://github.com/VanillaIceCube/FullStackTemplate/issues/217)
+and [Infrastructure #26](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/pull/26).
+It derives common preflight fixtures from app policy while retaining this app's
+existing trust, networks, environment requirements, workflow and runtime bytes.
+The same immutable source commit is proposed for all three consumers. These
+source-pin PRs do not authorize merging, promotion, or deployment.

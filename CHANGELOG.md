@@ -1,6 +1,29 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 2026-10-18
+
+### Changed
+
+- Synchronized the shared Infrastructure release-test source pin with the
+  template adoption work while preserving this application's release runtime,
+  deployment workflow, and network/trust policy.
+
+## 2026-10-18
+
+### Fixed
+
+- Aligned the security-alert workflow test with the reviewed GitHub App token
+  action v3.3.0 pin so intentional dependency updates pass automation checks.
+
+### Changed
+
+- Updated Nora and Marty to v3: one open PR per agent, with repeat runs maintaining the existing PR and integrating current main.
+
+## 2026-10-17
+### Removed
+- Retire the recurring Jules Kira downstream-reconciliation role, delete its external schedule, and preserve the evidence and remaining findings through explicit tickets.
+
 ## 2026-10-11
 ### Fixed
 - Allow slow meal estimates within coordinated two-minute server/proxy limits, with a shared 110-second AI deadline and controlled JSON errors instead of worker termination.
