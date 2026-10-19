@@ -24,9 +24,11 @@ class NotificationViewSet(viewsets.ModelViewSet):
         if "is_read" in serializer.validated_data:
             is_read = serializer.validated_data["is_read"]
             notification = serializer.instance
-            if is_read is True and not notification.read_at:
-                serializer.save(read_at=timezone.now())
+            if is_read is True:
+                notification.mark_as_read(save=False)
+                serializer.save(read_at=notification.read_at)
             elif is_read is False:
+                notification.mark_as_unread(save=False)
                 serializer.save(read_at=None)
             else:
                 serializer.save()

@@ -180,3 +180,20 @@ class NotificationApiTests(APITestCase):
         response = self.client.delete("/api/notifications/clear-all/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["deleted"], 0)
+
+    def test_notification_model_helper_methods(self):
+        notification = Notification.objects.create(
+            recipient=self.recipient,
+            title="Helper test",
+            message="Testing model helper methods.",
+        )
+        self.assertFalse(notification.is_read)
+        self.assertIsNone(notification.read_at)
+
+        notification.mark_as_read()
+        self.assertTrue(notification.is_read)
+        self.assertIsNotNone(notification.read_at)
+
+        notification.mark_as_unread()
+        self.assertFalse(notification.is_read)
+        self.assertIsNone(notification.read_at)
