@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-20
+
+### Fixed
+
+- Corrected Jules Nora and Marty PR ownership and continuation rules (v3.1): explicit branch/PR persona attribution prevents Dependabot, human, or other-persona PRs from consuming agent slots; repeat runs update existing PRs or maintain canonical PRs without false capacity stops or duplicate PR creation.
+- Documented 8-schedule persona launch audit matrix across Infrastructure, FullStackTemplate, MacroMapper, and Notoli.
+
 ## 2026-10-19
 
 ### Changed

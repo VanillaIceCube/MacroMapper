@@ -114,9 +114,11 @@ review/scanner failure gates and do not treat action updates as deployment appro
 
 ## Jules recurring agents
 
-Nora and Marty use the [v3 operating rules](.jules/README.md): at most one open
-PR per agent per repository. Repeat runs maintain the existing PR, integrate
-current main, and verify its latest head instead of opening another PR.
+Nora and Marty use the [v3.1 operating rules](.jules/README.md): at most one open
+PR per agent per repository, with explicit persona ownership criteria (`jules/nora/*`
+or `jules/marty/*` branch naming). Dependabot, human, and other-persona PRs do not
+consume an agent's slot. Repeat runs maintain the canonical or existing PR in place,
+integrate current main, and verify its latest head instead of opening duplicate PRs.
 
 ## 🔑 OpenAI reviewer isolation
 
