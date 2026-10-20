@@ -259,3 +259,8 @@ secret takes effect in a new private release bundle during the separately
 authorized app release; it does not change the running container. Keep the old
 key valid for rollback until all consumers and retained recovery bundles are
 accounted for. See the [migration and validation steps](../../.github/README-WORKFLOWS.md#-independent-estimation-credentials).
+
+
+## 🔌 Shared MCP framework
+
+Follow the [MCP framework contract](../../docs/MCP-FRAMEWORK.md) before activating an optional app. Notoli keeps its current MCP profile; MacroMapper ships the framework with MCP disabled. Use this guide for immutable app releases and explicit recovery; framework adoption does not provision a new template instance.

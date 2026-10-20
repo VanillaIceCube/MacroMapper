@@ -30,3 +30,8 @@ urlpatterns = [
     path("api/", include("notifications.urls")),
     path("auth/", include("authentication.urls")),
 ]
+
+
+from mcp_framework.routing import urlpatterns as mcp_urlpatterns  # noqa: E402
+
+urlpatterns = mcp_urlpatterns() + urlpatterns
