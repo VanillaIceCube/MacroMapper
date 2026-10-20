@@ -225,3 +225,17 @@ if not math.isfinite(OPENAI_MEAL_ESTIMATION_TIMEOUT) or not (
     raise ImproperlyConfigured(
         "OPENAI_MEAL_ESTIMATION_TIMEOUT must be greater than 0 and at most 110 seconds."
     )
+
+
+# Optional MCP has no routes, OAuth tables or application tools unless explicitly enabled.
+from mcp_framework.config import optional_settings  # noqa: E402
+
+MCP_SETTINGS = optional_settings("MacroMapper", "macromapper", sample=False)
+globals().update(MCP_SETTINGS)
+INSTALLED_APPS += ["mcp_framework"]
+if MCP_SETTINGS["MCP_ENABLED"]:
+    INSTALLED_APPS += ["oauth2_provider"]
+    SECURE_PROXY_SSL_HEADER = None
+    SESSION_COOKIE_SECURE = not DEBUG
+    CSRF_COOKIE_SECURE = not DEBUG
+ASGI_APPLICATION = "app.asgi.application"

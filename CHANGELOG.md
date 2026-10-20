@@ -1,4 +1,23 @@
 # Changelog
+
+## 2026-10-20
+
+### Added
+
+- Add the reusable, hash-pinned MCP/OAuth framework and isolated consent, token lifecycle and transport tests.
+
+### Changed
+
+- Provide opt-in ASGI startup and optional consent/Connected Apps pages; retain ordinary REST/Gunicorn behavior with MCP disabled by default.
+- Keep production MCP explicitly disabled; meal and nutrition tools remain outside this framework rollout.
+
+
+## 2026-10-19
+
+### Changed
+
+- Separate Obi-Wan, Lint Eastwood, and RoboCop OpenAI secrets, including RoboCop alert aggregation; pass only each reviewer's own credentials, stage `OPENAI_REVIEWERS_PROJECT_ID` independently, and document the deferred per-repository key migration.
+- Document independent production and local estimation credentials while preserving `MACROMAPPER_OPENAI_API_KEY` and the existing release procedure.
 All notable changes to this project are documented in this file.
 
 ## 2026-10-18

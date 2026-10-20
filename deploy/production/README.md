@@ -249,3 +249,18 @@ It derives common preflight fixtures from app policy while retaining this app's
 existing trust, networks, environment requirements, workflow and runtime bytes.
 The same immutable source commit is proposed for all three consumers. These
 source-pin PRs do not authorize merging, promotion, or deployment.
+
+## 🔑 Estimation credential rotation
+
+The Actions repository secret `MACROMAPPER_OPENAI_API_KEY` must contain only
+`Prod · Application · AI Estimate` from the `MacroMapper Production` OpenAI
+project. The deployment job has no GitHub environment binding. Updating the
+secret takes effect in a new private release bundle during the separately
+authorized app release; it does not change the running container. Keep the old
+key valid for rollback until all consumers and retained recovery bundles are
+accounted for. See the [migration and validation steps](../../.github/README-WORKFLOWS.md#-independent-estimation-credentials).
+
+
+## 🔌 Shared MCP framework
+
+Follow the [MCP framework contract](../../docs/MCP-FRAMEWORK.md) before activating an optional app. Notoli keeps its current MCP profile; MacroMapper ships the framework with MCP disabled. Use this guide for immutable app releases and explicit recovery; framework adoption does not provision a new template instance.
