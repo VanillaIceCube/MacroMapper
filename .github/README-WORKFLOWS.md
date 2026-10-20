@@ -303,3 +303,8 @@ must not come from the reviewer project or be shared between environments:
 
 This source change provisions no keys and performs no estimation, deployment,
 or revocation. Track live/local acceptance separately in issue #289.
+
+
+## 🔌 Shared MCP framework
+
+The backend test gate checks the pinned MCP framework manifest. Template/MacroMapper run both ordinary tests and an isolated MCP-enabled sample profile; production remains disabled there. Notoli runs its existing enabled protocol/domain suite. See [the framework guide](../docs/MCP-FRAMEWORK.md).

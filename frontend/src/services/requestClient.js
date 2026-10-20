@@ -1,3 +1,4 @@
+import { loginPath as connectionLoginPath } from './authRedirect';
 import { navigate } from './navigationService';
 
 const API_BASE_URL =
@@ -24,13 +25,14 @@ export function clearAuthSession() {
   }
 }
 
-export function redirectToLogin() {
-  const didNavigate = navigate('/login', { replace: true });
+export function redirectToLogin(returnTo) {
+  const destination = connectionLoginPath(returnTo);
+  const didNavigate = navigate(destination, { replace: true });
 
   if (didNavigate || typeof window === 'undefined') return;
 
   const normalizedBase = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '');
-  const loginPath = normalizedBase ? `${normalizedBase}/login` : '/login';
+  const loginPath = normalizedBase ? `${normalizedBase}${destination}` : destination;
   const loginUrl = `${window.location?.origin ?? ''}${loginPath.startsWith('/') ? '' : '/'}${loginPath}`;
   if (window.location?.replace) {
     window.location.replace(loginUrl);
@@ -55,7 +57,7 @@ export function logout() {
   redirectToLogin();
 }
 
-function handleUnauthorized() {
+function handleUnauthorized(returnTo) {
   clearAuthSession();
 
   if (typeof window === 'undefined') return;
@@ -83,7 +85,7 @@ function handleUnauthorized() {
     // ignore
   }
 
-  redirectToLogin();
+  redirectToLogin(returnTo);
 }
 
 let refreshRequest = null;
@@ -127,15 +129,16 @@ function withAccessToken(options, accessToken) {
 }
 
 export async function apiFetch(path, options = {}) {
+  const { authReturnTo, ...fetchOptions } = options;
   const url = `${API_BASE_URL}${path}`;
-  const response = await fetch(url, options);
+  const response = await fetch(url, fetchOptions);
 
   if (response?.status === 401 && shouldRedirectToLogin(path)) {
     const refreshResult = await refreshAccessToken();
     if (refreshResult.status === 'refreshed') {
-      return fetch(url, withAccessToken(options, refreshResult.accessToken));
+      return fetch(url, withAccessToken(fetchOptions, refreshResult.accessToken));
     }
-    if (refreshResult.status === 'invalid') handleUnauthorized();
+    if (refreshResult.status === 'invalid') handleUnauthorized(authReturnTo);
   }
 
   return response;

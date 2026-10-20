@@ -12,6 +12,9 @@ import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from unittest.mock import patch
+
+from serve import command as runtime_command
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = """
@@ -53,11 +56,17 @@ class GunicornDeadlineTests(unittest.TestCase):
             with socket.socket() as sock:
                 sock.bind(("127.0.0.1", 0))
                 port = sock.getsockname()[1]
-            command = next(
+            entrypoint = next(
                 json.loads(line.removeprefix("CMD "))
                 for line in (ROOT / "Dockerfile").read_text().splitlines()
                 if line.startswith("CMD ")
             )
+            self.assertEqual(entrypoint, ["python", "serve.py"])
+            # Follow the production selector rather than assuming the Docker
+            # CMD contains Gunicorn flags directly. Exercise its disabled MCP
+            # branch with the same real worker/deadline/health checks as before.
+            with patch.dict(os.environ, {"DJANGO_MCP_ENABLED": "0"}):
+                command = runtime_command()
             command[0:2] = [
                 sys.executable,
                 "-m",

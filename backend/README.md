@@ -352,3 +352,8 @@ python backend/manage.py test
 ruff check backend
 ruff format backend --check
 ```
+
+
+## 🔌 Shared MCP framework
+
+See [the MCP framework guide](../docs/MCP-FRAMEWORK.md) for opt-in settings, ASGI startup, OAuth migrations/client registration, consent, scope/ownership requirements and disabled-profile tests.

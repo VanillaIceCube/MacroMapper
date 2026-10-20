@@ -131,3 +131,8 @@ Meal estimation keeps `MACROMAPPER_OPENAI_API_KEY`, with separate production
 and local keys/projects. Store local values only in ignored `backend/.env` or
 `deploy/.env`; production values enter the approved private release bundle via
 the Actions repository secret. Never store keys in `deploy/backend.env`.
+
+
+## 🔌 Shared MCP framework
+
+MCP framework changes follow [docs/MCP-FRAMEWORK.md](docs/MCP-FRAMEWORK.md). FullStackTemplate owns the canonical Python package; keep all consumer hashes/pins aligned. MacroMapper stays disabled without business tools. Preserve Notoli credentials, scopes, tool permissions and exact proxy trust.
