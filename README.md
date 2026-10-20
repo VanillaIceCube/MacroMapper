@@ -125,3 +125,9 @@ and standalone HTTPS, use the [local guide](deploy/README.md).
 ## 📜 License
 This project is licensed under a **Modified MIT License (Non-Commercial Use
 Only)**. See [`LICENSE.md`](LICENSE.md) for full details.
+
+## 🔑 AI reviewer credentials
+
+Obi-Wan, Lint Eastwood, and RoboCop use separate OpenAI keys scoped to this
+repository. See the [workflow setup and deferred migration](.github/README-WORKFLOWS.md#-separate-openai-reviewer-credentials)
+for exact secret names, project configuration, verification, and rollback.
