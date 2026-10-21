@@ -299,3 +299,90 @@ class ResendApiEmailBackendTests(APITestCase):
                     )
                 ]
             )
+
+    @override_settings(
+        EMAIL_BACKEND="authentication.email_backends.ResendApiEmailBackend",
+        EMAIL_HOST_PASSWORD="",
+    )
+    def test_send_messages_suppresses_missing_api_key_when_fail_silently(self):
+        backend = get_connection(fail_silently=True)
+        sent_count = backend.send_messages(
+            [
+                EmailMessage(
+                    "Subject",
+                    "Body",
+                    "macromapper@example.com",
+                    ["mapper@example.com"],
+                )
+            ]
+        )
+        self.assertEqual(sent_count, 0)
+
+    @override_settings(
+        EMAIL_BACKEND="authentication.email_backends.ResendApiEmailBackend",
+        EMAIL_HOST_PASSWORD="resend-api-key",
+    )
+    @patch("authentication.email_backends.request.urlopen")
+    def test_send_messages_handles_url_error(self, mock_urlopen):
+        from urllib.error import URLError
+
+        mock_urlopen.side_effect = URLError("Network connection failed")
+
+        with self.assertRaises(URLError):
+            get_connection(fail_silently=False).send_messages(
+                [
+                    EmailMessage(
+                        "Subject",
+                        "Body",
+                        "macromapper@example.com",
+                        ["mapper@example.com"],
+                    )
+                ]
+            )
+
+        sent = get_connection(fail_silently=True).send_messages(
+            [
+                EmailMessage(
+                    "Subject",
+                    "Body",
+                    "macromapper@example.com",
+                    ["mapper@example.com"],
+                )
+            ]
+        )
+        self.assertEqual(sent, 0)
+
+    @override_settings(
+        EMAIL_BACKEND="authentication.email_backends.ResendApiEmailBackend",
+        EMAIL_HOST_PASSWORD="resend-api-key",
+    )
+    @patch("authentication.email_backends.request.urlopen")
+    def test_send_messages_handles_http_error(self, mock_urlopen):
+        from urllib.error import HTTPError
+
+        mock_error = HTTPError("url", 400, "Bad Request", {}, None)
+        mock_urlopen.side_effect = mock_error
+
+        with self.assertRaises(HTTPError):
+            get_connection(fail_silently=False).send_messages(
+                [
+                    EmailMessage(
+                        "Subject",
+                        "Body",
+                        "macromapper@example.com",
+                        ["mapper@example.com"],
+                    )
+                ]
+            )
+
+        sent = get_connection(fail_silently=True).send_messages(
+            [
+                EmailMessage(
+                    "Subject",
+                    "Body",
+                    "macromapper@example.com",
+                    ["mapper@example.com"],
+                )
+            ]
+        )
+        self.assertEqual(sent, 0)
