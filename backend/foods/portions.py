@@ -51,7 +51,10 @@ def _decimal_string(value):
 def _clean_estimated_weight(value):
     weight = _decimal(value)
     quantum = Decimal("1") if weight >= 1 else Decimal("0.1")
-    return weight.quantize(quantum, rounding=ROUND_HALF_UP)
+    cleaned = weight.quantize(quantum, rounding=ROUND_HALF_UP)
+    if cleaned <= 0:
+        cleaned = quantum
+    return cleaned
 
 
 def _clean_estimated_volume(value):
@@ -87,17 +90,18 @@ def portion_options_for_serving(
 
     if unit not in MASS_UNITS_IN_GRAMS and weight_grams is not None:
         serving_weight = _clean_estimated_weight(weight_grams)
-        for option_unit in ("g", "oz"):
-            options.append(
-                {
-                    "key": option_unit,
-                    "label": UNIT_OPTION_LABELS[option_unit],
-                    "unit_label": UNIT_LABELS[option_unit],
-                    "serving_multiplier": _decimal_string(
-                        MASS_UNITS_IN_GRAMS[option_unit] / serving_weight
-                    ),
-                }
-            )
+        if serving_weight > 0:
+            for option_unit in ("g", "oz"):
+                options.append(
+                    {
+                        "key": option_unit,
+                        "label": UNIT_OPTION_LABELS[option_unit],
+                        "unit_label": UNIT_LABELS[option_unit],
+                        "serving_multiplier": _decimal_string(
+                            MASS_UNITS_IN_GRAMS[option_unit] / serving_weight
+                        ),
+                    }
+                )
 
     conversions = None
     base_canonical_quantity = None
@@ -110,7 +114,11 @@ def portion_options_for_serving(
     elif volume_milliliters is not None:
         conversions = VOLUME_UNITS_IN_MILLILITERS
         base_canonical_quantity = _clean_estimated_volume(volume_milliliters)
-    if conversions is None:
+    if (
+        conversions is None
+        or base_canonical_quantity is None
+        or base_canonical_quantity <= 0
+    ):
         return options
 
     for option_unit, canonical_quantity in conversions.items():
