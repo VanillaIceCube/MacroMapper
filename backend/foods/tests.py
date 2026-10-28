@@ -142,6 +142,39 @@ class FoodModelTests(TestCase):
 
                 self.assertEqual(displayed_amount, expected_fluid_ounces)
 
+    def test_tiny_estimated_weights_keep_positive_portion_conversions(self):
+        for weight_grams in ("0.001", "0.01", "0.049", "0.05", "0.1"):
+            with self.subTest(weight_grams=weight_grams):
+                options = portion_options_for_serving(
+                    quantity=1, unit="item", weight_grams=weight_grams
+                )
+                by_key = {option["key"]: option for option in options}
+
+                self.assertEqual(Decimal(by_key["g"]["serving_multiplier"]), 10)
+                self.assertEqual(
+                    Decimal(by_key["oz"]["serving_multiplier"]),
+                    Decimal("28.349523125") / Decimal("0.1"),
+                )
+
+    def test_portion_options_handles_zero_or_negative_inputs_without_exception(self):
+        cases = [
+            {"quantity": 0, "unit": "g"},
+            {"quantity": "0.00", "unit": "ml"},
+            {"quantity": -5, "unit": "g"},
+            {"quantity": 1, "unit": "item", "weight_grams": 0},
+            {"quantity": 1, "unit": "item", "weight_grams": "0.01"},
+            {"quantity": 1, "unit": "item", "weight_grams": -10},
+            {"quantity": 1, "unit": "serving", "volume_milliliters": 0},
+            {"quantity": 1, "unit": "serving", "volume_milliliters": -50},
+        ]
+
+        for kwargs in cases:
+            with self.subTest(kwargs=kwargs):
+                options = portion_options_for_serving(**kwargs)
+                self.assertTrue(isinstance(options, list))
+                self.assertGreater(len(options), 0)
+                self.assertEqual(options[0]["key"], "base")
+
     def test_personal_food_requires_an_owner_at_database_level(self):
         with self.assertRaises(IntegrityError), transaction.atomic():
             FoodItem.objects.create(
