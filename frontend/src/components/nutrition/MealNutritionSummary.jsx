@@ -6,7 +6,7 @@ import CalorieContributionChart from './CalorieContributionChart';
 import MacroCalorieSplit from './MacroCalorieSplit';
 import { NutritionCards } from './NutritionCards';
 import { formatNutritionAmount } from '../../utils/nutritionFormatting';
-import { itemCalorieContributions, mealNutrientValues } from '../../domain/nutrition/calculations';
+import { itemCalorieContributions, mealNutrientValues } from '../../domain/nutrition';
 
 export default function MealNutritionSummary({ items }) {
   const [open, setOpen] = useState(true);
