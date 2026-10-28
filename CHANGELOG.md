@@ -2,6 +2,10 @@
 
 ## 2026-10-27
 
+### Fixed
+
+- Keep tiny estimated food weights positive after rounding so portion conversions do not divide by zero.
+
 ### Changed
 
 - Adopt Docker login v4.7.0 from the pinned Infrastructure release template while preserving deployment parity and app-specific configuration.
