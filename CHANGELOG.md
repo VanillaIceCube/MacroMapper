@@ -1,5 +1,61 @@
 # Changelog
+
+## 2026-10-27
+
+### Changed
+
+- Adopt Docker login v4.7.0 from the pinned Infrastructure release template while preserving deployment parity and app-specific configuration.
+
+## 2026-10-20
+
+### Fixed
+
+- Fail closed on incomplete dependency reviews and retain sanitized structured evidence with a bounded RoboCop report.
+- Preserve alert history and Project metadata before auto-close; verify concurrent closure without suppressing unrelated API errors and use the current Work type field.
+
+
+## 2026-10-20
+
+### Added
+
+- Add the reusable, hash-pinned MCP/OAuth framework and isolated consent, token lifecycle and transport tests.
+
+### Changed
+
+- Provide opt-in ASGI startup and optional consent/Connected Apps pages; retain ordinary REST/Gunicorn behavior with MCP disabled by default.
+- Keep production MCP explicitly disabled; meal and nutrition tools remain outside this framework rollout.
+
+
+## 2026-10-19
+
+### Changed
+
+- Separate Obi-Wan, Lint Eastwood, and RoboCop OpenAI secrets, including RoboCop alert aggregation; pass only each reviewer's own credentials, stage `OPENAI_REVIEWERS_PROJECT_ID` independently, and document the deferred per-repository key migration.
+- Document independent production and local estimation credentials while preserving `MACROMAPPER_OPENAI_API_KEY` and the existing release procedure.
 All notable changes to this project are documented in this file.
+
+## 2026-10-18
+
+### Changed
+
+- Synchronized the shared Infrastructure release-test source pin with the
+  template adoption work while preserving this application's release runtime,
+  deployment workflow, and network/trust policy.
+
+## 2026-10-18
+
+### Fixed
+
+- Aligned the security-alert workflow test with the reviewed GitHub App token
+  action v3.3.0 pin so intentional dependency updates pass automation checks.
+
+### Changed
+
+- Updated Nora and Marty to v3: one open PR per agent, with repeat runs maintaining the existing PR and integrating current main.
+
+## 2026-10-17
+### Removed
+- Retire the recurring Jules Kira downstream-reconciliation role, delete its external schedule, and preserve the evidence and remaining findings through explicit tickets.
 
 ## 2026-10-11
 ### Fixed

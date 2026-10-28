@@ -1,6 +1,7 @@
+import { connectionReturnTo } from '../../services/authRedirect';
 import { Box, Button, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import AuthPageShell from '../../components/AuthPageShell';
 import { login } from '../../services/authApiClient';
 import { formatAuthErrorMessage, persistAuthSession, readOkJson } from '../../services/authSession';
@@ -9,6 +10,7 @@ export default function Login({ showSnackbar }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const raw = sessionStorage.getItem('pendingSnackbar');
@@ -29,7 +31,11 @@ export default function Login({ showSnackbar }) {
       const data = await readOkJson(response, 'Login failed.');
       persistAuthSession(data);
       showSnackbar('success', `Welcome ${data.username || email.split('@')[0] || 'there'}!`);
-      navigate('/');
+      const next =
+        import.meta.env.VITE_MCP_ENABLED === '1'
+          ? connectionReturnTo(new URLSearchParams(location.search).get('next'))
+          : null;
+      navigate(next || '/');
     } catch (error) {
       showSnackbar('error', formatAuthErrorMessage(error, 'Login failed.'));
     }

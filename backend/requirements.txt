@@ -4,6 +4,11 @@ djangorestframework==3.18.3
 djangorestframework-simplejwt==5.5.1
 gunicorn==26.2.0
 python-dotenv==1.2.4
-openai==3.29.0
+openai==3.37.0
 pydantic==2.14.1
 whitenoise==6.12.0
+
+django-oauth-toolkit==3.4.1
+mcp==2.3.0
+httpx2==2.16.0
+uvicorn==0.54.0

@@ -111,3 +111,28 @@ Secret-dependent workflows must fail visibly when their credentials are unavaila
 External GitHub Actions use immutable commit SHAs with version comments.
 Keep that convention when updating workflows or composite actions; preserve
 review/scanner failure gates and do not treat action updates as deployment approval.
+
+## Jules recurring agents
+
+Nora and Marty use the [v3 operating rules](.jules/README.md): at most one open
+PR per agent per repository. Repeat runs maintain the existing PR, integrate
+current main, and verify its latest head instead of opening another PR.
+
+## 🔑 OpenAI reviewer isolation
+
+Use `OBI_WAN_OPENAI_API_KEY`, `LINT_EASTWOOD_OPENAI_API_KEY`, and
+`ROBOCOP_OPENAI_API_KEY` for their respective reviewers; RoboCop also owns
+all security-alert model calls. `OPENAI_REVIEWERS_PROJECT_ID` identifies this repository's
+reviewer project. Keep credentials separate across repositories and application
+environments, preserve visible missing-key failures, and follow the deferred
+cutover steps in `.github/README-WORKFLOWS.md`.
+
+Meal estimation keeps `MACROMAPPER_OPENAI_API_KEY`, with separate production
+and local keys/projects. Store local values only in ignored `backend/.env` or
+`deploy/.env`; production values enter the approved private release bundle via
+the Actions repository secret. Never store keys in `deploy/backend.env`.
+
+
+## 🔌 Shared MCP framework
+
+MCP framework changes follow [docs/MCP-FRAMEWORK.md](docs/MCP-FRAMEWORK.md). FullStackTemplate owns the canonical Python package; keep all consumer hashes/pins aligned. MacroMapper stays disabled without business tools. Preserve Notoli credentials, scopes, tool permissions and exact proxy trust.

@@ -263,6 +263,10 @@ OPENAI_MEAL_ESTIMATION_MODEL=gpt-5.6-luna
 OPENAI_MEAL_ESTIMATION_TIMEOUT=110
 ```
 
+Use only the `Local · Application · AI Estimate` key from the separate
+`MacroMapper Development` OpenAI project in this local env file. Never use a
+reviewer or production key locally. See the [credential migration guide](../.github/README-WORKFLOWS.md#-independent-estimation-credentials).
+
 The OpenAI key is optional for local catalog/manual workflows. An unmatched
 description returns `503 Service Unavailable` with a safe explanation when the
 key is absent or the provider cannot respond. Saving a meal with a blank name
@@ -348,3 +352,8 @@ python backend/manage.py test
 ruff check backend
 ruff format backend --check
 ```
+
+
+## 🔌 Shared MCP framework
+
+See [the MCP framework guide](../docs/MCP-FRAMEWORK.md) for opt-in settings, ASGI startup, OAuth migrations/client registration, consent, scope/ownership requirements and disabled-profile tests.

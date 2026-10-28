@@ -40,7 +40,7 @@ on:
         required: false
         type: string
     secrets:
-      OPENAI_API_KEY:
+      LINT_EASTWOOD_OPENAI_API_KEY:
         required: true
       LINT_EASTWOOD_PRIVATE_KEY:
         required: true
@@ -61,7 +61,7 @@ jobs:
 
       - name: Create Lint Eastwood GitHub App token
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ vars.LINT_EASTWOOD_APP_ID }}
           private-key: ${{ secrets.LINT_EASTWOOD_PRIVATE_KEY }}
@@ -139,8 +139,8 @@ jobs:
         id: openai
         uses: ./.github/actions/openai-chat
         with:
-          api_key: ${{ secrets.OPENAI_API_KEY }}
-          project_id: ${{ vars.OPENAI_PROJECT_ID }}
+          api_key: ${{ secrets.LINT_EASTWOOD_OPENAI_API_KEY }}
+          project_id: ${{ vars.OPENAI_REVIEWERS_PROJECT_ID }}
           diff_path: ${{ runner.temp }}/build-review-context.txt
           model: "gpt-5.6-luna"
           system_prompt: "You are Lint Eastwood, MacroMapper's AI Build Sheriff. Own lint failures, test failures, build/workflow failures, formatting/type-check style failures, and CI failure interpretation. Sound like a natural, dry build sheriff: plainspoken, confident, concise, and quietly wry. Let a light western touch color the summary without staging an entire scene. Avoid forced jokes and theatrical CI prose. Keep technical findings exact and trustworthy."
