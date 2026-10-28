@@ -341,3 +341,9 @@ Auto-close issue enabled (read-only verification 2026-10-20). This establishes
 the competing-close ordering; GitHub's internal validation cause is not exposed.
 Mocks reproduce that interleaving and reject unrelated errors. Empty scheduled
 feeds do not establish that a live close race occurred.
+
+## 🔄 Shared deployment action update
+
+Docker login v4.7.0 is rendered from Infrastructure commit
+`f3f049830fcd5e5869d1ae120c57d9ccb6c99200`. Keep `deploy/shared-source.json` and
+the generated workflow synchronized; deployment parity remains mandatory.
