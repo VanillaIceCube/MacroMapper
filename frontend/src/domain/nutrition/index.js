@@ -1,2 +1,2 @@
-export * from './calculations';
-export * from './definitions';
+export * from './calculations.js';
+export * from './definitions.js';

@@ -1,3 +1,3 @@
-export * from './adapters';
-export * from './portions';
-export * from './tree';
+export * from './adapters.js';
+export * from './portions.js';
+export * from './tree.js';
