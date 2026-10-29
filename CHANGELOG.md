@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-28
+
+### Changed
+
+- Restore merged Marty PR learning records and Nora's historical nutrient-relocation attribution; document existing component-snapshot validation and meal-adjustment cleanup invariants without repeating prior fix entries.
+
 ## 2026-10-27
 
 ### Fixed
