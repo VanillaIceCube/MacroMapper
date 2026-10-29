@@ -225,6 +225,31 @@ only and explicitly exclude dietary, medical, clinical, and treatment advice.
 Follow-up requests use the same non-stored provider flow and retain the current
 draft when the provider is unavailable or cannot produce an applicable change.
 
+## 🧩 Snapshot and adjustment invariants
+
+Food responses, catalog estimates and meal snapshots share the complete reachable
+component graph, loaded in batches by tree level. Reuse the graph and nutrient
+caches across meal items instead of issuing separate queries for each child.
+Visible catalog-version lookups are also batched during validation/materialization.
+
+`MealItemSerializer` reuses a nonempty persisted component snapshot only after
+recursive validation of required fields, identifiers, decimal values, portions,
+nutrients, sources and nested components. Missing or malformed legacy snapshots
+are rebuilt from the saved food-version graph, preserving pinned history rather
+than using the latest catalog definition. Source access dates are ISO strings.
+See [PR #153](https://github.com/VanillaIceCube/MacroMapper/pull/153) and
+`meals.tests.ComponentGraphTests` for structural and query-count coverage.
+
+Meal-entry and builder adjustment endpoints share `process_meal_adjustment`.
+Provider resolution, follow-up processing and response serialization stay inside
+its cleanup boundary: failures delete the created proposal, and successful
+temporary meal-entry proposals are deleted after serialization. Missing/null
+optional follow-up fields retain existing confidence and provider metadata when
+no replacement is supplied. Views inject the response serializer and provider
+getter to avoid a service/serializer import cycle and keep provider calls patchable.
+See [PR #181](https://github.com/VanillaIceCube/MacroMapper/pull/181) and
+`estimates.tests.MealAdjustmentLifecycleTests` for both endpoints' failure coverage.
+
 ## 🔔 Notification API
 All `/api/` endpoints require a JWT access token. Notification querysets are
 always scoped to the authenticated recipient.
