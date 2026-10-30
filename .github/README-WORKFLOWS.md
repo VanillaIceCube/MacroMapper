@@ -347,3 +347,21 @@ feeds do not establish that a live close race occurred.
 Docker login v4.7.0 is rendered from Infrastructure commit
 `f3f049830fcd5e5869d1ae120c57d9ccb6c99200`. Keep `deploy/shared-source.json` and
 the generated workflow synchronized; deployment parity remains mandatory.
+
+## MCP resource test and release inputs
+
+The backend test gate runs the ordinary disabled suite, isolated canonical MCP
+provider tests using `app.framework_test_settings`, then enabled `app_mcp`
+transport/introspection/permission/confirmation tests with a synthetic credential.
+The test-only provider profile is never the runtime URL configuration. Immutable
+framework and common release parity checks remain mandatory.
+
+The generated deploy workflow passes optional repository secret
+`MACROMAPPER_MCP_INTROSPECTION_SECRET` into the existing private backend env bundle.
+It is dedicated to the MacroMapper introspection client and must never reuse app
+AI/reviewer or other-resource credentials. Production MCP stays disabled; its
+prepared activation policy makes this credential required and adds exact metadata
+and 401 challenge probes when the coordinated rollout is ready. Do not upload
+private bundles as artifacts or print secret/token/identity/meal values. See
+[the MCP runbook](../docs/MCP.md); no live credential or service changes occur in
+this source work.

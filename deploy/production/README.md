@@ -264,3 +264,20 @@ accounted for. See the [migration and validation steps](../../.github/README-WOR
 ## 🔌 Shared MCP framework
 
 Follow the [MCP framework contract](../../docs/MCP-FRAMEWORK.md) before activating an optional app. Notoli keeps its current MCP profile; MacroMapper ships the framework with MCP disabled. Use this guide for immutable app releases and explicit recovery; framework adoption does not provision a new template instance.
+
+## Central MCP activation preparation
+
+Production remains `DJANGO_MCP_ENABLED=0`. The [app MCP runbook](../../docs/MCP.md)
+covers identity linking, fixed issuer/resource/client scopes, fail-closed
+introspection and real-client acceptance. `mcp-activation-policy.json` prepares
+only app-specific required-env/readiness changes. Apply it to `app.json` only
+when the coordinator accepts shared OAuth/YNAB, registry and ingress readiness;
+retain ordinary root/API health, reviewed exact proxy trust and all normal gates.
+
+`MACROMAPPER_MCP_INTROSPECTION_SECRET` is passed from its Actions repository secret
+into the existing private `.backend.env` bundle via the generated app workflow.
+It defaults empty only while disabled; activation must move it to required env.
+Enabled production checks reject missing credentials. No common release source,
+secret volume, shared ingress/network or production credential is changed here.
+Rollback to disabled MCP must also remove its added readiness probes; retain
+additive identity/confirmation tables and use the established app-only recovery.

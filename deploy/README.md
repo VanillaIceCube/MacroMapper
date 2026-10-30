@@ -82,3 +82,14 @@ release procedure; see the [credential migration guide](../.github/README-WORKFL
 ## 🔌 Shared MCP framework
 
 The [MCP framework guide](../docs/MCP-FRAMEWORK.md) defines opt-in ASGI/proxy/readiness requirements. Local development can call the backend directly; do not treat a local/legacy proxy as production MCP onboarding.
+
+## MCP preparation
+
+The production MCP resource is prepared but disabled. Follow
+[the app contract](../docs/MCP.md) and [app-only release guide](production/README.md).
+`production/mcp-activation-policy.json` is an unapplied app policy delta, not a new
+release engine. The dedicated introspection credential uses the existing private
+backend env-file convention; no extra volume or common release extension is needed.
+Local development secrets may use ignored `backend/.env` or `deploy/.env` only.
+Shared issuer, client registration, ingress/trust and live acceptance belong to
+the coordinated Infrastructure rollout; local Docker does not provision them.

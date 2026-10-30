@@ -135,4 +135,4 @@ for exact secret names, project configuration, verification, and rollback.
 
 ## 🔌 Shared MCP framework
 
-Optional MCP transport/OAuth and application adoption are described in [the framework guide](docs/MCP-FRAMEWORK.md).
+The [MCP app guide](docs/MCP.md) describes bounded food search, diary/totals and explicitly confirmed meal writes using the shared self-hosted issuer. Production stays disabled pending coordinated acceptance. The [canonical framework guide](docs/MCP-FRAMEWORK.md) covers source parity.

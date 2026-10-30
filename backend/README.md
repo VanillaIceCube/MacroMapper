@@ -382,3 +382,20 @@ ruff format backend --check
 ## 🔌 Shared MCP framework
 
 See [the MCP framework guide](../docs/MCP-FRAMEWORK.md) for opt-in settings, ASGI startup, OAuth migrations/client registration, consent, scope/ownership requirements and disabled-profile tests.
+
+## Central-issuer MCP resource
+
+[MacroMapper MCP](../docs/MCP.md) defines the five bounded catalog/diary/totals and
+preview/confirm tools, `macromapper:read` / `macromapper:write`, explicit existing-user
+links and fixed self-hosted issuer/resource/introspection contract. Backend-only
+`DJANGO_MCP_ENABLED=1` selects ASGI and the app registry; the ordinary profile
+remains disabled. No app-local OAuth/consent endpoints are published. Preserve
+normal website/REST JWT authentication and AI estimation credentials/behavior.
+
+Run migrations normally (the app-owned link/confirmation tables are additive),
+then link verified identities with `link_mcp_identity`; `revoke_mcp_identity`
+disables the local link without changing website login. Never auto-link email or
+create users. `MACROMAPPER_MCP_INTROSPECTION_SECRET` is the dedicated Basic-only
+resource credential, stored locally only in ignored env files and in the existing
+private production release bundle. Missing enabled-production credentials fail
+checks. See the guide for synthetic enabled tests, client setup and rollback.

@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-29
+
+### Added
+
+- Prepare optional MacroMapper MCP food search, meal diary and nutrition totals, plus scoped, explicit preview/one-time confirmation for meal creation and replacement using existing snapshot validation; production remains disabled pending coordinated issuer/client/ingress acceptance.
+- Add fixed central-issuer bounded introspection, explicit links to existing active users, ownership isolation, additive link/confirmation migrations, negative security/transport tests and client/recovery instructions.
+
+### Changed
+
+- Adopt canonical MCP source `5a9294d550ec946a51b34bb2438a6c04ecc13461` for the external-issuer seam; preserve ordinary login/REST JWTs and AI estimation without exposing AI billing through MCP.
+- Prepare the dedicated introspection secret in the existing private release env bundle and an unapplied app-specific readiness policy; run enabled app and isolated canonical-provider tests in CI without extending common release code.
+
 ## 2026-10-28
 
 ### Changed

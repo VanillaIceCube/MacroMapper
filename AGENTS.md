@@ -135,4 +135,18 @@ the Actions repository secret. Never store keys in `deploy/backend.env`.
 
 ## 🔌 Shared MCP framework
 
-MCP framework changes follow [docs/MCP-FRAMEWORK.md](docs/MCP-FRAMEWORK.md). FullStackTemplate owns the canonical Python package; keep all consumer hashes/pins aligned. MacroMapper stays disabled without business tools. Preserve Notoli credentials, scopes, tool permissions and exact proxy trust.
+MCP framework changes follow [docs/MCP-FRAMEWORK.md](docs/MCP-FRAMEWORK.md). FullStackTemplate owns the canonical Python package; keep all consumer hashes/pins aligned. MacroMapper production stays disabled until coordinated app acceptance; domain tools remain app-owned. Preserve Notoli credentials, scopes, tool permissions and exact proxy trust.
+
+## MacroMapper MCP
+
+The app-owned MCP contract is in [docs/MCP.md](docs/MCP.md). Keep production
+`DJANGO_MCP_ENABLED=0` until the coordinating rollout accepts shared issuer,
+YNAB/client and ingress readiness. Use the exact canonical framework pin; do not
+edit the vendor independently. Central MCP auth is separate from regular login,
+REST JWTs and AI estimation. Never auto-link/create users from email or username.
+Explicit issuer/UUID-subject links, local active/ownership checks and intentional,
+scoped single-use meal confirmations are mandatory. No AI billing tools.
+The dedicated `MACROMAPPER_MCP_INTROSPECTION_SECRET` enters the existing private
+release env bundle; local copies belong only in ignored env files. Do not store
+it in `deploy/backend.env`, logs or Git. Activation policy is prepared but unapplied
+in `deploy/production/mcp-activation-policy.json`; preserve common release parity.

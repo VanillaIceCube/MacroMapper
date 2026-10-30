@@ -83,6 +83,7 @@
       "MACROMAPPER_OPENAI_API_KEY"
     ],
     "defaults": {
+      "MACROMAPPER_MCP_INTROSPECTION_SECRET": "",
       "DJANGO_EMAIL_HOST": "smtp.resend.com",
       "DJANGO_EMAIL_PORT": "587",
       "DJANGO_EMAIL_USE_TLS": "1",
@@ -123,6 +124,7 @@
   "workflow": {
     "frontend_build_arg": "VITE_API_BASE_URL",
     "extra_env": {
+      "MACROMAPPER_MCP_INTROSPECTION_SECRET": "${{ secrets.MACROMAPPER_MCP_INTROSPECTION_SECRET }}",
       "MACROMAPPER_OPENAI_API_KEY": "${{ secrets.MACROMAPPER_OPENAI_API_KEY }}",
       "OPENAI_MEAL_ESTIMATION_MODEL": "${{ vars.OPENAI_MEAL_ESTIMATION_MODEL }}",
       "OPENAI_MEAL_ESTIMATION_TIMEOUT": "${{ vars.OPENAI_MEAL_ESTIMATION_TIMEOUT }}"
