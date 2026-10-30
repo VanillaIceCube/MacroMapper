@@ -288,14 +288,79 @@ class ResendApiEmailBackendTests(APITestCase):
         EMAIL_HOST_PASSWORD="",
     )
     def test_send_messages_requires_api_key(self):
-        with self.assertRaises(ValueError):
-            get_connection().send_messages(
+        with self.assertLogs("authentication.email_backends", level="ERROR") as cm:
+            with self.assertRaises(ValueError):
+                get_connection().send_messages(
+                    [
+                        EmailMessage(
+                            "Subject",
+                            "Body",
+                            "macromapper@example.com",
+                            ["mapper@example.com"],
+                        )
+                    ]
+                )
+        self.assertIn("DJANGO_EMAIL_HOST_KEY is missing or empty", cm.output[0])
+
+    @override_settings(
+        EMAIL_BACKEND="authentication.email_backends.ResendApiEmailBackend",
+        EMAIL_HOST_PASSWORD="resend-api-key",
+    )
+    @patch("authentication.email_backends.request.urlopen")
+    def test_send_messages_logs_http_error(self, mock_urlopen):
+        from urllib.error import HTTPError
+
+        mock_urlopen.side_effect = HTTPError(
+            "https://api.resend.com/emails",
+            429,
+            "Too Many Requests",
+            {},
+            None,
+        )
+
+        connection = get_connection(fail_silently=True)
+        with self.assertLogs("authentication.email_backends", level="ERROR") as cm:
+            sent_count = connection.send_messages(
                 [
                     EmailMessage(
-                        "Subject",
+                        "Reset",
                         "Body",
                         "macromapper@example.com",
                         ["mapper@example.com"],
                     )
                 ]
             )
+
+        self.assertEqual(sent_count, 0)
+        self.assertIn("Resend API email delivery failed with HTTP 429", cm.output[0])
+
+    @override_settings(
+        EMAIL_BACKEND="authentication.email_backends.ResendApiEmailBackend",
+        EMAIL_HOST_PASSWORD="resend-api-key",
+    )
+    @patch("authentication.email_backends.request.urlopen")
+    def test_send_messages_logs_network_error_and_re_raises_when_not_fail_silent(
+        self, mock_urlopen
+    ):
+        from urllib.error import URLError
+
+        mock_urlopen.side_effect = URLError("Connection timed out")
+
+        connection = get_connection(fail_silently=False)
+        with self.assertLogs("authentication.email_backends", level="ERROR") as cm:
+            with self.assertRaises(URLError):
+                connection.send_messages(
+                    [
+                        EmailMessage(
+                            "Reset",
+                            "Body",
+                            "macromapper@example.com",
+                            ["mapper@example.com"],
+                        )
+                    ]
+                )
+
+        self.assertIn(
+            "Resend API email delivery failed due to network/system error (URLError)",
+            cm.output[0],
+        )

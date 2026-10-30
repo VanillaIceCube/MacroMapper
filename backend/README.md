@@ -367,6 +367,8 @@ and must not be used with `ResendApiEmailBackend`. See the
 production credential setup. Sender-domain verification remains an operator
 prerequisite; app releases do not change DNS.
 
+When diagnosing delivery issues with `ResendApiEmailBackend`, check the Django server logs under logger `authentication.email_backends`. Failed requests log structured `ERROR` messages containing HTTP status codes (e.g., HTTP 429 rate limit or 5xx provider error) or network/timeout exception categories without disclosing API keys, email body text, or password reset tokens.
+
 SMTP-compatible backends can instead use the documented `DJANGO_EMAIL_HOST`,
 `DJANGO_EMAIL_PORT`, `DJANGO_EMAIL_USE_TLS`, and
 `DJANGO_EMAIL_HOST_USER` settings.

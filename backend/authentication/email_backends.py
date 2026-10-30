@@ -1,9 +1,12 @@
 import json
+import logging
 from urllib import error, request
 
 from django.conf import settings
 from django.core.mail.backends.base import BaseEmailBackend
 from django.core.mail.message import EmailMultiAlternatives
+
+logger = logging.getLogger(__name__)
 
 
 class ResendApiEmailBackend(BaseEmailBackend):
@@ -16,6 +19,9 @@ class ResendApiEmailBackend(BaseEmailBackend):
 
         api_key = settings.EMAIL_HOST_PASSWORD
         if not api_key:
+            logger.error(
+                "Resend API email delivery failed: DJANGO_EMAIL_HOST_KEY is missing or empty."
+            )
             if self.fail_silently:
                 return 0
             raise ValueError("DJANGO_EMAIL_HOST_KEY is required for Resend API email.")
@@ -24,7 +30,22 @@ class ResendApiEmailBackend(BaseEmailBackend):
         for message in email_messages:
             try:
                 self._send_message(message, api_key)
-            except Exception:
+            except error.HTTPError as exc:
+                logger.error(
+                    "Resend API email delivery failed with HTTP %s: %s",
+                    exc.code,
+                    exc.reason or "HTTP Error",
+                    exc_info=True,
+                )
+                if not self.fail_silently:
+                    raise
+            except Exception as exc:
+                logger.error(
+                    "Resend API email delivery failed due to network/system error (%s): %s",
+                    type(exc).__name__,
+                    exc,
+                    exc_info=True,
+                )
                 if not self.fail_silently:
                     raise
             else:
@@ -59,6 +80,9 @@ class ResendApiEmailBackend(BaseEmailBackend):
             method="POST",
         )
         timeout = getattr(settings, "EMAIL_TIMEOUT", None)
+        if timeout is None or not isinstance(timeout, (int, float)) or timeout <= 0:
+            timeout = 10
+
         with request.urlopen(http_request, timeout=timeout) as response:
             status = response.getcode()
             if 200 <= status < 300:
