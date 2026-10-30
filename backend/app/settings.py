@@ -233,18 +233,6 @@ from mcp_framework.config import optional_settings  # noqa: E402
 MCP_SETTINGS = optional_settings("MacroMapper", "macromapper", sample=False)
 globals().update(MCP_SETTINGS)
 INSTALLED_APPS += ["mcp_framework"]
-INSTALLED_APPS += ["app_mcp"]
-MCP_BASE_URL = "https://macromapper.judeandrewalaba.com"
-MCP_RESOURCE_URL = MCP_BASE_URL + "/mcp"
-MCP_REQUIRED_SCOPES = ["macromapper:read"]
-MCP_SERVER_FACTORY = "app_mcp.server.create_server"
-MCP_INTROSPECTION_SECRET = os.getenv("MACROMAPPER_MCP_INTROSPECTION_SECRET", "")
-OAUTH2_PROVIDER = MCP_SETTINGS["OAUTH2_PROVIDER"]
-OAUTH2_PROVIDER["SCOPES"] = {
-    "macromapper:read": "Read your food catalog and meal diary",
-    "macromapper:write": "Preview and confirm meal log changes",
-}
-OAUTH2_PROVIDER["DEFAULT_SCOPES"] = MCP_REQUIRED_SCOPES
 if MCP_SETTINGS["MCP_ENABLED"]:
     INSTALLED_APPS += ["oauth2_provider"]
     SECURE_PROXY_SSL_HEADER = None

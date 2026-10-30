@@ -206,4 +206,4 @@ npm run build
 
 ## 🔌 Shared MCP framework
 
-MacroMapper MCP uses the shared central issuer for login/consent and backend-only resource tools; see [the app guide](../docs/MCP.md). Keep `VITE_MCP_ENABLED` off: the historical scaffold consent/Connected Apps pages target the local provider and are not used by this profile. Normal frontend login, meal flows and REST JWT handling retain their existing behavior.
+See [the MCP framework guide](../docs/MCP-FRAMEWORK.md). Optional consent and Connected Apps routes require `VITE_MCP_ENABLED=1` in the template/MacroMapper; Notoli keeps its existing enabled UI. Preserve JWT-only consent and validated connection return paths.
