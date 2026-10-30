@@ -381,4 +381,4 @@ ruff format backend --check
 
 ## 🔌 Shared MCP framework
 
-See [the MCP framework guide](../docs/MCP-FRAMEWORK.md) for opt-in settings, ASGI startup, OAuth migrations/client registration, consent, scope/ownership requirements and disabled-profile tests.
+See [the app MCP guide](../docs/MCP.md) for the `macromapper_mcp` registry, read/write/estimate scopes, confirmation, ASGI startup and additive migrations. The canonical [MCP framework](../docs/MCP-FRAMEWORK.md) remains unchanged. Install the domain app in both profiles so its confirmation migration is stable; install OAuth Toolkit only when enabled. Run ordinary backend tests and the separately enabled framework/domain suite. REST JWT authentication is unchanged.

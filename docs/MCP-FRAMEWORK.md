@@ -1,11 +1,9 @@
 # 🔌 Optional MCP framework
 
-> **Framework only:** production MCP and its frontend routes remain disabled.
-> Meal/nutrition tools and live connector acceptance remain in #284.
-> The unreleased shared-issuer implementation has been withdrawn. Any future
-> MacroMapper MCP integration owns its OAuth inside this app; Infrastructure
-> supplies ordinary Nginx routing. There is no shared MCP authorization server
-> or YNAB dependency. See [MCP status](MCP.md).
+> MacroMapper uses this canonical package unchanged for its app-owned OAuth
+> and [domain registry](MCP.md). Its reviewed production profile is enabled;
+> local development remains opt-in. Infrastructure supplies ordinary Nginx
+> routing. There is no shared authorization server or YNAB dependency.
 
 `backend/mcp_framework` provides shared OAuth consent, discovery, token verification,
 Streamable HTTP transport and ASGI lifecycle. Application registries own their
@@ -20,7 +18,8 @@ brand or independently patch the shared package. CI checks the remote pin;
 
 ## ⚙️ Enabling a derived application
 
-MCP is off by default in the template and MacroMapper. Disabled applications keep
+MCP is off by default in the template and MacroMapper local settings. MacroMapper's
+production app policy enables it explicitly. Disabled applications keep
 their existing Gunicorn/REST behavior, install no OAuth Django app, and expose no
 backend MCP/discovery/OAuth routes. Dependencies are installed so enabling the
 profile does not require changing the image's Python packages.
@@ -41,15 +40,17 @@ public, authorization-code/S256 PKCE only, with no client secret or dynamic clie
 registration. The command refuses to overwrite an existing registration. Configure
 `DJANGO_FRONTEND_BASE_URL` for the actual React origin; build/start React with
 `VITE_MCP_ENABLED=1` (Docker: `--build-arg VITE_MCP_ENABLED=1`). Enable backend and
-frontend together. Existing production build workflows deliberately leave this
-flag off. No template instance is provisioned by merging this framework.
+frontend together. MacroMapper's app-owned production Dockerfile defaults this
+flag to `1`, without changing the common release workflow. A disabled image must
+explicitly pass `--build-arg VITE_MCP_ENABLED=0`. No template instance is provisioned
+by adopting this framework.
 
 The template defaults to `mcp_framework.server.sample_server`: its sole tool,
 `connection_status`, returns `{"connected": true}` after authentication and
-reads no application data. MacroMapper requires an explicit
-`DJANGO_MCP_SERVER_FACTORY` and has no application registry. Its isolated enabled
-tests select the sample factory only for that test process. No meal, nutrition,
-catalogue or diary tools are implemented or advertised.
+reads no application data. MacroMapper defaults to its own
+`macromapper_mcp.server.create_server` factory with read/write/estimate scopes.
+The sample remains only a shared transport fixture; MacroMapper's separate
+[domain suite and guide](MCP.md) cover business operations and confirmation.
 
 For real adoption, configure an application-owned factory returning
 `create_server(instructions=...)`, explicitly declare OAuth scopes and required
@@ -127,7 +128,7 @@ profile against an isolated test database:
 
 ```sh
 python manage.py test
-DJANGO_MCP_ENABLED=1 DJANGO_MCP_SERVER_FACTORY=mcp_framework.server.sample_server python manage.py test mcp_framework
+DJANGO_MCP_ENABLED=1 DJANGO_MCP_BASE_URL=http://localhost:8000 python manage.py test mcp_framework macromapper_mcp
 ```
 
 The framework tests cover discovery/initialization/sample calls, absent/invalid
@@ -135,7 +136,7 @@ credentials, REST-JWT rejection, token expiry/resource/scope/revocation, S256 co
 exchange and refresh rotation, account-bound consent, foreign-account revocation,
 pending grants and exact client registration. Frontend tests cover displayed
 permissions, login return paths, Allow/Cancel, expired consent and revocation.
-Run frontend tests/lint/build in both default and enabled builds. Notoli also runs
-its application tool/permission/transport/proxy regressions. Live ChatGPT writes
+Run frontend tests/lint/build in both default and enabled builds. MacroMapper and
+Notoli also run their application tool/permission/transport regressions. Live client writes
 and new production test accounts/grants remain separate acceptance work; framework
 rollout verification must not alter the owner's connection or business records.

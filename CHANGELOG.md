@@ -2,7 +2,15 @@
 
 ## 2026-10-30
 
+### Added
+
+- Implement app-owned MacroMapper MCP/OAuth with separate read, confirmed-write and paid-estimate permissions, existing-account consent and Connected Apps revocation; reuse the canonical framework and application services.
+
 ### Changed
+
+- Enable the reviewed MacroMapper MCP production profile and frontend connection UI with exact existing gateway trust, metadata/challenge readiness, additive OAuth/confirmation migrations and retained disabled-controller recovery for first activation.
+- Synchronize the canonical release test pin to `a6712af44a65efbe349daf2d215bb1ca638b3a9e`, covering app-owned enabled MCP policy without changing the shared deployment controller or workflow.
+- Use GPT-6 Luna for all OpenAI PR reviewers and security-alert grouping while preserving existing review gates, isolated credentials and token budgets.
 
 - Remove the unreleased central MCP resource, shared-issuer credential requirements and enabled rollout policy; restore app-owned optional OAuth scaffolding with MacroMapper MCP disabled and meal/nutrition MCP deferred. Preserve website, REST, AI estimation and existing production history.
 
