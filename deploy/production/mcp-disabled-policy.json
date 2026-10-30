@@ -1,0 +1,19 @@
+{
+  "environment_fixed_patch": {
+    "DJANGO_MCP_ENABLED": "0",
+    "DJANGO_TRUSTED_PROXY_IPS": "172.20.0.3"
+  },
+  "environment_required_remove": [
+    "MACROMAPPER_MCP_INTROSPECTION_SECRET"
+  ],
+  "environment_defaults_patch": {
+    "MACROMAPPER_MCP_INTROSPECTION_SECRET": ""
+  },
+  "readiness_public_remove": [
+    "/.well-known/oauth-protected-resource/mcp",
+    "/mcp"
+  ],
+  "environment_fixed_remove": [
+    "DJANGO_MCP_BASE_URL"
+  ]
+}

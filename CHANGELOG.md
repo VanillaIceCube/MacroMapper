@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-10-29
+
+### Added
+
+- Prepare optional MacroMapper MCP food search, meal diary and nutrition totals, plus scoped, explicit preview/one-time confirmation for meal creation and replacement using existing snapshot validation; source defaults stay off and production activation awaits coordinated issuer/client/ingress acceptance.
+- Add fixed central-issuer bounded introspection, explicit links to existing active users, ownership isolation, additive link/confirmation migrations, negative security/transport tests and client/recovery instructions.
+
+### Fixed
+
+- Adopt the same reviewed Infrastructure release fixture pin `ee9c0d40421a8b3f4886340b188a21e86c6429cf` across all consumers, including exact app-mode topology and metadata content-type checks.
+
+- Lock meal/catalog state throughout MCP confirmation, including an early SQLite writer barrier, with real concurrent website-edit/catalog-update tests that preserve the newer committed data.
+- Prepare and test a separately staged disabled-policy rollback tool so a failed first enabled rollout can restore its captured disabled backend without incompatible MCP readiness, immutable-bundle edits or bypassing the failure barrier.
+
+### Changed
+
+- Adopt canonical MCP source `5a9294d550ec946a51b34bb2438a6c04ecc13461` for the external-issuer seam; preserve ordinary login/REST JWTs and AI estimation without exposing AI billing through MCP.
+- Prepare the dedicated introspection secret in the existing private release env bundle and an enabled app-specific production policy with exact `172.20.0.3` trust, required secret/readiness and explicit disabled recovery; run enabled app and isolated canonical-provider tests in CI without extending common release code.
+- Align app-owned central rollout policy with the five gateway route networks while preserving exact Notoli trust, companion outages and ordinary website/REST health; document explicit disabled-profile ordering before matched legacy recovery.
+
 ## 2026-10-28
 
 ### Changed

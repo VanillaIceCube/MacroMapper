@@ -307,7 +307,7 @@ or revocation. Track live/local acceptance separately in issue #289.
 
 ## 🔌 Shared MCP framework
 
-The backend test gate checks the pinned MCP framework manifest. Template/MacroMapper run both ordinary tests and an isolated MCP-enabled sample profile; production remains disabled there. Notoli runs its existing enabled protocol/domain suite. See [the framework guide](../docs/MCP-FRAMEWORK.md).
+The backend test gate checks the pinned MCP framework manifest. MacroMapper runs ordinary tests, a canonical-provider test profile and its central-issuer app profile. Source defaults off; the prepared enabled production policy is held for coordinated env-prod release. Notoli runs its enabled protocol/domain suite. See [the framework guide](../docs/MCP-FRAMEWORK.md).
 
 ## 🛡️ Dependency evidence and alert lifecycle parity
 
@@ -344,6 +344,30 @@ feeds do not establish that a live close race occurred.
 
 ## 🔄 Shared deployment action update
 
-Docker login v4.7.0 is rendered from Infrastructure commit
-`f3f049830fcd5e5869d1ae120c57d9ccb6c99200`. Keep `deploy/shared-source.json` and
-the generated workflow synchronized; deployment parity remains mandatory.
+Docker login v4.7.0 is rendered from the pinned Infrastructure release template.
+`deploy/shared-source.json` records the exact reviewed source, including central
+app-policy fixture compatibility. Keep that pin and the generated workflow
+synchronized; runtime release behavior and deployment parity remain mandatory.
+
+## MCP resource test and release inputs
+
+The backend test gate runs the ordinary disabled suite, isolated canonical MCP
+provider tests using `app.framework_test_settings`, then enabled `app_mcp`
+transport/introspection/permission/confirmation tests with a synthetic credential.
+The test-only provider profile is never the runtime URL configuration. Immutable
+framework and common release parity checks remain mandatory.
+The enabled app run uses disposable file-backed `app.mcp_test_settings` so actual
+SQLite WAL website/catalog races are exercised and stale confirmations fail
+without overwriting the competing committed data.
+
+The generated deploy workflow passes required production repository secret
+`MACROMAPPER_MCP_INTROSPECTION_SECRET` into the existing private backend env bundle.
+It is dedicated to the MacroMapper introspection client and must never reuse app
+AI/reviewer or other-resource credentials. The prepared production policy requires
+this credential, pins the audited
+`172.20.0.3` ingress peer and adds exact metadata and 401 challenge probes. Source
+defaults remain off; root holds env-prod promotion until coordinated acceptance.
+Do not upload
+private bundles as artifacts or print secret/token/identity/meal values. See
+[the MCP runbook](../docs/MCP.md); no live credential or service changes occur in
+this source work.
