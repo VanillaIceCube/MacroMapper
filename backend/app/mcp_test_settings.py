@@ -9,3 +9,6 @@ from .settings import *  # noqa: F403
 DATABASES["default"]["TEST"] = {  # noqa: F405
     "NAME": Path(tempfile.gettempdir()) / f"macromapper-mcp-test-{os.getpid()}.sqlite3"
 }
+TRUSTED_PROXY_IPS = [
+    "172.20.0.3"
+]  # Reviewed peer value; isolated fixtures never connect to the host.

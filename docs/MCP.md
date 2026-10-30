@@ -1,8 +1,11 @@
 # MacroMapper MCP
 
 Issue [#284](https://github.com/VanillaIceCube/MacroMapper/issues/284) adds an
-application-owned resource server. Production remains **disabled** by
-`deploy/production/app.json`. Source readiness is not real ChatGPT/Codex acceptance.
+application-owned resource server. Source defaults remain **off**. The prepared
+`deploy/production/app.json` policy enables production MCP with required credentials,
+exact proxy trust and readiness; only the coordinating owner may promote/release
+that policy to `env-prod` after preceding acceptance. Source readiness is not real
+ChatGPT/Codex acceptance.
 Infrastructure [#71](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/issues/71)
 owns the issuer, accounts, PKCE/consent, client registration, refresh/revocation
 and signing keys. Activate after shared OAuth and YNAB [#62](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/issues/62)
@@ -73,6 +76,14 @@ per identity. Expired rows cannot authorize writes and are removed on the next
 preview or explicit local revocation; up to ten inactive rows per disconnected
 identity may remain in the protected app database until operator cleanup.
 
+Preview and confirmation transactions lock the identity, target meal and selected
+catalog rows/current versions through validation and snapshot save. SQLite uses
+an early identity-row write to acquire its writer lock because it ignores
+`SELECT FOR UPDATE`; an intervening committed website/catalog update makes a
+stale read-to-write upgrade fail closed. Row-locking databases also lock the
+meal/food/version rows used by normal app writes. File-backed SQLite WAL tests
+exercise actual competing website and catalog commits, not sequential mocks.
+
 ## Operator preparation and client connection
 
 1. Independently verify the existing local user ID and central account UUID in a
@@ -89,18 +100,25 @@ identity may remain in the protected app database until operator cleanup.
 3. Store the dedicated secret as `MACROMAPPER_MCP_INTROSPECTION_SECRET` in the
    Actions repository secret for the approved release. The app's generated
    deployment workflow already passes it into the existing private `.backend.env`
-   release bundle. Its disabled-profile default is empty. Enabled production
-   startup/checks fail visibly without it. Do not use `deploy/backend.env`, add
+   release bundle. The enabled production policy requires a nonempty value with no
+   default; bundle preparation and enabled production startup/checks fail visibly
+   without it. Do not use `deploy/backend.env`, add
    secret volumes, reuse another resource credential or change `app-release/v1`.
    Local values belong only in ignored `backend/.env` or `deploy/.env`.
-4. Review `deploy/production/mcp-activation-policy.json` as an **unapplied** policy
-   delta: patch `environment.fixed`, add the required secret and remove its empty
-   default, append the readiness rules to existing probes. Review exact gateway
-   peer IPs for `DJANGO_TRUSTED_PROXY_IPS` and add them to fixed app policy; never
-   guess, use a subnet/wildcard, publish a backend port, or change networks here.
-   Regenerate the workflow with `python deploy/check_parity.py --sync`. Keep
-   `DJANGO_MCP_ENABLED=0` in committed active policy until the coordinator accepts
-   app registry, identities, ingress and preceding live acceptance.
+4. Review the concrete central `deploy/production/app.json` policy. It fixes
+   `DJANGO_MCP_ENABLED=1` and `DJANGO_TRUSTED_PROXY_IPS=172.20.0.3`, requires the
+   dedicated secret and includes the MCP probes alongside ordinary health. The
+   gateway address invariant also pins `macromapper-ingress` to the same `.3`.
+   This is the existing audited peer; the backend `.2` and frontend `.4` are not
+   trusted, and no network/address migration is required. Preserve
+   `--no-proxy-headers`; only the canonical exact-peer wrapper accepts forwarding.
+   Source defaults remain off. Regenerate workflow only through
+   `python deploy/check_parity.py --sync`. The coordinator holds `env-prod` until
+   shared OAuth/YNAB, app registry, explicit identities and ingress are accepted.
+   Existing `backend_required_env` intentionally stays empty for the first release
+   from the old disabled backend; incoming fixed environment and gateway-peer
+   policy plus enabled production checks validate the new runtime. Verify the new
+   backend's effective exact peer value privately after release.
 5. Infrastructure owns exact `/mcp` and protected-resource discovery forwarding:
    uncached, no interactive edge challenge, HTTP/1.1, no buffering, existing
    120-second upstream timeout and reviewed Host/Origin/proxy trust. Do not route
@@ -133,12 +151,44 @@ Disable the affected connection centrally to revoke grants; use
 `python backend/manage.py revoke_mcp_identity --subject <verified-uuid>` to block
 all MCP access for that local link and delete its pending previews immediately.
 Existing REST login remains available. An issuer outage denies MCP operations.
-For app rollback, restore the reviewed disabled app policy/image through the
+For app rollback, apply the reviewed `deploy/production/mcp-disabled-policy.json`
+delta to app policy and restore a compatible image through the
 [app-only release/recovery guide](../deploy/production/README.md); remove MCP
 readiness probes when disabling. Retain identity/confirmation tables and user
 data. Do not reverse migrations, restore old grants/data casually or alter shared
 networks. Rotate secrets via a new private release bundle, preserving approved
 recovery credentials until retained releases are accounted for.
+
+**First enabled-rollout failure:** stage the separate disabled-policy rollback
+tool with `prepare_mcp_recovery.py` before activation, following the production
+guide. `FAILED.json` bars a new disabled deploy, and the failed enabled tool's MCP
+health cannot validate the captured old disabled backend. Invoke the pre-staged
+disabled tool for rollback itself, after verifying that capture is default-off/
+`DJANGO_MCP_ENABLED=0` and selecting the authorized DB mode. It uses unchanged
+canonical release code and the same private recovery set, without editing either
+immutable bundle or bypassing the failure barrier. Do not use it to claim a
+still-MCP-enabled captured runtime is disabled.
+
+The central rollout app policy expects the exact five gateway networks:
+`notoli_backend_private`, `notoli_default`, `macromapper-ingress`,
+`ynab_mcp_private` (ingress `172.30.89.2`) and `mcp_auth_private` (ingress
+`172.30.92.2`). MacroMapper ingress is exactly `172.20.0.3`; Notoli ingress remains exactly `172.30.88.2`. Only ingress is
+required on the two new private bridges; their known app companions may be
+absent for independent app recovery. MacroMapper gains no network attachment.
+Gateway exposure/health acceptance remains Infrastructure-owned.
+
+Do not run an old three-network app recovery bundle against this five-network
+baseline, or weaken its exact network checks. A coordinated legacy rollback must
+first release the reviewed MacroMapper disabled profile with ordinary website/API
+health and the five-network gateway expectation. Then the gateway owner explicitly
+sets both `YNAB_ROUTE_PROFILE=disabled` and `MCP_AUTH_ROUTE_PROFILE=disabled`,
+verifies the retained hostname 410 tombstones and exact three-network topology,
+and only then selects the matched legacy app release/recovery bundle. Never
+implicitly return exposed hostnames to `base` or silently detach shared routes.
+All steps use their respective owner-controlled releases/maintenance locks.
+Ordinary website/login/REST health stays mandatory throughout; DB restore remains
+a separate deliberate decision. A newer app image can instead be recovered under
+a compatible reviewed five-network disabled policy without downgrading ingress.
 
 ## Verification
 
@@ -148,7 +198,7 @@ Install `backend/requirements.txt` in an isolated Python 3.12 environment. From
 ```powershell
 $env:DJANGO_MCP_ENABLED='1'
 $env:MACROMAPPER_MCP_INTROSPECTION_SECRET='synthetic-test-only'
-python manage.py test app_mcp
+python manage.py test app_mcp --settings=app.mcp_test_settings
 python manage.py test mcp_framework --settings=app.framework_test_settings
 ```
 

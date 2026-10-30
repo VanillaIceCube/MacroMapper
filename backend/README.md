@@ -381,7 +381,7 @@ ruff format backend --check
 
 ## 🔌 Shared MCP framework
 
-See [the MCP framework guide](../docs/MCP-FRAMEWORK.md) for opt-in settings, ASGI startup, OAuth migrations/client registration, consent, scope/ownership requirements and disabled-profile tests.
+See [the MCP framework guide](../docs/MCP-FRAMEWORK.md) for exact package parity and [the app runbook](../docs/MCP.md) for central issuer setup, ASGI, explicit identity links, scopes/confirmation, production policy and disabled recovery.
 
 ## Central-issuer MCP resource
 
@@ -399,3 +399,9 @@ create users. `MACROMAPPER_MCP_INTROSPECTION_SECRET` is the dedicated Basic-only
 resource credential, stored locally only in ignored env files and in the existing
 private production release bundle. Missing enabled-production credentials fail
 checks. See the guide for synthetic enabled tests, client setup and rollback.
+
+The prepared production policy fixes `DJANGO_TRUSTED_PROXY_IPS=172.20.0.3` and
+requires the introspector credential; enabled production checks reject other peers.
+Backend `.2` and frontend `.4` cannot supply trusted forwarding. Keep Uvicorn
+`--no-proxy-headers`. Source defaults remain off and root controls env-prod
+activation after preceding shared acceptance.

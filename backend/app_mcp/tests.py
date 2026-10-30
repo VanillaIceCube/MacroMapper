@@ -13,11 +13,11 @@ import httpx2
 from asgiref.sync import async_to_sync
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import ImproperlyConfigured, PermissionDenied
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import DatabaseError, close_old_connections, connection
-from django.test import TestCase, TransactionTestCase, override_settings
+from django.test import SimpleTestCase, TestCase, TransactionTestCase, override_settings
 from django.utils import timezone
 from mcp.server.auth.provider import AccessToken
 from rest_framework.exceptions import ValidationError
@@ -464,13 +464,81 @@ class ToolServiceTests(Fixtures, TestCase):
             )
         self.assertEqual(MealEntry.objects.count(), 0)
 
-    @override_settings(MCP_ENABLED=True, DEBUG=False, MCP_INTROSPECTION_SECRET="")
+    @override_settings(
+        MCP_ENABLED=True,
+        DEBUG=False,
+        MCP_INTROSPECTION_SECRET="",
+        TRUSTED_PROXY_IPS=["172.20.0.3"],
+    )
     def test_enabled_production_secret_failure_is_visible(self):
         from .apps import mcp_config_check
 
         self.assertEqual(
             [issue.id for issue in mcp_config_check(None)], ["app_mcp.E001"]
         )
+        from django.apps import apps
+
+        with self.assertRaises(ImproperlyConfigured):
+            apps.get_app_config("app_mcp").ready()
+
+
+class ProxyTrustTests(SimpleTestCase):
+    @override_settings(
+        MCP_ENABLED=True, DEBUG=False, MCP_INTROSPECTION_SECRET="synthetic-test"
+    )
+    def test_enabled_production_requires_exact_single_proxy(self):
+        from .apps import mcp_config_check
+
+        for peers in (
+            [],
+            ["*"],
+            ["172.20.0.0/16"],
+            ["172.20.0.2"],
+            ["172.20.0.4"],
+            ["172.20.0.3", "172.20.0.4"],
+        ):
+            with self.subTest(peers=peers), override_settings(TRUSTED_PROXY_IPS=peers):
+                self.assertEqual(
+                    [error.id for error in mcp_config_check(None)], ["app_mcp.E002"]
+                )
+                from django.apps import apps
+
+                with self.assertRaises(ImproperlyConfigured):
+                    apps.get_app_config("app_mcp").ready()
+        with override_settings(TRUSTED_PROXY_IPS=["172.20.0.3"]):
+            self.assertEqual(mcp_config_check(None), [])
+
+    def test_frontend_and_other_peers_cannot_forward_scheme_or_client(self):
+        from mcp_framework.proxy import TrustedProxyHeadersMiddleware
+
+        observed = []
+
+        async def application(scope, receive, send):
+            observed.append(scope)
+
+        middleware = TrustedProxyHeadersMiddleware(application, ["172.20.0.3"])
+        for peer in ("172.20.0.3", "172.20.0.4", "172.20.0.2"):
+            scope = {
+                "type": "http",
+                "scheme": "http",
+                "client": (peer, 1234),
+                "headers": [
+                    (b"x-forwarded-proto", b"https"),
+                    (b"x-forwarded-for", b"203.0.113.5"),
+                    (b"x-forwarded-host", b"evil.example"),
+                    (b"forwarded", b"for=203.0.113.6"),
+                ],
+            }
+            async_to_sync(middleware)(scope, None, None)
+            actual = observed[-1]
+            self.assertNotIn(b"forwarded", dict(actual["headers"]))
+            self.assertNotIn(b"x-forwarded-host", dict(actual["headers"]))
+            self.assertEqual(
+                actual["scheme"], "https" if peer == "172.20.0.3" else "http"
+            )
+            self.assertEqual(
+                actual["client"][0], "203.0.113.5" if peer == "172.20.0.3" else peer
+            )
 
 
 @unittest.skipUnless(settings.MCP_ENABLED, "Run the enabled file-backed app profile")

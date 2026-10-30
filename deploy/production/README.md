@@ -263,21 +263,95 @@ accounted for. See the [migration and validation steps](../../.github/README-WOR
 
 ## 🔌 Shared MCP framework
 
-Follow the [MCP framework contract](../../docs/MCP-FRAMEWORK.md) before activating an optional app. Notoli keeps its current MCP profile; MacroMapper ships the framework with MCP disabled. Use this guide for immutable app releases and explicit recovery; framework adoption does not provision a new template instance.
+Follow the [MCP framework contract](../../docs/MCP-FRAMEWORK.md) before activating an optional app. Notoli keeps its current MCP profile; MacroMapper source defaults off; its prepared central production policy enables MCP only through coordinated env-prod activation. Use this guide for immutable app releases and explicit recovery; framework adoption does not provision a new template instance.
 
-## Central MCP activation preparation
+## Central MCP production policy
 
-Production remains `DJANGO_MCP_ENABLED=0`. The [app MCP runbook](../../docs/MCP.md)
-covers identity linking, fixed issuer/resource/client scopes, fail-closed
-introspection and real-client acceptance. `mcp-activation-policy.json` prepares
-only app-specific required-env/readiness changes. Apply it to `app.json` only
-when the coordinator accepts shared OAuth/YNAB, registry and ingress readiness;
-retain ordinary root/API health, reviewed exact proxy trust and all normal gates.
+The prepared `app.json` sets `DJANGO_MCP_ENABLED=1`, fixes the verified existing
+`DJANGO_TRUSTED_PROXY_IPS=172.20.0.3`, requires the dedicated introspection secret
+and adds exact resource/issuer JSON plus anonymous MCP 401 challenge probes.
+Ordinary website/API health remains unchanged. Source defaults remain off;
+this policy is released only through the owner's coordinated `env-prod` promotion
+after shared OAuth/YNAB, identity/registry and ingress acceptance. Main-source
+approval is not an instruction for this app agent to deploy.
 
 `MACROMAPPER_MCP_INTROSPECTION_SECRET` is passed from its Actions repository secret
 into the existing private `.backend.env` bundle via the generated app workflow.
-It defaults empty only while disabled; activation must move it to required env.
-Enabled production checks reject missing credentials. No common release source,
-secret volume, shared ingress/network or production credential is changed here.
-Rollback to disabled MCP must also remove its added readiness probes; retain
-additive identity/confirmation tables and use the established app-only recovery.
+It is required with no default. Bundle preparation and enabled production checks
+reject missing credentials. The exact gateway peer is also pinned in
+`gateway.addresses["macromapper-ingress"]`; backend `.2` and frontend `.4` cannot
+forward trusted metadata. Keep Uvicorn `--no-proxy-headers`; only the canonical
+exact-peer ASGI wrapper accepts it. No new network, address migration, secret
+volume, runtime release engine or production credential change is made here.
+
+The existing empty `backend_required_env` preflight is retained so the first
+central release can start from the old disabled backend. The incoming bundle's
+fixed env and gateway address checks, plus new-runtime production checks, enforce
+the selected peer. The operator verifies effective backend trust after release.
+For disabled recovery, `mcp-disabled-policy.json` is an explicit app-owned policy
+delta: disable MCP, remove only its two probes and required introspector, retain
+ordinary health and all five-network/exact-peer policy. Re-render workflow and
+review/release the selected compatible image through the established app-only
+path. Retain additive identity/confirmation tables; no automatic DB restore.
+See [the MCP runbook](../../docs/MCP.md) for identity linking and real-client checks.
+
+### Stage disabled-runtime recovery before first activation
+
+Before first MCP activation, prepare and privately stage a separate rollback tool
+from the exact reviewed app checkout. A failed enabled release sets `FAILED.json`,
+so a new disabled **deploy** is barred; the failed enabled tool also requires MCP
+health from its captured old disabled backend and cannot complete that rollback.
+Prepare the matching disabled-policy rollback tool **before** exposing this risk:
+
+```bash
+python3 deploy/production/prepare_mcp_recovery.py \
+  --source-revision '<approved-full-app-source-sha>' \
+  --target '<fresh-local-staging-directory>'
+```
+
+The output is the byte-identical canonical `release.py`, derived disabled
+`app.json`, and a manifest binding their SHA-256 checksums plus app/shared source
+revisions. It contains no credentials, environment payload or database. Verify
+the checkout revision and hashes independently, then have the approved operator
+stage that exact directory at
+`/opt/apps/macromapper/recovery-tools/mcp-disabled-<approved-source-sha>` before
+activation, with directories 0700/files 0600 and deployment-owner access. Keep
+these files with the retained images/recovery evidence. Never edit an immutable
+failed bundle, captured env, recovery set or failure marker to change policy.
+
+For a failed **first** enabled release, first verify privately that the selected
+recovery captured `DJANGO_MCP_ENABLED=0` (or its old absent/default-off value).
+The separate tool changes readiness policy; it does not rewrite captured runtime
+environment. Invoke the staged disabled-policy `release.py` itself, using the
+failed release's existing recovery ID and the separately selected database mode:
+
+```bash
+python3 "$app_root/recovery-tools/mcp-disabled-$approved_source_sha/release.py" rollback \
+  --root "$app_root" --recovery "$failed_release_id" --restore-database
+```
+
+Database restore requires its deliberate operator authorization and can discard
+post-snapshot writes. Use `--keep-database` instead only for the already-documented
+pre-migration eligibility. This rollback retains the original failure barrier,
+locks, writer quiescence, cached image identity, capture/backup and explicit DB
+selection; successful ordinary root/API health clears the barrier normally.
+It preserves the five-network/exact-peer policy and touches no shared gateway.
+Do not select this tool for a capture whose backend remains MCP-enabled; use a
+matching enabled recovery policy or a separately reviewed contained forward fix.
+After recovering the old disabled runtime, future deploys can again proceed.
+The normal disabled-profile/gateway sequence below applies to planned downgrade
+to an older three-network app bundle.
+
+The central rollout policy now expects the exact existing three gateway networks
+plus `ynab_mcp_private` / ingress `172.30.89.2` and `mcp_auth_private` / ingress
+`172.30.92.2`; Notoli remains `172.30.88.2`. The two companion services are allowed
+but only ingress is required, preserving independent app recovery. This does not
+attach MacroMapper to another network. The gateway rollout must establish this
+five-network baseline before an app release with this policy.
+
+Legacy matched three-network rollback requires an explicit bounded sequence:
+release MacroMapper's disabled profile with ordinary health under the five-network
+baseline, have the gateway owner select **both** explicit disabled route profiles
+and verify hostname tombstones plus the three-network baseline, then use the
+matched legacy app bundle. Never use implicit `base`, edit old private manifests,
+drop exposed hostnames, or weaken exact topology checks. See [MCP rollback](../../docs/MCP.md#health-outage-and-rollback).

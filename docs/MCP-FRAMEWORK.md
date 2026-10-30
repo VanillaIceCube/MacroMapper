@@ -14,8 +14,8 @@ owned by the resource app.
 MacroMapper uses the app-owned `app_mcp` registry and fixed central issuer rather
 than the canonical sample/local OAuth provider. See [MacroMapper MCP](MCP.md) for
 tools, schemas, permission/confirmation boundaries, identity linking, client setup,
-private credentials, readiness and rollback. Production remains disabled until
-shared issuer/YNAB acceptance and coordinated app activation. Ordinary login,
+private credentials, readiness and rollback. Source defaults remain off; the prepared enabled production policy is held for
+shared issuer/YNAB acceptance and coordinated env-prod activation. Ordinary login,
 REST JWTs, meal estimation and frontend behavior stay independent.
 
 The shared ASGI lifecycle, exact `/mcp` transport, stateless JSON mode, 64 KiB

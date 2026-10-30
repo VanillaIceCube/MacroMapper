@@ -85,10 +85,12 @@ The [MCP framework guide](../docs/MCP-FRAMEWORK.md) defines opt-in ASGI/proxy/re
 
 ## MCP preparation
 
-The production MCP resource is prepared but disabled. Follow
+The production MCP policy is prepared enabled, with source defaults off and
+env-prod activation held by the coordinating owner after shared acceptance. Follow
 [the app contract](../docs/MCP.md) and [app-only release guide](production/README.md).
-`production/mcp-activation-policy.json` is an unapplied app policy delta, not a new
-release engine. The dedicated introspection credential uses the existing private
+`production/app.json` carries enabled central policy and `mcp-disabled-policy.json`
+prepares explicit disabled recovery. Neither changes the runtime release engine.
+The dedicated introspection credential uses the existing private
 backend env-file convention; no extra volume or common release extension is needed.
 Local development secrets may use ignored `backend/.env` or `deploy/.env` only.
 Shared issuer, client registration, ingress/trust and live acceptance belong to
