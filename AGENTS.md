@@ -6,6 +6,16 @@ release standard. Update the shared source, then synchronize both applications;
 CI's parity check rejects independent vendor edits. App policy lives in
 `deploy/production/app.json`; preserve its intentional network/readiness differences.
 
+## 🌿 Main-first release history
+
+Land reviewed source changes on `main` before an authorized `env-prod` promotion.
+Production may intentionally lag while rollout dependencies or acceptance are
+unfinished; do not deploy merely to make branch trees equal. An exceptional,
+explicitly owner-authorized production-branch fix must be reviewed and reconciled into `main` before the next
+promotion. Preserve existing release history and checks rather than resetting or
+force-pushing either branch. See the [production guide](deploy/production/README.md)
+and [#329](https://github.com/VanillaIceCube/MacroMapper/issues/329).
+
 MacroMapper uses manual setup steps; do not assume Django or Node dependencies are installed.
 
 When setup, routing, environment variables, deployment, or CI/CD changes, update the relevant documentation:
@@ -136,3 +146,15 @@ the Actions repository secret. Never store keys in `deploy/backend.env`.
 ## 🔌 Shared MCP framework
 
 MCP framework changes follow [docs/MCP-FRAMEWORK.md](docs/MCP-FRAMEWORK.md). FullStackTemplate owns the canonical Python package; keep all consumer hashes/pins aligned. MacroMapper stays disabled without business tools. Preserve Notoli credentials, scopes, tool permissions and exact proxy trust.
+
+
+## 🧭 MCP ownership and deferred implementation
+
+MacroMapper owns any future MCP tools and OAuth provider. Infrastructure supplies
+ordinary Nginx routing; do not restore a shared MCP authorization service, YNAB
+runtime or cross-app issuer dependency. The previous central resource implementation
+was unreleased and has been removed. Keep production `DJANGO_MCP_ENABLED=0`, frontend
+connection routes off, ordinary login/REST/AI behavior intact and domain MCP work
+in [#284](https://github.com/VanillaIceCube/MacroMapper/issues/284). The existing
+canonical optional framework remains app-owned scaffolding; it does not make
+MacroMapper a working connector. See [MCP status](docs/MCP.md).

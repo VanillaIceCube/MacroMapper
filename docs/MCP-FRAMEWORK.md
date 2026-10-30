@@ -2,6 +2,10 @@
 
 > **Framework only:** production MCP and its frontend routes remain disabled.
 > Meal/nutrition tools and live connector acceptance remain in #284.
+> The unreleased shared-issuer implementation has been withdrawn. Any future
+> MacroMapper MCP integration owns its OAuth inside this app; Infrastructure
+> supplies ordinary Nginx routing. There is no shared MCP authorization server
+> or YNAB dependency. See [MCP status](MCP.md).
 
 `backend/mcp_framework` provides shared OAuth consent, discovery, token verification,
 Streamable HTTP transport and ASGI lifecycle. Application registries own their
