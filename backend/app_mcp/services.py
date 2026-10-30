@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
@@ -205,15 +205,32 @@ def fingerprint(meal, foods, owner_id):
         visit(food.current_version_id, set())
     if meal is not None and meal.items.count() > 20:
         raise ValidationError("This meal has too many items for MCP editing.")
+    versions = list(
+        FoodItemVersion.objects.select_for_update()
+        .filter(pk__in=visited)
+        .order_by("pk")
+        .values()
+    )
+    component_foods = list(
+        FoodItem.objects.select_for_update()
+        .filter(pk__in={version["food_item_id"] for version in versions})
+        .order_by("pk")
+        .values()
+    )
+    if any(
+        food["archived_at"]
+        or (food["scope"] == "personal" and food["owner_id"] != owner_id)
+        for food in component_foods
+    ):
+        raise ValidationError("A component is unavailable.")
     state = {
         "meal": meal_summary(meal) if meal else None,
         "foods": [
             (food.pk, food.current_version_id, food.updated_at.isoformat())
             for food in foods
         ],
-        "versions": list(
-            FoodItemVersion.objects.filter(pk__in=visited).order_by("pk").values()
-        ),
+        "versions": versions,
+        "component_foods": component_foods,
         "components": edges,
         "sources": sources,
     }
@@ -226,11 +243,16 @@ def validated_meal(link, payload):
     meal_id = payload.get("meal_id")
     meal = None
     if meal_id is not None:
-        meal = MealEntry.objects.filter(pk=meal_id, owner=link.user).first()
+        meal = (
+            MealEntry.objects.select_for_update()
+            .filter(pk=meal_id, owner=link.user)
+            .first()
+        )
         if meal is None:
             raise ValidationError("Meal unavailable.")
     foods = list(
-        FoodItem.objects.active()
+        FoodItem.objects.select_for_update()
+        .active()
         .visible_to(link.user)
         .filter(
             pk__in=[item["food_item"] for item in payload["item_inputs"]],
@@ -329,6 +351,16 @@ def confirm_meal(token, confirmation_id, confirmed):
 
 
 def lock_link(link):
+    # SQLite ignores SELECT FOR UPDATE. Acquire its database writer lock before
+    # reading meal/catalog state. A concurrent commit after principal()'s read
+    # makes this snapshot upgrade fail closed, rather than overwriting that edit.
+    # On row-locking databases this serializes the identity; the meal, selected
+    # foods and immutable versions are then locked through fingerprint/save.
+    if (
+        IdentityLink.objects.filter(pk=link.pk, active=True).update(active=F("active"))
+        != 1
+    ):
+        raise PermissionDenied("MCP permission denied.")
     current = (
         IdentityLink.objects.select_for_update()
         .select_related("user")

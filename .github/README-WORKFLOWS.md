@@ -355,6 +355,9 @@ provider tests using `app.framework_test_settings`, then enabled `app_mcp`
 transport/introspection/permission/confirmation tests with a synthetic credential.
 The test-only provider profile is never the runtime URL configuration. Immutable
 framework and common release parity checks remain mandatory.
+The enabled app run uses disposable file-backed `app.mcp_test_settings` so actual
+SQLite WAL website/catalog races are exercised and stale confirmations fail
+without overwriting the competing committed data.
 
 The generated deploy workflow passes optional repository secret
 `MACROMAPPER_MCP_INTROSPECTION_SECRET` into the existing private backend env bundle.

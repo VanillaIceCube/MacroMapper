@@ -2,6 +2,7 @@ import asyncio
 import base64
 import io
 import json
+import threading
 import time
 import unittest
 import uuid
@@ -15,6 +16,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.db import DatabaseError, close_old_connections, connection
 from django.test import TestCase, TransactionTestCase, override_settings
 from django.utils import timezone
 from mcp.server.auth.provider import AccessToken
@@ -469,6 +471,107 @@ class ToolServiceTests(Fixtures, TestCase):
         self.assertEqual(
             [issue.id for issue in mcp_config_check(None)], ["app_mcp.E001"]
         )
+
+
+@unittest.skipUnless(settings.MCP_ENABLED, "Run the enabled file-backed app profile")
+class ConcurrentConfirmationTests(Fixtures, TransactionTestCase):
+    def setUp(self):
+        super().setUp()
+        if connection.vendor != "sqlite" or "memory" in str(
+            connection.settings_dict["NAME"]
+        ):
+            self.skipTest("Use app.mcp_test_settings for real SQLite WAL concurrency")
+        with connection.cursor() as cursor:
+            self.assertEqual(
+                cursor.execute("PRAGMA journal_mode=WAL").fetchone()[0], "wal"
+            )
+        first = services.preview_meal(self.token, self.payload)
+        self.saved = services.confirm_meal(self.token, first["confirmation_id"], True)[
+            "meal"
+        ]
+        self.preview = services.preview_meal(
+            self.token,
+            self.payload | {"meal_id": self.saved["id"], "name": "MCP replacement"},
+        )
+
+    def race_committed_change(self, writer):
+        principal_read = threading.Event()
+        writer_committed = threading.Event()
+        outcome = []
+        original = services.principal
+
+        def pause_after_identity_read(*args, **kwargs):
+            result = original(*args, **kwargs)
+            principal_read.set()
+            if not writer_committed.wait(5):
+                raise AssertionError("Concurrent writer did not finish")
+            return result
+
+        def confirm():
+            close_old_connections()
+            try:
+                outcome.append(
+                    services.confirm_meal(
+                        self.token, self.preview["confirmation_id"], True
+                    )
+                )
+            except (DatabaseError, ValidationError) as error:
+                outcome.append(error)
+            finally:
+                close_old_connections()
+
+        with patch.object(services, "principal", side_effect=pause_after_identity_read):
+            thread = threading.Thread(target=confirm)
+            thread.start()
+            try:
+                self.assertTrue(principal_read.wait(5))
+                # WAL permits this independent connection to commit while the MCP
+                # transaction still holds its earlier read snapshot.
+                writer()
+            finally:
+                writer_committed.set()
+                thread.join(6)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(len(outcome), 1)
+        self.assertIsInstance(outcome[0], (DatabaseError, ValidationError))
+        self.assertTrue(
+            MealConfirmation.objects.filter(pk=self.preview["confirmation_id"]).exists()
+        )
+        self.assertEqual(MealEntry.objects.count(), 1)
+
+    def test_concurrent_website_meal_commit_rejects_confirmation(self):
+        def website_write():
+            client = APIClient()
+            client.force_authenticate(self.user)
+            response = client.patch(
+                f"/api/meals/{self.saved['id']}/",
+                {"name": "Website edit"},
+                format="json",
+            )
+            self.assertEqual(response.status_code, 200, response.data)
+
+        self.race_committed_change(website_write)
+        self.assertEqual(
+            MealEntry.objects.get(pk=self.saved["id"]).name, "Website edit"
+        )
+        self.assertEqual(
+            MealEntry.objects.get(pk=self.saved["id"]).items.get().calories, 190
+        )
+
+    def test_concurrent_catalog_commit_rejects_confirmation(self):
+        def catalog_write():
+            create_food_version(
+                food_item=self.food,
+                definition=definition(calories="120"),
+                created_by=self.user,
+            )
+
+        self.race_committed_change(catalog_write)
+        self.food.refresh_from_db()
+        self.assertEqual(self.food.current_version.calories, 120)
+        meal = MealEntry.objects.get(pk=self.saved["id"])
+        self.assertEqual(meal.name, "Lunch")
+        self.assertEqual(meal.items.get().calories, 190)
 
 
 @unittest.skipUnless(settings.MCP_ENABLED, "Run the separate app MCP profile")
