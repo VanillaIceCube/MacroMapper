@@ -63,6 +63,34 @@ dispatch selecting that branch. Pushing `main` or this feature branch does not
 deploy. CI builds full SHA tags, then selects the build's **immutable digests**
 for every pull/migration/startup; no `latest` selector is used.
 
+### 🌿 Main-first source and intentional release lag
+
+Land reviewed source on `main`, then promote only an authorized, deployable
+revision to `env-prod` through the normal review and CI gates. These are source
+requirements from the [shared main-first policy](https://github.com/VanillaIceCube/FullStackTemplate/blob/main/docs/SHARED-ROLLOUT-POLICY.md#main-first-releases):
+the promotion's entire source tree must match its exact reviewed main commit.
+These are source
+and operator rules; the workflow's branch check does not enforce main ancestry.
+If the owner explicitly authorizes an exceptional production-branch fix, review it and reconcile its
+history and changes back into `main` before the next promotion. Preserve merge
+history; do not reset or force-push either branch to manufacture parity.
+
+Production may deliberately remain on an earlier reviewed release. In particular,
+current `main` prepares MCP enablement in `app.json`; its source-default-off
+setting does not keep a production promotion inactive. Hold that promotion until
+the shared issuer, exact ingress/network trust, client and identity setup,
+private introspection credential, staged disabled-runtime recovery tool and
+coordinated acceptance in [the MCP runbook](../../docs/MCP.md) are ready. Missing
+credentials are a failure, not an activation gate. Branch reconciliation alone
+does not authorize that rollout or require matching production trees.
+
+The [#329 audit](https://github.com/VanillaIceCube/MacroMapper/issues/329) on
+2026-10-30 compared `main` at `fe8820bf2a390354fe3b2d5e046f6212ee7bd502`
+with `env-prod` at `fc5ff4245fd0e241839f1f58df317f1a16aacf5d`. The five commits
+unique to production were merges, and its full tree exactly matched main
+ancestor `52e9e845bddc58ab173a69584242c24c7af56840`. Reconcile that ancestry
+without reverting newer main source or promoting the held MCP release.
+
 Required access variables: `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PATH`,
 `DEPLOY_HOST_FINGERPRINT` (independently verified SSH host key fingerprint);
 optional `DEPLOY_PORT` defaults to 22. Secret: `DEPLOY_SSH_KEY`.

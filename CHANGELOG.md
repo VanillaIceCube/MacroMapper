@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-30
+
+### Changed
+
+- Reconcile existing production merge history into main without changing runtime source; document main-first reviewed releases, back-merging exceptional production fixes and intentional release lag while MCP activation dependencies remain pending.
+
 ## 2026-10-29
 
 ### Added
