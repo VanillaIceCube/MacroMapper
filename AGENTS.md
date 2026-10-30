@@ -158,3 +158,7 @@ connection routes off, ordinary login/REST/AI behavior intact and domain MCP wor
 in [#284](https://github.com/VanillaIceCube/MacroMapper/issues/284). The existing
 canonical optional framework remains app-owned scaffolding; it does not make
 MacroMapper a working connector. See [MCP status](docs/MCP.md).
+
+## 🤖 Reviewer model policy
+
+Use `gpt-6-luna` for OpenAI code, build and security reviewers and security-alert grouping. Preserve each reviewer’s existing key/project isolation, budgets and blocking gates. Application AI model selection remains app-owned.
