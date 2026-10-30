@@ -9,6 +9,8 @@
 
 ### Fixed
 
+- Adopt the same reviewed Infrastructure release fixture pin `ee9c0d40421a8b3f4886340b188a21e86c6429cf` across all consumers, including exact app-mode topology and metadata content-type checks.
+
 - Lock meal/catalog state throughout MCP confirmation, including an early SQLite writer barrier, with real concurrent website-edit/catalog-update tests that preserve the newer committed data.
 - Prepare and test a separately staged disabled-policy rollback tool so a failed first enabled rollout can restore its captured disabled backend without incompatible MCP readiness, immutable-bundle edits or bypassing the failure barrier.
 
