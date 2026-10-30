@@ -228,11 +228,25 @@ if not math.isfinite(OPENAI_MEAL_ESTIMATION_TIMEOUT) or not (
 
 
 # Optional MCP has no routes, OAuth tables or application tools unless explicitly enabled.
-from mcp_framework.config import optional_settings  # noqa: E402
+from mcp_framework.config import oauth_settings, optional_settings  # noqa: E402
 
 MCP_SETTINGS = optional_settings("MacroMapper", "macromapper", sample=False)
+MCP_SETTINGS.update(
+    MCP_SERVER_FACTORY=os.getenv("DJANGO_MCP_SERVER_FACTORY")
+    or "macromapper_mcp.server.create_server",
+    MCP_REQUIRED_SCOPES=["macromapper:read"],
+    OAUTH2_PROVIDER=oauth_settings(
+        MCP_SETTINGS["MCP_BASE_URL"],
+        {
+            "macromapper:read": "Read your meals, proposals, notifications and accessible foods",
+            "macromapper:write": "Make explicitly confirmed changes to your MacroMapper data",
+            "macromapper:estimate": "Run paid AI meal estimates after explicit confirmation",
+        },
+        ["macromapper:read"],
+    ),
+)
 globals().update(MCP_SETTINGS)
-INSTALLED_APPS += ["mcp_framework"]
+INSTALLED_APPS += ["mcp_framework", "macromapper_mcp.apps.MacroMapperMCPConfig"]
 if MCP_SETTINGS["MCP_ENABLED"]:
     INSTALLED_APPS += ["oauth2_provider"]
     SECURE_PROXY_SSL_HEADER = None

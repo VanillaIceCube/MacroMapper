@@ -392,6 +392,16 @@ export default function AppHeader({ title, setDrawerOpen }) {
               variant="middle"
               sx={{ my: 0.25, mx: 1, borderColor: 'var(--atlas-border)' }}
             />
+            {import.meta.env.VITE_MCP_ENABLED === '1' && (
+              <MenuItem
+                onClick={() => {
+                  setProfileAnchorEl(null);
+                  navigate('/connections');
+                }}
+              >
+                Connected Apps
+              </MenuItem>
+            )}
             <MenuItem
               sx={{
                 py: 0.5,

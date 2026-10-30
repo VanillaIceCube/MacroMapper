@@ -33,6 +33,7 @@ describe('AppHeader', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
     sessionStorage.clear();
     fetchNotifications.mockResolvedValue(response([]));
     clearAllNotifications.mockResolvedValue(response({ deleted: 1 }));
@@ -47,6 +48,20 @@ describe('AppHeader', () => {
         target_path: '/',
       }),
     );
+  });
+
+  test.each(['0', '1'])('shows connected apps only for enabled MCP (%s)', async (enabled) => {
+    vi.stubEnv('VITE_MCP_ENABLED', enabled);
+    const user = userEvent.setup();
+    renderWithProviders(<AppHeader title="MacroMapper" setDrawerOpen={setDrawerOpen} />);
+    await user.click(screen.getByLabelText('user profile'));
+    if (enabled === '1') {
+      await user.click(screen.getByText('Connected Apps'));
+      expect(screen.queryByText('Logout')).not.toBeInTheDocument();
+    } else {
+      expect(screen.queryByText('Connected Apps')).not.toBeInTheDocument();
+    }
+    vi.unstubAllEnvs();
   });
 
   test.each(['/login', '/register', '/forgot-password', '/reset-password'])(

@@ -81,4 +81,4 @@ release procedure; see the [credential migration guide](../.github/README-WORKFL
 
 ## 🔌 Shared MCP framework
 
-The [MCP framework guide](../docs/MCP-FRAMEWORK.md) defines opt-in ASGI/proxy/readiness requirements. Local development can call the backend directly; do not treat a local/legacy proxy as production MCP onboarding.
+The [app MCP guide](../docs/MCP.md) defines app-owned OAuth, exact proxy trust, readiness and first-enable recovery. Local MCP development uses a disposable database, `DJANGO_MCP_ENABLED=1`, the exact backend/frontend origins and `VITE_MCP_ENABLED=1`, with `python serve.py` selecting ASGI. Ordinary hot reload remains disabled by default. Production enables both sides through its reviewed app policy and frontend Dockerfile; its existing shared Nginx routes belong to Infrastructure.
