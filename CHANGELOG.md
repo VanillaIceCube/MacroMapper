@@ -4,6 +4,8 @@
 
 ### Changed
 
+- Remove the unreleased central MCP resource, shared-issuer credential requirements and enabled rollout policy; restore app-owned optional OAuth scaffolding with MacroMapper MCP disabled and meal/nutrition MCP deferred. Preserve website, REST, AI estimation and existing production history.
+
 - Reconcile existing production merge history into main without changing runtime source; document main-first reviewed releases, back-merging exceptional production fixes and intentional release lag while MCP activation dependencies remain pending.
 
 ## 2026-10-29

@@ -145,30 +145,16 @@ the Actions repository secret. Never store keys in `deploy/backend.env`.
 
 ## 🔌 Shared MCP framework
 
-MCP framework changes follow [docs/MCP-FRAMEWORK.md](docs/MCP-FRAMEWORK.md). FullStackTemplate owns the canonical Python package; keep all consumer hashes/pins aligned. MacroMapper source defaults off and central production policy awaits coordinated env-prod activation; domain tools remain app-owned. Preserve Notoli credentials, scopes, tool permissions and exact proxy trust.
+MCP framework changes follow [docs/MCP-FRAMEWORK.md](docs/MCP-FRAMEWORK.md). FullStackTemplate owns the canonical Python package; keep all consumer hashes/pins aligned. MacroMapper stays disabled without business tools. Preserve Notoli credentials, scopes, tool permissions and exact proxy trust.
 
-## MacroMapper MCP
 
-The app-owned MCP contract is in [docs/MCP.md](docs/MCP.md). Source defaults off.
-Central `app.json` prepares `DJANGO_MCP_ENABLED=1` and exact trusted proxy
-`172.20.0.3`; root alone coordinates env-prod activation after shared issuer,
-YNAB/client and ingress acceptance. Use the exact canonical framework pin; do not
-edit the vendor independently. Central MCP auth is separate from regular login,
-REST JWTs and AI estimation. Never auto-link/create users from email or username.
-Explicit issuer/UUID-subject links, local active/ownership checks and intentional,
-scoped single-use meal confirmations are mandatory. No AI billing tools.
-The dedicated `MACROMAPPER_MCP_INTROSPECTION_SECRET` enters the existing private
-release env bundle; local copies belong only in ignored env files. Do not store
-it in `deploy/backend.env`, logs or Git. Production policy is prepared in `deploy/production/app.json`; its explicit
-disabled recovery delta is `deploy/production/mcp-disabled-policy.json`. Preserve
-common release parity.
-The central app release policy expects five gateway route networks; see the MCP
-runbook for coordinated explicit disabled-profile rollback to a matched legacy
-three-network bundle. Never weaken topology checks or silently return exposed
-hostnames to base. Pin only the reviewed single MacroMapper ingress peer in
-`DJANGO_TRUSTED_PROXY_IPS=172.20.0.3`; no CIDR/frontend/other-peer forwarding trust.
-Before first enabled rollout, stage the app-owned disabled-policy rollback tool
-with `prepare_mcp_recovery.py` as documented. Failed enabled releases cannot be
-recovered by starting a new disabled deploy or using enabled readiness against a
-captured disabled backend. Use the separately staged tool only for a verified
-disabled capture; never edit immutable bundles or remove failure barriers.
+## 🧭 MCP ownership and deferred implementation
+
+MacroMapper owns any future MCP tools and OAuth provider. Infrastructure supplies
+ordinary Nginx routing; do not restore a shared MCP authorization service, YNAB
+runtime or cross-app issuer dependency. The previous central resource implementation
+was unreleased and has been removed. Keep production `DJANGO_MCP_ENABLED=0`, frontend
+connection routes off, ordinary login/REST/AI behavior intact and domain MCP work
+in [#284](https://github.com/VanillaIceCube/MacroMapper/issues/284). The existing
+canonical optional framework remains app-owned scaffolding; it does not make
+MacroMapper a working connector. See [MCP status](docs/MCP.md).

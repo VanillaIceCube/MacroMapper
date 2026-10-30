@@ -190,8 +190,7 @@ jobs:
           {
             python ../scripts/check_mcp_framework.py &&
             python manage.py test --verbosity=2 &&
-            DJANGO_MCP_ENABLED=1 DJANGO_MCP_BASE_URL=http://localhost:8000 MACROMAPPER_MCP_INTROSPECTION_SECRET=synthetic-test-only python manage.py test mcp_framework --settings=app.framework_test_settings --verbosity=2 &&
-            DJANGO_MCP_ENABLED=1 MACROMAPPER_MCP_INTROSPECTION_SECRET=synthetic-test-only python manage.py test app_mcp --settings=app.mcp_test_settings --verbosity=2
+            DJANGO_MCP_ENABLED=1 DJANGO_MCP_BASE_URL=http://localhost:8000 DJANGO_MCP_SERVER_FACTORY=mcp_framework.server.sample_server python manage.py test mcp_framework --verbosity=2
           } 2>&1 | tee test_output.txt || status=$?
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
 
