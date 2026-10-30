@@ -347,3 +347,7 @@ feeds do not establish that a live close race occurred.
 Docker login v4.7.0 is rendered from Infrastructure commit
 `f3f049830fcd5e5869d1ae120c57d9ccb6c99200`. Keep `deploy/shared-source.json` and
 the generated workflow synchronized; deployment parity remains mandatory.
+
+## 🤖 Reviewer model
+
+Code, build and security reviewers and security-alert grouping use `gpt-6-luna` through the existing Responses API action. Per-reviewer credentials, project isolation, output budgets, triggers and failure gates are preserved. See [the model documentation](https://developers.openai.com/api/docs/models/gpt-6-luna) and [shared tracking #241](https://github.com/VanillaIceCube/FullStackTemplate/issues/241). Application AI models and Jules schedules are independent of this setting.

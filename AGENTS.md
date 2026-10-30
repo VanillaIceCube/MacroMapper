@@ -163,3 +163,7 @@ plus disposable app release tests and parity checks. Preserve SQLite capture and
 explicit recovery. A failed first enable uses the retained previous disabled
 controller and its readiness policy, never an edited enabled bundle. Client
 registration, owner consent and plugin installation remain separate actions.
+
+## 🤖 Reviewer model policy
+
+Use `gpt-6-luna` for OpenAI code, build and security reviewers and security-alert grouping. Preserve each reviewer’s existing key/project isolation, budgets and blocking gates. Application AI model selection remains app-owned.
