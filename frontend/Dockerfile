@@ -12,7 +12,8 @@ RUN npm ci
 COPY . .
 
 # Build-time API base URL for Vite
-ARG VITE_MCP_ENABLED=0
+# This app owns its enabled connector; the shared release workflow stays generic.
+ARG VITE_MCP_ENABLED=1
 ENV VITE_MCP_ENABLED=$VITE_MCP_ENABLED
 ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL

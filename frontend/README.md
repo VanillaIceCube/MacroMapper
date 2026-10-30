@@ -206,4 +206,4 @@ npm run build
 
 ## 🔌 Shared MCP framework
 
-See [the MCP framework guide](../docs/MCP-FRAMEWORK.md). Optional consent and Connected Apps routes require `VITE_MCP_ENABLED=1` in the template/MacroMapper; Notoli keeps its existing enabled UI. Preserve JWT-only consent and validated connection return paths.
+See [the app MCP guide](../docs/MCP.md). Consent, the profile-menu Connected Apps link and connection revocation require `VITE_MCP_ENABLED=1`. The production Dockerfile defaults this build argument to `1`; raw Vite development remains opt-in. Pass `--build-arg VITE_MCP_ENABLED=0` for a deliberately disabled image. Preserve JWT-only consent and validated connection return paths. The existing UI lists the actual requested read/write/estimate permissions; enabling it does not create an OAuth client or grant.

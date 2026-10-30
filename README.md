@@ -135,4 +135,4 @@ for exact secret names, project configuration, verification, and rollback.
 
 ## 🔌 Shared MCP framework
 
-Optional MCP transport/OAuth and application adoption are described in [the framework guide](docs/MCP-FRAMEWORK.md).
+MacroMapper owns its [MCP tools, OAuth permissions and client setup](docs/MCP.md), using the unchanged [shared framework](docs/MCP-FRAMEWORK.md). Read access, confirmed writes and paid estimation have separate scopes. The production profile includes consent and Connected Apps; deployment does not install a client plugin.

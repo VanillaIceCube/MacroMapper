@@ -76,10 +76,9 @@ history and changes back into `main` before the next promotion. Preserve merge
 history; do not reset or force-push either branch to manufacture parity.
 
 Production may deliberately remain on an earlier reviewed release. MacroMapper's
-production policy keeps `DJANGO_MCP_ENABLED=0`; the unreleased central issuer and
-meal/nutrition MCP implementation have been removed. Any future MCP integration
-belongs to this application, including OAuth, user permissions and client setup;
-shared infrastructure owns ordinary Nginx routing only. See [MCP status](../../docs/MCP.md).
+current policy enables its own MCP/OAuth under #284; the retired shared issuer
+remains removed. The application owns user permissions, confirmation and client
+setup; Infrastructure owns ordinary Nginx routing only. See [the MCP contract](../../docs/MCP.md).
 Branch reconciliation does not authorize a deployment, require matching production
 trees or authorize unrelated newer main changes for production.
 
@@ -107,8 +106,9 @@ Defaults remain Resend SMTP, port 587, TLS, user resend, timeout 10 seconds.
 Optional `OPENAI_MEAL_ESTIMATION_MODEL` and `OPENAI_MEAL_ESTIMATION_TIMEOUT`
 default to the existing model and a 110-second total AI budget. The timeout must
 be greater than zero and at most 110 seconds; it covers sequential provider calls,
-with SDK retries disabled. Gunicorn uses four request threads in one worker and
-an explicit 120-second worker-liveness timeout. At most two SDK calls run at once;
+with SDK retries disabled. Disabled local profiles use Gunicorn with four request threads in one worker and
+an explicit 120-second worker-liveness timeout. The enabled production profile
+uses one Uvicorn ASGI worker, preserving the same application AI budget. At most two SDK calls run at once;
 timed-out calls retain their slots until they finish, and excess AI requests
 return a safe JSON 503. See [backend behavior](../../backend/README.md).
 
@@ -186,7 +186,8 @@ Unknown or multiple current writers fail closed. Copies use DELETE journal
 mode; this does not enable WAL or relocate storage. Migration/startup use the
 selected digest, no pull at startup.
 Readiness includes direct Django /api/notifications/ returning 401, HTTPS HTML
-root and JSON 401 API response. Attempts are bounded by a 90-second
+root, JSON 401 API response, exact app-owned issuer/resource metadata JSON and
+an unauthenticated MCP 401 with the exact resource-metadata challenge. Attempts are bounded by a 90-second
 retry window plus at most one in-flight round of bounded requests; Docker exec
 times out at 10 seconds and HTTP requests at 5 seconds. Other Docker commands
 time out at 300 seconds.
@@ -292,4 +293,40 @@ accounted for. See the [migration and validation steps](../../.github/README-WOR
 
 ## 🔌 Shared MCP framework
 
-Follow the [MCP framework contract](../../docs/MCP-FRAMEWORK.md) before activating an optional app. Notoli keeps its current MCP profile; MacroMapper ships the framework with MCP disabled. Use this guide for immutable app releases and explicit recovery; framework adoption does not provision a new template instance.
+MacroMapper uses the unchanged [canonical framework](../../docs/MCP-FRAMEWORK.md)
+and its own [domain/OAuth contract](../../docs/MCP.md). Its fixed production
+settings enable MCP at the app origin and trust only gateway peer `172.20.0.3`.
+The release checks that exact gateway address while preserving all existing
+networks and Notoli's `.2` trust. The frontend Docker build enables connection
+routes without extending the shared release workflow. No new credential or
+shared authorization service is required. OAuth and app confirmation migrations
+run only after the normal private SQLite capture and integrity checks.
+
+### 🛟 First-enable recovery
+
+Before promotion, record the previous accepted disabled release directory and
+verify its private `manifest.json`, `app.json`, controller and cached images.
+`backend_required_env` stays empty for this transition because preflight inspects
+the OLD backend, which has no new MCP trust setting. The NEW bundle fixes that
+setting to `172.20.0.3`; verify it and the MCP flag in final runtime acceptance.
+Do not alter the shared controller or retained immutable bundles to pass checks.
+
+If the first enabled release fails, invoke the retained previous disabled
+controller with the failed candidate's recovery ID, for example:
+
+```bash
+python3 "$previous_disabled_release/release.py" rollback \
+  --root "$app_root" --recovery "$failed_release_id" --restore-database
+```
+
+Resolve these paths/IDs from verified private records, not this example. The old
+controller uses its own ordinary readiness, so restored disabled images can pass.
+The enabled candidate controller would demand unavailable MCP metadata. Keep
+`--keep-database` only for the documented pre-migration safe stages; after
+migration, explicit database restore can discard later writes and needs the
+appropriate recovery authorization. Capture the current writer/journals before
+restoring; never reverse OAuth migrations manually. Shared gateway routing can
+remain pointed at the disabled app (no connector is advertised by that backend).
+Client registrations, grants and plugin installation are separate from deployment.
+Ordinary Notoli, Notoli MCP and MacroMapper REST/frontend checks remain acceptance
+requirements.

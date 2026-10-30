@@ -307,7 +307,7 @@ or revocation. Track live/local acceptance separately in issue #289.
 
 ## 🔌 Shared MCP framework
 
-The backend test gate checks the pinned MCP framework manifest. Template/MacroMapper run both ordinary tests and an isolated MCP-enabled sample profile; production remains disabled there. Notoli runs its existing enabled protocol/domain suite. See [the framework guide](../docs/MCP-FRAMEWORK.md).
+The backend test gate checks the pinned MCP framework manifest, runs ordinary backend tests and separately runs `mcp_framework macromapper_mcp` with MCP enabled and the application factory. Synthetic OAuth and mocked provider tests cover domain permissions without live credentials or paid requests. The shared deployment workflow stays unchanged: MacroMapper enables the connection UI through its app-owned Docker build default. See [the app MCP guide](../docs/MCP.md).
 
 ## 🛡️ Dependency evidence and alert lifecycle parity
 
