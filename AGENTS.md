@@ -6,6 +6,16 @@ release standard. Update the shared source, then synchronize both applications;
 CI's parity check rejects independent vendor edits. App policy lives in
 `deploy/production/app.json`; preserve its intentional network/readiness differences.
 
+## 🌿 Main-first release history
+
+Land reviewed source changes on `main` before an authorized `env-prod` promotion.
+Production may intentionally lag while rollout dependencies or acceptance are
+unfinished; do not deploy merely to make branch trees equal. An exceptional,
+explicitly owner-authorized production-branch fix must be reviewed and reconciled into `main` before the next
+promotion. Preserve existing release history and checks rather than resetting or
+force-pushing either branch. See the [production guide](deploy/production/README.md)
+and [#329](https://github.com/VanillaIceCube/MacroMapper/issues/329).
+
 MacroMapper uses manual setup steps; do not assume Django or Node dependencies are installed.
 
 When setup, routing, environment variables, deployment, or CI/CD changes, update the relevant documentation:
