@@ -103,10 +103,13 @@ class Fixtures:
             action,
             target,
             payload if payload is not None else self.meal_payload(),
+            services.OPERATIONS[action].paid,
         )
 
     def confirm(self, pending):
-        return services.confirm_change(self.raw, pending["confirmation_id"], True)
+        return services.confirm_change(
+            self.raw, pending["confirmation_id"], True, pending["paid"]
+        )
 
     def make_meal(self):
         return MealEntry.objects.get(
@@ -212,6 +215,42 @@ class DomainTests(Fixtures, TestCase):
                 services.list_records(raw, "foods", {}, 10, 0)
         self.assertFalse(AccessToken.objects.exists())
 
+    def test_paid_and_nonpaid_tool_kinds_cannot_be_mixed_or_consume_approval(self):
+        nonpaid = self.preview()
+        paid = self.preview(
+            "proposal.estimate",
+            payload={"description": "Apple", "entry_date": "2026-10-30"},
+        )
+        for pending, wrong_kind in [(paid, False), (nonpaid, True), (paid, 1)]:
+            with self.assertRaises(ValidationError):
+                services.confirm_change(
+                    self.raw, pending["confirmation_id"], True, wrong_kind
+                )
+            self.assertTrue(
+                Confirmation.objects.filter(pk=pending["confirmation_id"]).exists()
+            )
+        with self.assertRaises(ValidationError):
+            services.preview_change(
+                self.raw,
+                "proposal.estimate",
+                None,
+                {"description": "Apple", "entry_date": "2026-10-30"},
+                False,
+            )
+        with self.assertRaises(ValidationError):
+            services.preview_change(
+                self.raw, "meal.create", None, self.meal_payload(), True
+            )
+        self.token.scope = " ".join([READ, WRITE])
+        self.token.save()
+        with self.assertRaises(PermissionDenied):
+            services.confirm_change(self.raw, paid["confirmation_id"], True, True)
+        self.assertTrue(
+            Confirmation.objects.filter(pk=paid["confirmation_id"]).exists()
+        )
+        self.assertTrue(self.confirm(nonpaid)["applied"])
+        self.assertFalse(MealProposal.objects.exists())
+
     def test_confirmation_binds_owner_client_token_and_requires_real_boolean(self):
         from oauth2_provider.models import AccessToken, Application
 
@@ -237,10 +276,14 @@ class DomainTests(Fixtures, TestCase):
                 resource=[settings.MCP_RESOURCE_URL],
             )
             with self.assertRaises(ValidationError):
-                services.confirm_change(token.token, pending["confirmation_id"], True)
+                services.confirm_change(
+                    token.token, pending["confirmation_id"], True, False
+                )
         for value in [False, 1, "true"]:
             with self.assertRaises(ValidationError):
-                services.confirm_change(self.raw, pending["confirmation_id"], value)
+                services.confirm_change(
+                    self.raw, pending["confirmation_id"], value, False
+                )
         Confirmation.objects.filter(pk=pending["confirmation_id"]).update(
             expires_at=timezone.now() - timedelta(seconds=1)
         )
@@ -590,7 +633,7 @@ class PaidOperationTests(Fixtures, TransactionTestCase):
             ):
                 paid = asyncio.create_task(
                     server.call(
-                        services.confirm_change, pending["confirmation_id"], True
+                        services.confirm_change, pending["confirmation_id"], True, True
                     )
                 )
                 try:
@@ -599,7 +642,7 @@ class PaidOperationTests(Fixtures, TransactionTestCase):
                     # must retain its bounded slot until the provider/worker ends.
                     paid.cancel()
                     with self.assertRaises(asyncio.CancelledError):
-                        await paid
+                        self.assertIsNone(await paid)
                     acquired = 0
                     try:
                         for _ in range(3):
@@ -611,6 +654,7 @@ class PaidOperationTests(Fixtures, TransactionTestCase):
                                 services.confirm_change,
                                 unstarted["confirmation_id"],
                                 True,
+                                False,
                             )
                     finally:
                         for _ in range(acquired):
@@ -940,7 +984,7 @@ class ProtocolTests(Fixtures, TransactionTestCase):
                     )
                     listing = (await rpc("tools/list")).json()["result"]["tools"]
                     tools = {tool["name"]: tool for tool in listing}
-                    self.assertEqual(len(tools), 16)
+                    self.assertEqual(len(tools), 18)
                     self.assertNotIn("connection_status", tools)
                     self.assertTrue(
                         tools["search_foods"]["annotations"]["readOnlyHint"]
@@ -948,8 +992,48 @@ class ProtocolTests(Fixtures, TransactionTestCase):
                     self.assertTrue(
                         tools["confirm_change"]["annotations"]["destructiveHint"]
                     )
-                    self.assertTrue(
+                    self.assertFalse(
                         tools["confirm_change"]["annotations"]["openWorldHint"]
+                    )
+                    self.assertTrue(
+                        tools["confirm_paid_change"]["annotations"]["openWorldHint"]
+                    )
+                    for name in ["preview_change", "confirm_change"]:
+                        self.assertEqual(
+                            tools[name]["_meta"]["securitySchemes"],
+                            [{"type": "oauth2", "scopes": [READ, WRITE]}],
+                        )
+                    for name in ["preview_paid_change", "confirm_paid_change"]:
+                        self.assertEqual(
+                            tools[name]["_meta"]["securitySchemes"],
+                            [{"type": "oauth2", "scopes": [READ, WRITE, ESTIMATE]}],
+                        )
+                    self.assertEqual(
+                        tools["search_foods"]["_meta"]["securitySchemes"],
+                        [{"type": "oauth2", "scopes": [READ]}],
+                    )
+                    nonpaid_actions = set(
+                        tools["preview_change"]["inputSchema"]["properties"]["action"][
+                            "enum"
+                        ]
+                    )
+                    paid_actions = set(
+                        tools["preview_paid_change"]["inputSchema"]["properties"][
+                            "action"
+                        ]["enum"]
+                    )
+                    self.assertEqual(
+                        paid_actions,
+                        {
+                            "proposal.estimate",
+                            "proposal.follow_up",
+                            "proposal.adjustment",
+                            "meal.adjustment",
+                        },
+                    )
+                    self.assertFalse(nonpaid_actions & paid_actions)
+                    self.assertEqual(
+                        nonpaid_actions | paid_actions, set(services.OPERATIONS)
                     )
                     self.assertIn(
                         "meal.delete",
@@ -979,6 +1063,65 @@ class ProtocolTests(Fixtures, TransactionTestCase):
                         {"confirmation_id": confirmation, "confirmed": True},
                     )
                     self.assertTrue(applied["structuredContent"]["applied"])
+                    paid_arguments = {
+                        "action": "proposal.estimate",
+                        "changes": {"description": "Apple", "entry_date": "2026-10-30"},
+                    }
+                    self.assertTrue(
+                        (await tool("preview_change", paid_arguments))["isError"]
+                    )
+                    paid_preview = (await tool("preview_paid_change", paid_arguments))[
+                        "structuredContent"
+                    ]
+                    paid_confirmation = {
+                        "confirmation_id": paid_preview["confirmation_id"],
+                        "confirmed": True,
+                    }
+                    self.assertIn("confirm_paid_change", paid_preview["instruction"])
+                    self.assertTrue(
+                        (await tool("confirm_change", paid_confirmation))["isError"]
+                    )
+                    nonpaid_preview = (
+                        await tool(
+                            "preview_change",
+                            {"action": "meal.create", "changes": self.meal_payload()},
+                        )
+                    )["structuredContent"]
+                    nonpaid_confirmation = {
+                        "confirmation_id": nonpaid_preview["confirmation_id"],
+                        "confirmed": True,
+                    }
+                    self.assertTrue(
+                        (await tool("confirm_paid_change", nonpaid_confirmation))[
+                            "isError"
+                        ]
+                    )
+                    await sync_to_async(
+                        type(self.token).objects.filter(pk=self.token.pk).update
+                    )(scope=" ".join([READ, WRITE]))
+                    self.assertTrue(
+                        (await tool("preview_paid_change", paid_arguments))["isError"]
+                    )
+                    self.assertTrue(
+                        (await tool("confirm_paid_change", paid_confirmation))[
+                            "isError"
+                        ]
+                    )
+                    self.assertTrue(
+                        (await tool("confirm_change", nonpaid_confirmation))[
+                            "structuredContent"
+                        ]["applied"]
+                    )
+                    # Regrant the separate paid permission: the earlier mismatches
+                    # and insufficient-scope calls must not have consumed approval.
+                    await sync_to_async(
+                        type(self.token).objects.filter(pk=self.token.pk).update
+                    )(scope=" ".join([READ, WRITE, ESTIMATE]))
+                    self.assertTrue(
+                        (await tool("confirm_paid_change", paid_confirmation))[
+                            "structuredContent"
+                        ]["applied"]
+                    )
                     self.assertTrue(
                         (
                             await tool(

@@ -462,10 +462,12 @@ def snapshot(action, target, user, payload, selected_ids):
 
 
 @transaction.atomic
-def preview_change(raw, action, target_id, payload):
+def preview_change(raw, action, target_id, payload, authorized_paid=False):
     if action not in OPERATIONS:
         raise ValidationError("Unsupported operation.")
     operation = OPERATIONS[action]
+    if type(authorized_paid) is not bool or operation.paid != authorized_paid:
+        raise ValidationError("Use the matching paid or nonpaid preview tool.")
     if (operation.detail and (type(target_id) is not int or target_id <= 0)) or (
         not operation.detail and target_id is not None
     ):
@@ -522,7 +524,9 @@ def preview_change(raw, action, target_id, payload):
         "changes": payload,
         "current": current,
         "paid": operation.paid,
-        "instruction": "Show this exact action/target/fields to the user and obtain explicit approval before confirm_change. Paid actions may call the existing AI provider and create shared catalog/proposal records; they never directly accept a meal. No automatic retry.",
+        "instruction": "Show this exact action/target/fields to the user and obtain explicit approval before "
+        + ("confirm_paid_change" if operation.paid else "confirm_change")
+        + ". Paid actions may call the existing AI provider and create shared catalog/proposal records; they never directly accept a meal. No automatic retry.",
     }
 
 
@@ -551,7 +555,7 @@ def builder_fields(serializer, owner, target):
     )
 
 
-def confirm_change(raw, confirmation_id, confirmed):
+def confirm_change(raw, confirmation_id, confirmed, authorized_paid):
     if confirmed is not True:
         raise ValidationError("Explicit user approval is required.")
     with transaction.atomic():
@@ -570,6 +574,10 @@ def confirm_change(raw, confirmation_id, confirmed):
         if pending is None:
             raise ValidationError("Confirmation unavailable; preview again.")
         operation = OPERATIONS[pending.action]
+        if type(authorized_paid) is not bool or operation.paid != authorized_paid:
+            raise ValidationError(
+                "Use the confirmation tool matching the preview kind."
+            )
         token = principal(raw, write=True, paid=operation.paid, lock=True)
         view = view_for(
             operation,

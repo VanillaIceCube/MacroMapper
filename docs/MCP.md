@@ -30,7 +30,7 @@ management are outside the registry.
 
 ## 🧰 Available capabilities
 
-The registry exposes 16 tools covering 19 closed mutation actions. Call
+The registry exposes 18 tools covering 19 closed mutation actions. Call
 `operation_schema(action)` before preparing a change: it returns the allowed
 fields, required values, bounds and scopes for that action.
 
@@ -42,7 +42,11 @@ fields, required values, bounds and scopes for that action.
 | Paid estimation | Read proposals before accepting them | Estimate a new proposal, request a proposal follow-up, or adjust a proposal/meal draft. These four actions additionally require `macromapper:estimate`; they do not directly accept a diary meal. |
 | Notifications | `list_notifications`, `get_notification` | Mark one read/unread, delete one, mark all current notifications read, or clear the current set. Later arrivals are excluded from an existing preview. |
 
-`preview_change` and `confirm_change` handle the closed action set. Four additional
+`preview_change` and `confirm_change` handle the 15 nonpaid actions and advertise
+read/write access. `preview_paid_change` and `confirm_paid_change` handle the four
+paid actions and advertise read/write/estimate access. Their action enums are
+disjoint; using the wrong confirmation pair rejects the request without consuming
+the approval. Four additional
 typed notification preview tools cover update, delete, mark-all-read and clear-all.
 Every preview expires after five minutes, is bound to the same OAuth token/client/
 user, and becomes unusable after confirmation. Refreshing or revoking the token,
