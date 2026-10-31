@@ -381,4 +381,9 @@ ruff format backend --check
 
 ## 🔌 Shared MCP framework
 
+Proposal reads use summary lists and bounded pages of current review items rather
+than repeating historical item snapshots. Follow `get_proposal` item offsets before
+editing/accepting; oversized single items require full review in the website.
+Sanitized error references support diagnosis without logging private meal payloads.
+
 See [the app MCP guide](../docs/MCP.md) for the `macromapper_mcp` registry, read/write/estimate scopes, confirmation, ASGI startup and additive migrations. The canonical [MCP framework](../docs/MCP-FRAMEWORK.md) remains unchanged. Install the domain app in both profiles so its confirmation migration is stable; install OAuth Toolkit only when enabled. Run ordinary backend tests and the separately enabled framework/domain suite. REST JWT authentication is unchanged.

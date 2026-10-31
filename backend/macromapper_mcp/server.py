@@ -1,10 +1,12 @@
 """Typed, bounded MacroMapper tools with explicit per-operation schema discovery."""
 
 import asyncio
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from threading import BoundedSemaphore
 from typing import Annotated, Literal
+from uuid import uuid4
 
 from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -38,6 +40,7 @@ Limit = Annotated[int, Field(strict=True, ge=1, le=20)]
 Offset = Annotated[int, Field(strict=True, ge=0, le=1000)]
 _WORKERS = ThreadPoolExecutor(max_workers=4, thread_name_prefix="macromapper-mcp")
 _SLOTS = BoundedSemaphore(4)
+logger = logging.getLogger(__name__)
 
 
 def invocation(function, raw, args):
@@ -86,9 +89,17 @@ async def call(function, *args):
         KeyError,
         ArithmeticError,
         EstimationProviderError,
-    ):
+    ) as error:
+        reference = uuid4().hex[:12]
+        # Exception messages/tracebacks may contain meal data or provider details.
+        logger.warning(
+            "MCP operation failed operation=%s category=%s reference=%s",
+            function.__name__,
+            type(error).__name__,
+            reference,
+        )
         raise ToolError(
-            "Operation unavailable or invalid. Inspect current records before preparing another change; never retry a paid call automatically."
+            f"Operation unavailable or invalid (reference {reference}). Inspect list_proposals and meal_diary before preparing another change; never retry a paid call automatically."
         ) from None
 
 
@@ -180,15 +191,17 @@ def create_server():
         offset: Offset = 0,
         status: Literal["", "draft", "accepted"] = "",
     ) -> Result:
-        """Read your meal-estimation/review proposals and revision history; never another user's proposals."""
+        """List your proposal summaries and IDs; use get_proposal for current review items. No AI call or diary write."""
         return await call(
             services.list_records, "proposals", {"status": status}, limit, offset
         )
 
     @tool()
-    async def get_proposal(proposal_id: ID) -> Result:
-        """Read your proposal, structured review items, provider provenance and bounded revision history."""
-        return await call(services.get_record, "proposals", proposal_id)
+    async def get_proposal(
+        proposal_id: ID, item_limit: Limit = 5, item_offset: Offset = 0
+    ) -> Result:
+        """Read your proposal's current review items/provenance without duplicate historical snapshots. Follow next_offset as item_offset until has_more is false before editing/accepting; truncated summaries require review in MacroMapper. Never repeat a paid estimate to recover details."""
+        return await call(services.get_proposal, proposal_id, item_limit, item_offset)
 
     @tool()
     async def list_notifications(

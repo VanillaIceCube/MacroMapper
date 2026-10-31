@@ -52,6 +52,22 @@ class DisabledDiscoveryTests(SimpleTestCase):
         self.assertIn("meal.delete", Action.__args__)
         self.assertEqual(len(services.OPERATIONS), 19)
 
+    def test_failure_reference_correlates_without_private_exception_text(self):
+        from . import server
+
+        def invalid_operation(raw):
+            raise ValueError("private-provider-or-meal-text")
+
+        with self.assertLogs(server.logger, level="WARNING") as logs:
+            with self.assertRaises(server.ToolError) as failure:
+                async_to_sync(server.call)(invalid_operation)
+        message = str(failure.exception)
+        self.assertIn("reference ", message)
+        self.assertIn("list_proposals", message)
+        self.assertIn("category=ValueError", logs.output[0])
+        self.assertNotIn("private-provider-or-meal-text", message + logs.output[0])
+        self.assertIn(message.split("reference ")[1].split(")")[0], logs.output[0])
+
 
 class Fixtures:
     def setUp(self):
@@ -528,6 +544,80 @@ class PaidOperationTests(Fixtures, TransactionTestCase):
         self.assertFalse(receipt["diary_mutated"])
         self.assertLess(len(json.dumps(receipt).encode()), 65536)
         self.assertFalse(MealEntry.objects.exists())
+        # A successful paid receipt must remain recoverable without another
+        # provider call, even when its full revision snapshots exceed the budget.
+        listing = services.list_records(self.raw, "proposals", {}, 10, 0)
+        self.assertEqual(listing["data"][0]["id"], proposal.pk)
+        detail = services.get_record(self.raw, "proposals", proposal.pk)
+        self.assertEqual(detail["data"]["id"], proposal.pk)
+        reviewed = []
+        while True:
+            self.assertFalse(detail["truncated"])
+            self.assertNotIn("revisions", detail["data"])
+            reviewed.extend(detail["data"]["items"])
+            self.assertLess(len(json.dumps(detail).encode()), 65536)
+            if not detail["has_more"]:
+                break
+            detail = services.get_proposal(
+                self.raw, proposal.pk, 20, detail["next_offset"]
+            )
+        self.assertEqual(reviewed, proposal.items)
+        self.assertEqual(provider.estimate.call_count, 1)
+        with self.assertRaises(Http404):
+            services.get_proposal(self.raw, proposal.pk + 1000)
+        for limit, offset in [(True, 0), (1, -1), (21, 0), (1, True)]:
+            with self.assertRaises(ValidationError):
+                services.get_proposal(self.raw, proposal.pk, limit, offset)
+
+    def test_paid_estimate_review_portion_accept_and_replay_log_exactly_once(self):
+        estimate = deepcopy(ai_estimate())
+        dessert = deepcopy(estimate["items"][0])
+        dessert.update(key="dessert", name="Full dessert", components=[])
+        estimate["items"].append(dessert)
+        provider = self.provider()
+        provider.estimate.side_effect = None
+        provider.estimate.return_value = estimate
+        pending = self.preview(
+            "proposal.estimate",
+            payload={
+                "description": "Unknown recipe plus dessert",
+                "entry_date": "2026-10-31",
+            },
+        )
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
+            created = self.confirm(pending)
+            with self.assertRaises(ValidationError):
+                self.confirm(pending)
+        proposal_id = created["result"]["data"]["id"]
+        self.assertEqual(provider.estimate.call_count, 1)
+        self.assertFalse(MealEntry.objects.exists())
+        review = services.get_proposal(self.raw, proposal_id)["data"]
+        self.assertFalse(
+            services.list_records(self.raw, "proposals", {}, 10, 0)["has_more"]
+        )
+        review["items"][0]["servings"] = "0.7"
+        review["items"][1]["servings"] = "1"
+        self.confirm(
+            self.preview(
+                "proposal.update",
+                proposal_id,
+                {"name": "Reviewed breakfast", "items": review["items"]},
+            )
+        )
+        acceptance = self.preview("proposal.accept", proposal_id, {})
+        saved = self.confirm(acceptance)
+        with self.assertRaises(ValidationError):
+            self.confirm(acceptance)
+        meal = MealEntry.objects.get(pk=saved["result"]["data"]["id"])
+        self.assertEqual(MealEntry.objects.count(), 1)
+        self.assertEqual(
+            [str(item.servings) for item in meal.items.order_by("order")],
+            ["0.7000", "1.0000"],
+        )
+        self.assertEqual(
+            MealProposal.objects.get(pk=proposal_id).accepted_meal_id, meal.pk
+        )
+        self.assertEqual(provider.estimate.call_count, 1)
 
     def test_oversized_temporary_adjustment_returns_honest_bounded_summary(self):
         from estimates.services import _catalog_food
@@ -1122,6 +1212,22 @@ class ProtocolTests(Fixtures, TransactionTestCase):
                             "structuredContent"
                         ]["applied"]
                     )
+                    proposals = (await tool("list_proposals", {}))["structuredContent"]
+                    proposal_id = proposals["data"][0]["id"]
+                    review = (
+                        await tool(
+                            "get_proposal",
+                            {
+                                "proposal_id": proposal_id,
+                                "item_limit": 1,
+                                "item_offset": 0,
+                            },
+                        )
+                    )["structuredContent"]
+                    self.assertEqual(review["data"]["id"], proposal_id)
+                    self.assertEqual(review["data"]["item_count"], 1)
+                    self.assertFalse(review["has_more"])
+                    self.assertNotIn("revisions", review["data"])
                     self.assertTrue(
                         (
                             await tool(

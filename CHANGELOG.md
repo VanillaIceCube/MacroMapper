@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-31
+
+### Fixed
+
+- Keep MCP proposal lists and review reads available after large paid estimates: return summary lists and paginated current items without repeated revision snapshots, preserve one-use confirmations, and provide sanitized diagnostic references for tool failures (#339).
+
 ## 2026-10-30
 
 ### Added

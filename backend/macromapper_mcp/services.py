@@ -19,7 +19,7 @@ from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
-from estimates.models import MealProposal, MealProposalRevision
+from estimates.models import MealProposal
 from estimates.serializers import (
     MapYourMealAdjustmentSerializer,
     MapYourMealDraftSerializer,
@@ -743,13 +743,9 @@ def list_records(raw, kind, query, limit, offset):
     if kind == "proposals" and query.get("status"):
         queryset = queryset.filter(status=query["status"])
     if kind == "proposals":
-        queryset = queryset.prefetch_related(None).prefetch_related(
-            Prefetch(
-                "revisions",
-                queryset=MealProposalRevision.objects.order_by("pk")[:21],
-                to_attr="_mcp_revisions",
-            )
-        )
+        # Listing must remain usable after a successful oversized paid result.
+        # Do not serialize repeated item snapshots merely to discover its ID.
+        queryset = queryset.prefetch_related(None)
     if kind == "meals":
         queryset = queryset.prefetch_related(None).prefetch_related(
             Prefetch(
@@ -771,7 +767,9 @@ def list_records(raw, kind, query, limit, offset):
     )
     catalog_state(food_ids, version_ids, token.user)
     return result(
-        view.get_serializer(records[:limit], many=True).data,
+        [proposal_summary(record) for record in records[:limit]]
+        if kind == "proposals"
+        else view.get_serializer(records[:limit], many=True).data,
         has_more=len(records) > limit,
         next_offset=offset + limit
         if len(records) > limit and offset + limit <= 1000
@@ -782,7 +780,7 @@ def list_records(raw, kind, query, limit, offset):
 def bound_related_cache(records, kind):
     # Sliced prefetch uses to_attr: Django must not subsequently try to filter
     # the already sliced queryset. Existing serializers still read the relation.
-    relation = {"meals": "items", "proposals": "revisions"}.get(kind)
+    relation = {"meals": "items"}.get(kind)
     if relation:
         for record in records:
             record._prefetched_objects_cache[relation] = getattr(
@@ -791,6 +789,8 @@ def bound_related_cache(records, kind):
 
 
 def get_record(raw, kind, target_id):
+    if kind == "proposals":
+        return get_proposal(raw, target_id)
     token = principal(raw)
     classes = {
         "foods": FoodItemViewSet,
@@ -801,19 +801,7 @@ def get_record(raw, kind, target_id):
     operation = Operation(classes[kind], "retrieve", "GET")
     view = view_for(operation, token.user, target_id=target_id)
     original = view.get_queryset
-    if kind == "proposals":
-        view.get_queryset = lambda: (
-            original()
-            .prefetch_related(None)
-            .prefetch_related(
-                Prefetch(
-                    "revisions",
-                    queryset=MealProposalRevision.objects.order_by("pk")[:21],
-                    to_attr="_mcp_revisions",
-                )
-            )
-        )
-    elif kind == "meals":
+    if kind == "meals":
         view.get_queryset = lambda: (
             original()
             .prefetch_related(None)
@@ -837,6 +825,79 @@ def get_record(raw, kind, target_id):
         token.user,
     )
     return result(view.get_serializer(target).data)
+
+
+def proposal_summary(proposal):
+    return {
+        "id": proposal.pk,
+        "name": proposal.name,
+        "entry_date": proposal.entry_date,
+        "status": proposal.status,
+        "generator": proposal.generator,
+        "item_count": len(proposal.items),
+        "accepted_meal_id": proposal.accepted_meal_id,
+        "updated_at": proposal.updated_at,
+        "detail": "Read current review items with get_proposal; an estimate is not a diary meal.",
+    }
+
+
+def get_proposal(raw, target_id, item_limit=5, item_offset=0):
+    if (
+        type(item_limit) is not int
+        or not 1 <= item_limit <= 20
+        or type(item_offset) is not int
+        or not 0 <= item_offset <= 1000
+    ):
+        raise ValidationError("Use a valid proposal item page.")
+    token = principal(raw)
+    view = view_for(
+        Operation(MealProposalViewSet, "retrieve", "GET"),
+        token.user,
+        target_id=target_id,
+    )
+    # Only current review items belong in this result. Historical snapshots can
+    # multiply an otherwise ordinary mixed meal past the output budget.
+    original = view.get_queryset
+    view.get_queryset = lambda: original().prefetch_related(None)
+    proposal = view.get_object()
+    serializer = view.get_serializer(proposal)
+    serializer.fields.pop("revisions")
+    output = dict(serializer.data)
+    output.update(
+        item_count=len(proposal.items),
+        item_offset=item_offset,
+        revision_count=proposal.revisions.count(),
+        detail="Current review items only. Follow next_offset for the remaining items before editing or accepting. Historical revision snapshots remain available in MacroMapper. Never repeat a paid call to recover detail.",
+    )
+    items = proposal.items[item_offset : item_offset + item_limit]
+    while True:
+        output["items"] = items
+        next_offset = item_offset + len(items)
+        has_more = next_offset < len(proposal.items)
+        try:
+            return result(
+                output,
+                has_more=has_more,
+                next_offset=next_offset if has_more else None,
+            )
+        except ValidationError:
+            if len(items) > 1:
+                items = items[: max(1, len(items) // 2)]
+                continue
+            # A single complex item cannot be safely split into editable pieces.
+            # Preserve identity and explicitly require full review in the app.
+            return {
+                "data": json_value(
+                    proposal_summary(proposal)
+                    | {
+                        "item_offset": item_offset,
+                        "detail": "This item exceeds the MCP review budget. Open the existing proposal in MacroMapper to review/edit/accept it; do not repeat the paid estimate or treat this summary as complete review data.",
+                    }
+                ),
+                "truncated": True,
+                "has_more": has_more,
+                "next_offset": None,
+            }
 
 
 def nutrition_totals(raw, start, end):
