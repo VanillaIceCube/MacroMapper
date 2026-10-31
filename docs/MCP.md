@@ -61,7 +61,7 @@ Large or deeply nested data is rejected or explicitly marked truncated. Narrow t
 request rather than treating truncated output or missing nutrients as complete.
 
 Proposal lists do not duplicate current items or historical revision snapshots.
-`get_proposal(proposal_id, item_limit=5, item_offset=0)` returns current items and
+`get_proposal(proposal_id, item_limit=20, item_offset=0)` returns current items and
 provider provenance; follow `next_offset` as `item_offset` until `has_more` is false
 before editing or accepting. The server can reduce a page to keep complete items
 within its existing output budget. Historical snapshots remain available in the

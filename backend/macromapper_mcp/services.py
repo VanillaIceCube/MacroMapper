@@ -841,7 +841,7 @@ def proposal_summary(proposal):
     }
 
 
-def get_proposal(raw, target_id, item_limit=5, item_offset=0):
+def get_proposal(raw, target_id, item_limit=20, item_offset=0):
     if (
         type(item_limit) is not int
         or not 1 <= item_limit <= 20

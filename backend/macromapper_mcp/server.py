@@ -198,7 +198,7 @@ def create_server():
 
     @tool()
     async def get_proposal(
-        proposal_id: ID, item_limit: Limit = 5, item_offset: Offset = 0
+        proposal_id: ID, item_limit: Limit = 20, item_offset: Offset = 0
     ) -> Result:
         """Read your proposal's current review items/provenance without duplicate historical snapshots. Follow next_offset as item_offset until has_more is false before editing/accepting; truncated summaries require review in MacroMapper. Never repeat a paid estimate to recover details."""
         return await call(services.get_proposal, proposal_id, item_limit, item_offset)
