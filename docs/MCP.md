@@ -38,7 +38,7 @@ fields, required values, bounds and scopes for that action.
 | --- | --- | --- |
 | Food catalog | `search_foods`, `get_food` | Create or update your personal foods; archive them. Shared catalog visibility follows the existing app policy. |
 | Diary and nutrition | `meal_diary`, `get_meal`, `nutrition_totals` | Create, edit or delete meals; save or update reviewed drafts. Drafts require explicit name and notes, with an empty notes string allowed. |
-| Proposals | `list_proposals`, `get_proposal` | Review/edit, delete draft proposals, or separately accept a proposal into the diary. |
+| Proposals | `list_proposals` returns summaries/IDs; `get_proposal` pages current review items | Review/edit, delete draft proposals, or separately accept a proposal into the diary. |
 | Paid estimation | Read proposals before accepting them | Estimate a new proposal, request a proposal follow-up, or adjust a proposal/meal draft. These four actions additionally require `macromapper:estimate`; they do not directly accept a diary meal. |
 | Notifications | `list_notifications`, `get_notification` | Mark one read/unread, delete one, mark all current notifications read, or clear the current set. Later arrivals are excluded from an existing preview. |
 
@@ -59,6 +59,18 @@ Pages contain at most 20 records. Nutrition totals cover at most 31 days, 500 me
 and 2,000 meal items; bulk notification previews cover at most 200 existing entries.
 Large or deeply nested data is rejected or explicitly marked truncated. Narrow the
 request rather than treating truncated output or missing nutrients as complete.
+
+Proposal lists do not duplicate current items or historical revision snapshots.
+`get_proposal(proposal_id, item_limit=20, item_offset=0)` returns current items and
+provider provenance; follow `next_offset` as `item_offset` until `has_more` is false
+before editing or accepting. The server can reduce a page to keep complete items
+within its existing output budget. Historical snapshots remain available in the
+website. A single oversized item returns an explicitly truncated summary directing
+review to the existing proposal in MacroMapper. Never use that summary as complete
+editable data or repeat the paid estimate to recover detail. This read path also
+recovers proposals created before the fix for [#339](https://github.com/VanillaIceCube/MacroMapper/issues/339).
+Sanitized tool failures include a reference correlated with the operation name and
+exception category in server logs; meal text, tokens and provider errors are omitted.
 
 Four bounded application tool workers keep paid provider waits separate from
 OAuth verification. Requests beyond that capacity fail before consuming an
