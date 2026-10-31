@@ -581,6 +581,21 @@ class PaidOperationTests(Fixtures, TransactionTestCase):
         self.assertEqual(oversized["data"]["id"], proposal.pk)
         self.assertNotIn("items", oversized["data"])
         self.assertIn("MacroMapper", oversized["data"]["detail"])
+        for partial_item in [
+            deepcopy(reviewed[0])
+            | {
+                "components": [
+                    deepcopy(reviewed[0]["components"][0]) for _ in range(21)
+                ]
+            },
+            deepcopy(proposal.items[0]) | {"name": "x" * 2001, "components": []},
+        ]:
+            proposal.items = [partial_item]
+            proposal.save(update_fields=["items"])
+            partial = services.get_proposal(self.raw, proposal.pk)
+            self.assertTrue(partial["truncated"])
+            self.assertNotIn("items", partial["data"])
+            self.assertIn("review/edit/accept", partial["data"]["detail"])
         other_proposal = MealProposal.objects.create(
             owner=self.other,
             description="Other private meal",

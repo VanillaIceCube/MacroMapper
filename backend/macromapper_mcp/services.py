@@ -875,11 +875,16 @@ def get_proposal(raw, target_id, item_limit=5, item_offset=0):
         next_offset = item_offset + len(items)
         has_more = next_offset < len(proposal.items)
         try:
-            return result(
+            page = result(
                 output,
                 has_more=has_more,
                 next_offset=next_offset if has_more else None,
             )
+            if page["truncated"]:
+                # result() also trims deep trees, long strings and collections.
+                # Never expose those partial items as editable review data.
+                raise ValidationError("Current review item was truncated.")
+            return page
         except ValidationError:
             if len(items) > 1:
                 items = items[: max(1, len(items) // 2)]
