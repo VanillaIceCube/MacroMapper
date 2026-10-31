@@ -568,6 +568,30 @@ class PaidOperationTests(Fixtures, TransactionTestCase):
         for limit, offset in [(True, 0), (1, -1), (21, 0), (1, True)]:
             with self.assertRaises(ValidationError):
                 services.get_proposal(self.raw, proposal.pk, limit, offset)
+        # A single large component tree must produce an honest summary, not
+        # partial editable items or a new opaque failure.
+        item = deepcopy(proposal.items[0])
+        child = deepcopy(item["components"][0])
+        child["components"] = [deepcopy(child) for _ in range(20)]
+        item["components"] = [deepcopy(child) for _ in range(20)]
+        proposal.items = [item]
+        proposal.save(update_fields=["items"])
+        oversized = services.get_proposal(self.raw, proposal.pk, 1, 0)
+        self.assertTrue(oversized["truncated"])
+        self.assertEqual(oversized["data"]["id"], proposal.pk)
+        self.assertNotIn("items", oversized["data"])
+        self.assertIn("MacroMapper", oversized["data"]["detail"])
+        other_proposal = MealProposal.objects.create(
+            owner=self.other,
+            description="Other private meal",
+            entry_date=date(2026, 10, 31),
+            name="Private",
+            generator="catalog",
+            items=[],
+        )
+        with self.assertRaises(Http404):
+            services.get_proposal(self.raw, other_proposal.pk)
+        self.assertEqual(provider.estimate.call_count, 1)
 
     def test_paid_estimate_review_portion_accept_and_replay_log_exactly_once(self):
         estimate = deepcopy(ai_estimate())
