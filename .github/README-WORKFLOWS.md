@@ -447,3 +447,6 @@ node --test .github/actions/check-codeql-pins/*.test.js .github/actions/dependab
 The local actionlint 1.7.12 schema predates GitHub's documented
 `vulnerability-alerts: read` scope. Its other diagnostics remain enforced; GitHub
 validates the new permission and CI must pass before merge.
+
+The reviewer API evidence step uses direct read-only API calls and executes no
+PR-workspace module with its GitHub client.
