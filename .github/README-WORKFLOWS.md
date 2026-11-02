@@ -419,3 +419,7 @@ Required CI, owner merge and separate release/recovery authorization.
 All three MacroMapper reviewers now reject missing/invalid verdict events using
 the canonical publisher behavior. Malformed output remains an unavailable native
 comment and a failed reviewer job; it can never substitute for an approval.
+
+The CodeQL guard parses YAML structurally with `PyYAML==6.0.3` (safe loading),
+including flow mappings, quoted/escaped keys, folded values and aliases. Install
+that exact parser for local Node regressions: `python -m pip install PyYAML==6.0.3`.
