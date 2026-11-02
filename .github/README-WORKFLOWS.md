@@ -423,3 +423,9 @@ comment and a failed reviewer job; it can never substitute for an approval.
 The CodeQL guard parses YAML structurally with `PyYAML==6.0.3` (safe loading),
 including flow mappings, quoted/escaped keys, folded values and aliases. Install
 that exact parser for local Node regressions: `python -m pip install PyYAML==6.0.3`.
+
+Skipped CodeQL analyzers additionally require matching API diff paths under the
+canonical Python/JavaScript/Actions scope policy and a successful required scope
+detector. The read-only Auto Merge CI job probes live branch-rule access using
+API 2026-03-10 and introspects `EnablePullRequestAutoMergeInput` for
+`expectedHeadOid`, validating both operations with the actual workflow token.
