@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-02
+
+### Fixed
+
+- Resolve the transitive minimatch advisory with a scoped modern-version override and regenerated frontend lockfile; document parent API compatibility and removal checks ([FullStackTemplate #267](https://github.com/VanillaIceCube/FullStackTemplate/issues/267)).
+
 ## 2026-10-31
 
 ### Fixed
