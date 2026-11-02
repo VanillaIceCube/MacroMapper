@@ -121,27 +121,9 @@ jobs:
       dependency_malware_result: ${{ needs.dependency-malware.result }}
       dependency_malware_report: ${{ needs.dependency-malware.outputs.malware_report }}
 
-  dependabot-auto-merge:
-    name: Enable Dependabot Auto Merge
-    needs: [lints, tests, codeql, dependency-vulnerability, dependency-malware]
-    if: >-
-      always() &&
-      github.event.pull_request.user.login == 'dependabot[bot]' &&
-      needs.lints.result == 'success' &&
-      needs.tests.result == 'success' &&
-      needs.codeql.result == 'success' &&
-      needs.dependency-vulnerability.result == 'success' &&
-      needs.dependency-malware.result == 'success'
-    uses: ./.github/workflows/ci-auto-merge.yml
-    permissions:
-      contents: write
-      pull-requests: write
-      issues: write
-      security-events: read
-
   auto-merge:
     name: Auto Merge
-    needs: [lints, tests, codeql, dependency-vulnerability, dependency-malware]
+    needs: [lints, tests, codeql, dependency-vulnerability, dependency-malware, code-review, build-review, security-review]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -167,7 +149,7 @@ jobs:
              [ "$CODEQL_RESULT" = 'success' ] && \
              [ "$VULNERABILITY_RESULT" = 'success' ] && \
              [ "$MALWARE_RESULT" = 'success' ]; then
-            echo 'Dependabot auto-merge eligibility was evaluated by the parallel automation job.'
+            echo 'Dependabot eligibility will be evaluated after successful CI by the main-branch follow-up.'
           else
             echo 'Dependabot auto-merge is not evaluated until all independent gates pass.'
           fi
