@@ -4,6 +4,8 @@
 
 ### Fixed
 
+- Hold native Dependabot auto-merge behind a required policy result for each head; validate signed group metadata, paginate all open dependency alerts and support configured reviewer bot identities.
+
 - Reject missing or invalid AI reviewer events instead of converting them into successful comments; adopt the canonical persona/fork/verdict regression suite.
 
 - Adopt FullStackTemplate protected Dependabot auto-merge and atomic CodeQL regressions, requiring current-head approvals, live protected-branch checks and idempotent native activation; remove the PR-token merge path (FullStackTemplate #240).
