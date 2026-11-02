@@ -39,7 +39,7 @@ are recovered or rebuilt, restore these settings, labels, and the
 - GitHub dependency review at high/critical severity, with detailed findings retained in the check logs and annotations
 - npm malware advisory review for changed lockfile packages, including initial lockfile additions against an empty dependency baseline and batched `package@version` advisory queries
 - AI code, build, and security reviews for trusted same-repository pull requests
-- Dependabot auto-merge after all independent gates pass
+- Dependabot auto-merge after independent gates and all three reviewers pass
 
 For a Dependabot semver-major update, Obi-Wan also publishes a structured
 **Major upgrade brief**. It uses Dependabot's exact package/version metadata,
@@ -151,8 +151,8 @@ The main-branch ruleset includes the orchestrator-level `Auto Merge` context
 among its required checks. CI emits that top-level context
 for every pull request: it reports not-applicable for ordinary contributors and
 records the independent-gate result for Dependabot. A separate Dependabot-only
-job enables auto-merge for eligible updates, so its nested reusable-workflow
-check name never becomes a branch-protection dependency. Dependabot pull
+default-branch follow-up enables native auto-merge after successful CI; its
+separate check must not become a CI prerequisite. Dependabot pull
 requests remain pending while GitHub reports an unstable merge state and are
 never merged directly. Third-party Actions are pinned to
 immutable commit SHAs, with release-version comments retained for maintenance.
@@ -368,3 +368,90 @@ separate Compose updates. The template aligns its mutable CodeQL tag with the ot
 immutable v4.39.1 revision. Scanner scope, permissions and merge/deployment
 gates remain unchanged. Canonical rollout:
 [FullStackTemplate #271](https://github.com/VanillaIceCube/FullStackTemplate/issues/271).
+
+## 🔒 Protected Dependabot auto-merge
+
+FullStackTemplate (#240) owns the canonical application policy. After successful
+PR CI, `ci-auto-merge.yml` runs only reviewed main code, with no PR checkout,
+artifacts, caches, PAT, reviewer keys or production secrets. The API resolves the
+successful CI workflow and its exact open main PR; rerun actor identity is not
+used as PR authorship. Forks and non-Dependabot PRs receive a nonblocking policy
+result without any automatic merge or secret-dependent review.
+
+Each application main ruleset must require **Dependabot Policy**, pinned to the
+GitHub Actions integration (15368). The follow-up creates this check in progress
+on the PR head. All other required checks and all three current-head persona
+approvals must pass. The check stays pending while native auto-merge is enabled
+with `expectedHeadOid`, then succeeds only after validation/activation succeeds.
+Failures leave it failing or pending. A later push has no policy result and
+cannot inherit the preceding head's approval. This also avoids trying to enable
+native auto-merge on an already-clean PR. No direct merge fallback exists.
+
+Automatic eligibility requires exactly one verified Dependabot-authored commit
+matching the current head. Explicit update types are parsed from its signed YAML
+metadata with pinned PyYAML safe loading, without overriding runner event paths
+or trusting PR descriptions. Every grouped member must be patch/minor; missing
+metadata fails visibly and major updates stay manual. Before allowing a manual
+major update, the policy disables an existing native auto-merge request.
+
+All open Dependabot alerts are paginated with the built-in token's explicit
+`vulnerability-alerts: read` permission. Every matching updated dependency must
+have a known CVSS score at most 6.9. Dismissed/fixed alerts cannot hide another
+open alert, and neither later group members nor alerts beyond the first page are
+ignored. The workflow publishes only the policy outcome, not alert details.
+
+The guard reads active branch rules using API 2026-03-10 (Metadata: read), checks
+required contexts and integration identities, rejects requested changes and
+checks every persona's current-head approval. Scoped CodeQL skips must also
+match authoritative API diff paths, including previous paths on renames. Null or
+unknown mergeability and propagation of the pending policy check are polled at
+most six times with two-second waits; unstable/conflicting states fail closed.
+Repeated events are idempotent and genuine API failures remain visible. GitHub
+retains final enforcement of review-thread resolution and all branch rules.
+
+Generated repositories that install their own reviewer Apps can set optional
+`OBI_WAN_REVIEWER_LOGIN`, `LINT_EASTWOOD_REVIEWER_LOGIN`, and
+`ROBOCOP_REVIEWER_LOGIN` repository variables to their actual bot logins, including
+`[bot]`. Defaults match the existing shared persona Apps. All three must be
+distinct bot identities. Existing per-persona credentials and fork exclusions
+remain unchanged. Repository writers who can alter workflows remain privileged;
+helper checks do not constrain arbitrary workflow writers.
+
+For activation, merge reviewed source first, then add Dependabot Policy to the
+main ruleset without removing any existing requirement or bypass restriction.
+The new rule requires a fresh successful CI completion to publish policy evidence;
+existing open PRs may need a CI rerun. Do not require the follow-up workflow's
+nested job name, which starts only after CI. No production branch is involved.
+The first eligible real default-branch Dependabot follow-up remains separate
+runtime acceptance in #240; a human implementation PR does not establish it.
+
+CI supplies read-only live branch-rule/schema evidence to Obi-Wan when reviewing
+auto-merge/orchestration changes. This confirms actual token access and current
+GraphQL input fields without changing reviewer verdict requirements.
+
+## 🧪 Atomic CodeQL regression guard
+
+Before required scope detection, all CodeQL action entry points in workflow and
+composite-action YAML must share one full immutable SHA. Structural safe parsing
+covers flow mappings, quoted/escaped keys, folded values, aliases and mixed-case
+owner/repository names. Negative regressions reject drift, mutable pins and
+missing analysis. The existing version/security update groups and daily cadence
+remain unchanged. Infrastructure adopts this guard and reviewer eligibility,
+retaining weekly updates, independent Required CI and owner merge.
+
+```sh
+python -m pip install PyYAML==6.0.3
+node --test .github/actions/check-codeql-pins/*.test.js .github/actions/dependabot-auto-merge/*.test.js
+```
+
+The local actionlint 1.7.12 schema predates GitHub's documented
+`vulnerability-alerts: read` scope. Its other diagnostics remain enforced; GitHub
+validates the new permission and CI must pass before merge.
+
+The reviewer API evidence step uses direct read-only API calls and executes no
+PR-workspace module with its GitHub client.
+
+Every skipped lint, test or analyzer check is now verified against the actual
+reviewed detector filters, with original and renamed API diff paths. Unknown
+filter forms refuse skip authorization. GitHub Action subpaths also match their
+repository-level package alerts when enforcing the CVSS ceiling.
