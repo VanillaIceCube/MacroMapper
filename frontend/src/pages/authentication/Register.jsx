@@ -6,6 +6,7 @@ import { register } from '../../services/authApiClient';
 import { formatAuthErrorMessage, persistAuthSession, readOkJson } from '../../services/authSession';
 
 export default function Register({ showSnackbar }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -13,11 +14,13 @@ export default function Register({ showSnackbar }) {
   const navigate = useNavigate();
 
   const handleRegister = async () => {
+    if (isSubmitting) return;
     if (!password || password !== confirmPassword) {
       showSnackbar('error', 'Passwords do not match.');
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const response = await register({ email, username, password });
       const data = await readOkJson(response, 'Registration failed.');
@@ -26,6 +29,8 @@ export default function Register({ showSnackbar }) {
       navigate('/');
     } catch (error) {
       showSnackbar('error', formatAuthErrorMessage(error, 'Registration failed.'));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -70,8 +75,8 @@ export default function Register({ showSnackbar }) {
           value={confirmPassword}
           onChange={(event) => setConfirmPassword(event.target.value)}
         />
-        <Button fullWidth type="submit" variant="contained">
-          Register
+        <Button fullWidth type="submit" disabled={isSubmitting} variant="contained">
+          {isSubmitting ? 'Registering...' : 'Register'}
         </Button>
         <Typography variant="caption" sx={{ textAlign: 'center', color: 'var(--atlas-ink-muted)' }}>
           Already have an account?{' '}
