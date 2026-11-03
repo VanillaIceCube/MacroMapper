@@ -7,6 +7,7 @@ import { login } from '../../services/authApiClient';
 import { formatAuthErrorMessage, persistAuthSession, readOkJson } from '../../services/authSession';
 
 export default function Login({ showSnackbar }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
@@ -26,6 +27,8 @@ export default function Login({ showSnackbar }) {
   }, [showSnackbar]);
 
   const handleLogin = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const response = await login({ email, password });
       const data = await readOkJson(response, 'Login failed.');
@@ -38,6 +41,8 @@ export default function Login({ showSnackbar }) {
       navigate(next || '/');
     } catch (error) {
       showSnackbar('error', formatAuthErrorMessage(error, 'Login failed.'));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -70,8 +75,8 @@ export default function Login({ showSnackbar }) {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
-        <Button fullWidth type="submit" variant="contained">
-          Login
+        <Button fullWidth type="submit" disabled={isSubmitting} variant="contained">
+          {isSubmitting ? 'Logging in...' : 'Login'}
         </Button>
         <Typography variant="caption" sx={{ textAlign: 'center', color: 'var(--atlas-ink-muted)' }}>
           <Box

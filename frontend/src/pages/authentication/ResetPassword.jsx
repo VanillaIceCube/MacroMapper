@@ -6,6 +6,7 @@ import { resetPassword } from '../../services/authApiClient';
 import { formatAuthErrorMessage, readOkJson } from '../../services/authSession';
 
 export default function ResetPassword({ showSnackbar }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ export default function ResetPassword({ showSnackbar }) {
   const token = params.get('token') || '';
 
   const handleSubmit = async () => {
+    if (isSubmitting) return;
     if (!uid || !token) {
       showSnackbar('error', 'Invalid or expired reset link.');
       return;
@@ -24,6 +26,7 @@ export default function ResetPassword({ showSnackbar }) {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const response = await resetPassword({ uid, token, password });
       const data = await readOkJson(response, 'Password reset failed.');
@@ -31,6 +34,8 @@ export default function ResetPassword({ showSnackbar }) {
       navigate('/login');
     } catch (error) {
       showSnackbar('error', formatAuthErrorMessage(error, 'Password reset failed.'));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -60,8 +65,8 @@ export default function ResetPassword({ showSnackbar }) {
           value={confirmPassword}
           onChange={(event) => setConfirmPassword(event.target.value)}
         />
-        <Button fullWidth type="submit" variant="contained">
-          Reset Password
+        <Button fullWidth type="submit" disabled={isSubmitting} variant="contained">
+          {isSubmitting ? 'Resetting...' : 'Reset Password'}
         </Button>
         <Typography variant="caption" sx={{ textAlign: 'center', color: 'var(--atlas-ink-muted)' }}>
           <Box

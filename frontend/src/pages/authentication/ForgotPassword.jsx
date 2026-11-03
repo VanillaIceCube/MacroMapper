@@ -6,10 +6,13 @@ import { forgotPassword } from '../../services/authApiClient';
 import { formatAuthErrorMessage, readOkJson } from '../../services/authSession';
 
 export default function ForgotPassword({ showSnackbar }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [email, setEmail] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const response = await forgotPassword({ email });
       const data = await readOkJson(response, 'Password reset request failed.');
@@ -20,6 +23,8 @@ export default function ForgotPassword({ showSnackbar }) {
       navigate('/login');
     } catch (error) {
       showSnackbar('error', formatAuthErrorMessage(error, 'Password reset request failed.'));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -42,8 +47,8 @@ export default function ForgotPassword({ showSnackbar }) {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
         />
-        <Button fullWidth type="submit" variant="contained">
-          Send Reset Link
+        <Button fullWidth type="submit" disabled={isSubmitting} variant="contained">
+          {isSubmitting ? 'Sending...' : 'Send Reset Link'}
         </Button>
         <Typography variant="caption" sx={{ textAlign: 'center', color: 'var(--atlas-ink-muted)' }}>
           <Box
