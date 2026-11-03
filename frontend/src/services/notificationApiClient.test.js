@@ -68,4 +68,8 @@ describe('notificationApiClient', () => {
       },
     });
   });
+  test('omits malformed authentication when no explicit token exists', () => {
+    fetchNotifications();
+    expect(apiFetch).toHaveBeenCalledWith('/api/notifications/', { headers: {} });
+  });
 });

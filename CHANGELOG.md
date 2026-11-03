@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-11-02
+
+### Fixed
+
+- Enforce configured password validators before registration, including similarity to the final username/email; reject non-string passwords without creating users.
+- Prevent concurrent auth submissions, preserve request headers through JWT refresh, and remove stale/blank session profile fields.
+- Make notification loads retryable, preserve failed actions for retry, and disable overlapping item/bulk actions through response parsing. Bulk operations use explicit transactions.
+
+## 2026-11-02
+
+### Fixed
+
+- Hold native Dependabot auto-merge behind a required policy result for each head; validate signed group metadata, paginate all open dependency alerts and support configured reviewer bot identities.
+
+- Reject missing or invalid AI reviewer events instead of converting them into successful comments; adopt the canonical persona/fork/verdict regression suite.
+
+- Adopt FullStackTemplate protected Dependabot auto-merge and atomic CodeQL regressions, requiring current-head approvals, live protected-branch checks and idempotent native activation; remove the PR-token merge path (FullStackTemplate #240).
+
+- Resolve the transitive minimatch advisory with a scoped modern-version override and regenerated frontend lockfile; document parent API compatibility and removal checks ([FullStackTemplate #267](https://github.com/VanillaIceCube/FullStackTemplate/issues/267)).
+
+### Changed
+
+- Group all CodeQL action entry points in coordinated Dependabot version and security updates while preserving existing schedules and review gates ([FullStackTemplate #271](https://github.com/VanillaIceCube/FullStackTemplate/issues/271)).
+
 ## 2026-10-31
 
 ### Fixed
