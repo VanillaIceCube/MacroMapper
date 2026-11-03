@@ -304,14 +304,16 @@ export default function AppHeader({ title, setDrawerOpen }) {
                   <Typography role="status" variant="body2" sx={{ py: 2 }}>
                     {notificationError}
                   </Typography>
-                  <Button
-                    size="small"
-                    color="inherit"
-                    disabled={actionPending || pendingIds.size > 0}
-                    onClick={loadNotifications}
-                  >
-                    Retry
-                  </Button>
+                  {notifications.length === 0 && (
+                    <Button
+                      size="small"
+                      color="inherit"
+                      disabled={actionPending || pendingIds.size > 0}
+                      onClick={loadNotifications}
+                    >
+                      Retry
+                    </Button>
+                  )}
                 </Stack>
               )}
               {!notificationsLoading && !notificationError && notifications.length === 0 && (
