@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-03
+
+### Fixed
+
+- Collect usage evidence for every Dependabot dependency and use each major update's own versions and ecosystem for upstream release evidence.
+- Preserve independent AI review findings during duplicate suppression and require valid HTTP(S) sources in major-upgrade briefs.
+- Verify the accepted and incoming frontend port policies independently during production releases.
+
 ## 2026-11-02
 
 ### Fixed
