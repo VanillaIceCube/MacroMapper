@@ -10,7 +10,7 @@ not authorize any agent to operate the host. Shared decisions:
 
 ## Shared implementation and app configuration
 
-Both apps use [release contract v1](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/blob/b56d8a9f88088122555e275549afa8b86fc10be5/docs/app-release-standard.md).
+Both apps use [release contract v1](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/blob/a82888c83975de486b27ec0d0dc787fb5b167301/docs/app-release-standard.md).
 `app.json` contains this app's service/container/domain/environment/network/DB
 and readiness policy; `compose.yml` defines its services. Common release and
 bundle code has no application-name branches. `deploy/shared-source.json` pins
@@ -18,6 +18,11 @@ the versioned source; CI verifies exact common code/test copies and the generate
 workflow, failing on drift or unavailable source. The parity matrix and update
 procedure live in the standard. Run `python deploy/check_parity.py` locally;
 use `--sync` only after reviewing a coordinated pin update in both applications.
+
+The release controller verifies the running frontend against its accepted port
+policy, then checks rendered Compose and Docker against the incoming policy.
+MacroMapper's frontend and backend continue to use the shared HTTPS gateway
+without host port publication.
 
 Public readiness requests use the honest `JudeAppRelease/1.0` User-Agent and
 request uncached responses. Cloudflare protections and all expected status,
