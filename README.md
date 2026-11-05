@@ -136,3 +136,6 @@ for exact secret names, project configuration, verification, and rollback.
 ## 🔌 Shared MCP framework
 
 MacroMapper owns its [MCP tools, OAuth permissions and client setup](docs/MCP.md), using the unchanged [shared framework](docs/MCP-FRAMEWORK.md). Read access, confirmed writes and paid estimation have separate scopes. The production profile includes consent and Connected Apps; deployment does not install a client plugin.
+
+Security-alert maintenance validates complete source coverage and supports bounded,
+idempotent Project recovery; see [.github/README-WORKFLOWS.md](.github/README-WORKFLOWS.md#security-alert-recovery).
