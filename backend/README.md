@@ -225,6 +225,31 @@ only and explicitly exclude dietary, medical, clinical, and treatment advice.
 Follow-up requests use the same non-stored provider flow and retain the current
 draft when the provider is unavailable or cannot produce an applicable change.
 
+## 🧩 Snapshot and adjustment invariants
+
+Food responses, catalog estimates and meal snapshots share the complete reachable
+component graph, loaded in batches by tree level. Reuse the graph and nutrient
+caches across meal items instead of issuing separate queries for each child.
+Visible catalog-version lookups are also batched during validation/materialization.
+
+`MealItemSerializer` reuses a nonempty persisted component snapshot only after
+recursive validation of required fields, identifiers, decimal values, portions,
+nutrients, sources and nested components. Missing or malformed legacy snapshots
+are rebuilt from the saved food-version graph, preserving pinned history rather
+than using the latest catalog definition. Source access dates are ISO strings.
+See [PR #153](https://github.com/VanillaIceCube/MacroMapper/pull/153) and
+`meals.tests.ComponentGraphTests` for structural and query-count coverage.
+
+Meal-entry and builder adjustment endpoints share `process_meal_adjustment`.
+Provider resolution, follow-up processing and response serialization stay inside
+its cleanup boundary: failures delete the created proposal, and successful
+temporary meal-entry proposals are deleted after serialization. Missing/null
+optional follow-up fields retain existing confidence and provider metadata when
+no replacement is supplied. Views inject the response serializer and provider
+getter to avoid a service/serializer import cycle and keep provider calls patchable.
+See [PR #181](https://github.com/VanillaIceCube/MacroMapper/pull/181) and
+`estimates.tests.MealAdjustmentLifecycleTests` for both endpoints' failure coverage.
+
 ## 🔔 Notification API
 All `/api/` endpoints require a JWT access token. Notification querysets are
 always scoped to the authenticated recipient.
@@ -358,4 +383,44 @@ ruff format backend --check
 
 ## 🔌 Shared MCP framework
 
-See [the MCP framework guide](../docs/MCP-FRAMEWORK.md) for opt-in settings, ASGI startup, OAuth migrations/client registration, consent, scope/ownership requirements and disabled-profile tests.
+Proposal reads use summary lists and bounded pages of current review items rather
+than repeating historical item snapshots. Follow `get_proposal` item offsets before
+editing/accepting; oversized single items require full review in the website.
+Sanitized error references support diagnosis without logging private meal payloads.
+
+See [the app MCP guide](../docs/MCP.md) for the `macromapper_mcp` registry, read/write/estimate scopes, confirmation, ASGI startup and additive migrations. The canonical [MCP framework](../docs/MCP-FRAMEWORK.md) remains unchanged. Install the domain app in both profiles so its confirmation migration is stable; install OAuth Toolkit only when enabled. Run ordinary backend tests and the separately enabled framework/domain suite. REST JWT authentication is unchanged.
+
+## Authentication and notification parity
+
+Registration validates passwords with Django's configured validators against the
+candidate user's final username/email before account creation. Validation failures
+return HTTP 400 with a human-readable `error`; non-string passwords also return
+400. Password reset already validates against the existing user. Notification
+bulk mark-read/clear operations are transactional and remain recipient-scoped.
+See [the adoption audit](../docs/AUTH-PARITY.md) for evidence and boundaries.
+
+## Development dependency reproducibility
+
+Development images pin reviewed multi-platform Node 26 and Miniforge 26.9.4-0
+registry digests. Production Dockerfiles and the independent release engine are
+unchanged by this development-image policy. Refresh tags/digests together after
+registry verification and a disposable build/configuration check.
+
+The frontend development entrypoint hashes both `package.json` and
+`package-lock.json` inside its persistent `node_modules` volume. Fresh volumes
+install with `npm ci`; unchanged restarts reuse dependencies; changing either
+manifest reinstalls. Missing manifests or a failed installation stop startup and
+retry on the next invocation. Use one volume per checkout and restart after edits.
+Run `node --test tests/dev-dependencies.test.cjs` from the repository root for the
+credential-free mocked lifecycle/exit-status regression. Compose configuration
+checks do not deploy or touch application data.
+
+## Disposable browser-test backend
+
+The frontend `npm run test:e2e` wrapper runs `scripts/e2e_backend.py` with
+`scripts/e2e_settings.py`: synthetic secret, fresh temporary SQLite, local file
+email, test-only fast hashing, disabled MCP and loopback-only binding. It refuses
+state directories without the wrapper marker and prevents dotenv loading.
+Install `backend/requirements.txt` in your activated Python environment first.
+This harness never reads the developer database or production settings and does
+not change the normal server/test-runner hashing policy. See frontend/README.md.

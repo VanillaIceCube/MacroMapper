@@ -1,5 +1,119 @@
 # Changelog
 
+## 2026-11-05
+### Added
+- Shared isolated authentication browser tests with disposable data and local-only reset mail.
+- Repository syntax/Compose validation and mocked request/history/lint attribution coverage.
+### Fixed
+- Preserve early, failing and late CI diagnostics within bounded reviewer context and failure artifacts.
+### Changed
+- Use bulk form setup for validation/API unit cases while retaining typed happy paths and assertions.
+
+## 2026-11-05
+### Added
+- Shared development dependency lifecycle regression for fresh, unchanged, changed and failed installs.
+### Changed
+- Pin development Node/Miniforge multi-platform image digests and refresh frontend dependencies only when manifests change.
+
+## 2026-11-05
+### Added
+- Immutable workflow-policy and bounded changed-version malware regression coverage.
+- Evidence-based Python malware scanning decision and shared release upgrade regression.
+### Fixed
+- Missing or invalid dependency evidence now fails PR malware review visibly.
+### Changed
+- Explicit scanner/path-filter grants support read-only repository defaults; unused orchestration issue writes removed.
+- Adopt the reviewed Infrastructure release template/test contract with readable Action versions.
+
+## 2026-11-05
+
+### Fixed
+- Bound malware classification to repository source advisories instead of scanning the global catalogue.
+- Recover the exact structured concurrent-close response only after verifying saved lifecycle state and body.
+- Recover omitted alert refs deterministically and interrupted Project synchronization without duplicate issues or resetting planning.
+- Retry inconsistent exact-head Dependabot check readiness safely and route signed SHA-only Action updates to manual review.
+
+
+## 2026-11-03
+
+### Fixed
+
+- Collect usage evidence for every Dependabot dependency and use each major update's own versions and ecosystem for upstream release evidence.
+- Preserve independent AI review findings during duplicate suppression and require valid HTTP(S) sources in major-upgrade briefs.
+- Verify the accepted and incoming frontend port policies independently during production releases.
+
+## 2026-11-02
+
+### Fixed
+
+- Enforce configured password validators before registration, including similarity to the final username/email; reject non-string passwords without creating users.
+- Prevent concurrent auth submissions, preserve request headers through JWT refresh, and remove stale/blank session profile fields.
+- Make notification loads retryable, preserve failed actions for retry, and disable overlapping item/bulk actions through response parsing. Bulk operations use explicit transactions.
+
+## 2026-11-02
+
+### Fixed
+
+- Hold native Dependabot auto-merge behind a required policy result for each head; validate signed group metadata, paginate all open dependency alerts and support configured reviewer bot identities.
+
+- Reject missing or invalid AI reviewer events instead of converting them into successful comments; adopt the canonical persona/fork/verdict regression suite.
+
+- Adopt FullStackTemplate protected Dependabot auto-merge and atomic CodeQL regressions, requiring current-head approvals, live protected-branch checks and idempotent native activation; remove the PR-token merge path (FullStackTemplate #240).
+
+- Resolve the transitive minimatch advisory with a scoped modern-version override and regenerated frontend lockfile; document parent API compatibility and removal checks ([FullStackTemplate #267](https://github.com/VanillaIceCube/FullStackTemplate/issues/267)).
+
+### Changed
+
+- Group all CodeQL action entry points in coordinated Dependabot version and security updates while preserving existing schedules and review gates ([FullStackTemplate #271](https://github.com/VanillaIceCube/FullStackTemplate/issues/271)).
+
+## 2026-10-31
+
+### Fixed
+
+- Keep MCP proposal lists and review reads available after large paid estimates: return summary lists and paginated current items without repeated revision snapshots, preserve one-use confirmations, and provide sanitized diagnostic references for tool failures (#339).
+
+## 2026-10-30
+
+### Added
+
+- Implement app-owned MacroMapper MCP/OAuth with separate read, confirmed-write and paid-estimate permissions, existing-account consent and Connected Apps revocation; reuse the canonical framework and application services.
+
+### Changed
+
+- Enable the reviewed MacroMapper MCP production profile and frontend connection UI with exact existing gateway trust, metadata/challenge readiness, additive OAuth/confirmation migrations and retained disabled-controller recovery for first activation.
+- Synchronize the canonical release test pin to `a6712af44a65efbe349daf2d215bb1ca638b3a9e`, covering app-owned enabled MCP policy without changing the shared deployment controller or workflow.
+- Use GPT-6 Luna for all OpenAI PR reviewers and security-alert grouping while preserving existing review gates, isolated credentials and token budgets.
+
+- Remove the unreleased central MCP resource, shared-issuer credential requirements and enabled rollout policy; restore app-owned optional OAuth scaffolding with MacroMapper MCP disabled and meal/nutrition MCP deferred. Preserve website, REST, AI estimation and existing production history.
+
+- Reconcile existing production merge history into main without changing runtime source; document main-first reviewed releases, back-merging exceptional production fixes and intentional release lag while MCP activation dependencies remain pending.
+
+## 2026-10-29
+
+### Added
+
+- Prepare optional MacroMapper MCP food search, meal diary and nutrition totals, plus scoped, explicit preview/one-time confirmation for meal creation and replacement using existing snapshot validation; source defaults stay off and production activation awaits coordinated issuer/client/ingress acceptance.
+- Add fixed central-issuer bounded introspection, explicit links to existing active users, ownership isolation, additive link/confirmation migrations, negative security/transport tests and client/recovery instructions.
+
+### Fixed
+
+- Adopt the same reviewed Infrastructure release fixture pin `ee9c0d40421a8b3f4886340b188a21e86c6429cf` across all consumers, including exact app-mode topology and metadata content-type checks.
+
+- Lock meal/catalog state throughout MCP confirmation, including an early SQLite writer barrier, with real concurrent website-edit/catalog-update tests that preserve the newer committed data.
+- Prepare and test a separately staged disabled-policy rollback tool so a failed first enabled rollout can restore its captured disabled backend without incompatible MCP readiness, immutable-bundle edits or bypassing the failure barrier.
+
+### Changed
+
+- Adopt canonical MCP source `5a9294d550ec946a51b34bb2438a6c04ecc13461` for the external-issuer seam; preserve ordinary login/REST JWTs and AI estimation without exposing AI billing through MCP.
+- Prepare the dedicated introspection secret in the existing private release env bundle and an enabled app-specific production policy with exact `172.20.0.3` trust, required secret/readiness and explicit disabled recovery; run enabled app and isolated canonical-provider tests in CI without extending common release code.
+- Align app-owned central rollout policy with the five gateway route networks while preserving exact Notoli trust, companion outages and ordinary website/REST health; document explicit disabled-profile ordering before matched legacy recovery.
+
+## 2026-10-28
+
+### Changed
+
+- Restore merged Marty PR learning records and Nora's historical nutrient-relocation attribution; document existing component-snapshot validation and meal-adjustment cleanup invariants without repeating prior fix entries.
+
 ## 2026-10-27
 
 ### Fixed

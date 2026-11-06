@@ -6,6 +6,16 @@ release standard. Update the shared source, then synchronize both applications;
 CI's parity check rejects independent vendor edits. App policy lives in
 `deploy/production/app.json`; preserve its intentional network/readiness differences.
 
+## 🌿 Main-first release history
+
+Land reviewed source changes on `main` before an authorized `env-prod` promotion.
+Production may intentionally lag while rollout dependencies or acceptance are
+unfinished; do not deploy merely to make branch trees equal. An exceptional,
+explicitly owner-authorized production-branch fix must be reviewed and reconciled into `main` before the next
+promotion. Preserve existing release history and checks rather than resetting or
+force-pushing either branch. See the [production guide](deploy/production/README.md)
+and [#329](https://github.com/VanillaIceCube/MacroMapper/issues/329).
+
 MacroMapper uses manual setup steps; do not assume Django or Node dependencies are installed.
 
 When setup, routing, environment variables, deployment, or CI/CD changes, update the relevant documentation:
@@ -135,4 +145,25 @@ the Actions repository secret. Never store keys in `deploy/backend.env`.
 
 ## 🔌 Shared MCP framework
 
-MCP framework changes follow [docs/MCP-FRAMEWORK.md](docs/MCP-FRAMEWORK.md). FullStackTemplate owns the canonical Python package; keep all consumer hashes/pins aligned. MacroMapper stays disabled without business tools. Preserve Notoli credentials, scopes, tool permissions and exact proxy trust.
+MCP framework changes follow [docs/MCP-FRAMEWORK.md](docs/MCP-FRAMEWORK.md). FullStackTemplate owns the canonical Python package; keep all consumer hashes/pins aligned. MacroMapper implements its own registry and scopes; shared framework files remain unchanged. Preserve Notoli credentials, scopes, tool permissions and exact proxy trust.
+
+
+## 🧭 App-owned MCP
+
+Follow [the app MCP contract](docs/MCP.md) and #284. MacroMapper owns its OAuth,
+existing-account consent and domain registry; Infrastructure supplies ordinary
+Nginx routing. Do not restore the shared issuer or YNAB dependency. Preserve
+REST JWT/login behavior and exact trusted peer `172.20.0.3`. Read is the default
+scope; writes need explicit confirmation and paid estimates also need their
+separate scope. Recheck token/user/ownership on every operation.
+
+Production policy and frontend Docker builds enable the reviewed app connector;
+local backend defaults remain off. Run both backend profiles and frontend tests,
+plus disposable app release tests and parity checks. Preserve SQLite capture and
+explicit recovery. A failed first enable uses the retained previous disabled
+controller and its readiness policy, never an edited enabled bundle. Client
+registration, owner consent and plugin installation remain separate actions.
+
+## 🤖 Reviewer model policy
+
+Use `gpt-6-luna` for OpenAI code, build and security reviewers and security-alert grouping. Preserve each reviewer’s existing key/project isolation, budgets and blocking gates. Application AI model selection remains app-owned.

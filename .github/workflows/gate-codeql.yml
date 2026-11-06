@@ -53,11 +53,20 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Install the pinned safe YAML parser
+        run: python3 -m pip install --disable-pip-version-check PyYAML==6.0.3
+
+      - name: Verify atomic immutable CodeQL revisions
+        run: node .github/actions/check-codeql-pins/check-codeql-pins.js
+
+      - name: Test CodeQL drift prevention
+        run: node --test .github/actions/check-codeql-pins/check-codeql-pins.test.js
+
       - name: Detect relevant changes
         id: filter
         if: github.event_name == 'pull_request'
         continue-on-error: true
-        uses: dorny/paths-filter@6852f92c20ea7fd3b0c25de3b5112db3a98da050
+        uses: dorny/paths-filter@f3360c560367c9daf72b88c0e6164162034c5721 # v4
         with:
           filters: |
             python:

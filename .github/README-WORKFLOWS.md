@@ -9,6 +9,17 @@ can shorten this budget (greater than zero, at most 110). The two-minute
 Infrastructure API proxy change must be released before the app image change;
 passing CI does not authorize either production operation.
 
+## Major-upgrade review evidence
+
+Obi-Wan uses Dependabot's per-dependency metadata for grouped upgrades.
+Release lookups use each major update's own ecosystem and target version.
+Repository usage searches cover every listed dependency and retain the
+tracked-file exclusions and 30,000-byte limit. Numeric Actions references
+such as 7 and v7 can match a full release tag such as v7.0.0. Opaque refs
+leave a visible evidence gap. Required briefs need at least one valid HTTP(S)
+source URL. The publisher keeps independent body findings when it suppresses
+duplicate inline comments or sees an unchanged verdict.
+
 ## ⚙️ Repository Settings Baseline
 The live MacroMapper repository uses least-privilege settings: auto-merge is
 enabled; merge commits, squash
@@ -39,7 +50,7 @@ are recovered or rebuilt, restore these settings, labels, and the
 - GitHub dependency review at high/critical severity, with detailed findings retained in the check logs and annotations
 - npm malware advisory review for changed lockfile packages, including initial lockfile additions against an empty dependency baseline and batched `package@version` advisory queries
 - AI code, build, and security reviews for trusted same-repository pull requests
-- Dependabot auto-merge after all independent gates pass
+- Dependabot auto-merge after independent gates and all three reviewers pass
 
 For a Dependabot semver-major update, Obi-Wan also publishes a structured
 **Major upgrade brief**. It uses Dependabot's exact package/version metadata,
@@ -151,8 +162,8 @@ The main-branch ruleset includes the orchestrator-level `Auto Merge` context
 among its required checks. CI emits that top-level context
 for every pull request: it reports not-applicable for ordinary contributors and
 records the independent-gate result for Dependabot. A separate Dependabot-only
-job enables auto-merge for eligible updates, so its nested reusable-workflow
-check name never becomes a branch-protection dependency. Dependabot pull
+default-branch follow-up enables native auto-merge after successful CI; its
+separate check must not become a CI prerequisite. Dependabot pull
 requests remain pending while GitHub reports an unstable merge state and are
 never merged directly. Third-party Actions are pinned to
 immutable commit SHAs, with release-version comments retained for maintenance.
@@ -307,7 +318,7 @@ or revocation. Track live/local acceptance separately in issue #289.
 
 ## 🔌 Shared MCP framework
 
-The backend test gate checks the pinned MCP framework manifest. Template/MacroMapper run both ordinary tests and an isolated MCP-enabled sample profile; production remains disabled there. Notoli runs its existing enabled protocol/domain suite. See [the framework guide](../docs/MCP-FRAMEWORK.md).
+The backend test gate checks the pinned MCP framework manifest, runs ordinary backend tests and separately runs `mcp_framework macromapper_mcp` with MCP enabled and the application factory. Synthetic OAuth and mocked provider tests cover domain permissions without live credentials or paid requests. The shared deployment workflow stays unchanged: MacroMapper enables the connection UI through its app-owned Docker build default. See [the app MCP guide](../docs/MCP.md).
 
 ## 🛡️ Dependency evidence and alert lifecycle parity
 
@@ -347,3 +358,204 @@ feeds do not establish that a live close race occurred.
 Docker login v4.7.0 is rendered from Infrastructure commit
 `f3f049830fcd5e5869d1ae120c57d9ccb6c99200`. Keep `deploy/shared-source.json` and
 the generated workflow synchronized; deployment parity remains mandatory.
+
+## 🤖 Reviewer model
+
+Code, build and security reviewers and security-alert grouping use `gpt-6-luna` through the existing Responses API action. Per-reviewer credentials, project isolation, output budgets, triggers and failure gates are preserved. See [the model documentation](https://developers.openai.com/api/docs/models/gpt-6-luna) and [shared tracking #241](https://github.com/VanillaIceCube/FullStackTemplate/issues/241). Application AI models and Jules schedules are independent of this setting.
+
+## 📦 Compatible CodeQL updates
+
+Dependabot groups all `github/codeql-action` entry points (including `init`,
+`analyze`, `autobuild` and `upload-sarif`) in `codeql` version-update PRs.
+A separate `codeql-security` group applies the same matching to security updates;
+GitHub does not combine version and security updates in one group. Keep both
+patterns (`github/codeql-action` and `github/codeql-action/*`) so repository and
+entry-point dependency names match. Review every CodeQL entry point together,
+keep their immutable revisions aligned, and preserve normal CI/reviewer gates.
+
+The applications retain daily updates. Infrastructure retains weekly updates,
+its owner/labels/PR limits, general Actions group for non-CodeQL updates, and
+separate Compose updates. The template aligns its mutable CodeQL tag with the other repositories'
+immutable v4.39.1 revision. Scanner scope, permissions and merge/deployment
+gates remain unchanged. Canonical rollout:
+[FullStackTemplate #271](https://github.com/VanillaIceCube/FullStackTemplate/issues/271).
+
+## 🔒 Protected Dependabot auto-merge
+
+FullStackTemplate (#240) owns the canonical application policy. After successful
+PR CI, `ci-auto-merge.yml` runs only reviewed main code, with no PR checkout,
+artifacts, caches, PAT, reviewer keys or production secrets. The API resolves the
+successful CI workflow and its exact open main PR; rerun actor identity is not
+used as PR authorship. Forks and non-Dependabot PRs receive a nonblocking policy
+result without any automatic merge or secret-dependent review.
+
+Each application main ruleset must require **Dependabot Policy**, pinned to the
+GitHub Actions integration (15368). The follow-up creates this check in progress
+on the PR head. All other required checks and all three current-head persona
+approvals must pass. The check stays pending while native auto-merge is enabled
+with `expectedHeadOid`, then succeeds only after validation/activation succeeds.
+Failures leave it failing or pending. A later push has no policy result and
+cannot inherit the preceding head's approval. This also avoids trying to enable
+native auto-merge on an already-clean PR. No direct merge fallback exists.
+
+Automatic eligibility requires exactly one verified Dependabot-authored commit
+matching the current head. Explicit update types are parsed from its signed YAML
+metadata with pinned PyYAML safe loading, without overriding runner event paths
+or trusting PR descriptions. Every grouped member must be patch/minor; missing
+metadata fails visibly and major updates stay manual. Before allowing a manual
+major update, the policy disables an existing native auto-merge request.
+
+All open Dependabot alerts are paginated with the built-in token's explicit
+`vulnerability-alerts: read` permission. Every matching updated dependency must
+have a known CVSS score at most 6.9. Dismissed/fixed alerts cannot hide another
+open alert, and neither later group members nor alerts beyond the first page are
+ignored. The workflow publishes only the policy outcome, not alert details.
+
+The guard reads active branch rules using API 2026-03-10 (Metadata: read), checks
+required contexts and integration identities, rejects requested changes and
+checks every persona's current-head approval. Scoped CodeQL skips must also
+match authoritative API diff paths, including previous paths on renames. Null or
+unknown mergeability and propagation of the pending policy check are polled at
+most six times with two-second waits; unstable/conflicting states fail closed.
+Repeated events are idempotent and genuine API failures remain visible. GitHub
+retains final enforcement of review-thread resolution and all branch rules.
+
+Generated repositories that install their own reviewer Apps can set optional
+`OBI_WAN_REVIEWER_LOGIN`, `LINT_EASTWOOD_REVIEWER_LOGIN`, and
+`ROBOCOP_REVIEWER_LOGIN` repository variables to their actual bot logins, including
+`[bot]`. Defaults match the existing shared persona Apps. All three must be
+distinct bot identities. Existing per-persona credentials and fork exclusions
+remain unchanged. Repository writers who can alter workflows remain privileged;
+helper checks do not constrain arbitrary workflow writers.
+
+For activation, merge reviewed source first, then add Dependabot Policy to the
+main ruleset without removing any existing requirement or bypass restriction.
+The new rule requires a fresh successful CI completion to publish policy evidence;
+existing open PRs may need a CI rerun. Do not require the follow-up workflow's
+nested job name, which starts only after CI. No production branch is involved.
+The first eligible real default-branch Dependabot follow-up remains separate
+runtime acceptance in #240; a human implementation PR does not establish it.
+
+CI supplies read-only live branch-rule/schema evidence to Obi-Wan when reviewing
+auto-merge/orchestration changes. This confirms actual token access and current
+GraphQL input fields without changing reviewer verdict requirements.
+
+## 🧪 Atomic CodeQL regression guard
+
+Before required scope detection, all CodeQL action entry points in workflow and
+composite-action YAML must share one full immutable SHA. Structural safe parsing
+covers flow mappings, quoted/escaped keys, folded values, aliases and mixed-case
+owner/repository names. Negative regressions reject drift, mutable pins and
+missing analysis. The existing version/security update groups and daily cadence
+remain unchanged. Infrastructure adopts this guard and reviewer eligibility,
+retaining weekly updates, independent Required CI and owner merge.
+
+```sh
+python -m pip install PyYAML==6.0.3
+node --test .github/actions/check-codeql-pins/*.test.js .github/actions/dependabot-auto-merge/*.test.js
+```
+
+The local actionlint 1.7.12 schema predates GitHub's documented
+`vulnerability-alerts: read` scope. Its other diagnostics remain enforced; GitHub
+validates the new permission and CI must pass before merge.
+
+The reviewer API evidence step uses direct read-only API calls and executes no
+PR-workspace module with its GitHub client.
+
+Every skipped lint, test or analyzer check is now verified against the actual
+reviewed detector filters, with original and renamed API diff paths. Unknown
+filter forms refuse skip authorization. GitHub Action subpaths also match their
+repository-level package alerts when enforcing the CVSS ceiling.
+
+
+## Security-alert recovery
+
+Each feed serializes scheduled and manual reconciliation. Before issue writes,
+source coverage must be complete and unique. A valid model draft that omits refs
+gets deterministic source-linked work items and an explicit warning; malformed
+JSON, invalid schemas, unknown refs and duplicate memberships fail before writes.
+Existing managed source refs select the canonical issue even when wording changes.
+
+Project attachment retries transient failures at most three times, reading back
+possibly committed writes before retrying. Unresolved attachments identify the
+saved issue; rerun the same feed to reuse it. Interrupted field initialization fills
+only missing fields, preserving human planning. All active groups synchronize before
+superseded issues can close. Closure saves source history and End date before Done.
+Only the observed empty-error or exact Issue/custom concurrent-close HTTP 422 may
+recover, and only after readback proves closed/completed with the exact saved body.
+All other errors remain failures. A successful empty feed does not exercise the race.
+
+Dependabot check readiness is re-read at most six times with two-second delays.
+A success conclusion and completion timestamp do not override an in-progress
+status. Persistent inconsistency fails visibly; rerun CI for the current head.
+Only signed exact-head patch/minor metadata can enable native auto-merge. Signed
+SHA-only Action updates without update-type, restricted to Action YAML diffs,
+pass policy for manual review after all checks and current-head approvals pass;
+they never infer semver or activate auto-merge. Missing ordinary/group metadata fails.
+
+Malware classification fetches each unique GHSA referenced by this repository's
+open Dependabot alerts, rather than enumerating the global malware catalogue.
+Empty feeds make no advisory requests. Failed or unverifiable classification
+stops before source checkpoint or issue writes; it never implies no malware.
+
+## Batch 2 security baseline
+
+External Actions use verified immutable commits with readable version comments.
+The shared `check-workflow-security` tests reject mutable references, broad grants
+and privileged PR-target triggers. Automation tests run for all `.github/**`
+changes. Forks retain credential isolation and all configured reviewers remain
+required. Repository settings are audited independently of source; stage read-only
+defaults/disabled workflow-token approvals and SHA enforcement after source CI
+passes. Reviewer App tokens and scoped auto-merge/deployment grants remain explicit.
+
+The PR npm malware gate scans only added/changed exact package versions, at most
+25 per request, 200 requests total and 20 pages per batch, with 30-second timeouts.
+A missing base lock scans the complete head; a missing head lock while a frontend
+manifest remains fails. Invalid refs, unsupported/malformed locks, unverifiable
+versions, API/range evidence failures and known malware fail visibly. Removing the
+whole frontend has no remaining npm graph. This gate is distinct from the scheduled
+repository-alert feed. Mocked regressions make no API writes or model calls.
+
+Python malware coverage follows [the canonical decision](../docs/PYTHON-MALWARE-DECISION.md).
+Shared deployment files are synchronized to the Infrastructure source pin, including
+the approved Action-upgrade/unauthorized-drift regression. Update the source before
+consumers; never edit a vendored workflow or test independently.
+
+Repository Actions secrets are not branch-scoped: writers able to install arbitrary
+workflows remain privileged. This helper validates checked-in policy but cannot
+constrain a workflow that bypasses it. GitHub rulesets and independent review
+remain necessary. The checker parses YAML nodes, including quoted/flow/sequence
+forms, rejects aliases, duplicate and merge keys, and requires pinned PyYAML 6.0.3.
+
+Mapping-form writes are checked against `.github/workflow-write-grants.json`,
+which records reviewed per-workflow/job grants. Unknown scopes/grant levels and
+new writes fail. Changes to that policy require review with the workflow; it does
+not grant GitHub permissions itself or replace branch protection.
+
+On pull requests, grant authority comes from the platform event base SHA, never
+from the proposed policy file. Bootstrap derives existing writes from that exact
+base when no manifest exists. To add a grant, first merge a separately reviewed
+policy-only PR under the existing protected review gates; a later workflow PR
+can consume it. Fetch the base commit before local PR-policy audits. This detects
+self-authorizing policy/workflow changes; it does not make PR-owned code a sandbox
+or remove repository-writer privileges.
+
+## Repository validation and browser diagnostics
+
+The path-aware test gate includes `.github/**`, `scripts/**`, `deploy/**`,
+`tests/**` and maintained docs in automation validation. It runs workflow and
+composite syntax, parser-only script checks and synthetic Compose configuration
+plus the existing Batch 1 suites and focused mocked composite regressions.
+[Coverage and external boundaries](../docs/AUTOMATION-COVERAGE.md) are explicit.
+
+`scripts/bounded_log.py` retains early, sampled failing and late context within
+16,000 characters for reviewers. Full output is streamed with `tee`; failed
+logs have roughly 1 MiB capped artifacts retained seven days. Random delimiters
+protect multiline outputs and the original command status still determines the
+gate. An unavailable check cannot become success through log summarization.
+
+Relevant app/harness changes also require the isolated Chromium job; its failure
+or an applicable development-image failure fails Test Results. Browser traces
+and screenshots use a 20 MiB/file, 50 MiB/run cap and seven-day retention.
+See frontend/README.md for setup and local commands. No job uses real accounts,
+production data, live email or paid AI requests for these tests.

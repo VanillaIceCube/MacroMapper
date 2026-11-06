@@ -180,3 +180,22 @@ class NotificationApiTests(APITestCase):
         response = self.client.delete("/api/notifications/clear-all/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["deleted"], 0)
+
+    def test_mark_all_read_and_clear_all_when_empty(self):
+        self.client.force_authenticate(user=self.recipient)
+        self.client.delete("/api/notifications/clear-all/")
+
+        mark_resp = self.client.patch("/api/notifications/mark-all-read/")
+        self.assertEqual(mark_resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(mark_resp.data["updated"], 0)
+
+        clear_resp = self.client.delete("/api/notifications/clear-all/")
+        self.assertEqual(clear_resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(clear_resp.data["deleted"], 0)
+
+    def test_bulk_actions_unauthenticated(self):
+        mark_resp = self.client.patch("/api/notifications/mark-all-read/")
+        self.assertEqual(mark_resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        clear_resp = self.client.delete("/api/notifications/clear-all/")
+        self.assertEqual(clear_resp.status_code, status.HTTP_401_UNAUTHORIZED)
