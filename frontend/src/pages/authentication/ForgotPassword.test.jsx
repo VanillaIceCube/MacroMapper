@@ -39,7 +39,7 @@ describe('ForgotPassword', () => {
     renderWithProviders(<ForgotPassword showSnackbar={showSnackbar} />, {
       routeEntries: ['/forgot-password'],
     });
-    await userEvent.type(screen.getByLabelText('Email'), 'mapper@example.com');
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'mapper@example.com' } });
     await userEvent.click(screen.getByRole('button', { name: 'Send Reset Link' }));
     const pendingButton = screen.getByRole('button', { name: 'Sending...' });
     expect(pendingButton).toBeDisabled();

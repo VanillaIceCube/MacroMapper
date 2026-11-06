@@ -258,3 +258,36 @@ credential-free mocked lifecycle/exit-status regression. Compose configuration
 checks do not deploy or touch application data.
 
 Supported test/build runtimes are Node24.15+ within24.x or Node26.x. jsdom30 explicitly excludes the end-of-life Node25 line; do not treat >=24 as universal support. Use the same supported runtime for before/after timings.
+
+## Optional isolated browser tests
+
+Install the backend requirements in an activated Python environment, then from
+`frontend` run the following with Node 24.15+ within 24.x or Node 26.x:
+
+```powershell
+npm ci
+npx playwright install chromium
+npm run test:e2e
+```
+
+Linux CI uses `npx playwright install --with-deps chromium`. The wrapper creates
+a marked temporary directory, starts fresh Django/SQLite on 127.0.0.1:8001 and
+Vite on 127.0.0.1:3001, and removes only its generated state after both servers
+stop. Those ports must be free; existing servers are never reused. The backend
+does not load developer `.env` files, uses synthetic users, disables MCP, and
+writes reset messages to the temporary mail directory. No SMTP or model calls
+are made. Registration, reload/session isolation, logout/protected routing, bad
+credentials, expired access and valid/invalid password-reset tokens are covered.
+
+There is one Chromium worker, no retries, and a ten-minute global timeout. Local
+runs of the three shared journeys take roughly one minute after installation;
+CI also pays Python/npm/browser installation cost. Failure traces/screenshots
+and the HTML report are local in `test-results/` and `playwright-report/`. CI
+retains at most 20 MiB/file and 50 MiB/run for seven days, listing omitted files
+in `browser-evidence/INDEX.txt`; full text remains in the job log. Reports may
+contain disposable test tokens and should not be copied into public issues.
+
+Add product journeys under `e2e/` using these isolated users and existing APIs.
+Keep authentication journeys shared; domain fixtures belong to their app. Do not
+add real customer accounts, external email or paid-model requests. Infrastructure
+has no browser application and retains its ingress/Docker protocol suites.
