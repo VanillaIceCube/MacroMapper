@@ -48,8 +48,8 @@ describe('Register', () => {
       routeEntries: ['/register'],
     });
 
-    await userEvent.type(screen.getByLabelText('Password'), 'one');
-    await userEvent.type(screen.getByLabelText('Confirm Password'), 'two');
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'one' } });
+    fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'two' } });
     await userEvent.click(screen.getByRole('button', { name: 'Register' }));
 
     expect(register).not.toHaveBeenCalled();
@@ -65,9 +65,9 @@ describe('Register', () => {
       }),
     );
     renderWithProviders(<Register showSnackbar={showSnackbar} />, { routeEntries: ['/register'] });
-    await userEvent.type(screen.getByLabelText('Email'), 'mapper@example.com');
-    await userEvent.type(screen.getByLabelText('Password'), 'secret');
-    await userEvent.type(screen.getByLabelText('Confirm Password'), 'secret');
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'mapper@example.com' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret' } });
+    fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'secret' } });
     await userEvent.click(screen.getByRole('button', { name: 'Register' }));
     const pendingButton = screen.getByRole('button', { name: 'Registering...' });
     expect(pendingButton).toBeDisabled();

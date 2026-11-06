@@ -9,3 +9,13 @@ docs/
 # Docker configuration files
 Dockerfile
 .dockerignore
+
+e2e
+
+playwright-report
+
+test-results
+
+playwright.config.mjs
+
+browser-evidence/
