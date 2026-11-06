@@ -24,7 +24,7 @@ import {
   portionOptionLabel,
   selectedPortion,
   servingAmountValue,
-} from '../domain/mealItem/portions';
+} from '../domain/mealItem';
 
 const sourceLabels = {
   official_verified: { label: 'Official / Verified', color: 'success' },

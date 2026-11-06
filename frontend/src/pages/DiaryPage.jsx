@@ -57,16 +57,14 @@ import { getResponseErrorMessage, safeReadJson } from '../services/authSession';
 import MealItemEditorRow from '../components/MealItemEditorRow';
 import {
   catalogFoodToMealItem,
-  mealItemToProposalItem,
-  proposalItemToMealItem,
-  savedMealItemToEditableMealItem,
-} from '../domain/mealItem/adapters';
-import {
   changeMealItemNutrient,
   changeMealItemPortion,
   changeMealItemServings,
+  mealItemToProposalItem,
+  proposalItemToMealItem,
   removeMealItemFromTree,
-} from '../domain/mealItem/tree';
+  savedMealItemToEditableMealItem,
+} from '../domain/mealItem';
 import CalorieContributionChart from '../components/nutrition/CalorieContributionChart';
 import MacroCalorieBar from '../components/nutrition/MacroCalorieBar';
 import MacroCalorieSplit from '../components/nutrition/MacroCalorieSplit';
@@ -80,7 +78,7 @@ import {
   formatNutritionAmount as formatAmount,
   formatWholeNutritionAmount as formatWholeAmount,
 } from '../utils/nutritionFormatting';
-import { nutrientArrayToValues as nutrientValues } from '../domain/nutrition/calculations';
+import { nutrientArrayToValues as nutrientValues } from '../domain/nutrition';
 import { randomMealEstimateExample } from '../mealEstimateExamples';
 
 const provenanceLabels = {
