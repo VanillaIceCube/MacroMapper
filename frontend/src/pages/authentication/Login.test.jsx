@@ -67,8 +67,8 @@ describe('Login', () => {
       }),
     );
     renderWithProviders(<Login showSnackbar={showSnackbar} />, { routeEntries: ['/login'] });
-    await userEvent.type(screen.getByLabelText('Email'), 'mapper@example.com');
-    await userEvent.type(screen.getByLabelText('Password'), 'secret');
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'mapper@example.com' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret' } });
     await userEvent.click(screen.getByRole('button', { name: 'Login' }));
     const pendingButton = screen.getByRole('button', { name: 'Logging in...' });
     expect(pendingButton).toBeDisabled();

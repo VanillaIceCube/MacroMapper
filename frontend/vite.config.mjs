@@ -9,6 +9,7 @@ export default defineConfig({
     strictPort: true,
   },
   test: {
+    include: ['src/**/*.test.{js,jsx}'],
     clearMocks: true,
     environment: 'jsdom',
     globals: true,

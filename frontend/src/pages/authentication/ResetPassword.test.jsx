@@ -38,8 +38,10 @@ describe('ResetPassword', () => {
       routeEntries: ['/reset-password'],
     });
 
-    await userEvent.type(screen.getByLabelText('New Password'), 'new-secret');
-    await userEvent.type(screen.getByLabelText('Confirm Password'), 'new-secret');
+    fireEvent.change(screen.getByLabelText('New Password'), { target: { value: 'new-secret' } });
+    fireEvent.change(screen.getByLabelText('Confirm Password'), {
+      target: { value: 'new-secret' },
+    });
     await userEvent.click(screen.getByRole('button', { name: 'Reset Password' }));
 
     expect(resetPassword).not.toHaveBeenCalled();
@@ -57,8 +59,10 @@ describe('ResetPassword', () => {
     renderWithProviders(<ResetPassword showSnackbar={showSnackbar} />, {
       routeEntries: ['/reset-password?uid=test-user&token=test-token'],
     });
-    await userEvent.type(screen.getByLabelText('New Password'), 'new-secret');
-    await userEvent.type(screen.getByLabelText('Confirm Password'), 'new-secret');
+    fireEvent.change(screen.getByLabelText('New Password'), { target: { value: 'new-secret' } });
+    fireEvent.change(screen.getByLabelText('Confirm Password'), {
+      target: { value: 'new-secret' },
+    });
     await userEvent.click(screen.getByRole('button', { name: 'Reset Password' }));
     const pendingButton = screen.getByRole('button', { name: 'Resetting...' });
     expect(pendingButton).toBeDisabled();

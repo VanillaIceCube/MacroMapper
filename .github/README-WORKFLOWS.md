@@ -539,3 +539,23 @@ policy-only PR under the existing protected review gates; a later workflow PR
 can consume it. Fetch the base commit before local PR-policy audits. This detects
 self-authorizing policy/workflow changes; it does not make PR-owned code a sandbox
 or remove repository-writer privileges.
+
+## Repository validation and browser diagnostics
+
+The path-aware test gate includes `.github/**`, `scripts/**`, `deploy/**`,
+`tests/**` and maintained docs in automation validation. It runs workflow and
+composite syntax, parser-only script checks and synthetic Compose configuration
+plus the existing Batch 1 suites and focused mocked composite regressions.
+[Coverage and external boundaries](../docs/AUTOMATION-COVERAGE.md) are explicit.
+
+`scripts/bounded_log.py` retains early, sampled failing and late context within
+16,000 characters for reviewers. Full output is streamed with `tee`; failed
+logs have roughly 1 MiB capped artifacts retained seven days. Random delimiters
+protect multiline outputs and the original command status still determines the
+gate. An unavailable check cannot become success through log summarization.
+
+Relevant app/harness changes also require the isolated Chromium job; its failure
+or an applicable development-image failure fails Test Results. Browser traces
+and screenshots use a 20 MiB/file, 50 MiB/run cap and seven-day retention.
+See frontend/README.md for setup and local commands. No job uses real accounts,
+production data, live email or paid AI requests for these tests.
