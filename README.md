@@ -171,4 +171,3 @@ documented in [.github/AI-REVIEWERS.md](.github/AI-REVIEWERS.md).
 
 Transactional mail failure categories, finite timeouts and password-reset recovery
 are documented in [backend/README.md](backend/README.md#transactional-email-failure-handling).
-
