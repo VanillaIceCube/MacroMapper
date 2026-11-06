@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-06
+
+### Fixed
+
+- Transactional email failures now expose safe categories/status codes without exception payloads, tracebacks or recipient/token data; reset responses remain generic.
+- Resend requests use a finite bounded timeout, with explicit safe fallback and mocked coverage for failure policy and both fail_silently modes.
+
 ## 2026-11-05
 ### Added
 - Shared isolated authentication browser tests with disposable data and local-only reset mail.

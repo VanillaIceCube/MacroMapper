@@ -352,7 +352,7 @@ class ResendApiEmailBackendTests(APITestCase):
                         )
                     ]
                 )
-        self.assertIn("DJANGO_EMAIL_HOST_KEY is missing or empty", cm.output[0])
+        self.assertIn("category=configuration", cm.output[0])
 
     @override_settings(
         EMAIL_BACKEND="authentication.email_backends.ResendApiEmailBackend",
@@ -384,7 +384,7 @@ class ResendApiEmailBackendTests(APITestCase):
             )
 
         self.assertEqual(sent_count, 0)
-        self.assertIn("Resend API email delivery failed with HTTP 429", cm.output[0])
+        self.assertIn("category=rate_limit status=429", cm.output[0])
 
     @override_settings(
         EMAIL_BACKEND="authentication.email_backends.ResendApiEmailBackend",
@@ -413,6 +413,6 @@ class ResendApiEmailBackendTests(APITestCase):
                 )
 
         self.assertIn(
-            "Resend API email delivery failed due to network/system error (URLError)",
+            "category=network status=unknown",
             cm.output[0],
         )

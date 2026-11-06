@@ -164,3 +164,6 @@ file mail. Setup, commands and extension points are in [frontend/README.md](fron
 CI runs it only for relevant changes. No application credentials are required.
 See [automation coverage](docs/AUTOMATION-COVERAGE.md) and the
 [Batch 2 parity record](docs/BATCH2-PARITY.md) for cross-repository adoption and limits.
+
+Transactional mail failure categories, finite timeouts and password-reset recovery
+are documented in [backend/README.md](backend/README.md#transactional-email-failure-handling).

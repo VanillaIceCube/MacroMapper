@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 from urllib import error, request
 
 from django.conf import settings
@@ -19,9 +20,7 @@ class ResendApiEmailBackend(BaseEmailBackend):
 
         api_key = settings.EMAIL_HOST_PASSWORD
         if not api_key:
-            logger.error(
-                "Resend API email delivery failed: DJANGO_EMAIL_HOST_KEY is missing or empty."
-            )
+            self._log_failure("configuration", None)
             if self.fail_silently:
                 return 0
             raise ValueError("DJANGO_EMAIL_HOST_KEY is required for Resend API email.")
@@ -30,22 +29,30 @@ class ResendApiEmailBackend(BaseEmailBackend):
         for message in email_messages:
             try:
                 self._send_message(message, api_key)
-            except error.HTTPError as exc:
-                logger.error(
-                    "Resend API email delivery failed with HTTP %s: %s",
-                    exc.code,
-                    exc.reason or "HTTP Error",
-                    exc_info=True,
-                )
-                if not self.fail_silently:
-                    raise
             except Exception as exc:
-                logger.error(
-                    "Resend API email delivery failed due to network/system error (%s): %s",
-                    type(exc).__name__,
-                    exc,
-                    exc_info=True,
-                )
+                if isinstance(exc, error.HTTPError):
+                    code = (
+                        exc.code
+                        if isinstance(exc.code, int) and 100 <= exc.code <= 599
+                        else None
+                    )
+                    category = (
+                        "rate_limit"
+                        if code == 429
+                        else "provider"
+                        if code is not None and code >= 500
+                        else "request"
+                    )
+                elif isinstance(exc, TimeoutError) or (
+                    isinstance(exc, error.URLError)
+                    and isinstance(exc.reason, TimeoutError)
+                ):
+                    code, category = None, "timeout"
+                elif isinstance(exc, (error.URLError, OSError)):
+                    code, category = None, "network"
+                else:
+                    code, category = None, "unexpected"
+                self._log_failure(category, code)
                 if not self.fail_silently:
                     raise
             else:
@@ -80,22 +87,42 @@ class ResendApiEmailBackend(BaseEmailBackend):
             method="POST",
         )
         timeout = getattr(settings, "EMAIL_TIMEOUT", None)
-        if timeout is None or not isinstance(timeout, (int, float)) or timeout <= 0:
+        if (
+            isinstance(timeout, bool)
+            or not isinstance(timeout, (int, float))
+            or not 0 < timeout <= 30
+            or not math.isfinite(timeout)
+        ):
+            logger.warning(
+                "Resend email timeout is invalid; using the 10-second default."
+            )
             timeout = 10
-
         with request.urlopen(http_request, timeout=timeout) as response:
             status = response.getcode()
             if 200 <= status < 300:
                 return
-
-            response_body = response.read().decode("utf-8", errors="replace")
+            # Do not read or copy an untrusted provider body into an exception.
             raise error.HTTPError(
                 self.api_url,
                 status,
-                response_body,
+                "Email provider rejected the request.",
                 response.headers,
                 None,
             )
+
+    @staticmethod
+    def _log_failure(category, status):
+        # Never log exception repr/traceback, provider body, recipients or tokens.
+        logger.error(
+            "Resend API email delivery failed category=%s status=%s",
+            category,
+            status if status is not None else "unknown",
+            extra={
+                "delivery_provider": "resend",
+                "delivery_category": category,
+                "delivery_status": status,
+            },
+        )
 
     def _get_html_body(self, message):
         if not isinstance(message, EmailMultiAlternatives):
