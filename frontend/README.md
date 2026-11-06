@@ -256,3 +256,5 @@ retry on the next invocation. Use one volume per checkout and restart after edit
 Run `node --test tests/dev-dependencies.test.cjs` from the repository root for the
 credential-free mocked lifecycle/exit-status regression. Compose configuration
 checks do not deploy or touch application data.
+
+Supported test/build runtimes are Node24.15+ within24.x or Node26.x. jsdom30 explicitly excludes the end-of-life Node25 line; do not treat >=24 as universal support. Use the same supported runtime for before/after timings.
