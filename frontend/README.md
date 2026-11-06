@@ -143,7 +143,7 @@ Meal, daily-total, catalog-search, and personal-food requests live in
 `src/services/mealApiClient.js`.
 
 ## 💻 Local Setup
-The checked-in frontend dependencies require Node.js 24.15 or newer. CI reads
+The checked-in frontend dependencies require Node.js 24.15+ within 24.x or Node.js 26.x. CI reads
 that range from `package.json`, and the production Docker image uses Node.js 26.
 
 ```powershell
