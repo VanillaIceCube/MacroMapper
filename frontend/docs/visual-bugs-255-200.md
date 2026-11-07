@@ -1,3 +1,5 @@
+> **Historical evidence — acceptance withdrawn on 2026-11-07.** The owner reported site-wide regressions after product batch PR #377 and requested its targeted rollback. The date-picker changes and batch-only tests/tooling were reverted to the accepted pre-batch behavior. This document and screenshots preserve the original investigation; their prior pass results do not establish current acceptance, and the batch must not be automatically reapplied. Earlier Food & Servings alignment functionality remains intact. This rollback does not establish that either individual ticket caused every reported regression. Security-alert fixes, current user data, and release safeguards are preserved.
+
 # Diary visual regressions: #255 and #200
 
 ## Date picker (#255)

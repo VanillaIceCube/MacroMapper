@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-07
+
+### Changed
+
+- Revert product batch #377 after owner-reported site-wide regressions, restoring the previous diary date controls while retaining the earlier Food & Servings heading/alignment implementation. The minor date-picker defect may return as the accepted recovery tradeoff.
+- Withdraw the batch acceptance and remove its added visual test command, fixture suite and batch-only unit assertions. Retain the original investigation/screenshots below as historical evidence; preserve all preceding security and release safeguards and current application data.
+
 ## 2026-11-06
 
 ### Fixed

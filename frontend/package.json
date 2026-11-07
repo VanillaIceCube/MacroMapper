@@ -44,8 +44,7 @@
     "lint:strict": "eslint \"src/**/*.{js,jsx}\" --max-warnings=0",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
-    "test:e2e": "node ../scripts/run_e2e.cjs",
-    "test:visual": "npm run build && playwright test --config playwright.visual.config.mjs"
+    "test:e2e": "node ../scripts/run_e2e.cjs"
   },
   "overrides": {
     "minimatch@>=9 <11.0.1": "^11.0.1"
