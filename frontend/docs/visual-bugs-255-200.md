@@ -1,3 +1,5 @@
+> **Historical evidence — clarified scope on 2026-11-07.** The coordinated rollback was cancelled before production changed. The owner subsequently confirmed “Undo #377’s visual changes” under #382. Main-only revert #379 keeps the earlier date-control appearance; reapplication PR #381 was superseded without merging. The independent nonempty-date guard is retained after a fail-first regression reproduced `RangeError: Invalid time value` when clearing the input and navigating. Earlier Food & Servings functionality remains and receives focused coverage again. This original investigation/screenshots preserve historical evidence; prior geometry pass results do not override the owner’s rejected visual appearance. #255/#200 stay open for renewed acceptance, and the original native-picker anchoring concern is not claimed resolved. Security #375/#376, current user data and release safeguards remain intact.
+
 # Diary visual regressions: #255 and #200
 
 ## Date picker (#255)

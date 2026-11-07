@@ -19,20 +19,9 @@ frontend image's API proxy and the production Infrastructure gateway allow
 
 ## 🧭 Visual system
 
-Diary visual regressions can be checked against a production build with
-`npm run test:visual` (install Playwright Chromium first with
-`npx playwright install chromium`). The suite covers 320, 375, 600, 768, 1024,
-and 1440px viewports and saves screenshots in its Playwright output directory.
-It also runs as part of the existing `npm run test:e2e` suite.
+The coordinated rollback was cancelled before production changed. The owner then clarified #382: undo #377’s date-control visual changes. The prior responsive alignment, button sizing and native-input placement remain; the independent nonempty-date safety guard prevents clearing the input from breaking navigation. Earlier Food & Servings heading/full-cell alignment is retained. This does not resolve #255’s original native-picker anchoring concern; #255/#200 remain open for renewed acceptance. [Historical batch evidence and clarified scope](docs/visual-bugs-255-200.md) are retained without reapplying the rejected visuals.
 
-To check deployed assets without creating production data, set
-`E2E_VISUAL_BASE_URL=https://macromapper.judeandrewalaba.com` and run
-`npx playwright test --config playwright.visual.config.mjs`. Synthetic session
-identities and browser-intercepted API responses keep the test independent of
-production accounts. Native date-picker chrome belongs to the browser/OS;
-these automated checks assert its input anchor geometry, opening request, date
-selection, and layout stability, rather than inspecting the OS popup itself.
-See the [visual bug investigation](docs/visual-bugs-255-200.md).
+Run `npm run build` then `npx playwright test --config playwright.diary.config.mjs` for mobile/desktop date, food and meal-review presentation against the production build. The cases also run in the existing `npm run test:e2e` suite. Set `E2E_DIARY_BASE_URL` to the deployed origin to inspect its actual public assets; the fixtures intercept every application API request, use synthetic session data, and abort unexpected requests before any placeholder credential or write reaches a host. These checks do not prove an authenticated production backend journey or native OS calendar chrome.
 
 The frontend uses the Field Atlas direction described in
 [`docs/design/FIELD_ATLAS.md`](docs/design/FIELD_ATLAS.md). Shared theme

@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DiaryPage from './DiaryPage';
 import { renderWithProviders } from '../test-support/utils';
@@ -321,36 +321,34 @@ describe('DiaryPage', () => {
     expect(macroBalance).toBeVisible();
   });
 
-  test('anchors the native date input to the visible date trigger and opens its picker', async () => {
+  test('keeps a cleared native date from breaking diary navigation', async () => {
     const user = userEvent.setup();
     fetchDailyDiary.mockResolvedValue(response({ meals: [], totals: [] }));
     renderWithProviders(<DiaryPage />);
     await screen.findByRole('heading', { name: 'Nothing logged yet' });
 
-    const trigger = screen.getByRole('button', { name: /^choose diary date/ });
     const input = screen.getByLabelText('diary date', { exact: true });
-    const showPicker = vi.fn();
-    Object.defineProperty(input, 'showPicker', { configurable: true, value: showPicker });
-    expect(input.parentElement).toBe(trigger.parentElement);
-    expect(input.parentElement).toHaveStyle({ position: 'relative' });
-    expect(input).toHaveStyle({ position: 'absolute', width: '100%', height: '100%' });
-    expect(screen.getByRole('navigation', { name: 'diary date navigation' })).toHaveStyle({
-      alignSelf: 'flex-end',
-    });
-    await user.click(trigger);
-    expect(showPicker).toHaveBeenCalledOnce();
+    const currentDate = input.value;
+    const tomorrow = new Date(`${currentDate}T12:00:00`);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const nextDate = tomorrow.toISOString().slice(0, 10);
 
-    const click = vi.spyOn(input, 'click');
-    Object.defineProperty(input, 'showPicker', { configurable: true, value: undefined });
-    await user.click(trigger);
-    expect(click).toHaveBeenCalledOnce();
+    fireEvent.change(input, { target: { value: '' } });
+    await user.click(screen.getByRole('button', { name: 'next day', exact: true }));
+
+    expect(screen.getByLabelText('diary date', { exact: true })).toHaveValue(nextDate);
+    expect(screen.getByRole('button', { name: /^choose diary date/ })).toHaveAccessibleName(
+      `choose diary date, current date ${nextDate}`,
+    );
+    await waitFor(() => expect(fetchDailyDiary).toHaveBeenLastCalledWith(nextDate, 'access-token'));
+    await user.click(screen.getByRole('button', { name: 'return to today', exact: true }));
+    expect(screen.getByLabelText('diary date', { exact: true })).toHaveValue(currentDate);
   });
 
   test('centers saved food metadata beside the full food context at table widths', async () => {
     fetchDailyDiary.mockResolvedValue(response({ meals: [meal], totals: [] }));
     renderWithProviders(<DiaryPage />);
     const table = await screen.findByRole('table', { name: 'Breakfast food breakdown' });
-    // The header is deliberately hidden on phones, which use inline field labels.
     expect(within(table).getByText('Food & Servings', { exact: true })).toHaveAttribute(
       'role',
       'columnheader',
