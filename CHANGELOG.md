@@ -2,6 +2,20 @@
 
 ## 2026-11-07
 
+### Added
+
+- Add mobile/desktop date, Food & Servings and meal-review presentation checks using isolated browser fixtures, and restore the earlier food-alignment unit regression.
+
+### Fixed
+
+- Keep a valid diary date when the native input is cleared, preventing the next-day action from throwing and blanking the page.
+
+### Changed
+
+- Record the cancelled coordinated rollback and clarified #382 visual restoration: keep the pre-#377 date-control alignment, sizing and placement while preserving its independent date safety guard, earlier Food & Servings functionality and all security/release safeguards. Historical batch/rollback evidence remains; #255/#200 are not declared accepted by this source change.
+
+## 2026-11-07
+
 ### Changed
 
 - Revert product batch #377 after owner-reported site-wide regressions, restoring the previous diary date controls while retaining the earlier Food & Servings heading/alignment implementation. The minor date-picker defect may return as the accepted recovery tradeoff.

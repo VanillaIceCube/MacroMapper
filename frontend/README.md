@@ -19,7 +19,9 @@ frontend image's API proxy and the production Infrastructure gateway allow
 
 ## 🧭 Visual system
 
-The owner-requested rollback of product batch #377 restores the accepted pre-batch diary date controls. The earlier Food & Servings alignment remains unchanged. [Withdrawn batch evidence](docs/visual-bugs-255-200.md) is retained for incident history; it is not current acceptance and must not be automatically reapplied.
+The coordinated rollback was cancelled before production changed. The owner then clarified #382: undo #377’s date-control visual changes. The prior responsive alignment, button sizing and native-input placement remain; the independent nonempty-date safety guard prevents clearing the input from breaking navigation. Earlier Food & Servings heading/full-cell alignment is retained. This does not resolve #255’s original native-picker anchoring concern; #255/#200 remain open for renewed acceptance. [Historical batch evidence and clarified scope](docs/visual-bugs-255-200.md) are retained without reapplying the rejected visuals.
+
+Run `npm run build` then `npx playwright test --config playwright.diary.config.mjs` for mobile/desktop date, food and meal-review presentation against the production build. The cases also run in the existing `npm run test:e2e` suite. Set `E2E_DIARY_BASE_URL` to the deployed origin to inspect its actual public assets; the fixtures intercept every application API request, use synthetic session data, and abort unexpected requests before any placeholder credential or write reaches a host. These checks do not prove an authenticated production backend journey or native OS calendar chrome.
 
 The frontend uses the Field Atlas direction described in
 [`docs/design/FIELD_ATLAS.md`](docs/design/FIELD_ATLAS.md). Shared theme
