@@ -19,6 +19,21 @@ frontend image's API proxy and the production Infrastructure gateway allow
 
 ## 🧭 Visual system
 
+Diary visual regressions can be checked against a production build with
+`npm run test:visual` (install Playwright Chromium first with
+`npx playwright install chromium`). The suite covers 320, 375, 600, 768, 1024,
+and 1440px viewports and saves screenshots in its Playwright output directory.
+It also runs as part of the existing `npm run test:e2e` suite.
+
+To check deployed assets without creating production data, set
+`E2E_VISUAL_BASE_URL=https://macromapper.judeandrewalaba.com` and run
+`npx playwright test --config playwright.visual.config.mjs`. Synthetic session
+identities and browser-intercepted API responses keep the test independent of
+production accounts. Native date-picker chrome belongs to the browser/OS;
+these automated checks assert its input anchor geometry, opening request, date
+selection, and layout stability, rather than inspecting the OS popup itself.
+See the [visual bug investigation](docs/visual-bugs-255-200.md).
+
 The frontend uses the Field Atlas direction described in
 [`docs/design/FIELD_ATLAS.md`](docs/design/FIELD_ATLAS.md). Shared theme
 configuration lives in `src/theme.js`, with matching semantic CSS tokens in

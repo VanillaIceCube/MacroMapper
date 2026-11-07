@@ -4,6 +4,15 @@
 
 ### Fixed
 
+- Anchor the native diary date picker to the visible date button and keep date
+  navigation at the right edge on phones, tablets, and desktops.
+- Add regression coverage for the existing Food & Servings heading and full-cell
+  centering of calories, confidence, and provenance, including wrapped context.
+
+## 2026-11-06
+
+### Fixed
+
 - Restore security-alert action loading by resolving repository variables in caller workflows and passing validated explicit composite inputs.
 - Cover default, empty, explicit and invalid configuration plus empty/nonempty mocked alert pipelines and all three caller contracts.
 
