@@ -4,6 +4,13 @@
 
 ### Changed
 
+- Cancel the owner-requested product rollback before any production rollback occurred, restoring the reviewed #377 diary date controls, original tests and visual tooling through an ordinary revert of rollback merge #379. The rollback entry below records superseded incident history.
+- Keep #255/#200 open for renewed functional and production verification; restored source is not a claim that the owner-reported instability is resolved. Preserve security #375/#376, current data and release safeguards.
+
+## 2026-11-07
+
+### Changed
+
 - Revert product batch #377 after owner-reported site-wide regressions, restoring the previous diary date controls while retaining the earlier Food & Servings heading/alignment implementation. The minor date-picker defect may return as the accepted recovery tradeoff.
 - Withdraw the batch acceptance and remove its added visual test command, fixture suite and batch-only unit assertions. Retain the original investigation/screenshots below as historical evidence; preserve all preceding security and release safeguards and current application data.
 

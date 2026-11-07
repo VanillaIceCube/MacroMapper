@@ -321,6 +321,51 @@ describe('DiaryPage', () => {
     expect(macroBalance).toBeVisible();
   });
 
+  test('anchors the native date input to the visible date trigger and opens its picker', async () => {
+    const user = userEvent.setup();
+    fetchDailyDiary.mockResolvedValue(response({ meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+    await screen.findByRole('heading', { name: 'Nothing logged yet' });
+
+    const trigger = screen.getByRole('button', { name: /^choose diary date/ });
+    const input = screen.getByLabelText('diary date', { exact: true });
+    const showPicker = vi.fn();
+    Object.defineProperty(input, 'showPicker', { configurable: true, value: showPicker });
+    expect(input.parentElement).toBe(trigger.parentElement);
+    expect(input.parentElement).toHaveStyle({ position: 'relative' });
+    expect(input).toHaveStyle({ position: 'absolute', width: '100%', height: '100%' });
+    expect(screen.getByRole('navigation', { name: 'diary date navigation' })).toHaveStyle({
+      alignSelf: 'flex-end',
+    });
+    await user.click(trigger);
+    expect(showPicker).toHaveBeenCalledOnce();
+
+    const click = vi.spyOn(input, 'click');
+    Object.defineProperty(input, 'showPicker', { configurable: true, value: undefined });
+    await user.click(trigger);
+    expect(click).toHaveBeenCalledOnce();
+  });
+
+  test('centers saved food metadata beside the full food context at table widths', async () => {
+    fetchDailyDiary.mockResolvedValue(response({ meals: [meal], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+    const table = await screen.findByRole('table', { name: 'Breakfast food breakdown' });
+    // The header is deliberately hidden on phones, which use inline field labels.
+    expect(within(table).getByText('Food & Servings', { exact: true })).toHaveAttribute(
+      'role',
+      'columnheader',
+    );
+    const identity = within(table).getByText('1 × Apple').closest('[role="cell"]');
+    expect(within(identity).getByText('one apple')).toBeInTheDocument();
+    expect(responsiveStylesFor(identity)).toMatch(
+      /@media \(min-width:0px\).*grid-column:\s*1\s*\/\s*-1/i,
+    );
+    expect(responsiveStylesFor(identity.parentElement)).toMatch(
+      /@media \(min-width:600px\).*align-items:\s*center/i,
+    );
+    expect(within(identity.parentElement).getAllByRole('cell')).toHaveLength(4);
+  });
+
   test('rounds macro charts and shows the original AI follow-up wording', async () => {
     const estimatedMeal = {
       ...meal,
