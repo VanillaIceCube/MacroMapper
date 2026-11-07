@@ -16,6 +16,8 @@ The input now shares a relatively positioned wrapper with the visible button,
 with coincident bounds through `inset: 0` and percentage sizing. Navigation
 aligns to the right while preserving the reserved Today slot. The browser
 retains native viewport collision handling; there are no popup pixel offsets.
+The button reserves a consistent responsive width for both Today and the longer
+compact date labels, preventing a further 6px shift on dates such as September 30.
 Clearing the native input cannot put the diary into an invalid empty-date state.
 
 ## Food & Servings (#200)
@@ -62,8 +64,13 @@ screenshots use only synthetic meals:
 
 Date tests check coincident trigger/input bounds, right alignment, viewport
 containment, successful native opening requests, previous/next/Today stability,
-explicit date selection, and absence of document overflow. Food tests compare
+explicit date selection, and absence of diary overflow. Food tests compare
 actual rendered cell centers and check mobile field labels and wrapping.
+
+Linux CI additionally exposed a pre-existing 2px overhang of an icon-only button
+in the unchanged shared application header at 320px. The diary's elements stay
+within the viewport. Overflow checks cover this ticket's complete diary subtree;
+the shared header remains in the separate FullStackTemplate #296 shell scope.
 
 Headless page screenshots do not capture or prove native browser/OS popup
 bounds. Native picker presentation on iOS/Android remains OS-controlled;

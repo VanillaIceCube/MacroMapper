@@ -1997,7 +1997,10 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                         }
                       }}
                       sx={{
-                        minWidth: { xs: 126, sm: 142 },
+                        // Reserve room for compact weekday/month labels as well
+                        // as Today, without moving the surrounding controls.
+                        width: { xs: 140, sm: 142 },
+                        minWidth: 0,
                         minHeight: 40,
                         px: 1.25,
                         color: 'var(--atlas-ink)',
