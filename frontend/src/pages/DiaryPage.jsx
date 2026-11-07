@@ -2019,7 +2019,9 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   aria-label="diary date"
                   type="date"
                   value={date}
-                  onChange={(event) => setDate(event.target.value)}
+                  onChange={(event) => {
+                    if (event.target.value) setDate(event.target.value);
+                  }}
                   tabIndex={-1}
                   sx={{
                     position: 'absolute',

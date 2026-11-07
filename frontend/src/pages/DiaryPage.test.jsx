@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DiaryPage from './DiaryPage';
 import { renderWithProviders } from '../test-support/utils';
@@ -319,6 +319,49 @@ describe('DiaryPage', () => {
     expect(nutritionColumns).toHaveStyle({ alignItems: 'start' });
     expect(foodTable).toBeVisible();
     expect(macroBalance).toBeVisible();
+  });
+
+  test('keeps a cleared native date from breaking diary navigation', async () => {
+    const user = userEvent.setup();
+    fetchDailyDiary.mockResolvedValue(response({ meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+    await screen.findByRole('heading', { name: 'Nothing logged yet' });
+
+    const input = screen.getByLabelText('diary date', { exact: true });
+    const currentDate = input.value;
+    const tomorrow = new Date(`${currentDate}T12:00:00`);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const nextDate = tomorrow.toISOString().slice(0, 10);
+
+    fireEvent.change(input, { target: { value: '' } });
+    await user.click(screen.getByRole('button', { name: 'next day', exact: true }));
+
+    expect(screen.getByLabelText('diary date', { exact: true })).toHaveValue(nextDate);
+    expect(screen.getByRole('button', { name: /^choose diary date/ })).toHaveAccessibleName(
+      `choose diary date, current date ${nextDate}`,
+    );
+    await waitFor(() => expect(fetchDailyDiary).toHaveBeenLastCalledWith(nextDate, 'access-token'));
+    await user.click(screen.getByRole('button', { name: 'return to today', exact: true }));
+    expect(screen.getByLabelText('diary date', { exact: true })).toHaveValue(currentDate);
+  });
+
+  test('centers saved food metadata beside the full food context at table widths', async () => {
+    fetchDailyDiary.mockResolvedValue(response({ meals: [meal], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+    const table = await screen.findByRole('table', { name: 'Breakfast food breakdown' });
+    expect(within(table).getByText('Food & Servings', { exact: true })).toHaveAttribute(
+      'role',
+      'columnheader',
+    );
+    const identity = within(table).getByText('1 × Apple').closest('[role="cell"]');
+    expect(within(identity).getByText('one apple')).toBeInTheDocument();
+    expect(responsiveStylesFor(identity)).toMatch(
+      /@media \(min-width:0px\).*grid-column:\s*1\s*\/\s*-1/i,
+    );
+    expect(responsiveStylesFor(identity.parentElement)).toMatch(
+      /@media \(min-width:600px\).*align-items:\s*center/i,
+    );
+    expect(within(identity.parentElement).getAllByRole('cell')).toHaveLength(4);
   });
 
   test('rounds macro charts and shows the original AI follow-up wording', async () => {
