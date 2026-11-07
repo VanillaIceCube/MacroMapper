@@ -72,12 +72,24 @@ const bounds = async (locator) => {
 };
 const centerY = (box) => box.y + box.height / 2;
 
+const expectNoOverflow = async (page, width) => {
+  const layout = await page.evaluate(() => ({
+    width: document.documentElement.scrollWidth,
+    overflow: [...document.querySelectorAll('body *')]
+      .filter((element) => element.getBoundingClientRect().right > innerWidth + 0.5)
+      .map((element) => `${element.tagName}: ${element.textContent.slice(0, 100)}`)
+      .slice(0, 10),
+  }));
+  expect(layout.width, JSON.stringify(layout.overflow)).toBeLessThanOrEqual(width);
+};
+
 for (const width of [320, 375, 600, 768, 1024, 1440]) {
   test(`date picker anchor at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 1000 });
     await page.goto('/diary');
     const table = page.getByRole('table', { name: 'Sample lunch food breakdown' });
     await expect(table).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
     const control = page.getByTestId('diary-date-control');
     const trigger = page.getByRole('button', { name: /^choose diary date/ });
     const input = page.getByLabel('diary date', { exact: true });
@@ -116,6 +128,7 @@ for (const width of [320, 375, 600, 768, 1024, 1440]) {
     await expect(trigger).toHaveAccessibleName('choose diary date, current date 2026-08-16');
     await checkAnchor();
     await expect(table).toBeVisible();
+    await expectNoOverflow(page, width);
 
     await page.screenshot({ path: testInfo.outputPath(`date-${width}.png`), fullPage: true });
     await testInfo.attach(`date-${width}`, {
@@ -129,6 +142,7 @@ for (const width of [320, 375, 600, 768, 1024, 1440]) {
     await page.goto('/diary');
     const table = page.getByRole('table', { name: 'Sample lunch food breakdown' });
     await expect(table).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
 
     const rows = table.getByRole('row');
     if (width >= 600) {
@@ -163,9 +177,7 @@ for (const width of [320, 375, 600, 768, 1024, 1440]) {
     await expect(table.getByText('1 × Apple', { exact: true })).toBeVisible();
     await expect(table.getByText('95 kcal', { exact: true })).toBeVisible();
     await expect(table.getByText('91%', { exact: true })).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-      width,
-    );
+    await expectNoOverflow(page, width);
     await page.screenshot({ path: testInfo.outputPath(`diary-${width}.png`), fullPage: true });
     await testInfo.attach(`diary-${width}`, {
       path: testInfo.outputPath(`diary-${width}.png`),
