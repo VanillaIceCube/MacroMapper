@@ -1,3 +1,9 @@
+## 2026-11-07
+
+### Fixed
+
+- Anchor the browser-native Meal Diary date picker to its existing visible trigger instead of an offset 1x1 input. Preserve the restored navigation alignment and compact button widths, Food & Servings alignment and empty-date safety; add production-build/mobile anchor and picker-opening regression coverage.
+
 # Changelog
 
 ## 2026-11-07
