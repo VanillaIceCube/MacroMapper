@@ -295,3 +295,7 @@ Add product journeys under `e2e/` using these isolated users and existing APIs.
 Keep authentication journeys shared; domain fixtures belong to their app. Do not
 add real customer accounts, external email or paid-model requests. Infrastructure
 has no browser application and retains its ingress/Docker protocol suites.
+
+## Native diary picker anchoring
+
+The browser-native date input shares the existing visible date button's positioned bounds. Responsive navigation alignment, original compact button minimum widths and the Today slot are preserved. Browser tests check input/trigger bounds at 320/375/600/768/1024/1440px, exercise real `showPicker()` user activation and date selection/Today return, and retain the prior diary/food/meal-review cases. A separate before/after measurement against production `94a60ab3` recorded zero visible button/navigation geometry change at those widths; that comparison is release evidence, not an automatic cross-revision CI assertion. The button still uses its click fallback when the picker API is unavailable. See #255; OS-provided calendar chrome on physical phones is a separate verification limit. [`showPicker()` API behavior](https://developer.mozilla.org/en-US/docs/Web/API/HTMLInputElement/showPicker) requires a user action, so the method stays synchronous inside the button handler.
