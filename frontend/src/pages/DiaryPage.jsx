@@ -1985,26 +1985,50 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   >
                     <ChevronLeftIcon />
                   </IconButton>
-                  <Button
-                    aria-label={`choose diary date, current date ${date}`}
-                    startIcon={<CalendarMonthOutlinedIcon />}
-                    onClick={() => {
-                      if (dateInputRef.current?.showPicker) {
-                        dateInputRef.current.showPicker();
-                      } else {
-                        dateInputRef.current?.click();
-                      }
-                    }}
-                    sx={{
-                      minWidth: { xs: 126, sm: 142 },
-                      minHeight: 40,
-                      px: 1.25,
-                      color: 'var(--atlas-ink)',
-                      fontWeight: 800,
-                    }}
-                  >
-                    {isToday ? 'Today' : compactDiaryDate(date)}
-                  </Button>
+                  <Box sx={{ position: 'relative', display: 'flex' }}>
+                    <Button
+                      aria-label={`choose diary date, current date ${date}`}
+                      startIcon={<CalendarMonthOutlinedIcon />}
+                      onClick={() => {
+                        if (dateInputRef.current?.showPicker) {
+                          dateInputRef.current.showPicker();
+                        } else {
+                          dateInputRef.current?.click();
+                        }
+                      }}
+                      sx={{
+                        minWidth: { xs: 126, sm: 142 },
+                        minHeight: 40,
+                        px: 1.25,
+                        color: 'var(--atlas-ink)',
+                        fontWeight: 800,
+                      }}
+                    >
+                      {isToday ? 'Today' : compactDiaryDate(date)}
+                    </Button>
+                    <Box
+                      component="input"
+                      ref={dateInputRef}
+                      aria-label="diary date"
+                      type="date"
+                      value={date}
+                      onChange={(event) => {
+                        if (event.target.value) setDate(event.target.value);
+                      }}
+                      tabIndex={-1}
+                      sx={{
+                        position: 'absolute',
+                        inset: 0,
+                        width: '100%',
+                        height: '100%',
+                        boxSizing: 'border-box',
+                        p: 0,
+                        border: 0,
+                        opacity: 0,
+                        pointerEvents: 'none',
+                      }}
+                    />
+                  </Box>
                   <IconButton
                     aria-label="next day"
                     onClick={() => setDate((current) => shiftDate(current, 1))}
@@ -2013,25 +2037,6 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                     <ChevronRightIcon />
                   </IconButton>
                 </Stack>
-                <Box
-                  component="input"
-                  ref={dateInputRef}
-                  aria-label="diary date"
-                  type="date"
-                  value={date}
-                  onChange={(event) => {
-                    if (event.target.value) setDate(event.target.value);
-                  }}
-                  tabIndex={-1}
-                  sx={{
-                    position: 'absolute',
-                    width: 1,
-                    height: 1,
-                    overflow: 'hidden',
-                    opacity: 0,
-                    pointerEvents: 'none',
-                  }}
-                />
               </Paper>
             </Stack>
           </Stack>

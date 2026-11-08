@@ -99,6 +99,72 @@ const box = async (locator) => {
   return result;
 };
 
+for (const width of [320, 375, 600, 768, 1024, 1440]) {
+  test(`native date picker uses its visible trigger at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto('/diary');
+    await expect(page.getByRole('table', { name: 'Sample lunch food breakdown' })).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+    const input = page.getByLabel('diary date', { exact: true });
+    const trigger = page.getByRole('button', { name: /^choose diary date/ });
+    const navigation = page.getByRole('navigation', { name: 'diary date navigation' });
+    const today = await input.inputValue();
+    const samples = [];
+    for (const date of [today, '2026-09-30', '2026-11-11', today]) {
+      await input.fill(date);
+      samples.push({
+        date,
+        input: await box(input),
+        trigger: await box(trigger),
+        navigation: await box(navigation),
+      });
+    }
+    await testInfo.attach('native-date-geometry', {
+      body: JSON.stringify(samples, null, 2),
+      contentType: 'application/json',
+    });
+    for (const sample of samples) {
+      for (const key of ['x', 'y', 'width', 'height']) {
+        expect(
+          Math.abs(sample.input[key] - sample.trigger[key]),
+          `${sample.date}: input ${key}`,
+        ).toBeLessThan(1);
+      }
+      expect(sample.navigation.x).toBeGreaterThanOrEqual(0);
+      expect(sample.navigation.x + sample.navigation.width).toBeLessThanOrEqual(width);
+    }
+    expect(Math.abs(samples[0].navigation.x - samples.at(-1).navigation.x)).toBeLessThan(1);
+    expect(Math.abs(samples[0].navigation.width - samples.at(-1).navigation.width)).toBeLessThan(1);
+    await page.evaluate(() => {
+      const original = HTMLInputElement.prototype.showPicker;
+      window.fixturePickerCalls = [];
+      if (original) {
+        HTMLInputElement.prototype.showPicker = function () {
+          window.fixturePickerCalls.push({
+            active: navigator.userActivation.isActive,
+            label: this.getAttribute('aria-label'),
+          });
+          return original.call(this);
+        };
+      }
+    });
+    await trigger.click();
+    expect(await page.evaluate(() => window.fixturePickerCalls)).toEqual([
+      { active: true, label: 'diary date' },
+    ]);
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'next day', exact: true }).click();
+    await expect(input).not.toHaveValue(today);
+    await page.getByRole('button', { name: 'return to today', exact: true }).click();
+    await expect(input).toHaveValue(today);
+    expect(await page.evaluate(() => window.fixturePageErrors)).toEqual([]);
+    await page.screenshot({
+      path: testInfo.outputPath(`picker-anchor-${width}.png`),
+      animations: 'disabled',
+    });
+  });
+}
+
 for (const width of [375, 1280]) {
   test(`prior date visuals, safe navigation and food presentation at ${width}px`, async ({
     page,

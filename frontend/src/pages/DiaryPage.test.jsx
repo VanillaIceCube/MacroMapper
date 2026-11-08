@@ -345,6 +345,24 @@ describe('DiaryPage', () => {
     expect(screen.getByLabelText('diary date', { exact: true })).toHaveValue(currentDate);
   });
 
+  test('opens the native picker on its date input and preserves the click fallback', async () => {
+    const user = userEvent.setup();
+    fetchDailyDiary.mockResolvedValue(response({ meals: [], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+    await screen.findByRole('heading', { name: 'Nothing logged yet' });
+    const input = screen.getByLabelText('diary date', { exact: true });
+    const showPicker = vi.fn();
+    input.showPicker = showPicker;
+    await user.click(screen.getByRole('button', { name: /^choose diary date/ }));
+    expect(showPicker).toHaveBeenCalledOnce();
+    expect(showPicker.mock.instances[0]).toBe(input);
+
+    input.showPicker = undefined;
+    const fallbackClick = vi.spyOn(input, 'click');
+    await user.click(screen.getByRole('button', { name: /^choose diary date/ }));
+    expect(fallbackClick).toHaveBeenCalledOnce();
+  });
+
   test('centers saved food metadata beside the full food context at table widths', async () => {
     fetchDailyDiary.mockResolvedValue(response({ meals: [meal], totals: [] }));
     renderWithProviders(<DiaryPage />);
