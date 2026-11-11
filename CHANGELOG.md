@@ -7,6 +7,7 @@
 
 ### Changed
 
+- Align transitive Babel core 7.29.13 and its compatible helper patches with Notoli and FullStackTemplate while retaining the separate direct Babel parser 8 dependency.
 - Upgrade the frontend test environment to jsdom 31.
 - Upgrade all CodeQL init/analyze entry points atomically to v4.39.3 and regenerate the checked workflow source inventory.
 - Synchronize the pinned Infrastructure release standard for docker/login-action v4.8.0, including the canonical action-upgrade parity regression, and refresh the workflow source inventory.
