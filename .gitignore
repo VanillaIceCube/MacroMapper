@@ -51,3 +51,9 @@ coverage/
 
 # Codex
 .codex-ticket-bodies/
+
+# Disposable browser test artifacts
+frontend/playwright-report/
+frontend/test-results/
+
+browser-evidence/

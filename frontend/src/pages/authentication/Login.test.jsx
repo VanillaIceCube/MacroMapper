@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { login } from '../../services/authApiClient';
 import { renderWithProviders } from '../../test-support/utils';
@@ -56,5 +56,31 @@ describe('Login', () => {
 
     expect(brand).toHaveStyle({ alignItems: 'center' });
     expect(shell).toHaveStyle({ alignItems: 'center' });
+  });
+  test('blocks duplicate submissions and recovers after a validation failure', async () => {
+    const showSnackbar = vi.fn();
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    let resolveRequest;
+    login.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveRequest = resolve;
+      }),
+    );
+    renderWithProviders(<Login showSnackbar={showSnackbar} />, { routeEntries: ['/login'] });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'mapper@example.com' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Login' }));
+    const pendingButton = screen.getByRole('button', { name: 'Logging in...' });
+    expect(pendingButton).toBeDisabled();
+    fireEvent.click(pendingButton);
+    expect(login).toHaveBeenCalledTimes(1);
+    resolveRequest({
+      ok: false,
+      status: 400,
+      json: async () => ({ password: ['Validation failed.'] }),
+    });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Login' })).toBeEnabled());
+    expect(showSnackbar).toHaveBeenCalledWith('error', 'Validation failed.');
+    consoleError.mockRestore();
   });
 });

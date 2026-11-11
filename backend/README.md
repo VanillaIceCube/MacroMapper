@@ -225,6 +225,31 @@ only and explicitly exclude dietary, medical, clinical, and treatment advice.
 Follow-up requests use the same non-stored provider flow and retain the current
 draft when the provider is unavailable or cannot produce an applicable change.
 
+## 🧩 Snapshot and adjustment invariants
+
+Food responses, catalog estimates and meal snapshots share the complete reachable
+component graph, loaded in batches by tree level. Reuse the graph and nutrient
+caches across meal items instead of issuing separate queries for each child.
+Visible catalog-version lookups are also batched during validation/materialization.
+
+`MealItemSerializer` reuses a nonempty persisted component snapshot only after
+recursive validation of required fields, identifiers, decimal values, portions,
+nutrients, sources and nested components. Missing or malformed legacy snapshots
+are rebuilt from the saved food-version graph, preserving pinned history rather
+than using the latest catalog definition. Source access dates are ISO strings.
+See [PR #153](https://github.com/VanillaIceCube/MacroMapper/pull/153) and
+`meals.tests.ComponentGraphTests` for structural and query-count coverage.
+
+Meal-entry and builder adjustment endpoints share `process_meal_adjustment`.
+Provider resolution, follow-up processing and response serialization stay inside
+its cleanup boundary: failures delete the created proposal, and successful
+temporary meal-entry proposals are deleted after serialization. Missing/null
+optional follow-up fields retain existing confidence and provider metadata when
+no replacement is supplied. Views inject the response serializer and provider
+getter to avoid a service/serializer import cycle and keep provider calls patchable.
+See [PR #181](https://github.com/VanillaIceCube/MacroMapper/pull/181) and
+`estimates.tests.MealAdjustmentLifecycleTests` for both endpoints' failure coverage.
+
 ## 🔔 Notification API
 All `/api/` endpoints require a JWT access token. Notification querysets are
 always scoped to the authenticated recipient.
@@ -342,6 +367,8 @@ and must not be used with `ResendApiEmailBackend`. See the
 production credential setup. Sender-domain verification remains an operator
 prerequisite; app releases do not change DNS.
 
+When diagnosing delivery issues with `ResendApiEmailBackend`, check the Django server logs under logger `authentication.email_backends`. Failed requests log structured `ERROR` messages containing HTTP status codes (e.g., HTTP 429 rate limit or 5xx provider error) or network/timeout exception categories without disclosing API keys, email body text, or password reset tokens.
+
 SMTP-compatible backends can instead use the documented `DJANGO_EMAIL_HOST`,
 `DJANGO_EMAIL_PORT`, `DJANGO_EMAIL_USE_TLS`, and
 `DJANGO_EMAIL_HOST_USER` settings.
@@ -356,4 +383,88 @@ ruff format backend --check
 
 ## 🔌 Shared MCP framework
 
-See [the MCP framework guide](../docs/MCP-FRAMEWORK.md) for opt-in settings, ASGI startup, OAuth migrations/client registration, consent, scope/ownership requirements and disabled-profile tests.
+Proposal reads use summary lists and bounded pages of current review items rather
+than repeating historical item snapshots. Follow `get_proposal` item offsets before
+editing/accepting; oversized single items require full review in the website.
+Sanitized error references support diagnosis without logging private meal payloads.
+
+See [the app MCP guide](../docs/MCP.md) for the `macromapper_mcp` registry, read/write/estimate scopes, confirmation, ASGI startup and additive migrations. The canonical [MCP framework](../docs/MCP-FRAMEWORK.md) remains unchanged. Install the domain app in both profiles so its confirmation migration is stable; install OAuth Toolkit only when enabled. Run ordinary backend tests and the separately enabled framework/domain suite. REST JWT authentication is unchanged.
+
+## Authentication and notification parity
+
+Registration validates passwords with Django's configured validators against the
+candidate user's final username/email before account creation. Validation failures
+return HTTP 400 with a human-readable `error`; non-string passwords also return
+400. Password reset already validates against the existing user. Notification
+bulk mark-read/clear operations are transactional and remain recipient-scoped.
+See [the adoption audit](../docs/AUTH-PARITY.md) for evidence and boundaries.
+
+## Development dependency reproducibility
+
+Development images pin reviewed multi-platform Node 26 and Miniforge 26.9.4-0
+registry digests. Production Dockerfiles and the independent release engine are
+unchanged by this development-image policy. Refresh tags/digests together after
+registry verification and a disposable build/configuration check.
+
+The frontend development entrypoint hashes both `package.json` and
+`package-lock.json` inside its persistent `node_modules` volume. Fresh volumes
+install with `npm ci`; unchanged restarts reuse dependencies; changing either
+manifest reinstalls. Missing manifests or a failed installation stop startup and
+retry on the next invocation. Use one volume per checkout and restart after edits.
+Run `node --test tests/dev-dependencies.test.cjs` from the repository root for the
+credential-free mocked lifecycle/exit-status regression. Compose configuration
+checks do not deploy or touch application data.
+
+## Disposable browser-test backend
+
+The frontend `npm run test:e2e` wrapper runs `scripts/e2e_backend.py` with
+`scripts/e2e_settings.py`: synthetic secret, fresh temporary SQLite, local file
+email, test-only fast hashing, disabled MCP and loopback-only binding. It refuses
+state directories without the wrapper marker and prevents dotenv loading.
+Install `backend/requirements.txt` in your activated Python environment first.
+This harness never reads the developer database or production settings and does
+not change the normal server/test-runner hashing policy. See frontend/README.md.
+
+
+## Transactional email failure handling
+
+`ResendApiEmailBackend` sends once per message. An HTTP 2xx means provider
+acceptance, not confirmed inbox delivery. `EMAIL_TIMEOUT` is a finite socket
+operation timeout: default 10 seconds, supported `0 < seconds <= 30`. Invalid, nonfinite,
+bool or larger runtime values produce a safe warning and use 10 seconds. The
+`DJANGO_EMAIL_TIMEOUT` environment setting is parsed as an integer at startup;
+malformed text fails configuration visibly rather than changing delivery policy.
+
+The backend preserves `fail_silently`: false re-raises the original exception;
+true logs the failure, continues the batch and returns only successful sends.
+Missing credentials log `configuration` and return 0 only in silent mode. The
+password-reset caller deliberately uses false, catches failures, emits a safe
+caller event and returns the same generic 200 response for known and unknown
+accounts. No recipient/user ID, exception text/traceback, reset URL/token, key or
+message content is included in these logs.
+
+Logger `authentication.email_backends` emits ERROR records with
+`delivery_provider=resend`, `delivery_category` and numeric `delivery_status`
+(or unknown). Categories: `configuration`, `request` (HTTP 4xx except 429),
+`rate_limit` (429), `provider` (HTTP 5xx), `timeout`, `network`, `unexpected`.
+The text formatter includes category/status even when structured fields are not
+configured. Provider bodies and error strings are untrusted and never read for
+logging. Template's established HTML/reply-to support and app sender identities
+are preserved; generic failure behavior is equivalent across all three apps.
+
+Operator recovery: check these safe categories and the existing Resend dashboard
+using the existing account. Missing key/401/403 calls for credential selection,
+permissions or sender-domain verification; fix deployment configuration through
+the documented release path without logging/rotating keys.400/422 means inspect
+payload rules using synthetic data. 429/5xx/network/timeouts indicate capacity or
+provider availability; check status/rate limits before asking for a fresh reset.
+Repeated configuration/auth failures or a sustained outage warrant operator
+attention through existing channels. This adds logs, not a monitoring service.
+
+There is no automatic retry, queue or resend: a timeout may occur after provider
+acceptance, so a blind retry could duplicate a reset email. Idempotency/backoff
+and durable delivery tracking would need their own bounded design. No production
+mail is sent by tests; mocks cover success, credentials, network/timeouts,
+400/401/403/422/429/500/503, both silent modes, partial batches, safe fallback and
+the real reset caller's generic response/redacted logs. Production public
+readiness cannot establish authenticated password-reset inbox delivery.

@@ -1210,7 +1210,7 @@ def _semantic_food_identity(item):
     )
 
 
-def create_proposal(*, owner, description, entry_date):
+def create_proposal(*, owner, description, entry_date, before_apply=None):
     description = description.strip()
     resolution = resolve_catalog_matches(description=description, user=owner)
     provider = None
@@ -1247,6 +1247,8 @@ def create_proposal(*, owner, description, entry_date):
             if match["food"].current_version.confidence_score is not None
         ]
         with transaction.atomic():
+            if before_apply is not None:
+                before_apply()
             proposal = MealProposal.objects.create(
                 owner=owner,
                 description=description,
@@ -1276,6 +1278,8 @@ def create_proposal(*, owner, description, entry_date):
     provider = provider or get_estimation_provider()
     estimate = provider.estimate(resolution["unmatched_description"] or description)
     with transaction.atomic():
+        if before_apply is not None:
+            before_apply()
         estimated_items = _shared_estimate_items(estimate)
         catalog_identities = {_semantic_food_identity(item) for item in catalog_items}
         estimated_items = [
@@ -1773,8 +1777,7 @@ def secure_builder_items(
     )
 
 
-@transaction.atomic
-def create_builder_proposal(
+def prepare_builder_proposal(
     *, owner, entry_date, name, notes, items, allowed_version_ids=()
 ):
     secured_items = secure_builder_items(
@@ -1783,7 +1786,7 @@ def create_builder_proposal(
         allowed_version_ids=allowed_version_ids,
     )
     default_name = " & ".join(item["name"] for item in secured_items[:3])
-    proposal = MealProposal.objects.create(
+    return dict(
         owner=owner,
         description="",
         entry_date=entry_date,
@@ -1793,7 +1796,23 @@ def create_builder_proposal(
         provider_name="MacroMapper catalog",
         items=secured_items,
     )
-    if secured_items:
+
+
+@transaction.atomic
+def create_builder_proposal(
+    *, owner, entry_date, name, notes, items, allowed_version_ids=()
+):
+    proposal = MealProposal.objects.create(
+        **prepare_builder_proposal(
+            owner=owner,
+            entry_date=entry_date,
+            name=name,
+            notes=notes,
+            items=items,
+            allowed_version_ids=allowed_version_ids,
+        )
+    )
+    if proposal.items:
         create_proposal_revision(
             proposal=proposal,
             kind=MealProposalRevision.Kind.GENERATED,

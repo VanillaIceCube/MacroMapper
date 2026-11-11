@@ -15,6 +15,58 @@ User = get_user_model()
 
 
 class RegistrationTests(APITestCase):
+    def test_register_rejects_weak_password(self):
+        response = self.client.post(
+            "/auth/register/",
+            {"email": "mapper@example.com", "password": "short"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", response.data)
+        self.assertIn("too short", response.data["error"].lower())
+        self.assertFalse(User.objects.filter(email="mapper@example.com").exists())
+
+    def test_register_rejects_common_numeric_and_user_similar_passwords(self):
+        for password in ("password", "123456789012", "mapper", "macro_mapper"):
+            with self.subTest(password=password):
+                response = self.client.post(
+                    "/auth/register/",
+                    {
+                        "email": "mapper@example.com",
+                        "username": "macro_mapper",
+                        "password": password,
+                    },
+                    format="json",
+                )
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertFalse(
+                    User.objects.filter(email="mapper@example.com").exists()
+                )
+
+    def test_register_checks_similarity_to_derived_username(self):
+        response = self.client.post(
+            "/auth/register/",
+            {"email": "longusername@example.com", "password": "longusername"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("too similar", response.data["error"].lower())
+        self.assertFalse(User.objects.filter(email="longusername@example.com").exists())
+
+    def test_register_rejects_non_string_password_without_creating_user(self):
+        for password in (123456789, ["long-password"], {"value": "long-password"}):
+            with self.subTest(password=password):
+                response = self.client.post(
+                    "/auth/register/",
+                    {"email": "invalid-password@example.com", "password": password},
+                    format="json",
+                )
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertFalse(
+                    User.objects.filter(email="invalid-password@example.com").exists()
+                )
+
     def test_register_creates_user_and_returns_session(self):
         response = self.client.post(
             "/auth/register/",
@@ -288,14 +340,79 @@ class ResendApiEmailBackendTests(APITestCase):
         EMAIL_HOST_PASSWORD="",
     )
     def test_send_messages_requires_api_key(self):
-        with self.assertRaises(ValueError):
-            get_connection().send_messages(
+        with self.assertLogs("authentication.email_backends", level="ERROR") as cm:
+            with self.assertRaises(ValueError):
+                get_connection().send_messages(
+                    [
+                        EmailMessage(
+                            "Subject",
+                            "Body",
+                            "macromapper@example.com",
+                            ["mapper@example.com"],
+                        )
+                    ]
+                )
+        self.assertIn("category=configuration", cm.output[0])
+
+    @override_settings(
+        EMAIL_BACKEND="authentication.email_backends.ResendApiEmailBackend",
+        EMAIL_HOST_PASSWORD="resend-api-key",
+    )
+    @patch("authentication.email_backends.request.urlopen")
+    def test_send_messages_logs_http_error(self, mock_urlopen):
+        from urllib.error import HTTPError
+
+        mock_urlopen.side_effect = HTTPError(
+            "https://api.resend.com/emails",
+            429,
+            "Too Many Requests",
+            {},
+            None,
+        )
+
+        connection = get_connection(fail_silently=True)
+        with self.assertLogs("authentication.email_backends", level="ERROR") as cm:
+            sent_count = connection.send_messages(
                 [
                     EmailMessage(
-                        "Subject",
+                        "Reset",
                         "Body",
                         "macromapper@example.com",
                         ["mapper@example.com"],
                     )
                 ]
             )
+
+        self.assertEqual(sent_count, 0)
+        self.assertIn("category=rate_limit status=429", cm.output[0])
+
+    @override_settings(
+        EMAIL_BACKEND="authentication.email_backends.ResendApiEmailBackend",
+        EMAIL_HOST_PASSWORD="resend-api-key",
+    )
+    @patch("authentication.email_backends.request.urlopen")
+    def test_send_messages_logs_network_error_and_re_raises_when_not_fail_silent(
+        self, mock_urlopen
+    ):
+        from urllib.error import URLError
+
+        mock_urlopen.side_effect = URLError("Connection timed out")
+
+        connection = get_connection(fail_silently=False)
+        with self.assertLogs("authentication.email_backends", level="ERROR") as cm:
+            with self.assertRaises(URLError):
+                connection.send_messages(
+                    [
+                        EmailMessage(
+                            "Reset",
+                            "Body",
+                            "macromapper@example.com",
+                            ["mapper@example.com"],
+                        )
+                    ]
+                )
+
+        self.assertIn(
+            "category=network status=unknown",
+            cm.output[0],
+        )

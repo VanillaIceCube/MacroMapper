@@ -1,16 +1,16 @@
 # App-only production release and recovery
 
-This is the implementation of approved architecture v2. Every PR merge and
-every production release still requires separate explicit owner authorization.
-Only the operator designated in coordination #4 may perform production actions
-under its separately approved plan. For the coordinated ingress migration, the
-owner designated Agent 3 as the sole production operator; source approval does
-not authorize any agent to operate the host. Shared decisions:
+This is the implementation of approved architecture v2. Main merges and
+production promotions require owner authorization within the current mission
+and the existing protected-branch/release gates. An explicitly authorized mission
+may cover both stages; source review alone does not authorize host operations.
+Use the owner-designated operator and its scoped plan. Agent 3 was designated for
+the historical ingress migration, not as a permanent operator identity. Shared decisions:
 [Infrastructure #4](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/issues/4).
 
 ## Shared implementation and app configuration
 
-Both apps use [release contract v1](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/blob/b56d8a9f88088122555e275549afa8b86fc10be5/docs/app-release-standard.md).
+Both apps use [release contract v1](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/blob/a82888c83975de486b27ec0d0dc787fb5b167301/docs/app-release-standard.md).
 `app.json` contains this app's service/container/domain/environment/network/DB
 and readiness policy; `compose.yml` defines its services. Common release and
 bundle code has no application-name branches. `deploy/shared-source.json` pins
@@ -18,6 +18,11 @@ the versioned source; CI verifies exact common code/test copies and the generate
 workflow, failing on drift or unavailable source. The parity matrix and update
 procedure live in the standard. Run `python deploy/check_parity.py` locally;
 use `--sync` only after reviewing a coordinated pin update in both applications.
+
+The release controller verifies the running frontend against its accepted port
+policy, then checks rendered Compose and Docker against the incoming policy.
+MacroMapper's frontend and backend continue to use the shared HTTPS gateway
+without host port publication.
 
 Public readiness requests use the honest `JudeAppRelease/1.0` User-Agent and
 request uncached responses. Cloudflare protections and all expected status,
@@ -63,6 +68,34 @@ dispatch selecting that branch. Pushing `main` or this feature branch does not
 deploy. CI builds full SHA tags, then selects the build's **immutable digests**
 for every pull/migration/startup; no `latest` selector is used.
 
+### 🌿 Main-first source and intentional release lag
+
+Land reviewed source on `main`, then promote only an authorized, deployable
+revision to `env-prod` through the normal review and CI gates. These are source
+requirements from the [shared main-first policy](https://github.com/VanillaIceCube/FullStackTemplate/blob/main/docs/SHARED-ROLLOUT-POLICY.md#main-first-releases):
+the promotion's entire source tree must match its exact reviewed main commit.
+These are source
+and operator rules; the workflow's branch check does not enforce main ancestry.
+If the owner explicitly authorizes an exceptional production-branch fix, review it and reconcile its
+history and changes back into `main` before the next promotion. Preserve merge
+history; do not reset or force-push either branch to manufacture parity.
+
+Production may deliberately remain on an earlier reviewed release. MacroMapper's
+current policy enables its own MCP/OAuth under #284; the retired shared issuer
+remains removed. The application owns user permissions, confirmation and client
+setup; Infrastructure owns ordinary Nginx routing only. See [the MCP contract](../../docs/MCP.md).
+Branch reconciliation does not authorize a deployment, require matching production
+trees or authorize unrelated newer main changes for production.
+
+The [#329 audit](https://github.com/VanillaIceCube/MacroMapper/issues/329) on
+2026-10-30 compared `main` at `fe8820bf2a390354fe3b2d5e046f6212ee7bd502`
+with `env-prod` at `fc5ff4245fd0e241839f1f58df317f1a16aacf5d`. The five commits
+unique to production were merges, and its full tree exactly matched main
+ancestor `52e9e845bddc58ab173a69584242c24c7af56840`. Reconcile that ancestry
+without reverting newer main source or deploying unrelated changes. The later
+central-MCP withdrawal preserves this history and does not require a MacroMapper
+production deployment: that enabled policy was never released.
+
 Required access variables: `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PATH`,
 `DEPLOY_HOST_FINGERPRINT` (independently verified SSH host key fingerprint);
 optional `DEPLOY_PORT` defaults to 22. Secret: `DEPLOY_SSH_KEY`.
@@ -78,8 +111,9 @@ Defaults remain Resend SMTP, port 587, TLS, user resend, timeout 10 seconds.
 Optional `OPENAI_MEAL_ESTIMATION_MODEL` and `OPENAI_MEAL_ESTIMATION_TIMEOUT`
 default to the existing model and a 110-second total AI budget. The timeout must
 be greater than zero and at most 110 seconds; it covers sequential provider calls,
-with SDK retries disabled. Gunicorn uses four request threads in one worker and
-an explicit 120-second worker-liveness timeout. At most two SDK calls run at once;
+with SDK retries disabled. Disabled local profiles use Gunicorn with four request threads in one worker and
+an explicit 120-second worker-liveness timeout. The enabled production profile
+uses one Uvicorn ASGI worker, preserving the same application AI budget. At most two SDK calls run at once;
 timed-out calls retain their slots until they finish, and excess AI requests
 return a safe JSON 503. See [backend behavior](../../backend/README.md).
 
@@ -157,7 +191,8 @@ Unknown or multiple current writers fail closed. Copies use DELETE journal
 mode; this does not enable WAL or relocate storage. Migration/startup use the
 selected digest, no pull at startup.
 Readiness includes direct Django /api/notifications/ returning 401, HTTPS HTML
-root and JSON 401 API response. Attempts are bounded by a 90-second
+root, JSON 401 API response, exact app-owned issuer/resource metadata JSON and
+an unauthenticated MCP 401 with the exact resource-metadata challenge. Attempts are bounded by a 90-second
 retry window plus at most one in-flight round of bounded requests; Docker exec
 times out at 10 seconds and HTTP requests at 5 seconds. Other Docker commands
 time out at 300 seconds.
@@ -263,4 +298,40 @@ accounted for. See the [migration and validation steps](../../.github/README-WOR
 
 ## 🔌 Shared MCP framework
 
-Follow the [MCP framework contract](../../docs/MCP-FRAMEWORK.md) before activating an optional app. Notoli keeps its current MCP profile; MacroMapper ships the framework with MCP disabled. Use this guide for immutable app releases and explicit recovery; framework adoption does not provision a new template instance.
+MacroMapper uses the unchanged [canonical framework](../../docs/MCP-FRAMEWORK.md)
+and its own [domain/OAuth contract](../../docs/MCP.md). Its fixed production
+settings enable MCP at the app origin and trust only gateway peer `172.20.0.3`.
+The release checks that exact gateway address while preserving all existing
+networks and Notoli's `.2` trust. The frontend Docker build enables connection
+routes without extending the shared release workflow. No new credential or
+shared authorization service is required. OAuth and app confirmation migrations
+run only after the normal private SQLite capture and integrity checks.
+
+### 🛟 First-enable recovery
+
+Before promotion, record the previous accepted disabled release directory and
+verify its private `manifest.json`, `app.json`, controller and cached images.
+`backend_required_env` stays empty for this transition because preflight inspects
+the OLD backend, which has no new MCP trust setting. The NEW bundle fixes that
+setting to `172.20.0.3`; verify it and the MCP flag in final runtime acceptance.
+Do not alter the shared controller or retained immutable bundles to pass checks.
+
+If the first enabled release fails, invoke the retained previous disabled
+controller with the failed candidate's recovery ID, for example:
+
+```bash
+python3 "$previous_disabled_release/release.py" rollback \
+  --root "$app_root" --recovery "$failed_release_id" --restore-database
+```
+
+Resolve these paths/IDs from verified private records, not this example. The old
+controller uses its own ordinary readiness, so restored disabled images can pass.
+The enabled candidate controller would demand unavailable MCP metadata. Keep
+`--keep-database` only for the documented pre-migration safe stages; after
+migration, explicit database restore can discard later writes and needs the
+appropriate recovery authorization. Capture the current writer/journals before
+restoring; never reverse OAuth migrations manually. Shared gateway routing can
+remain pointed at the disabled app (no connector is advertised by that backend).
+Client registrations, grants and plugin installation are separate from deployment.
+Ordinary Notoli, Notoli MCP and MacroMapper REST/frontend checks remain acceptance
+requirements.

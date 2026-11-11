@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { register } from '../../services/authApiClient';
 import { renderWithProviders } from '../../test-support/utils';
@@ -48,11 +48,38 @@ describe('Register', () => {
       routeEntries: ['/register'],
     });
 
-    await userEvent.type(screen.getByLabelText('Password'), 'one');
-    await userEvent.type(screen.getByLabelText('Confirm Password'), 'two');
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'one' } });
+    fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'two' } });
     await userEvent.click(screen.getByRole('button', { name: 'Register' }));
 
     expect(register).not.toHaveBeenCalled();
     expect(showSnackbar).toHaveBeenCalledWith('error', 'Passwords do not match.');
+  });
+  test('blocks duplicate submissions and recovers after a validation failure', async () => {
+    const showSnackbar = vi.fn();
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    let resolveRequest;
+    register.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveRequest = resolve;
+      }),
+    );
+    renderWithProviders(<Register showSnackbar={showSnackbar} />, { routeEntries: ['/register'] });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'mapper@example.com' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret' } });
+    fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'secret' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Register' }));
+    const pendingButton = screen.getByRole('button', { name: 'Registering...' });
+    expect(pendingButton).toBeDisabled();
+    fireEvent.click(pendingButton);
+    expect(register).toHaveBeenCalledTimes(1);
+    resolveRequest({
+      ok: false,
+      status: 400,
+      json: async () => ({ password: ['Validation failed.'] }),
+    });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Register' })).toBeEnabled());
+    expect(showSnackbar).toHaveBeenCalledWith('error', 'Validation failed.');
+    consoleError.mockRestore();
   });
 });
