@@ -1,5 +1,16 @@
 ## 2026-11-11
 
+### Fixed
+
+- Keep responsive Diary layout assertions compatible with jsdom 31 CSSOM whitespace and viewport-aware computed styles, preserving mobile and desktop layout checks.
+- Refresh transitive development-only Zod to 4.6.7 to resolve GHSA-mrhx-c7xc-m3w5.
+
+### Changed
+
+- Upgrade the frontend test environment to jsdom 31.
+
+## 2026-11-11
+
 ### Changed
 
 - Upgrade all CodeQL init/analyze entry points atomically to v4.39.3 and regenerate the checked workflow source inventory.

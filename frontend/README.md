@@ -299,3 +299,10 @@ has no browser application and retains its ingress/Docker protocol suites.
 ## Native diary picker anchoring
 
 The browser-native date input shares the existing visible date button's positioned bounds. Responsive navigation alignment, original compact button minimum widths and the Today slot are preserved. Browser tests check input/trigger bounds at 320/375/600/768/1024/1440px, exercise real `showPicker()` user activation and date selection/Today return, and retain the prior diary/food/meal-review cases. A separate before/after measurement against production `94a60ab3` recorded zero visible button/navigation geometry change at those widths; that comparison is release evidence, not an automatic cross-revision CI assertion. The button still uses its click fallback when the picker API is unavailable. See #255; OS-provided calendar chrome on physical phones is a separate verification limit. [`showPicker()` API behavior](https://developer.mozilla.org/en-US/docs/Web/API/HTMLInputElement/showPicker) requires a user action, so the method stays synchronous inside the button handler.
+
+### jsdom 31 layout tests
+
+Vitest uses jsdom 31. Its CSS engine evaluates media queries at the default
+1024px viewport and may serialize whitespace differently. Responsive Diary tests
+check the generated mobile and desktop declarations and the computed desktop
+layout; the isolated browser suite continues to check real mobile/desktop geometry.
