@@ -626,3 +626,9 @@ GitHub runner. After a reviewed repair, run one fresh controlled dispatch of eac
 alert workflow from corrected `main`, after checking managed labels/Project side
 effects. Record runner loading/empty-feed evidence separately from nonempty mock
 coverage; never rerun an old failed revision as proof of the new source.
+
+### CodeQL maintenance
+
+CodeQL init/analyze entry points use the same immutable v4.39.3 revision. After
+reviewed workflow dependency updates, run `python scripts/ci_architecture.py`
+and commit the regenerated source inventory; `--check` remains a blocking drift gate.

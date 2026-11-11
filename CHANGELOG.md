@@ -1,3 +1,9 @@
+## 2026-11-11
+
+### Changed
+
+- Upgrade all CodeQL init/analyze entry points atomically to v4.39.3 and regenerate the checked workflow source inventory.
+
 ## 2026-11-07
 
 ### Fixed
