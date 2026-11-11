@@ -199,7 +199,7 @@
         "contents": "read",
         "packages": "write"
       },
-      "source_sha256": "f1863df7637575453f70e47fd92261a281d0073b5d8d72591a4f169aabeff353",
+      "source_sha256": "efe91a2651a2fb0e73edb2c7902eaf2c3cc4094e96447b433f56a4e4f12445ee",
       "variable_names": [
         "DEPLOY_HOST",
         "DEPLOY_HOST_FINGERPRINT",
@@ -435,7 +435,7 @@
         "pull-requests": "read",
         "security-events": "write"
       },
-      "source_sha256": "7dc6ddefa76b00b02d337f079f5765c4c7c1541b928eeea657f75a8675a805d1",
+      "source_sha256": "295024a6b658f555e48e92a6a576fc4e62ac8da113574c25589a64c851782b63",
       "variable_names": []
     },
     "gate-lint.yml": {

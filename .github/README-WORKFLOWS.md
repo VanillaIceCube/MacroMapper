@@ -626,3 +626,19 @@ GitHub runner. After a reviewed repair, run one fresh controlled dispatch of eac
 alert workflow from corrected `main`, after checking managed labels/Project side
 effects. Record runner loading/empty-feed evidence separately from nonempty mock
 coverage; never rerun an old failed revision as proof of the new source.
+
+### CodeQL maintenance
+
+CodeQL init/analyze entry points use the same immutable v4.39.3 revision. After
+reviewed workflow dependency updates, run `python scripts/ci_architecture.py`
+and commit the regenerated source inventory; `--check` remains a blocking drift gate.
+
+Upstream [v4.39.3 release notes](https://github.com/github/codeql-action/releases/tag/v4.39.3)
+cover the corrected diff-informed alert filtering used by these scanners.
+
+### Shared Docker login maintenance
+
+Deployment uses docker/login-action v4.8.0 at its immutable revision from the
+Infrastructure release standard. Update the canonical workflow and manifest
+first, synchronize `deploy/shared-source.json` and its verified files, then
+regenerate the workflow source inventory. Rendered-only workflow upgrades fail parity.
