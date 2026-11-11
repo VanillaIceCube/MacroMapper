@@ -1,3 +1,9 @@
+## 2026-11-11
+
+### Changed
+
+- Synchronize the pinned Infrastructure release standard for docker/login-action v4.8.0, including the canonical action-upgrade parity regression, and refresh the workflow source inventory.
+
 ## 2026-11-07
 
 ### Fixed
