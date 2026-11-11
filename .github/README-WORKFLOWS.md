@@ -635,3 +635,10 @@ and commit the regenerated source inventory; `--check` remains a blocking drift 
 
 Upstream [v4.39.3 release notes](https://github.com/github/codeql-action/releases/tag/v4.39.3)
 cover the corrected diff-informed alert filtering used by these scanners.
+
+### Shared Docker login maintenance
+
+Deployment uses docker/login-action v4.8.0 at its immutable revision from the
+Infrastructure release standard. Update the canonical workflow and manifest
+first, synchronize `deploy/shared-source.json` and its verified files, then
+regenerate the workflow source inventory. Rendered-only workflow upgrades fail parity.

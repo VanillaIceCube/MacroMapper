@@ -14,12 +14,8 @@
 ### Changed
 
 - Upgrade the frontend test environment to jsdom 31.
-
-## 2026-11-11
-
-### Changed
-
 - Upgrade all CodeQL init/analyze entry points atomically to v4.39.3 and regenerate the checked workflow source inventory.
+- Synchronize the pinned Infrastructure release standard for docker/login-action v4.8.0, including the canonical action-upgrade parity regression, and refresh the workflow source inventory.
 
 ## 2026-11-07
 
