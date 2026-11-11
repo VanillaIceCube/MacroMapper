@@ -374,10 +374,10 @@ describe('DiaryPage', () => {
     const identity = within(table).getByText('1 × Apple').closest('[role="cell"]');
     expect(within(identity).getByText('one apple')).toBeInTheDocument();
     expect(responsiveStylesFor(identity)).toMatch(
-      /@media \(min-width:0px\).*grid-column:\s*1\s*\/\s*-1/i,
+      /@media \(min-width:\s*0px\).*grid-column:\s*1\s*\/\s*-1/i,
     );
     expect(responsiveStylesFor(identity.parentElement)).toMatch(
-      /@media \(min-width:600px\).*align-items:\s*center/i,
+      /@media \(min-width:\s*600px\).*align-items:\s*center/i,
     );
     expect(within(identity.parentElement).getAllByRole('cell')).toHaveLength(4);
   });
@@ -966,9 +966,9 @@ describe('DiaryPage', () => {
       within(dialog).getByTestId('catalog-advanced-filter-controls'),
     );
     expect(toolbarStyles).toMatch(/base .*flex-direction:\s*column/i);
-    expect(toolbarStyles).toMatch(/@media \(min-width:600px\).*flex-direction:\s*row/i);
+    expect(toolbarStyles).toMatch(/@media \(min-width:\s*600px\).*flex-direction:\s*row/i);
     expect(advancedStyles).toMatch(/base .*flex-direction:\s*column/i);
-    expect(advancedStyles).toMatch(/@media \(min-width:900px\).*flex-direction:\s*row/i);
+    expect(advancedStyles).toMatch(/@media \(min-width:\s*900px\).*flex-direction:\s*row/i);
   });
 
   test('leaves a new meal name blank for generation when saving', async () => {
@@ -1059,12 +1059,18 @@ describe('DiaryPage', () => {
     const actions = screen.getByTestId('meal-log-actions');
 
     expect(toolbar).toHaveStyle({ justifyContent: 'space-between' });
-    expect(actions).toHaveStyle({ flexDirection: 'column' });
+    // jsdom 31 evaluates responsive CSS at its default 1024px viewport.
+    expect(actions).toHaveStyle({ flexDirection: 'row' });
     const toolbarResponsiveStyles = responsiveStylesFor(toolbar);
     const actionResponsiveStyles = responsiveStylesFor(actions);
-    expect(toolbarResponsiveStyles).toMatch(/@media \(min-width:900px\).*flex-direction:\s*row/i);
-    expect(toolbarResponsiveStyles).toMatch(/@media \(min-width:900px\).*align-items:\s*flex-end/i);
-    expect(actionResponsiveStyles).toMatch(/@media \(min-width:600px\).*flex-direction:\s*row/i);
+    expect(actionResponsiveStyles).toMatch(/base .*flex-direction:\s*column/i);
+    expect(toolbarResponsiveStyles).toMatch(
+      /@media \(min-width:\s*900px\).*flex-direction:\s*row/i,
+    );
+    expect(toolbarResponsiveStyles).toMatch(
+      /@media \(min-width:\s*900px\).*align-items:\s*flex-end/i,
+    );
+    expect(actionResponsiveStyles).toMatch(/@media \(min-width:\s*600px\).*flex-direction:\s*row/i);
     expect(within(actions).getAllByRole('button')).toEqual([
       screen.getByRole('button', { name: 'Map your Meal with AI' }),
       screen.getByRole('button', { name: 'Chart your Course Manually' }),
