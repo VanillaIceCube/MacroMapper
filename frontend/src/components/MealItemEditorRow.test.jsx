@@ -79,3 +79,10 @@ test('renders unknown legacy classification safely', async () => {
   await details('Costco Pizza');
   expect(screen.getByText('AI Estimate')).toBeVisible();
 });
+
+test('does not present an unrecorded legacy official claim as verified', async () => {
+  renderRow(row({ evidence: { status: 'legacy_unverified', research_status: 'not_recorded' } }));
+  await details('Costco Pizza');
+  expect(screen.getByText('Legacy official; evidence unrecorded')).toBeVisible();
+  expect(screen.queryByText('Official / Verified')).not.toBeInTheDocument();
+});

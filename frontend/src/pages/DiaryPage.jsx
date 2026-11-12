@@ -90,13 +90,15 @@ const provenanceLabels = {
 };
 
 const evidenceLabel = (item) =>
-  ({
-    source_backed_ai_components: 'Official parent; AI components',
-    partially_source_backed: 'Partially source-backed estimate',
-    user_modified_estimate: 'User Adjusted',
-  })[item.evidence?.status] ||
-  provenanceLabels[item.provenance] ||
-  'Unknown';
+  item.evidence?.status === 'legacy_unverified' && item.provenance === 'official'
+    ? 'Legacy official; evidence unrecorded'
+    : {
+        source_backed_ai_components: 'Official parent; AI components',
+        partially_source_backed: 'Partially source-backed estimate',
+        user_modified_estimate: 'User Adjusted',
+      }[item.evidence?.status] ||
+      provenanceLabels[item.provenance] ||
+      'Unknown';
 
 const catalogPageSize = 20;
 const initialCatalogRequest = {

@@ -63,9 +63,11 @@ export default function MealItemEditorRow({
   const [nutritionEditing, setNutritionEditing] = useState(false);
   const [actionsAnchorEl, setActionsAnchorEl] = useState(null);
   const source =
-    evidenceLabels[item.evidence?.status] ||
-    sourceLabels[item.source_kind] ||
-    sourceLabels.ai_estimate;
+    item.evidence?.status === 'legacy_unverified' && item.source_kind === 'official_verified'
+      ? { label: 'Legacy official; evidence unrecorded', color: 'warning' }
+      : evidenceLabels[item.evidence?.status] ||
+        sourceLabels[item.source_kind] ||
+        sourceLabels.ai_estimate;
   const isComponent = depth > 0;
   const canEditItem = !isComponent || allowComponentEditing;
   const options = displayedPortionOptions(item);
@@ -77,9 +79,9 @@ export default function MealItemEditorRow({
     Boolean(item.evidence);
   const hasActions = hasDetails || canEditItem;
   const accentColor =
-    item.source_kind === 'ai_estimate' || item.source_kind === 'user_modified_estimate'
+    source.color === 'warning'
       ? 'var(--atlas-persimmon)'
-      : item.source_kind === 'official_verified'
+      : source.color === 'success'
         ? 'var(--atlas-forest)'
         : 'var(--atlas-mineral)';
 
