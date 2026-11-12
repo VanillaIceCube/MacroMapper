@@ -51,6 +51,7 @@ export const componentSnapshotToMealItem = (component) =>
     selected_portion_key: component.selected_portion_key,
     provenance: component.provenance || 'community_estimate',
     source_kind: sourceKindForProvenance(component.provenance || 'community_estimate'),
+    evidence: component.evidence,
     confidence_score: component.confidence_score,
     nutrients: nutrientArrayToValues(component.nutrients),
     sources: component.sources || [],
@@ -60,7 +61,7 @@ export const componentSnapshotToMealItem = (component) =>
 export const catalogFoodToMealItem = (food) => {
   const version = food.current_version || {};
   const provenance =
-    version.provenance || (food.scope === 'personal' ? 'user_entered' : 'official');
+    version.provenance || (food.scope === 'personal' ? 'user_entered' : 'community_estimate');
   return withPortionSelection({
     key: nextKey('meal-food', food.id),
     food_item: food.id,
@@ -83,11 +84,12 @@ export const catalogFoodToMealItem = (food) => {
     selected_portion_key: version.selected_portion_key,
     provenance,
     source_kind: sourceKindForProvenance(provenance),
+    evidence: version.evidence,
     confidence_score: version.confidence_score,
     nutrients: nutrientArrayToValues(version.nutrients),
     sources: (version.sources || []).map((source) => ({
       ...source,
-      is_official: provenance === 'official',
+      is_official: source.is_official === true,
     })),
     components: (version.components || []).map(componentSnapshotToMealItem),
   });
@@ -160,6 +162,7 @@ export const savedMealItemToEditableMealItem = (item) => {
     selected_portion_key: item.selected_portion_key,
     provenance: item.provenance,
     source_kind: sourceKindForProvenance(item.provenance),
+    evidence: item.evidence,
     confidence_score: item.confidence_score,
     nutrients: nutrientArrayToValues(item.nutrients, servings),
     sources: item.sources || [],

@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Max
 
+from .evidence import usable_nutrition
 from .identity import (
     canonical_food_identity,
     definition_fingerprint,
@@ -17,6 +18,7 @@ from .models import (
     FoodVersionEvidence,
     SourceReference,
 )
+from .nutrients import NUTRIENT_FIELDS
 
 
 def build_component_map(root_version_ids):
@@ -39,6 +41,20 @@ def build_component_map(root_version_ids):
             if component.child_version_id not in visited_version_ids:
                 pending_version_ids.add(component.child_version_id)
     return component_map
+
+
+def _version_has_nutrition(version, visited=None):
+    if version is None:
+        return False
+    visited = set(visited or ())
+    if version.pk in visited:
+        return False
+    if usable_nutrition({field: getattr(version, field) for field in NUTRIENT_FIELDS}):
+        return True
+    return any(
+        _version_has_nutrition(component.child_version, visited | {version.pk})
+        for component in version.components.select_related("child_version")
+    )
 
 
 @transaction.atomic
@@ -85,6 +101,22 @@ def create_food_version(*, food_item, definition, created_by):
     next_version = (
         locked_item.versions.aggregate(highest=Max("version_number"))["highest"] or 0
     ) + 1
+
+    if locked_item.scope == FoodItem.Scope.SHARED:
+        children_usable = [
+            _version_has_nutrition(
+                component.get("food_version") or component["food_item"].current_version
+            )
+            for component in definition.get("components", [])
+        ]
+        if not all(children_usable) or not (
+            usable_nutrition(definition.get("nutrients", {})) or any(children_usable)
+        ):
+            raise ValidationError(
+                {
+                    "nutrients": "Shared foods require usable nutrition; no food was published."
+                }
+            )
 
     candidate_fields = definition.copy()
     candidate_nutrients = candidate_fields.pop("nutrients", {})
@@ -213,6 +245,16 @@ def _select_shared_current(food):
     }
 
     def rank(version):
+        coverage = version.evidence.get("nutrients", {})
+        verified_count = sum(
+            field.get("status") == "official_verified" for field in coverage.values()
+        )
+        verification_rank = {
+            "official_verified": 3,
+            "source_backed_ai_components": 3,
+            "partially_source_backed": 2,
+            "ai_estimate": 1,
+        }.get(version.evidence.get("status"), 0)
         evidence = [
             evidence_metadata(
                 {
@@ -230,6 +272,8 @@ def _select_shared_current(food):
             for entry in evidence
         )
         return (
+            verification_rank,
+            verified_count,
             provenance,
             len(version.sources.all()),
             confidence,

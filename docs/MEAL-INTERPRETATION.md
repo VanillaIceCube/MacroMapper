@@ -3,8 +3,10 @@
 One draft tree is the calculation basis for AI estimates, manual review and saved
 meals. Each node has a unique stable key, immutable catalog identity/version
 references, a base serving definition and an instance `servings` multiplier.
-Composite nutrients are the sum of children multiplied by each child's local
-servings. Consumed nutrients multiply that result by the parent's servings once.
+Composite nutrients ordinarily sum children multiplied by each child's local
+servings. Direct fields with matching official source verification retain their
+verified parent values; inferred component totals do not replace those fields.
+Consumed nutrients multiply that result by the parent's servings once.
 
 ## Recipes and corrections
 
@@ -30,7 +32,9 @@ Follow-ups support targeted operations on exact existing keys:
 - `remove_keys`: remove an existing subtree. New foods still require the
   existing catalog/publication validation path.
 
-Moves do not recreate ingredients. Cycles, unknown keys, duplicate node keys,
+Moves do not recreate ingredients. Ingredient-tree changes invalidate parent
+verification before recalculation; consumed-fraction-only changes preserve
+per-serving evidence and official values. Cycles, unknown keys, duplicate node keys,
 leaf destinations, excessive depth/cardinality and conflicting fraction/child
 quantity edits fail atomically with actionable validation. Removing the final
 child clears the former composite's nutrition rather than retaining stale

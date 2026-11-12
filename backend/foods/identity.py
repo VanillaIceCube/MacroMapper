@@ -167,6 +167,29 @@ def definition_fingerprint(definition):
                 for key in NUTRIENT_FIELDS
             },
             "components": components,
+            # Trust and research coverage are immutable definition semantics. Model
+            # confidence and per-request retrieval IDs remain append-only metadata.
+            "evidence": {
+                key: value
+                for key, value in definition.get("evidence", {}).items()
+                if key != "confidence"
+            },
+            "source_evidence": sorted(
+                (
+                    {
+                        "url": source["url"],
+                        "is_official": source.get("is_official"),
+                        "evidence": {
+                            key: value
+                            for key, value in source.get("evidence", {}).items()
+                            if key != "retrieval_response_id"
+                        },
+                    }
+                    for source in definition.get("sources", [])
+                    if source.get("is_official") is not None or source.get("evidence")
+                ),
+                key=lambda source: source["url"],
+            ),
         }
     )
 
@@ -183,6 +206,7 @@ def version_definition(version):
                 "serving_volume_ml",
                 "natural_servings",
                 "provenance",
+                "evidence",
                 "confidence_score",
                 "estimation_provider",
                 "estimation_model",
@@ -194,7 +218,14 @@ def version_definition(version):
         "sources": [
             {
                 key: getattr(source, key)
-                for key in ("title", "provider", "url", "accessed_on")
+                for key in (
+                    "title",
+                    "provider",
+                    "url",
+                    "accessed_on",
+                    "is_official",
+                    "evidence",
+                )
             }
             for source in version.sources.all()
         ],
@@ -229,4 +260,17 @@ def evidence_metadata(definition):
     }
     if metadata["confidence_score"]:
         metadata["confidence_score"] = number(metadata["confidence_score"], 3)
+    if definition.get("evidence"):
+        metadata["nutrition_evidence"] = definition["evidence"]
+    if any(
+        source.get("evidence") or source.get("is_official") is not None
+        for source in definition.get("sources", [])
+    ):
+        metadata["sources"] = [
+            {
+                key: value.isoformat() if hasattr(value, "isoformat") else value
+                for key, value in source.items()
+            }
+            for source in definition.get("sources", [])
+        ]
     return metadata

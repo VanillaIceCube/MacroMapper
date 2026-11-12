@@ -20,25 +20,36 @@ different regional products. Unrecognized synonyms and cross-domain provider
 aliases need explicit review rather than fuzzy automatic merging.
 
 Within a canonical food, `content_fingerprint` covers the serving definition,
-food-specific natural servings, all supported nutrients and pinned component
-content/identity/quantities. Meal servings and consumed recipe fractions are
-instance quantities and do not create versions. Equivalent definitions reuse a
+food-specific natural servings, all supported nutrients, pinned component
+content/identity/quantities, and research/verification coverage. Source-level
+official flags and verification evidence are part of content integrity: a newly
+verified publication cannot be swallowed by an older unsourced version with the
+same nutrients. Meal servings and consumed recipe fractions are instance
+quantities and do not create versions. Evidence-equivalent definitions reuse a
 version, retain additional source URLs, and append distinct estimation metadata
-to `FoodVersionEvidence`. Existing version nutrients, provenance, confidence and
-response metadata remain unchanged. A materially changed definition creates a
-new version. Personal definitions remain owner-specific and are never merged by
-the consolidation command.
+to `FoodVersionEvidence`. Confidence-only differences and retrieval response IDs
+do not split equivalent versions; their complete incoming evidence/source
+metadata is retained in that append-only record. Existing version nutrients,
+provenance, confidence, source evidence and response metadata remain unchanged.
+A materially changed definition or verification coverage creates a new version.
+Personal definitions remain owner-specific and are never merged by the
+consolidation command.
 
-Current version selection is deterministic: evidence provenance ranks official,
-community estimate, AI estimate, user entered, then user modified. Within that
-rank, source count and confidence win, followed by the earliest version number
-and primary key. Recency alone cannot displace better evidence. This policy
-does not validate an AI assertion that a source is official; source-integrity
-policy remains the separate responsibility of Batch 3.
+Current version selection is deterministic: categorical verified parent coverage
+wins first (fully verified and source-backed with inferred components, then
+partially verified, AI estimate, then legacy/unknown), followed by the count of
+verified nutrient fields. Provenance then ranks official, community estimate, AI
+estimate, user entered, then user modified; source count, confidence, earliest
+version number and primary key break later ties. A legacy official label cannot
+displace a newly verified definition. Recency alone cannot displace better
+evidence. Exact source/product/region/serving verification follows the merged
+[nutrition-integrity contract](NUTRITION-INTEGRITY.md); this selection policy
+does not independently validate an AI assertion that a source is official.
 
 ## Schema migration
 
-Foods migration `0005_canonical_food_identity` only adds nullable/defaulted
+Foods migration `0006_canonical_food_identity`, after main's additive source
+evidence migration `0005`, only adds nullable/defaulted
 identity, redirect, natural-serving and fingerprint fields and an evidence
 table. It performs no data cleanup or historical nutrition rewrite. Existing
 version/meal/component/proposal references remain valid. Schema rollback removes
@@ -66,7 +77,8 @@ versions merge evidence; distinct definitions are copied onto the canonical
 food with derivation pointing to the retained original version. Duplicate food
 records are archived with `merged_into` pointing to the canonical food.
 
-Original versions, source rows, derivations, meal snapshots, component foreign
+Original versions, source rows and their official/retrieval evidence, derivations,
+meal snapshots, component foreign
 keys, proposal JSON and revision JSON are not moved or rewritten. Active list
 and catalog resolution expose the canonical record. An old alias detail lookup
 remains traceable through `merged_into`; pending proposals and saved meals can

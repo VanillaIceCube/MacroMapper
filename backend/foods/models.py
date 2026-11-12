@@ -196,6 +196,7 @@ class FoodItemVersion(models.Model):
         validators=[MinValueValidator(Decimal("0.001"))],
     )
     provenance = models.CharField(max_length=24, choices=Provenance)
+    evidence = models.JSONField(default=dict, blank=True)
     confidence_score = models.DecimalField(
         max_digits=4,
         decimal_places=3,
@@ -343,6 +344,8 @@ class FoodVersionEvidence(models.Model):
 
 
 class SourceReference(models.Model):
+    is_official = models.BooleanField(null=True, blank=True, default=None)
+    evidence = models.JSONField(default=dict, blank=True)
     food_version = models.ForeignKey(
         FoodItemVersion,
         on_delete=models.CASCADE,

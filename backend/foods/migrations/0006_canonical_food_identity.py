@@ -6,7 +6,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("foods", "0004_fooditem_shared_fingerprint_and_more"),
+        ("foods", "0005_fooditemversion_evidence_sourcereference_evidence_and_more"),
     ]
 
     operations = [

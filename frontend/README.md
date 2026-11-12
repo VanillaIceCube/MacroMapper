@@ -346,3 +346,16 @@ Use the domain package entry points and dependency-direction/cycle tests when
 moving calculations; presentation labels, colors and chart decoration stay in
 the UI. Authentication and notification changes retain safe parsing, pending
 controls, retry feedback and profile cleanup through the shared request helpers.
+
+## Nutrition evidence display
+
+Meal review retains official parent nutrition while showing inferred component
+values separately. Details expose mixed/partial evidence, clickable sources,
+per-nutrient coverage, model confidence and failed/unavailable research warnings.
+User changes clear verification for the changed definition; consumed count changes
+preserve per-serving evidence. Legacy records remain readable. See the
+[backend evidence contract](../docs/NUTRITION-INTEGRITY.md).
+Natural-size changes also preserve the food's per-serving evidence. Changing an
+ingredient's size changes its recipe contribution, so verification and confidence
+on enclosing composites are cleared and their totals are recalculated. Switching
+measurement units alone preserves both consumed nutrition and composite evidence.

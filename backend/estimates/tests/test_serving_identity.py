@@ -163,6 +163,7 @@ class ServingIdentityTests(TestCase):
         )
 
     def test_follow_up_large_apple_stays_separate_from_existing_small_apples(self):
+        self.apple.current_version.refresh_from_db()
         small_apples = _catalog_food(
             self.apple.current_version, servings="2", key="small-apples"
         )
@@ -236,6 +237,7 @@ class ServingIdentityTests(TestCase):
         historical_large = create_food_version(
             food_item=self.apple, definition=large_definition, created_by=None
         )
+        historical_large.refresh_from_db()
         historical_item = _catalog_food(
             historical_large, servings="2", key="historical-large"
         )

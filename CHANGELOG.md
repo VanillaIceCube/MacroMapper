@@ -10,6 +10,14 @@
 - Represent consumed recipe fractions on the composite parent while retaining full-recipe ingredients and full separately consumed add-ons; reject conflicting edits and honor explicit exclusions (#257).
 - Separate generic food names from size descriptions; selecting food-specific sizes preserves count and recalculates nutrition, and selected sizes survive diary save/reload (#258).
 - Reuse canonical shared foods and equivalent versions across repeated estimates, choose the current version deterministically, and preserve genuine private overrides (#70).
+- Reject nutrition-empty shared foods while retaining legitimate partial values and zeroes; add a read-only catalog audit with explicit-ID quarantine that preserves diary/version history (#92).
+- Require estimation research and retain matched official source, serving and nutrient evidence, with distinct missing-source and retrieval-failure outcomes (#77).
+- Preserve source-level classification, official parent values and AI component evidence across proposals, catalog reuse and diary snapshots; show mixed/partial evidence and clear verification after user edits (#69).
+
+## 2026-11-11
+
+### Fixed
+
 - Keep successful MCP nonpaid meal mutations committed exactly once when expanded output exceeds the existing node/byte limits; return an explicit bounded receipt instead of rolling back a valid write (#393).
 - Adapt diary and meal-item page sizes to the output budget, expose accurate summary/truncation markers, and direct oversized single-item review to the saved meal in MacroMapper (#393).
 - Validate draft catalog references and components during MCP preview, explain the separately confirmed personal-food creation step for manual foods, and return safe actionable confirmation errors (#394).

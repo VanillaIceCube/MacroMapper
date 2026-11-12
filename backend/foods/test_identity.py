@@ -124,6 +124,102 @@ class CanonicalFoodIdentityTests(TestCase):
         self.assertNotEqual(official.pk, ai.pk)
         self.assertEqual(food.current_version_id, official.pk)
 
+    def test_new_verified_evidence_creates_a_version_in_the_same_canonical_food(self):
+        original_definition = definition(
+            provenance="official", confidence="1", sources=[source()]
+        )
+        food, original = publish_shared_food(
+            item=self.item, definition=original_definition
+        )
+        verified_definition = deepcopy(original_definition)
+        verified_definition["confidence_score"] = Decimal("0.5")
+        verified_definition["evidence"] = {
+            "status": "official_verified",
+            "research_status": "found",
+            "region": "US",
+            "nutrients": {
+                "calories": {
+                    "status": "official_verified",
+                    "source_urls": [source()["url"]],
+                }
+            },
+            "confidence": {"model": 0.5, "combined": 0.5, "evidence": None},
+        }
+        verified_definition["sources"][0].update(
+            is_official=True,
+            evidence={
+                "retrieved": True,
+                "retrieval_response_id": "retrieval-first",
+                "product_name": "Hash Browns",
+                "brand": "McDonald's",
+                "region": "US",
+                "serving_quantity": "1",
+                "serving_unit": "item",
+                "serving_label": "1 hash brown",
+                "serving_weight_grams": "53",
+                "nutrients": {"calories": "140"},
+            },
+        )
+
+        same_food, verified = publish_shared_food(
+            item=self.item, definition=verified_definition
+        )
+
+        self.assertEqual(food.pk, same_food.pk)
+        self.assertNotEqual(original.pk, verified.pk)
+        food.refresh_from_db()
+        self.assertEqual(food.current_version_id, verified.pk)
+        original.refresh_from_db()
+        self.assertEqual(original.evidence, {})
+        self.assertIsNone(original.sources.get().is_official)
+        repeated_definition = deepcopy(verified_definition)
+        repeated_definition["evidence"]["confidence"]["model"] = 0.8
+        repeated_definition["sources"][0]["evidence"]["retrieval_response_id"] = (
+            "retrieval-second"
+        )
+        repeated = create_food_version(
+            food_item=food, definition=repeated_definition, created_by=None
+        )
+        self.assertEqual(repeated.pk, verified.pk)
+        retrieval_ids = {
+            entry.metadata["sources"][0]["evidence"]["retrieval_response_id"]
+            for entry in repeated.estimate_evidence.all()
+        }
+        self.assertEqual(retrieval_ids, {"retrieval-first", "retrieval-second"})
+
+    def test_consolidation_preserves_source_verification_and_retrieval_evidence(self):
+        canonical = self.legacy()
+        duplicate = self.legacy(calories="145")
+        original = duplicate.current_version
+        original.evidence = {
+            "status": "partially_source_backed",
+            "research_status": "found",
+            "nutrients": {
+                "calories": {
+                    "status": "official_verified",
+                    "source_urls": [source()["url"]],
+                }
+            },
+        }
+        original.save(update_fields=["evidence"])
+        reference = original.sources.get()
+        reference.is_official = True
+        reference.evidence = {
+            "retrieved": True,
+            "retrieval_response_id": "historical-retrieval",
+            "nutrients": {"calories": "145"},
+        }
+        reference.save(update_fields=["is_official", "evidence"])
+
+        consolidate_shared_foods([canonical.pk, duplicate.pk], apply=True)
+
+        copied = canonical.versions.get(derived_from=original)
+        self.assertEqual(copied.evidence, original.evidence)
+        self.assertIs(copied.sources.get().is_official, True)
+        self.assertEqual(copied.sources.get().evidence, reference.evidence)
+        original.refresh_from_db()
+        self.assertEqual(original.food_item_id, duplicate.pk)
+
     def test_version_reuse_preserves_confidence_and_source_validation_gates(self):
         food, original = self.publish()
         for invalid in (

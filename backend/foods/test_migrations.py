@@ -77,11 +77,11 @@ class NutrientColumnMigrationTests(TransactionTestCase):
 
 class CanonicalIdentitySchemaMigrationTests(TransactionTestCase):
     migrate_from = [
-        ("foods", "0004_fooditem_shared_fingerprint_and_more"),
+        ("foods", "0005_fooditemversion_evidence_sourcereference_evidence_and_more"),
         ("meals", "0004_rename_mealitemsnapshot_mealitem"),
     ]
     migrate_to = [
-        ("foods", "0005_canonical_food_identity"),
+        ("foods", "0006_canonical_food_identity"),
         ("meals", "0004_rename_mealitemsnapshot_mealitem"),
     ]
 
@@ -111,6 +111,10 @@ class CanonicalIdentitySchemaMigrationTests(TransactionTestCase):
                     provenance="ai_estimate",
                     confidence_score="0.9",
                     calories=calories,
+                    evidence={
+                        "status": "partially_source_backed",
+                        "research_status": "found",
+                    },
                 )
                 food.current_version_id = version.pk
                 food.save(update_fields=["current_version"])
@@ -119,6 +123,11 @@ class CanonicalIdentitySchemaMigrationTests(TransactionTestCase):
                     title="Product information",
                     provider="McDonald's",
                     url="https://www.mcdonalds.com/us/en-us/product/hash-browns.html",
+                    is_official=True,
+                    evidence={
+                        "retrieved": True,
+                        "retrieval_response_id": "historical-response",
+                    },
                 )
                 food_ids.append(food.pk)
                 version_ids.append(version.pk)
@@ -189,6 +198,21 @@ class CanonicalIdentitySchemaMigrationTests(TransactionTestCase):
                     for version in NewVersion.objects.filter(pk__in=version_ids)
                 )
             )
+            self.assertTrue(
+                all(
+                    version.evidence
+                    == {"status": "partially_source_backed", "research_status": "found"}
+                    for version in NewVersion.objects.filter(pk__in=version_ids)
+                )
+            )
+            for reference in new_apps.get_model(
+                "foods", "SourceReference"
+            ).objects.filter(food_version_id__in=version_ids):
+                self.assertIs(reference.is_official, True)
+                self.assertEqual(
+                    reference.evidence,
+                    {"retrieved": True, "retrieval_response_id": "historical-response"},
+                )
             preserved_snapshot = new_apps.get_model("meals", "MealItem").objects.get(
                 pk=snapshot.pk
             )
