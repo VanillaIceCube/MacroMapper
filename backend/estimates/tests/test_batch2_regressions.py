@@ -12,6 +12,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from foods.models import FoodItem
+from foods.services import create_food_version
 
 from ..models import MealProposal
 from ..provider import EstimatedFood, EstimatedMeal, OpenAIMealEstimationProvider
@@ -539,3 +540,50 @@ class InitialRecipeInterpretationRegressionTests(TestCase):
         self.assertEqual(len(proposal.items[0]["portion_options"]), 20)
         reviewed = ProposalItemsField().run_validation(proposal.items)
         self.assertEqual(len(reviewed[0]["portion_options"]), 20)
+
+    def test_same_food_in_different_sizes_keeps_distinct_valid_meal_instances(self):
+        apple = shared_food(name="Red apple")
+        create_food_version(
+            food_item=apple,
+            created_by=None,
+            definition={
+                "serving_quantity": Decimal("1"),
+                "serving_unit": "item",
+                "serving_label": "1 small apple",
+                "serving_weight_grams": Decimal("150"),
+                "natural_servings": [
+                    {"key": "small", "label": "Small", "weight_grams": "150"},
+                    {"key": "large", "label": "Large", "weight_grams": "225"},
+                ],
+                "provenance": "ai_estimate",
+                "confidence_score": Decimal("0.9"),
+                "nutrients": {"calories": Decimal("100")},
+                "sources": [],
+                "components": [],
+            },
+        )
+        with patch("estimates.services.get_estimation_provider") as configured:
+            proposal = create_proposal(
+                owner=self.owner,
+                description="one small red apple + one large red apple",
+                entry_date=date(2026, 11, 11),
+            )
+        configured.assert_not_called()
+        self.assertEqual(len(proposal.items), 2)
+        self.assertEqual(len({item["key"] for item in proposal.items}), 2)
+        self.assertEqual(
+            [item["food_item_id"] for item in proposal.items], [apple.pk, apple.pk]
+        )
+        self.assertEqual(
+            [item["selected_portion_key"] for item in proposal.items],
+            ["size:small", "size:large"],
+        )
+        self.assertEqual(
+            [Decimal(item["servings"]) for item in proposal.items],
+            [Decimal("1"), Decimal("1.5")],
+        )
+        ProposalItemsField().run_validation(proposal.items)
+        meal = accept_proposal(proposal=proposal)
+        self.assertEqual(
+            sum(item.calories for item in meal.items.all()), Decimal("250")
+        )

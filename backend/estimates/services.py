@@ -637,6 +637,7 @@ def _resolve_catalog_intent(*, intent, user, foods):
     )
     selected = candidates[0]
     selected["servings"] = _decimal(intent.get("quantity"), default="1")
+    selected["raw_text"] = intent.get("raw_text", "")
     return selected
 
 
@@ -684,19 +685,33 @@ def _brief_generated_meal_name(value):
 def resolve_catalog_intents(*, intents, user):
     foods = _visible_catalog_foods(user)
     matches = []
-    matches_by_food_id = {}
+    matches_by_portion = {}
     unmatched_descriptions = []
     for intent in intents:
         match = _resolve_catalog_intent(intent=intent, user=user, foods=foods)
         if match is None:
             unmatched_descriptions.append(intent["raw_text"])
             continue
-        food_id = match["food"].pk
-        if food_id in matches_by_food_id:
-            matches_by_food_id[food_id]["servings"] += match["servings"]
+        food = match["food"]
+        size = (
+            re.search(
+                r"\b(smallish|small|medium|large|tiny|jumbo)\b", match["raw_text"], re.I
+            )
+            if food.origin_type == FoodItem.OriginType.GENERIC
+            and not food.provider_name
+            else None
+        )
+        size_key = (
+            ("small" if size[1].casefold() == "smallish" else size[1].casefold())
+            if size
+            else ""
+        )
+        portion_identity = (food.pk, size_key)
+        if portion_identity in matches_by_portion:
+            matches_by_portion[portion_identity]["servings"] += match["servings"]
             continue
         matches.append(match)
-        matches_by_food_id[food_id] = match
+        matches_by_portion[portion_identity] = match
     return {
         "matches": matches,
         "unmatched_description": " + ".join(unmatched_descriptions),
@@ -850,6 +865,8 @@ def resolve_catalog_matches(*, description, user):
             user=user,
             foods=foods,
         )
+        for match in resolution["matches"]:
+            match["raw_text"] = clause
         matches.extend(resolution["matches"])
         unmatched_description = resolution["unmatched_description"]
         if unmatched_description:
@@ -1282,15 +1299,22 @@ def create_proposal(*, owner, description, entry_date, before_apply=None):
         [match["food"].current_version_id for match in matches]
     )
     nutrient_cache = {}
-    catalog_items = [
-        _catalog_food(
-            match["food"].current_version,
-            servings=match["servings"],
-            component_map=component_map,
-            nutrient_cache=nutrient_cache,
+    catalog_items = []
+    used_catalog_keys = set()
+    for match in matches:
+        key = f"catalog-{match['food'].pk}"
+        if key in used_catalog_keys:
+            key = f"{key}-instance-{len(catalog_items)}"
+        used_catalog_keys.add(key)
+        catalog_items.append(
+            _catalog_food(
+                match["food"].current_version,
+                servings=match["servings"],
+                key=key,
+                component_map=component_map,
+                nutrient_cache=nutrient_cache,
+            )
         )
-        for match in matches
-    ]
     for match, item in zip(matches, catalog_items, strict=True):
         _select_described_size(item, match.get("raw_text") or description)
     if matches and not resolution["unmatched_description"]:
