@@ -13,6 +13,7 @@ from estimates.models import MealProposal, MealProposalRevision
 from estimates.services import (
     _catalog_food,
     _materialize_item,
+    _shared_estimate_items,
     _visible_catalog_versions_map,
     resolve_catalog_matches,
 )
@@ -20,7 +21,7 @@ from meals.models import MealEntry, MealItem
 from meals.services import replace_meal_items
 
 from .identity import canonical_food_identity
-from .models import FoodComponent, FoodItem
+from .models import FoodComponent, FoodItem, FoodItemVersion
 from .services import (
     consolidate_shared_foods,
     create_food_item,
@@ -114,6 +115,87 @@ class CanonicalFoodIdentityTests(TestCase):
         self.assertEqual(repeated.estimate_evidence.count(), 2)
         original.refresh_from_db()
         self.assertEqual(original.confidence_score, Decimal("0.8"))
+
+    def test_publication_merges_ordinary_citations_without_splitting_versions(self):
+        from estimates.tests.helpers import simple_ai_estimate
+
+        estimate = simple_ai_estimate(name="Synthetic fruit")
+        item = estimate["items"][0]
+        item["region"] = "US"
+        item["sources"] = [
+            {
+                "title": "Ordinary citation",
+                "provider": "Example",
+                "url": "https://example.com/nutrition-one",
+                "is_official": False,
+                "evidence": {},
+            }
+        ]
+        original_item = _shared_estimate_items(estimate)[0]
+        item["sources"].append(
+            {
+                "title": "Another citation",
+                "provider": "Example",
+                "url": "https://example.com/nutrition-two",
+                "is_official": False,
+                "evidence": {},
+            }
+        )
+
+        repeated_item = _shared_estimate_items(estimate)[0]
+
+        self.assertEqual(repeated_item["food_item_id"], original_item["food_item_id"])
+        self.assertEqual(
+            repeated_item["food_version_id"], original_item["food_version_id"]
+        )
+        version = FoodItemVersion.objects.get(pk=original_item["food_version_id"])
+        self.assertEqual(version.food_item.versions.count(), 1)
+        self.assertEqual(version.sources.count(), 2)
+        self.assertEqual(version.estimate_evidence.count(), 2)
+        recorded_sources = [
+            entry.metadata["sources"] for entry in version.estimate_evidence.all()
+        ]
+        self.assertEqual(sorted(len(sources) for sources in recorded_sources), [1, 2])
+        self.assertTrue(
+            all(
+                reference.is_official is False and reference.evidence == {}
+                for reference in version.sources.all()
+            )
+        )
+
+        # A first-party flag is retained as new immutable source content, but a
+        # bare flag still cannot establish verified nutrient coverage.
+        item["sources"][0]["is_official"] = True
+        first_party_item = _shared_estimate_items(estimate)[0]
+        self.assertEqual(
+            first_party_item["food_item_id"], original_item["food_item_id"]
+        )
+        self.assertNotEqual(
+            first_party_item["food_version_id"], original_item["food_version_id"]
+        )
+        self.assertEqual(first_party_item["evidence"]["status"], "ai_estimate")
+        self.assertIs(
+            version.sources.get(url=item["sources"][0]["url"]).is_official, False
+        )
+
+        item["sources"][0]["evidence"] = {
+            "retrieved": True,
+            "retrieval_response_id": "retrieved-fruit",
+            "product_name": item["name"],
+            "brand": "",
+            "region": "US",
+            "serving_quantity": item["serving_quantity"],
+            "serving_unit": item["serving_unit"],
+            "serving_label": item["serving_label"],
+            "serving_weight_grams": item["serving_weight_grams"],
+            "nutrients": {"calories": item["nutrients"]["calories"]},
+        }
+        verified_item = _shared_estimate_items(estimate)[0]
+        self.assertEqual(verified_item["food_item_id"], original_item["food_item_id"])
+        self.assertNotEqual(
+            verified_item["food_version_id"], first_party_item["food_version_id"]
+        )
+        self.assertEqual(verified_item["evidence"]["status"], "official_verified")
 
     def test_official_evidence_wins_over_more_recent_high_confidence_ai(self):
         food, official = self.publish(

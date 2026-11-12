@@ -29,8 +29,12 @@ quantities and do not create versions. Evidence-equivalent definitions reuse a
 version, retain additional source URLs, and append distinct estimation metadata
 to `FoodVersionEvidence`. Confidence-only differences and retrieval response IDs
 do not split equivalent versions; their complete incoming evidence/source
-metadata is retained in that append-only record. Existing version nutrients,
-provenance, confidence, source evidence and response metadata remain unchanged.
+metadata is retained in that append-only record.
+Ordinary citations with `is_official=false` and empty evidence also merge into
+the same version rather than changing its content identity; adding a first-party
+claim or trust/research evidence remains an immutable version distinction.
+Existing version nutrients, provenance, confidence, source evidence and response
+metadata remain unchanged.
 A materially changed definition or verification coverage creates a new version.
 Personal definitions remain owner-specific and are never merged by the
 consolidation command.

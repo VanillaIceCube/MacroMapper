@@ -186,7 +186,7 @@ def definition_fingerprint(definition):
                         },
                     }
                     for source in definition.get("sources", [])
-                    if source.get("is_official") is not None or source.get("evidence")
+                    if source.get("is_official") is True or source.get("evidence")
                 ),
                 key=lambda source: source["url"],
             ),
