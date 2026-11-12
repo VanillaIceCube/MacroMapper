@@ -17,6 +17,25 @@ the description when the backend returns a safe timeout error. Both the local
 frontend image's API proxy and the production Infrastructure gateway allow
 120 seconds, with a 110-second total AI budget in Django.
 
+## Domain entry points
+
+Components and pages import meal-item operations from `src/domain/mealItem` and
+nutrition operations/definitions from `src/domain/nutrition`, using named imports
+relative to the consumer. Each package's `index.js` exposes its public API;
+consumers should not reach into `adapters`, `portions`, `tree`, `calculations`,
+or `definitions` directly. Keep export names unique within a package.
+
+Within domain implementations, direct relative imports remain appropriate and
+avoid routing a module's own dependencies through its entry point. Domain code
+may depend on other domain modules and pure utilities, but remains independent
+of React, Material UI, components, pages and presentation metadata. Keep labels
+and theme details in the existing presentation layer.
+
+Run `npm test -- src/__tests__/domainArchitecture.test.js` from `frontend` for
+public-boundary, export-collision, dependency-cycle and UI-independence checks.
+Add behavior tests beside domain implementations and run the full frontend suite
+and production build when changing entry points or their consumers.
+
 ## 🧭 Visual system
 
 The coordinated rollback was cancelled before production changed. The owner then clarified #382: undo #377’s date-control visual changes. The prior responsive alignment, button sizing and native-input placement remain; the independent nonempty-date safety guard prevents clearing the input from breaking navigation. Earlier Food & Servings heading/full-cell alignment is retained. This does not resolve #255’s original native-picker anchoring concern; #255/#200 remain open for renewed acceptance. [Historical batch evidence and clarified scope](docs/visual-bugs-255-200.md) are retained without reapplying the rejected visuals.
@@ -306,3 +325,12 @@ Vitest uses jsdom 31. Its CSS engine evaluates media queries at the default
 1024px viewport and may serialize whitespace differently. Responsive Diary tests
 check the generated mobile and desktop declarations and the computed desktop
 layout; the isolated browser suite continues to check real mobile/desktop geometry.
+
+## Calculation and input regression guidance
+
+Keep editable decimal text separate from committed numeric quantities. Preserve
+finite-value/portion validation, safe fallbacks and deterministic chart ordering.
+Use the domain package entry points and dependency-direction/cycle tests when
+moving calculations; presentation labels, colors and chart decoration stay in
+the UI. Authentication and notification changes retain safe parsing, pending
+controls, retry feedback and profile cleanup through the shared request helpers.

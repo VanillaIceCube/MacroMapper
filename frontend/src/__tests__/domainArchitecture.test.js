@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parse } from '@babel/parser';
+import * as mealItem from '../domain/mealItem';
+import * as nutrition from '../domain/nutrition';
 
 const sourceRoot = path.resolve(process.cwd(), 'src');
 const domainRoot = path.join(sourceRoot, 'domain');
@@ -9,12 +11,15 @@ function modulesIn(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const filename = path.join(directory, entry.name);
     if (entry.isDirectory()) return modulesIn(filename);
-    return filename.endsWith('.js') && !filename.endsWith('.test.js') ? [filename] : [];
+    return /\.jsx?$/.test(filename) && !/\.test\.jsx?$/.test(filename) ? [filename] : [];
   });
 }
 
 function importsIn(filename) {
-  const ast = parse(fs.readFileSync(filename, 'utf8'), { sourceType: 'module' });
+  const ast = parse(fs.readFileSync(filename, 'utf8'), {
+    sourceType: 'module',
+    plugins: ['jsx'],
+  });
   return ast.program.body.flatMap((node) => (node.source ? [node.source.value] : []));
 }
 
@@ -28,6 +33,41 @@ function resolveImport(filename, specifier) {
 }
 
 describe('frontend domain boundaries', () => {
+  test('components and pages use public domain entry points', () => {
+    for (const directory of ['components', 'pages']) {
+      for (const filename of modulesIn(path.join(sourceRoot, directory))) {
+        for (const specifier of importsIn(filename)) {
+          expect(specifier).not.toMatch(/domain\/(?:mealItem|nutrition)\/(?!index(?:\.js)?$)/);
+        }
+      }
+    }
+  });
+
+  test.each([
+    ['mealItem', mealItem],
+    ['nutrition', nutrition],
+  ])('%s entry point exposes all exports without name collisions', (name, namespace) => {
+    const directory = path.join(domainRoot, name);
+    const names = [];
+    for (const filename of modulesIn(directory).filter(
+      (file) => path.basename(file) !== 'index.js',
+    )) {
+      const ast = parse(fs.readFileSync(filename, 'utf8'), { sourceType: 'module' });
+      for (const node of ast.program.body) {
+        if (node.type !== 'ExportNamedDeclaration') continue;
+        if (node.declaration?.type === 'VariableDeclaration') {
+          names.push(...node.declaration.declarations.map((declaration) => declaration.id.name));
+        } else if (node.declaration) {
+          names.push(node.declaration.id.name);
+        } else {
+          names.push(...node.specifiers.map((specifier) => specifier.exported.name));
+        }
+      }
+    }
+    expect(new Set(names).size).toBe(names.length);
+    expect(Object.keys(namespace).sort()).toEqual(names.sort());
+  });
+
   test('domain dependencies remain independent of UI modules and presentation metadata', () => {
     const inspected = new Set();
     function inspect(filename) {

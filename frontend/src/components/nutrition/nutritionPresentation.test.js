@@ -4,7 +4,7 @@ import {
   macroDonutBackground,
   NUTRIENT_FIELDS,
 } from './nutritionPresentation';
-import { summarizeCalorieContributions } from '../../domain/nutrition/calculations';
+import { summarizeCalorieContributions } from '../../domain/nutrition';
 
 describe('nutrition presentation', () => {
   test('retains nutrient labels and semantic colors on calculated macro segments', () => {
