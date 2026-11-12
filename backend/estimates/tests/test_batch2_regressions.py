@@ -29,8 +29,12 @@ from .helpers import shared_food
 class RecipeEditRegressionTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.owner = get_user_model().objects.create_user(username="recipe-owner")
-        cls.other = get_user_model().objects.create_user(username="other-owner")
+        cls.owner = get_user_model().objects.create_user(
+            username="recipe-owner", email="recipe-owner@example.com"
+        )
+        cls.other = get_user_model().objects.create_user(
+            username="other-owner", email="other-owner@example.com"
+        )
         cls.tilapia = shared_food(name="Tilapia")
         cls.flour = shared_food(name="Flour")
         cls.breading = shared_food(name="Breading")
