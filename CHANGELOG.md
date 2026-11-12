@@ -2,6 +2,17 @@
 
 ### Fixed
 
+- Update MCP test fixtures to import from the estimates helper module after decomposition, and correct root-level Django test commands to discover the full backend suite.
+
+### Changed
+
+- Organize all 59 estimates tests into focused proposal, adjustment, admin and provider modules with shared fixtures, preserving their assertions, decorators and subtests. Document Django discovery and the test-preservation inventory.
+- Expose meal-item and nutrition domain entry points for frontend consumers; enforce public UI imports, unique exports, UI independence and acyclic dependencies in architecture tests.
+
+## 2026-11-11
+
+### Fixed
+
 - Handle non-JSON Connections API responses with safe HTTP status errors, preserve structured OAuth errors, and reject invalid success payloads without exposing response bodies. Reuse the existing safe parser and cover consent, listing, revocation and session recovery regressions ([shared rollout](https://github.com/VanillaIceCube/FullStackTemplate/issues/311)).
 
 ## 2026-11-11
