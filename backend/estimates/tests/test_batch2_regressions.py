@@ -15,6 +15,7 @@ from foods.models import FoodItem
 
 from ..models import MealProposal
 from ..provider import EstimatedFood, EstimatedMeal, OpenAIMealEstimationProvider
+from ..serializers import ProposalItemsField
 from ..services import (
     _catalog_food,
     accept_proposal,
@@ -160,6 +161,20 @@ class RecipeEditRegressionTests(TestCase):
         before = deepcopy(self.proposal.items)
         with self.assertRaises(ValidationError):
             self.apply({"reparentings": [{"key": "fish", "parent_key": "eggs"}]})
+        self.proposal.refresh_from_db()
+        self.assertEqual(self.proposal.items, before)
+
+    def test_move_to_parent_already_containing_same_food_version_rejects_duplicate(
+        self,
+    ):
+        self.proposal.items[0]["components"].append(
+            _catalog_food(self.eggs.current_version, key="already-inside", servings="1")
+        )
+        self.proposal.items = normalize_items(self.proposal.items)
+        self.proposal.save(update_fields=["items"])
+        before = deepcopy(self.proposal.items)
+        with self.assertRaises(ValidationError):
+            self.apply({"reparentings": [{"key": "eggs", "parent_key": "fish"}]})
         self.proposal.refresh_from_db()
         self.assertEqual(self.proposal.items, before)
 
@@ -495,3 +510,32 @@ class InitialRecipeInterpretationRegressionTests(TestCase):
         self.assertEqual(
             Decimal(proposal.items[0]["components"][1]["servings"]), Decimal("2")
         )
+
+    def test_maximum_natural_sizes_and_measurements_survive_review_validation(self):
+        values = self.food("Fruit smoothie").model_dump()
+        values.update(
+            serving_volume_ml=240,
+            natural_servings=[
+                {
+                    "key": f"size_{index}",
+                    "label": f"Portion {index}",
+                    "weight_grams": 50 + index * 10,
+                }
+                for index in range(12)
+            ],
+        )
+        estimate = self.provider([EstimatedFood(**values)]).estimate("Fruit smoothie")
+        configured = Mock()
+        configured.extract_intents.return_value = None
+        configured.estimate.return_value = estimate
+        with patch(
+            "estimates.services.get_estimation_provider", return_value=configured
+        ):
+            proposal = create_proposal(
+                owner=self.owner,
+                description="Fruit smoothie",
+                entry_date=date(2026, 11, 11),
+            )
+        self.assertEqual(len(proposal.items[0]["portion_options"]), 20)
+        reviewed = ProposalItemsField().run_validation(proposal.items)
+        self.assertEqual(len(reviewed[0]["portion_options"]), 20)
