@@ -126,13 +126,15 @@ def definition_fingerprint(definition):
         child = version.food_item
         components.append(
             {
-                "food": canonical_food_identity(
+                "food": child.canonical_identity
+                or canonical_food_identity(
                     name=child.name,
                     provider_name=child.provider_name,
                     origin_type=child.origin_type,
                     market=child.market,
                     product_identifier=child.product_identifier,
                     identity_url=child.identity_url,
+                    sources=[{"url": source.url} for source in version.sources.all()],
                 ),
                 "version": version.content_fingerprint or version_fingerprint(version),
                 "servings": number(component["servings"]),

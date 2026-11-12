@@ -363,6 +363,152 @@ class CanonicalFoodIdentityTests(TestCase):
         self.assertNotEqual(original.pk, changed.pk)
         self.assertEqual(food.versions.count(), 2)
 
+    def test_recipe_versions_preserve_registered_regional_child_identities(self):
+        us_child, us_version = self.publish(sources=[source()])
+        uk_child, uk_version = self.publish(
+            sources=[
+                source("https://www.mcdonalds.com/gb/en-gb/product/hash-brown.html")
+            ]
+        )
+        self.assertNotEqual(us_child.canonical_identity, uk_child.canonical_identity)
+        self.assertEqual(us_version.content_fingerprint, uk_version.content_fingerprint)
+        recipe_item = {
+            "name": "Synthetic regional breakfast",
+            "origin_type": "generic",
+            "provider_name": "",
+        }
+        us_recipe_definition = {
+            **definition(),
+            "components": [
+                {
+                    "food_item": us_child,
+                    "food_version": us_version,
+                    "servings": Decimal("1"),
+                    "order": 0,
+                }
+            ],
+        }
+        uk_recipe_definition = {
+            **definition(),
+            "components": [
+                {
+                    "food_item": uk_child,
+                    "food_version": uk_version,
+                    "servings": Decimal("1"),
+                    "order": 0,
+                }
+            ],
+        }
+
+        recipe, us_recipe = publish_shared_food(
+            item=recipe_item, definition=us_recipe_definition
+        )
+        same_recipe, uk_recipe = publish_shared_food(
+            item=recipe_item, definition=uk_recipe_definition
+        )
+        repeated = create_food_version(
+            food_item=recipe, definition=uk_recipe_definition, created_by=None
+        )
+
+        self.assertEqual(same_recipe.pk, recipe.pk)
+        self.assertNotEqual(us_recipe.pk, uk_recipe.pk)
+        self.assertEqual(repeated.pk, uk_recipe.pk)
+        self.assertEqual(recipe.versions.count(), 2)
+        self.assertEqual(us_recipe.components.get().child_version_id, us_version.pk)
+        self.assertEqual(uk_recipe.components.get().child_version_id, uk_version.pk)
+
+    def test_recipe_consolidation_uses_legacy_pinned_child_sources_not_current_version(
+        self,
+    ):
+        us_child = self.legacy()
+        uk_definition = definition(
+            sources=[
+                source("https://www.mcdonalds.com/gb/en-gb/product/hash-brown.html")
+            ]
+        )
+        uk_child = create_food_item(
+            name=us_child.name,
+            scope="shared",
+            origin_type=us_child.origin_type,
+            provider_name=us_child.provider_name,
+            owner=None,
+            definition=uk_definition,
+            created_by=None,
+        )
+        us_version = us_child.current_version
+        uk_version = uk_child.current_version
+        self.assertIsNone(us_child.canonical_identity)
+        self.assertIsNone(uk_child.canonical_identity)
+        self.assertEqual(us_version.content_fingerprint, uk_version.content_fingerprint)
+        # A later current definition cannot replace the identity evidence attached
+        # to the exact child version already pinned in the recipe.
+        new_current = create_food_version(
+            food_item=us_child, definition=uk_definition, created_by=None
+        )
+        self.assertNotEqual(new_current.pk, us_version.pk)
+        us_recipe_definition = {
+            **definition(),
+            "components": [
+                {
+                    "food_item": us_child,
+                    "food_version": us_version,
+                    "servings": Decimal("1"),
+                    "order": 0,
+                }
+            ],
+        }
+        uk_recipe_definition = {
+            **definition(),
+            "components": [
+                {
+                    "food_item": uk_child,
+                    "food_version": uk_version,
+                    "servings": Decimal("1"),
+                    "order": 0,
+                }
+            ],
+        }
+        recipe_fields = {
+            "name": "Legacy regional breakfast",
+            "scope": "shared",
+            "origin_type": "generic",
+            "provider_name": "",
+            "owner": None,
+            "created_by": None,
+        }
+        canonical_recipe = create_food_item(
+            **recipe_fields, definition=us_recipe_definition
+        )
+        duplicate_recipe = create_food_item(
+            **recipe_fields, definition=uk_recipe_definition
+        )
+        original_us_recipe = canonical_recipe.current_version
+        original_uk_recipe = duplicate_recipe.current_version
+        self.assertNotEqual(
+            original_us_recipe.content_fingerprint,
+            original_uk_recipe.content_fingerprint,
+        )
+
+        consolidate_shared_foods([canonical_recipe.pk, duplicate_recipe.pk], apply=True)
+        copied_uk_recipe = canonical_recipe.versions.get(
+            derived_from=original_uk_recipe
+        )
+        repeated = create_food_version(
+            food_item=canonical_recipe, definition=uk_recipe_definition, created_by=None
+        )
+
+        self.assertEqual(canonical_recipe.versions.count(), 2)
+        self.assertEqual(repeated.pk, copied_uk_recipe.pk)
+        self.assertEqual(
+            original_us_recipe.components.get().child_version_id, us_version.pk
+        )
+        self.assertEqual(
+            original_uk_recipe.components.get().child_version_id, uk_version.pk
+        )
+        self.assertEqual(
+            copied_uk_recipe.components.get().child_version_id, uk_version.pk
+        )
+
     def test_natural_servings_validate_and_participate_in_definition_fingerprint(self):
         food, original = self.publish()
         revised = definition()

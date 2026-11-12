@@ -21,9 +21,12 @@ aliases need explicit review rather than fuzzy automatic merging.
 
 Within a canonical food, `content_fingerprint` covers the serving definition,
 food-specific natural servings, all supported nutrients, pinned component
-content/identity/quantities, and research/verification coverage. Source-level
-official flags and verification evidence are part of content integrity: a newly
-verified publication cannot be swallowed by an older unsourced version with the
+content/identity/quantities, and research/verification coverage.
+Component identity uses the registered canonical key when available; legacy
+components derive their identity from the exact pinned version's source URLs,
+so a later current version or a same-named regional product cannot replace it.
+Source-level official flags and verification evidence are part of content
+integrity: a newly verified publication cannot be swallowed by an older unsourced version with the
 same nutrients. Meal servings and consumed recipe fractions are instance
 quantities and do not create versions. Evidence-equivalent definitions reuse a
 version, retain additional source URLs, and append distinct estimation metadata
