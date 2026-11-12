@@ -549,15 +549,21 @@ def _size_key(text):
 
 
 def _catalog_supports_size(food, size_key):
+    if not size_key:
+        return True
     version = food.current_version
-    return (
-        not size_key
-        or any(option["key"] == size_key for option in version.natural_servings)
-        or (
-            version.serving_unit in {"item", "serving"}
-            and version.serving_quantity == 1
-            and _size_key(version.serving_label) == size_key
-        )
+    options = portion_options_for_serving(
+        quantity=version.serving_quantity,
+        unit=version.serving_unit,
+        label=version.serving_label,
+        weight_grams=version.serving_weight_grams,
+        volume_milliliters=version.serving_volume_ml,
+        natural_servings=version.natural_servings,
+    )
+    return any(option["key"] == f"size:{size_key}" for option in options) or (
+        version.serving_unit in {"item", "serving"}
+        and version.serving_quantity == 1
+        and _size_key(version.serving_label) == size_key
     )
 
 
