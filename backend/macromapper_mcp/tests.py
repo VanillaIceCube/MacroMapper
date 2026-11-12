@@ -403,6 +403,80 @@ class DomainTests(Fixtures, TestCase):
         self.assertEqual(set(paid["fields"]), {"description", "entry_date"})
         self.assertTrue(paid["paid"])
 
+    def test_meal_item_descriptors_match_food_identity_and_serving_serializer_bounds(
+        self,
+    ):
+        from estimates.serializers import MapYourMealItemsField, ProposalItemsField
+        from estimates.services import _catalog_food
+
+        for action in (
+            "meal.draft_create",
+            "meal.draft_update",
+            "proposal.update",
+            "proposal.follow_up",
+            "proposal.adjustment",
+        ):
+            descriptor = services.operation_schema(self.raw, action)["data"]["fields"][
+                "items"
+            ]["items"]["fields"]
+            for identity_field in ("market", "product_identifier", "identity_url"):
+                self.assertEqual(descriptor[identity_field]["type"], "string")
+            self.assertEqual(descriptor["natural_servings"]["type"], "array")
+            self.assertEqual(descriptor["natural_servings"]["max_length"], 12)
+            self.assertEqual(
+                set(descriptor["natural_servings"]["items"]),
+                {"key", "label", "weight_grams"},
+            )
+            self.assertEqual(descriptor["portion_options"]["max_length"], 20)
+        definition_descriptor = services.operation_schema(self.raw, "food.create")[
+            "data"
+        ]["fields"]["definition"]["fields"]["natural_servings"]
+        self.assertEqual(definition_descriptor["type"], "array")
+        self.assertEqual(definition_descriptor["max_length"], 12)
+
+        item = _catalog_food(self.food.current_version)
+        item["natural_servings"] = [
+            {
+                "key": f"size{index}",
+                "label": f"Size {index}",
+                "weight_grams": str(index + 1),
+            }
+            for index in range(12)
+        ]
+        item["portion_options"] = [
+            {
+                "key": f"portion{index}",
+                "label": f"Portion {index}",
+                "unit_label": "item",
+                "serving_multiplier": "1",
+            }
+            for index in range(20)
+        ]
+        item["selected_portion_key"] = "portion0"
+        for field_class in (MapYourMealItemsField, ProposalItemsField):
+            validated = field_class().run_validation([item])[0]
+            self.assertEqual(len(validated["natural_servings"]), 12)
+            self.assertEqual(len(validated["portion_options"]), 20)
+            for key, extra in (
+                (
+                    "natural_servings",
+                    {"key": "extra", "label": "Extra", "weight_grams": "1"},
+                ),
+                (
+                    "portion_options",
+                    {
+                        "key": "extra",
+                        "label": "Extra",
+                        "unit_label": "item",
+                        "serving_multiplier": "1",
+                    },
+                ),
+            ):
+                oversized = deepcopy(item)
+                oversized[key].append(extra)
+                with self.assertRaises(ValidationError):
+                    field_class().run_validation([oversized])
+
     def test_catalog_drafts_proposal_review_acceptance_and_bounded_reads(self):
         from estimates.services import (
             _catalog_food,

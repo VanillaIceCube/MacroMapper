@@ -1106,6 +1106,15 @@ def operation_schema(raw, action):
         raise ValidationError("Unsupported action.")
     operation = OPERATIONS[action]
     serializer = (operation.serializer or operation.view.serializer_class)()
+    natural_servings_schema = {
+        "type": "array",
+        "max_length": 12,
+        "items": {
+            "key": "unique required string matching [a-z][a-z0-9_-]{0,30}",
+            "label": "required nonblank string <=80; no markup, controls or URLs",
+            "weight_grams": "positive finite decimal string <=100000",
+        },
+    }
 
     def describe(field):
         schema = {
@@ -1135,6 +1144,11 @@ def operation_schema(raw, action):
                 for key, child in field.fields.items()
                 if not child.read_only
             }
+        elif (
+            isinstance(field, serializers.JSONField)
+            and field.field_name == "natural_servings"
+        ):
+            schema.update(natural_servings_schema)
         elif field.__class__.__name__ in {
             "ProposalItemsField",
             "MapYourMealItemsField",
@@ -1148,6 +1162,9 @@ def operation_schema(raw, action):
                 "provider_name",
                 "serving_label",
                 "selected_portion_key",
+                "market",
+                "product_identifier",
+                "identity_url",
             }
             decimals = {
                 "servings",
@@ -1173,7 +1190,13 @@ def operation_schema(raw, action):
                             else "boolean"
                             if key == "is_user_modified"
                             else "array"
-                            if key in {"sources", "components", "portion_options"}
+                            if key
+                            in {
+                                "sources",
+                                "components",
+                                "portion_options",
+                                "natural_servings",
+                            }
                             else "object"
                         }
                         for key in sorted(ITEM_FIELDS)
@@ -1181,6 +1204,7 @@ def operation_schema(raw, action):
                 },
             )
             fields = schema["items"]["fields"]
+            fields["natural_servings"] = natural_servings_schema
             fields["origin_type"] = {
                 "type": "string",
                 "choices": list(FoodItem.OriginType.values),
@@ -1214,7 +1238,7 @@ def operation_schema(raw, action):
             }
             fields["portion_options"] = {
                 "type": "array",
-                "max_length": 12,
+                "max_length": 20,
                 "items": {
                     "key": "unique required string",
                     "label": "required string",
