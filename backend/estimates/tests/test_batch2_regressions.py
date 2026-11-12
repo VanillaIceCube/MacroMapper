@@ -156,6 +156,30 @@ class RecipeEditRegressionTests(TestCase):
                 result={"reparentings": [{"key": "eggs", "parent_key": "fish"}]},
             )
 
+    def test_move_into_atomic_food_cannot_discard_destination_nutrition(self):
+        before = deepcopy(self.proposal.items)
+        with self.assertRaises(ValidationError):
+            self.apply({"reparentings": [{"key": "fish", "parent_key": "eggs"}]})
+        self.proposal.refresh_from_db()
+        self.assertEqual(self.proposal.items, before)
+
+    def test_move_last_child_clears_old_container_values(self):
+        fish = self.proposal.items[0]
+        fish["components"] = fish["components"][:1]
+        self.proposal.items = normalize_items(self.proposal.items)
+        self.proposal.save(update_fields=["items"])
+        child_key = fish["components"][0]["key"]
+        self.apply({"reparentings": [{"key": child_key, "parent_key": None}]})
+        self.proposal.refresh_from_db()
+        fish = next(item for item in self.proposal.items if item["key"] == "fish")
+        self.assertEqual(fish["components"], [])
+        self.assertTrue(all(value is None for value in fish["nutrients"].values()))
+        total = sum(
+            Decimal(item["nutrients"].get("calories") or 0) * Decimal(item["servings"])
+            for item in self.proposal.items
+        )
+        self.assertEqual(total, Decimal("300"))
+
     def test_reparent_and_fraction_apply_once_and_keep_recipe_quantities(self):
         self.apply(
             {
@@ -259,6 +283,65 @@ class ConsumedRecipeFractionRegressionTests(TestCase):
                 self.proposal.refresh_from_db()
                 self.assertEqual(self.proposal.items, before)
                 self.assertEqual(self.proposal.revisions.count(), 0)
+
+    def test_explicit_exclusions_guard_conflicting_provider_quantity_and_portion_edits(
+        self,
+    ):
+        chicken = self.proposal.items[1]
+        chicken["portion_options"].append(
+            {
+                "key": "size:large",
+                "label": "Large",
+                "unit_label": "Large",
+                "serving_multiplier": "2",
+            }
+        )
+        self.proposal.save(update_fields=["items"])
+        result = apply_proposal_follow_up(
+            proposal=self.proposal,
+            owner=self.owner,
+            follow_up="75% of the recipe except chicken and yogurt",
+            items=deepcopy(self.proposal.items),
+            result={
+                "fraction_updates": [
+                    {
+                        "key": "recipe",
+                        "fraction": "0.75",
+                        "excluded_keys": ["chicken", "yogurt"],
+                    }
+                ],
+                "serving_updates": [
+                    {"key": "chicken", "servings": "1.5"},
+                    {"key": "yogurt", "servings": "0.75"},
+                ],
+                "portion_updates": [{"key": "chicken", "portion_key": "size:large"}],
+            },
+        )
+        self.assertTrue(result["applied"])
+        self.proposal.refresh_from_db()
+        recipe, chicken, yogurt = self.proposal.items
+        self.assertEqual(Decimal(recipe["servings"]), Decimal("0.75"))
+        self.assertEqual(Decimal(chicken["servings"]), Decimal("2"))
+        self.assertEqual(chicken["selected_portion_key"], "base")
+        self.assertEqual(Decimal(yogurt["servings"]), Decimal("1"))
+
+    def test_conflicting_fraction_and_quantity_for_same_recipe_are_rejected(self):
+        before = deepcopy(self.proposal.items)
+        with self.assertRaises(ValidationError):
+            apply_proposal_follow_up(
+                proposal=self.proposal,
+                owner=self.owner,
+                follow_up="75% of the recipe",
+                items=deepcopy(self.proposal.items),
+                result={
+                    "fraction_updates": [
+                        {"key": "recipe", "fraction": "0.75", "excluded_keys": []}
+                    ],
+                    "serving_updates": [{"key": "recipe", "servings": "0.5"}],
+                },
+            )
+        self.proposal.refresh_from_db()
+        self.assertEqual(self.proposal.items, before)
 
 
 class InitialRecipeInterpretationRegressionTests(TestCase):
@@ -374,3 +457,41 @@ class InitialRecipeInterpretationRegressionTests(TestCase):
             ["Tilapia", "Egg", "Flour", "Breading"],
         )
         self.assertEqual(Decimal(components[1]["servings"]), Decimal("2"))
+
+    def test_recipe_interpretation_retains_full_context_despite_ingredient_catalog_hits(
+        self,
+    ):
+        shared_food(name="Egg")
+        shared_food(name="Flour")
+        description = "I had breaded tilapia. It was made with tilapia, two eggs, flour and breading."
+        estimate = self.provider(
+            [
+                self.food(
+                    "Breaded tilapia",
+                    components=[
+                        self.food("Tilapia"),
+                        self.food("Egg", servings=2),
+                        self.food("Flour"),
+                        self.food("Breading"),
+                    ],
+                )
+            ]
+        ).estimate(description)
+        configured = Mock()
+        configured.estimate.return_value = estimate
+        with patch(
+            "estimates.services.get_estimation_provider", return_value=configured
+        ):
+            proposal = create_proposal(
+                owner=self.owner, description=description, entry_date=date(2026, 11, 11)
+            )
+        configured.extract_intents.assert_not_called()
+        configured.estimate.assert_called_once_with(description)
+        self.assertEqual(len(proposal.items), 1)
+        self.assertEqual(
+            [child["name"] for child in proposal.items[0]["components"]],
+            ["Tilapia", "Egg", "Flour", "Breading"],
+        )
+        self.assertEqual(
+            Decimal(proposal.items[0]["components"][1]["servings"]), Decimal("2")
+        )
