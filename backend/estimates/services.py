@@ -1570,10 +1570,30 @@ def apply_proposal_follow_up(
                 catalog_match["food"].current_version,
                 servings=item.get("servings", "1"),
             )
-            _select_described_size(
-                candidate_item,
-                f"{item.get('name', '')} {item.get('serving_label', '')}",
+            requested_portion = item.get("selected_portion_key", "")
+            natural_option = next(
+                (
+                    option
+                    for option in candidate_item["portion_options"]
+                    if option["key"] == requested_portion
+                    and requested_portion.startswith("size:")
+                ),
+                None,
             )
+            if natural_option is not None:
+                # Provider servings count its declared natural size. Transfer that
+                # count to the immutable catalog base without relying on wording
+                # that canonical name normalization has already removed.
+                candidate_item["servings"] = _decimal_string(
+                    _decimal(item.get("servings"), default="1")
+                    * Decimal(natural_option["serving_multiplier"])
+                )
+                candidate_item["selected_portion_key"] = requested_portion
+            else:
+                _select_described_size(
+                    candidate_item,
+                    f"{item.get('name', '')} {item.get('serving_label', '')}",
+                )
             is_catalog_item = True
         else:
             candidate_item = deepcopy(item)
