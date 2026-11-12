@@ -297,6 +297,10 @@ def _quantity_for_match(*, match, all_tokens, used_quantity_indexes):
         if food.origin_type == FoodItem.OriginType.GENERIC
         else set()
     )
+    if food.origin_type == FoodItem.OriginType.GENERIC and not food.provider_name:
+        declared_size = _size_key(food.current_version.serving_label)
+        if declared_size:
+            natural_sizes.add(declared_size)
     for index in range(match["start"] - 1, max(match["start"] - 4, -1), -1):
         token = all_tokens[index]
         if token["index"] in used_quantity_indexes:
@@ -535,8 +539,39 @@ def _intent_queries(intent):
     return queries
 
 
+def _size_key(text):
+    match = re.search(r"\b(smallish|small|medium|large|tiny|jumbo)\b", text, re.I)
+    return (
+        ("small" if match[1].casefold() == "smallish" else match[1].casefold())
+        if match
+        else ""
+    )
+
+
+def _catalog_supports_size(food, size_key):
+    version = food.current_version
+    return (
+        not size_key
+        or any(option["key"] == size_key for option in version.natural_servings)
+        or (
+            version.serving_unit in {"item", "serving"}
+            and version.serving_quantity == 1
+            and _size_key(version.serving_label) == size_key
+        )
+    )
+
+
 def _resolve_catalog_intent(*, intent, user, foods):
     intent = deepcopy(intent)
+    requested_size = intent.get("requested_size_key") or _size_key(
+        " ".join(
+            [
+                intent.get("raw_text", ""),
+                intent.get("search_name", ""),
+                *intent.get("defining_terms", []),
+            ]
+        )
+    )
     if not intent.get("provider_name"):
         intent["search_name"] = canonical_generic_name(intent.get("search_name", ""))
         intent["defining_terms"] = [
@@ -557,6 +592,20 @@ def _resolve_catalog_intent(*, intent, user, foods):
 
     candidates = []
     for food in foods:
+        if food.origin_type == FoodItem.OriginType.GENERIC and not food.provider_name:
+            if not _catalog_supports_size(food, requested_size):
+                continue
+            requested_weight = intent.get("requested_serving_weight_grams")
+            if (
+                not requested_size
+                and requested_weight is not None
+                and (
+                    food.current_version.serving_weight_grams is None
+                    or Decimal(requested_weight)
+                    != food.current_version.serving_weight_grams
+                )
+            ):
+                continue
         food_provider_tokens = _identity_tokens(food.provider_name)
         food_provider_identity = "".join(food_provider_tokens)
         if provider_identity:
@@ -689,17 +738,10 @@ def resolve_catalog_intents(*, intents, user):
             unmatched_descriptions.append(intent["raw_text"])
             continue
         food = match["food"]
-        size = (
-            re.search(
-                r"\b(smallish|small|medium|large|tiny|jumbo)\b", match["raw_text"], re.I
-            )
+        size_key = (
+            _size_key(match["raw_text"])
             if food.origin_type == FoodItem.OriginType.GENERIC
             and not food.provider_name
-            else None
-        )
-        size_key = (
-            ("small" if size[1].casefold() == "smallish" else size[1].casefold())
-            if size
             else ""
         )
         portion_identity = (food.pk, size_key)
@@ -751,6 +793,19 @@ def _resolve_catalog_clause(*, description, user, foods):
         minimum_score = 0.86 if len("".join(name_tokens)) <= 6 else 0.78
         if name_match is None or name_match["score"] < minimum_score:
             continue
+        start = all_tokens[name_match["start"]]["char_start"]
+        end = all_tokens[name_match["end"]]["char_end"]
+        match_context = (
+            FOOD_ITEM_BOUNDARY_PATTERN.split(description[:start])[-1]
+            + description[start:end]
+            + FOOD_ITEM_BOUNDARY_PATTERN.split(description[end:])[0]
+        )
+        if (
+            food.origin_type == FoodItem.OriginType.GENERIC
+            and not food.provider_name
+            and not _catalog_supports_size(food, _size_key(match_context))
+        ):
+            continue
         provider_match = _best_phrase_span(
             phrase_tokens=_identity_tokens(food.provider_name),
             query_tokens=query_tokens,
@@ -764,6 +819,7 @@ def _resolve_catalog_clause(*, description, user, foods):
             {
                 "food": food,
                 "score": name_match["score"],
+                "raw_text": match_context,
                 "name_indexes": name_match["indexes"],
                 "provider_indexes": provider_indexes,
                 "provider_score": provider_match["score"] if provider_match else 0,
@@ -815,6 +871,9 @@ def _resolve_catalog_clause(*, description, user, foods):
                 option["key"]
                 for option in match["food"].current_version.natural_servings
             }
+            declared_size = _size_key(match["food"].current_version.serving_label)
+            if declared_size:
+                available.add(declared_size)
             for token in all_tokens:
                 size = (
                     "small"
@@ -862,7 +921,7 @@ def resolve_catalog_matches(*, description, user):
             foods=foods,
         )
         for match in resolution["matches"]:
-            match["raw_text"] = clause
+            match.setdefault("raw_text", clause)
         matches.extend(resolution["matches"])
         unmatched_description = resolution["unmatched_description"]
         if unmatched_description:
@@ -1326,10 +1385,9 @@ def _select_described_size(item, description):
             for token in name_tokens
         ):
             continue
-        size = re.search(r"\b(smallish|small|medium|large|tiny|jumbo)\b", clause, re.I)
-        if not size:
+        size_key = _size_key(clause)
+        if not size_key:
             continue
-        size_key = "small" if size[1].casefold() == "smallish" else size[1].casefold()
         option = next(
             (
                 option
@@ -1505,7 +1563,11 @@ def _follow_up_search_intent(item):
         search.get("provider_name") or item.get("provider_name", "")
     ).strip()
     search_name = str(search.get("search_name") or item.get("name", "")).strip()
-    raw_text = " ".join(value for value in (search_name, provider_name) if value)
+    raw_text = " ".join(
+        value
+        for value in (search_name, provider_name, item.get("serving_label", ""))
+        if value
+    )
     intents = _validated_search_intents(
         {
             "items": [
@@ -1520,7 +1582,20 @@ def _follow_up_search_intent(item):
             ]
         }
     )
-    return intents[0] if intents else None
+    if not intents:
+        return None
+    intent = intents[0]
+    selected = item.get("selected_portion_key", "")
+    if selected.startswith("size:"):
+        intent["requested_size_key"] = selected.removeprefix("size:")
+    if (
+        item.get("serving_unit") in {"item", "serving"}
+        and item.get("serving_weight_grams") is not None
+    ):
+        intent["requested_serving_weight_grams"] = _published_decimal(
+            item["serving_weight_grams"], positive=True, maximum=100000
+        )
+    return intent
 
 
 @transaction.atomic

@@ -54,7 +54,12 @@ in the name. Branded product names and marketed size/SKU distinctions are kept.
 `natural_servings` is an optional list of `{key, label, weight_grams}` definitions
 for that particular food version. Choices appear as `size:<key>` portion options
 with multipliers derived from each gram weight divided by the base serving's
-gram weight. No universal Small/Medium/Large gram weights are assumed.
+gram weight. No universal Small/Medium/Large gram weights are assumed. A requested size is
+reused from the catalog only when a food-specific choice or the declared base
+serving represents that size. Otherwise the request remains unmatched for
+estimation; an unsupported Large request cannot silently reuse a Small base.
+Serialized size choices survive follow-up catalog lookup without requiring size
+words in the canonical food name or base label.
 
 For two Small apples, selecting Large keeps the count at two and changes the
 base-serving multiplier. Selecting grams converts the displayed quantity while
