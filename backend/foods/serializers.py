@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from rest_framework import serializers
 
+from .evidence import version_evidence
 from .models import (
     FoodComponent,
     FoodItem,
@@ -18,7 +19,16 @@ from .services import create_food_item, create_food_version
 class SourceReferenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = SourceReference
-        fields = ("id", "title", "provider", "url", "accessed_on")
+        fields = (
+            "id",
+            "title",
+            "provider",
+            "url",
+            "accessed_on",
+            "is_official",
+            "evidence",
+        )
+        read_only_fields = ("is_official", "evidence")
 
 
 def _serialized_nutrients(version):
@@ -54,6 +64,11 @@ def _components_for_version(version, context):
 
 
 class FoodComponentSerializer(serializers.ModelSerializer):
+    evidence = serializers.SerializerMethodField()
+
+    def get_evidence(self, instance):
+        return version_evidence(instance.child_version)
+
     food_item_id = serializers.IntegerField(source="child_version.food_item_id")
     food_item_name = serializers.CharField(source="child_version.food_item.name")
     food_version_id = serializers.IntegerField(source="child_version_id")
@@ -96,6 +111,7 @@ class FoodComponentSerializer(serializers.ModelSerializer):
             "serving_label",
             "portion_options",
             "provenance",
+            "evidence",
             "confidence_score",
             "nutrients",
             "sources",
@@ -124,6 +140,11 @@ class FoodComponentSerializer(serializers.ModelSerializer):
 
 
 class FoodItemVersionSerializer(serializers.ModelSerializer):
+    evidence = serializers.SerializerMethodField()
+
+    def get_evidence(self, instance):
+        return version_evidence(instance)
+
     nutrients = serializers.SerializerMethodField()
     sources = SourceReferenceSerializer(many=True, read_only=True)
     components = serializers.SerializerMethodField()
@@ -141,6 +162,7 @@ class FoodItemVersionSerializer(serializers.ModelSerializer):
             "serving_volume_ml",
             "portion_options",
             "provenance",
+            "evidence",
             "confidence_score",
             "derived_from",
             "estimation_provider",

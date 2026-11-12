@@ -502,3 +502,11 @@ Keep malformed reset-ID and duplicate-registration race coverage. Estimated
 portion weights must remain positive after rounding before division; retain
 tiny/zero/negative input and exact conversion tests. Snapshot and proposal
 cleanup requirements are described in the invariants section above.
+
+## Nutrition catalog evidence
+
+See [the Batch 3 integrity contract](../docs/NUTRITION-INTEGRITY.md) for publication
+validation, per-food research, additive source/nutrient evidence, immutable diary
+history, and the deferred read-only audit/explicit-ID quarantine procedure. The
+metadata migration does not repair production records; production execution needs
+separate authorization. All research regressions use mocked provider responses.

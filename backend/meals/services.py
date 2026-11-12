@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.db import transaction
 
 from estimates.provider import EstimationProviderError, get_estimation_provider
+from foods.evidence import source_data, version_evidence
 from foods.models import FoodItemVersion
 from foods.nutrients import NUTRIENT_FIELDS, NUTRIENT_METADATA
 from foods.portions import portion_options_for_serving
@@ -76,6 +77,12 @@ def _effective_nutrients(
         field: totals[field] if has_known_value[field] else None
         for field in NUTRIENT_FIELDS
     }
+    for field, coverage in version.evidence.get("nutrients", {}).items():
+        if (
+            coverage.get("status") == "official_verified"
+            and direct.get(field) is not None
+        ):
+            result[field] = direct[field]
     nutrient_cache[cache_key] = result
     return result
 
@@ -128,6 +135,7 @@ def _component_tree(version, visited=None, *, component_map=None, nutrient_cache
                     volume_milliliters=child.serving_volume_ml,
                 ),
                 "provenance": child.provenance,
+                "evidence": version_evidence(child),
                 "confidence_score": (
                     str(child.confidence_score)
                     if child.confidence_score is not None
@@ -143,21 +151,7 @@ def _component_tree(version, visited=None, *, component_map=None, nutrient_cache
                     for key, amount in child_nutrients.items()
                     if amount is not None
                 ],
-                "sources": [
-                    {
-                        "title": source.title,
-                        "provider": source.provider,
-                        "url": source.url,
-                        "accessed_on": (
-                            source.accessed_on.isoformat()
-                            if source.accessed_on
-                            else None
-                        ),
-                        "is_official": child.provenance
-                        == FoodItemVersion.Provenance.OFFICIAL,
-                    }
-                    for source in child.sources.all()
-                ],
+                "sources": [source_data(source) for source in child.sources.all()],
                 "components": _component_tree(
                     child,
                     path,

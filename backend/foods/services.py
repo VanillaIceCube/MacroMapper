@@ -4,12 +4,14 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Max
 
+from .evidence import usable_nutrition
 from .models import (
     FoodComponent,
     FoodItem,
     FoodItemVersion,
     SourceReference,
 )
+from .nutrients import NUTRIENT_FIELDS
 
 
 def build_component_map(root_version_ids):
@@ -32,6 +34,20 @@ def build_component_map(root_version_ids):
             if component.child_version_id not in visited_version_ids:
                 pending_version_ids.add(component.child_version_id)
     return component_map
+
+
+def _version_has_nutrition(version, visited=None):
+    if version is None:
+        return False
+    visited = set(visited or ())
+    if version.pk in visited:
+        return False
+    if usable_nutrition({field: getattr(version, field) for field in NUTRIENT_FIELDS}):
+        return True
+    return any(
+        _version_has_nutrition(component.child_version, visited | {version.pk})
+        for component in version.components.select_related("child_version")
+    )
 
 
 @transaction.atomic
@@ -75,6 +91,22 @@ def create_food_version(*, food_item, definition, created_by):
     nutrients = definition.pop("nutrients", {})
     sources = definition.pop("sources", [])
     components = definition.pop("components", [])
+
+    if locked_item.scope == FoodItem.Scope.SHARED:
+        children_usable = [
+            _version_has_nutrition(
+                component.get("food_version") or component["food_item"].current_version
+            )
+            for component in components
+        ]
+        if not all(children_usable) or not (
+            usable_nutrition(nutrients) or any(children_usable)
+        ):
+            raise ValidationError(
+                {
+                    "nutrients": "Shared foods require usable nutrition; no food was published."
+                }
+            )
 
     version = FoodItemVersion(
         food_item=locked_item,

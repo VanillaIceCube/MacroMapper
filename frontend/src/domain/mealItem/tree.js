@@ -1,21 +1,42 @@
 import { itemNutrientTotal, servingsValue } from '../nutrition/calculations';
 import { roundedNumberString, selectedPortion } from './portions';
 
-export function updateMealItemTree(items, key, update) {
-  return items.map((item) =>
-    item.key === key
-      ? update(item)
-      : { ...item, components: updateMealItemTree(item.components || [], key, update) },
-  );
+const adjusted = (item) => ({
+  ...item,
+  provenance: 'user_modified_estimate',
+  source_kind: 'user_modified_estimate',
+  confidence_score: null,
+  evidence: {
+    ...item.evidence,
+    status: 'user_modified_estimate',
+    nutrients: {},
+    confidence: { model: null, evidence: null, combined: null },
+  },
+});
+
+export function updateMealItemTree(items, key, update, affectsNutrition = true) {
+  return items.map((item) => {
+    if (item.key === key) return update(item);
+    const components = updateMealItemTree(item.components || [], key, update, affectsNutrition);
+    const changed = components.some((child, index) => child !== item.components[index]);
+    return changed
+      ? affectsNutrition
+        ? adjusted({ ...item, components })
+        : { ...item, components }
+      : item;
+  });
 }
 
 export function removeMealItemFromTree(items, key) {
   return items
     .filter((item) => item.key !== key)
-    .map((item) => ({
-      ...item,
-      components: removeMealItemFromTree(item.components || [], key),
-    }));
+    .map((item) => {
+      const components = removeMealItemFromTree(item.components || [], key);
+      const changed =
+        components.length !== (item.components || []).length ||
+        components.some((child, index) => child !== item.components[index]);
+      return changed ? adjusted({ ...item, components }) : item;
+    });
 }
 
 export function changeMealItemServings(items, key, amount, item) {
@@ -40,10 +61,15 @@ export function changeMealItemServings(items, key, amount, item) {
 }
 
 export const changeMealItemPortion = (items, key, selectedPortionKey) =>
-  updateMealItemTree(items, key, (item) => ({
-    ...item,
-    selected_portion_key: selectedPortionKey,
-  }));
+  updateMealItemTree(
+    items,
+    key,
+    (item) => ({
+      ...item,
+      selected_portion_key: selectedPortionKey,
+    }),
+    false,
+  );
 
 const zeroNutrients = (item) => ({
   ...item,
@@ -63,7 +89,13 @@ export const changeMealItemNutrient = (items, key, nutrient, totalValue) =>
     const clampedTotalValue = Number.isFinite(rawNumeric) && rawNumeric < 0 ? '0' : totalValue;
 
     if (item.components?.length) {
-      const currentCalories = itemNutrientTotal(item, 'calories');
+      // Once edited, a composite uses its component totals. An official parent
+      // can differ from inferred components, so scale against those components.
+      const currentCalories =
+        item.components.reduce(
+          (total, component) => total + (itemNutrientTotal(component, 'calories') || 0),
+          0,
+        ) * servingsValue(item);
       if (
         nutrient !== 'calories' ||
         clampedTotalValue === '' ||
@@ -74,7 +106,7 @@ export const changeMealItemNutrient = (items, key, nutrient, totalValue) =>
         return item;
       }
       const scale = numeric / currentCalories;
-      return {
+      return adjusted({
         ...item,
         components: item.components.map((component) => ({
           ...(scale === 0 ? zeroNutrients(component) : component),
@@ -83,15 +115,15 @@ export const changeMealItemNutrient = (items, key, nutrient, totalValue) =>
               ? component.servings
               : roundedNumberString(servingsValue(component) * scale),
         })),
-      };
+      });
     }
     const servings = servingsValue(item);
     const perServingValue =
       clampedTotalValue === '' || !Number.isFinite(numeric) || !servings
         ? clampedTotalValue
         : String(numeric / servings);
-    return {
+    return adjusted({
       ...item,
       nutrients: { ...item.nutrients, [nutrient]: perServingValue },
-    };
+    });
   });
