@@ -1359,10 +1359,9 @@ describe('DiaryPage', () => {
     const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
     expect(within(dialog).getByLabelText('Egg macro values')).toBeVisible();
 
-    fireEvent.change(
-      within(dialog).getByRole('textbox', { name: 'Describe an AI adjustment' }),
-      { target: { value: 'Put the two eggs inside the breaded tilapia' } },
-    );
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Describe an AI adjustment' }), {
+      target: { value: 'Put the two eggs inside the breaded tilapia' },
+    });
     await user.click(within(dialog).getByRole('button', { name: 'Apply adjustment' }));
     await within(dialog).findByText('Moved eggs into breaded tilapia.');
     expect(within(dialog).queryByLabelText('Egg macro values')).not.toBeInTheDocument();
