@@ -541,7 +541,7 @@ class InitialRecipeInterpretationRegressionTests(TestCase):
         reviewed = ProposalItemsField().run_validation(proposal.items)
         self.assertEqual(len(reviewed[0]["portion_options"]), 20)
 
-    def test_same_food_in_different_sizes_keeps_distinct_valid_meal_instances(self):
+    def sized_apple(self):
         apple = shared_food(name="Red apple")
         create_food_version(
             food_item=apple,
@@ -562,6 +562,10 @@ class InitialRecipeInterpretationRegressionTests(TestCase):
                 "components": [],
             },
         )
+        return apple
+
+    def test_same_food_in_different_sizes_keeps_distinct_valid_meal_instances(self):
+        apple = self.sized_apple()
         with patch("estimates.services.get_estimation_provider") as configured:
             proposal = create_proposal(
                 owner=self.owner,
@@ -586,4 +590,55 @@ class InitialRecipeInterpretationRegressionTests(TestCase):
         meal = accept_proposal(proposal=proposal)
         self.assertEqual(
             sum(item.calories for item in meal.items.all()), Decimal("250")
+        )
+
+    def test_extracted_intents_combine_equivalent_sizes_without_losing_other_sizes(
+        self,
+    ):
+        apple = self.sized_apple()
+        configured = Mock()
+        configured.extract_intents.return_value = {
+            "name": "Mixed-size apples",
+            "items": [
+                {
+                    "raw_text": text,
+                    "search_name": "Red apple",
+                    "quantity": quantity,
+                    "defining_terms": ["red"],
+                }
+                for text, quantity in (
+                    ("one small red apple", 1),
+                    ("two large red apples", 2),
+                    ("one smallish red apple", 1),
+                )
+            ],
+        }
+        description = "Some orchard fruit in different portions"
+        with patch(
+            "estimates.services.get_estimation_provider", return_value=configured
+        ):
+            proposal = create_proposal(
+                owner=self.owner,
+                description=description,
+                entry_date=date(2026, 11, 11),
+            )
+        configured.extract_intents.assert_called_once_with(description)
+        configured.estimate.assert_not_called()
+        self.assertEqual(len(proposal.items), 2)
+        self.assertEqual(len({item["key"] for item in proposal.items}), 2)
+        self.assertEqual(
+            [item["food_item_id"] for item in proposal.items], [apple.pk, apple.pk]
+        )
+        self.assertEqual(
+            [item["selected_portion_key"] for item in proposal.items],
+            ["size:small", "size:large"],
+        )
+        self.assertEqual(
+            [Decimal(item["servings"]) for item in proposal.items],
+            [Decimal("2"), Decimal("3")],
+        )
+        ProposalItemsField().run_validation(proposal.items)
+        meal = accept_proposal(proposal=proposal)
+        self.assertEqual(
+            sum(item.calories for item in meal.items.all()), Decimal("500")
         )
