@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MealItemEditorRow from './MealItemEditorRow';
+import { changeMealItemNutrient } from '../domain/mealItem';
 
 const row = (overrides = {}) => ({
   key: 'pizza',
@@ -85,4 +86,19 @@ test('does not present an unrecorded legacy official claim as verified', async (
   await details('Costco Pizza');
   expect(screen.getByText('Legacy official; evidence unrecorded')).toBeVisible();
   expect(screen.queryByText('Official / Verified')).not.toBeInTheDocument();
+});
+
+test('clears prior model and combined confidence after editing nutrition', async () => {
+  const item = row({
+    evidence: {
+      status: 'official_verified',
+      confidence: { model: 0.98, evidence: null, combined: 0.5 },
+    },
+  });
+  const edited = changeMealItemNutrient([item], item.key, 'calories', '600')[0];
+  renderRow(edited);
+  await details('Costco Pizza');
+  expect(edited.evidence.confidence).toEqual({ model: null, evidence: null, combined: null });
+  expect(screen.queryByText(/Combined confidence: 50%/)).not.toBeInTheDocument();
+  expect(screen.queryByText('98% Confidence')).not.toBeInTheDocument();
 });

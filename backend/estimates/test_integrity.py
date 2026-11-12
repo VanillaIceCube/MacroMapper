@@ -194,16 +194,26 @@ class CatalogIntegrityTests(TestCase):
             ),
         )
         item.sources = [source]
-        client = Mock()
-        client.responses.parse.return_value = web_response(
-            EstimatedMeal(name="Pizza", confidence_score=0.99, items=[item]),
-            urls=["https://www.costco.com/unrelated"],
-        )
-        result = OpenAIMealEstimationProvider(client=client).estimate("pizza")["items"][
-            0
-        ]
-        self.assertEqual(result["provenance"], "ai_estimate")
-        self.assertFalse(result["sources"][0]["evidence"]["retrieved"])
+        for urls, status in (
+            (["https://www.costco.com/unrelated"], "completed"),
+            ([URL], "failed"),
+        ):
+            with self.subTest(status=status):
+                client = Mock()
+                client.responses.parse.return_value = web_response(
+                    EstimatedMeal(name="Pizza", confidence_score=0.99, items=[item]),
+                    urls=urls,
+                    status=status,
+                )
+                result = OpenAIMealEstimationProvider(client=client).estimate("pizza")[
+                    "items"
+                ][0]
+                self.assertEqual(result["provenance"], "ai_estimate")
+                self.assertFalse(result["sources"][0]["evidence"]["retrieved"])
+                self.assertEqual(
+                    result["evidence"]["research_status"],
+                    "failed" if status == "failed" else "no_source_found",
+                )
 
     def test_official_parent_and_inferred_child_survive_publication_reuse_and_diary(
         self,

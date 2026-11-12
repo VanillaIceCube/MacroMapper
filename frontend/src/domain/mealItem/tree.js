@@ -6,7 +6,12 @@ const adjusted = (item) => ({
   provenance: 'user_modified_estimate',
   source_kind: 'user_modified_estimate',
   confidence_score: null,
-  evidence: { ...item.evidence, status: 'user_modified_estimate', nutrients: {} },
+  evidence: {
+    ...item.evidence,
+    status: 'user_modified_estimate',
+    nutrients: {},
+    confidence: { model: null, evidence: null, combined: null },
+  },
 });
 
 export function updateMealItemTree(items, key, update, affectsNutrition = true) {

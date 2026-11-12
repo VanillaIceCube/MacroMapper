@@ -429,6 +429,8 @@ def _web_results(response):
         if not isinstance(output, dict) or output.get("type") != "web_search_call":
             continue
         statuses.append(output.get("status"))
+        if output.get("status") != "completed":
+            continue
         action = output.get("action") or {}
         for source in action.get("sources") or []:
             if source.get("url"):
@@ -436,9 +438,9 @@ def _web_results(response):
         if action.get("type") == "open_page" and action.get("url"):
             urls.add(action["url"])
     status = (
-        "completed"
-        if "completed" in statuses
-        else "failed"
+        "failed"
+        if any(status != "completed" for status in statuses)
+        else "completed"
         if statuses
         else "not_attempted"
     )
