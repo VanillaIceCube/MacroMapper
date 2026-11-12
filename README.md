@@ -55,7 +55,11 @@ Outside of that, I mean my goal was to get a good personal use application that 
 - **Backend:** Django + Django REST Framework
 - **Frontend:** React + Vite + Material UI
 - **Authentication:** Simple JWT
-- **Testing:** Django test runner + Vitest + Testing Library
+- **Testing:** Django test runner + Vitest + Testing Library. From the repository root,
+  run `python backend/manage.py test backend` (the directory label prevents empty
+  discovery), or run `python manage.py test` from `backend`. See the
+  [backend test organization](backend/README.md#estimates-test-organization) and
+  [frontend domain conventions](frontend/README.md#domain-entry-points).
 - **Code quality:** Ruff + ESLint + Prettier
 - **Deployment:** Docker + Nginx
 - **Hosting:** DigitalOcean

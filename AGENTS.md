@@ -82,7 +82,7 @@ Optional frontend variable:
 Run checks in proportion to the change:
 
 ```powershell
-python backend/manage.py test
+python backend/manage.py test backend
 ruff check backend
 ruff format backend --check
 Set-Location frontend
