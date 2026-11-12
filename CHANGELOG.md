@@ -1,5 +1,18 @@
 ## 2026-11-11
 
+### Added
+
+- Food-specific natural serving sizes, immutable shared estimate evidence, canonical food/version fingerprints, and an explicit dry-run duplicate consolidation command that retains historical references (#258, #70).
+
+### Fixed
+
+- Support validated AI ingredient moves across composite and meal levels, nested quantity edits, and durable hierarchy snapshots without duplicate ingredients (#256).
+- Represent consumed recipe fractions on the composite parent while retaining full-recipe ingredients and full separately consumed add-ons; reject conflicting edits and honor explicit exclusions (#257).
+- Separate generic food names from size descriptions; selecting food-specific sizes preserves count and recalculates nutrition, and selected sizes survive diary save/reload (#258).
+- Reuse canonical shared foods and equivalent versions across repeated estimates, choose the current version deterministically, and preserve genuine private overrides (#70).
+
+## 2026-11-11
+
 ### Removed
 
 - Remove retired Jules notebooks, persona prompts and active operating instructions after the linked PRs merged and a fresh open-PR inventory passed (#368); preserve general maintenance guidance, historical evidence and independent CI/security/release controls.
