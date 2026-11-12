@@ -493,3 +493,12 @@ mail is sent by tests; mocks cover success, credentials, network/timeouts,
 400/401/403/422/429/500/503, both silent modes, partial batches, safe fallback and
 the real reset caller's generic response/redacted logs. Production public
 readiness cannot establish authenticated password-reset inbox delivery.
+
+## Persistence regression guidance
+
+Preserve recipient scoping and serializer saves on notification PATCH even when
+read state is unchanged or omitted; change `read_at` only on state transitions.
+Keep malformed reset-ID and duplicate-registration race coverage. Estimated
+portion weights must remain positive after rounding before division; retain
+tiny/zero/negative input and exact conversion tests. Snapshot and proposal
+cleanup requirements are described in the invariants section above.

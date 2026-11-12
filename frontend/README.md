@@ -325,3 +325,12 @@ Vitest uses jsdom 31. Its CSS engine evaluates media queries at the default
 1024px viewport and may serialize whitespace differently. Responsive Diary tests
 check the generated mobile and desktop declarations and the computed desktop
 layout; the isolated browser suite continues to check real mobile/desktop geometry.
+
+## Calculation and input regression guidance
+
+Keep editable decimal text separate from committed numeric quantities. Preserve
+finite-value/portion validation, safe fallbacks and deterministic chart ordering.
+Use the domain package entry points and dependency-direction/cycle tests when
+moving calculations; presentation labels, colors and chart decoration stay in
+the UI. Authentication and notification changes retain safe parsing, pending
+controls, retry feedback and profile cleanup through the shared request helpers.
