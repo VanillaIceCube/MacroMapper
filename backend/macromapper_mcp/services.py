@@ -575,6 +575,7 @@ def invoke(action, operation, view, target_id):
             json_value(formatted, maximum=65536)
             return formatted
     except (ValidationError, ValueError, TypeError, OverflowError):
+        # Only representation failed; the bounded receipt below reports success.
         pass
     kind = "meal" if action == "proposal.accept" else action.split(".")[0]
     record_id = output.get("id", target_id) if isinstance(output, dict) else target_id
@@ -868,9 +869,15 @@ def list_meals(queryset, view, owner, limit, offset):
         count = len(output)
         has_more = len(records) > count
         try:
+            at_offset_limit = has_more and offset + count > 1000
+            if at_offset_limit:
+                output[-1] = meal_summary(records[count - 1]) | {
+                    "detail": "More diary records exist beyond the MCP offset limit. Review the full day in MacroMapper; this page is not the complete diary.",
+                    "pagination_limit_reached": True,
+                }
             page = result(
                 output,
-                has_more=has_more,
+                has_more=has_more and not at_offset_limit,
                 next_offset=offset + count
                 if has_more and offset + count <= 1000
                 else None,
@@ -949,6 +956,17 @@ def get_meal(raw, target_id, item_limit=20, item_offset=0):
     while True:
         next_offset = item_offset + len(items)
         has_more = next_offset < total
+        if has_more and next_offset > 1000:
+            return result(
+                meal_summary(meal)
+                | {
+                    "item_offset": item_offset,
+                    "pagination_limit_reached": True,
+                    "detail": "More items exist beyond the MCP offset limit. Review the complete saved meal in MacroMapper; this summary is not complete editable data.",
+                },
+                has_more=False,
+                next_offset=None,
+            ) | {"truncated": True}
         try:
             catalog_state([], {item.food_version_id for item in items}, token.user)
             output["items"] = MealItemSerializer(
@@ -971,9 +989,14 @@ def get_meal(raw, target_id, item_limit=20, item_offset=0):
                 meal_summary(meal)
                 | {
                     "item_offset": item_offset,
-                    "detail": "This meal item or metadata exceeds the MCP detail budget. Review the complete saved meal in MacroMapper; this summary is not complete editable data.",
+                    "item_id": items[0].pk if items else None,
+                    "detail": "This meal item or metadata exceeds the MCP detail budget. Review the complete saved meal in MacroMapper. Follow next_offset for later items, but this summary is not complete editable data.",
                 },
-            ) | {"truncated": True, "has_more": has_more, "next_offset": None}
+            ) | {
+                "truncated": True,
+                "has_more": has_more,
+                "next_offset": next_offset if has_more else None,
+            }
 
 
 def proposal_summary(proposal):

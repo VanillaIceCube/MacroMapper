@@ -394,6 +394,80 @@ class MealReliabilityTests(Fixtures, TestCase):
             self.assertEqual(found, ids)
             self.assertFalse(page["has_more"])
 
+    def test_oversized_first_item_keeps_later_items_reachable(self):
+        meal = self.make_meal()
+        replace_meal_items(
+            meal_entry=meal,
+            item_inputs=[
+                {"food_item": self.food, "servings": 1, "order": index}
+                for index in range(2)
+            ],
+        )
+        first, second = list(meal.items.all())
+        original = services.MealItemSerializer.to_representation
+
+        def expanded(serializer, item):
+            output = original(serializer, item)
+            return (
+                output | {"synthetic_expansion": ["é" * 1900] * 10}
+                if item.pk == first.pk
+                else output
+            )
+
+        with patch.object(services.MealItemSerializer, "to_representation", expanded):
+            page = services.get_meal(self.raw, meal.pk)
+            self.assertTrue(page["truncated"])
+            self.assertTrue(page["has_more"])
+            self.assertEqual(page["next_offset"], 1)
+            self.assertEqual(page["data"]["item_id"], first.pk)
+            self.assertNotIn("items", page["data"])
+            remaining = services.get_meal(self.raw, meal.pk, 20, page["next_offset"])
+            self.assertFalse(remaining["truncated"])
+            self.assertFalse(remaining["has_more"])
+            self.assertEqual(
+                [item["id"] for item in remaining["data"]["items"]], [second.pk]
+            )
+
+    def test_offset_limit_returns_explicit_terminal_summary(self):
+        meal = self.make_meal()
+        item = meal.items.first()
+        MealItem.objects.bulk_create(
+            [
+                MealItem(
+                    **{
+                        field.attname: getattr(item, field.attname)
+                        for field in MealItem._meta.fields
+                        if not field.primary_key and field.name != "order"
+                    },
+                    order=index,
+                )
+                for index in range(1, 1003)
+            ]
+        )
+        page = services.get_meal(self.raw, meal.pk, 1, 1000)
+        self.assertTrue(page["truncated"])
+        self.assertFalse(page["has_more"])
+        self.assertIsNone(page["next_offset"])
+        self.assertTrue(page["data"]["pagination_limit_reached"])
+        self.assertIn("MacroMapper", page["data"]["detail"])
+        MealEntry.objects.bulk_create(
+            [
+                MealEntry(
+                    owner=self.user,
+                    entry_date=meal.entry_date,
+                    name="Synthetic diary entry",
+                )
+                for _ in range(1002)
+            ]
+        )
+        listing = services.list_records(
+            self.raw, "meals", {"date": meal.entry_date.isoformat()}, 1, 1000
+        )
+        self.assertTrue(listing["truncated"])
+        self.assertFalse(listing["has_more"])
+        self.assertIsNone(listing["next_offset"])
+        self.assertTrue(listing["data"][0]["pagination_limit_reached"])
+
     def test_foreign_food_and_changed_components_fail_draft_preview_without_writes(
         self,
     ):

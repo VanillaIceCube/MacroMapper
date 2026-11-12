@@ -86,9 +86,11 @@ ordinary small-meal reads and pages complete saved items adaptively; follow
 `next_offset` as `item_offset` until `has_more` is false before editing. If even
 one item or the meal metadata cannot fit without trimming, the response contains
 only an explicit summary directing complete review to the saved meal in
-MacroMapper. Summary data is never a complete editable meal. Existing offset
-limits remain; use MacroMapper for records beyond those bounds. No read calls AI
-or writes to the diary.
+MacroMapper. An oversized-item summary preserves `next_offset` for later items;
+review the omitted item in MacroMapper before editing the whole meal. Summary
+data is never a complete editable meal. At the existing offset ceiling, a
+terminal summary explicitly sets `pagination_limit_reached`; use MacroMapper for
+the remaining records. No read calls AI or writes to the diary.
 
 Proposal lists do not duplicate current items or historical revision snapshots.
 `get_proposal(proposal_id, item_limit=20, item_offset=0)` returns current items and
