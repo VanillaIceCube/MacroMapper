@@ -1399,7 +1399,12 @@ def create_proposal(*, owner, description, entry_date, before_apply=None):
 
 def _follow_up_identity(item):
     if item.get("food_item_id"):
-        return ("food_item", str(item["food_item_id"]))
+        portion_key = item.get("selected_portion_key", "")
+        return (
+            "food_item",
+            str(item["food_item_id"]),
+            portion_key if portion_key.startswith("size:") else "",
+        )
     return _semantic_food_identity(item)
 
 
@@ -1465,8 +1470,9 @@ def apply_proposal_follow_up(
     serving_updates = result.get("serving_updates") or []
     retained_items = current_items
 
-    existing_nodes = _items_by_key(retained_items).values()
-    retained_by_identity = {_follow_up_identity(item): item for item in existing_nodes}
+    # A newly added food is separately consumed at meal level. A matching
+    # recipe ingredient must retain its full-recipe quantity and parent scope.
+    retained_by_identity = {_follow_up_identity(item): item for item in retained_items}
     existing_identities = set(retained_by_identity)
     items_by_identity = dict(retained_by_identity)
     next_revision_number = len(proposal.revisions.all()) + 1
@@ -1484,6 +1490,10 @@ def apply_proposal_follow_up(
             candidate_item = _catalog_food(
                 catalog_match["food"].current_version,
                 servings=item.get("servings", "1"),
+            )
+            _select_described_size(
+                candidate_item,
+                f"{item.get('name', '')} {item.get('serving_label', '')}",
             )
             is_catalog_item = True
         else:
