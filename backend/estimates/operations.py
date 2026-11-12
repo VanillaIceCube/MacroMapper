@@ -68,8 +68,15 @@ def apply_tree_operations(items, result):
             else indexed[parent_key][0].setdefault("components", [])
         )
         if destination is not siblings:
-            if node.get("food_version_id") and any(
-                child.get("food_version_id") == node["food_version_id"]
+            if any(
+                (
+                    node.get("food_item_id")
+                    and child.get("food_item_id") == node["food_item_id"]
+                )
+                or (
+                    node.get("food_version_id")
+                    and child.get("food_version_id") == node["food_version_id"]
+                )
                 for child in destination
             ):
                 raise ValidationError(
