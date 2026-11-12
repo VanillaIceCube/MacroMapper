@@ -179,6 +179,34 @@ class RecipeEditRegressionTests(TestCase):
         self.proposal.refresh_from_db()
         self.assertEqual(self.proposal.items, before)
 
+    def test_move_rejects_duplicate_canonical_ingredient_with_different_version(self):
+        alternative = create_food_version(
+            food_item=self.eggs,
+            created_by=None,
+            definition={
+                "serving_quantity": Decimal("1"),
+                "serving_unit": "item",
+                "serving_label": "1 egg",
+                "provenance": "ai_estimate",
+                "confidence_score": Decimal("0.8"),
+                "nutrients": {"calories": Decimal("120")},
+                "sources": [],
+                "components": [],
+            },
+        )
+        self.assertNotEqual(alternative.pk, self.proposal.items[1]["food_version_id"])
+        self.proposal.items[0]["components"].append(
+            _catalog_food(alternative, key="already-inside", servings="1")
+        )
+        self.proposal.items = normalize_items(self.proposal.items)
+        self.proposal.save(update_fields=["items"])
+        before = deepcopy(self.proposal.items)
+        with self.assertRaises(ValidationError):
+            self.apply({"reparentings": [{"key": "eggs", "parent_key": "fish"}]})
+        self.proposal.refresh_from_db()
+        self.assertEqual(self.proposal.items, before)
+        self.assertEqual(self.proposal.revisions.count(), 0)
+
     def test_move_last_child_clears_old_container_values(self):
         fish = self.proposal.items[0]
         fish["components"] = fish["components"][:1]
