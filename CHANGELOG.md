@@ -1,5 +1,13 @@
 ## 2026-11-11
 
+### Fixed
+
+- Keep successful MCP nonpaid meal mutations committed exactly once when expanded output exceeds the existing node/byte limits; return an explicit bounded receipt instead of rolling back a valid write (#393).
+- Adapt diary and meal-item page sizes to the output budget, expose accurate summary/truncation markers, and direct oversized single-item review to the saved meal in MacroMapper (#393).
+- Validate draft catalog references and components during MCP preview, explain the separately confirmed personal-food creation step for manual foods, and return safe actionable confirmation errors (#394).
+
+## 2026-11-11
+
 ### Removed
 
 - Remove retired Jules notebooks, persona prompts and active operating instructions after the linked PRs merged and a fresh open-PR inventory passed (#368); preserve general maintenance guidance, historical evidence and independent CI/security/release controls.
