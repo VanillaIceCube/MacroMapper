@@ -4,7 +4,6 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from rest_framework import serializers
 
-from .identity import validate_natural_servings
 from .models import (
     FoodComponent,
     FoodItem,
@@ -12,7 +11,7 @@ from .models import (
     SourceReference,
 )
 from .nutrients import NUTRIENT_METADATA
-from .portions import portion_options_for_serving
+from .portions import clean_natural_servings, portion_options_for_serving
 from .services import create_food_item, create_food_version
 
 
@@ -263,10 +262,9 @@ class FoodDefinitionInputSerializer(serializers.Serializer):
 
     def validate_natural_servings(self, value):
         try:
-            validate_natural_servings(value)
+            return clean_natural_servings(value)
         except DjangoValidationError as error:
             raise serializers.ValidationError(error.messages) from error
-        return value
 
     serving_quantity = serializers.DecimalField(
         max_digits=10,

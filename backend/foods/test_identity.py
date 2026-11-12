@@ -214,6 +214,30 @@ class CanonicalFoodIdentityTests(TestCase):
         self.assertEqual(version.derived_from_id, original.pk)
         self.assertEqual(FoodItem.objects.active().filter(scope="shared").count(), 1)
 
+    def test_normalized_serving_definitions_reuse_the_same_shared_version(self):
+        from .serializers import FoodDefinitionInputSerializer
+
+        original = definition()
+        original["natural_servings"] = [
+            {"key": "small", "label": "Small", "weight_grams": "40"}
+        ]
+        food, first = publish_shared_food(item=self.item, definition=original)
+        incoming = deepcopy(original)
+        incoming["natural_servings"] = [
+            {"key": "small", "label": "  Small  ", "weight_grams": 40.0}
+        ]
+        # Exercise the API normalization boundary before the shared version service.
+        serializer = FoodDefinitionInputSerializer(data=incoming)
+        serializer.is_valid(raise_exception=True)
+
+        repeated = create_food_version(
+            food_item=food, definition=serializer.validated_data, created_by=None
+        )
+
+        self.assertEqual(repeated.pk, first.pk)
+        self.assertEqual(repeated.natural_servings, original["natural_servings"])
+        self.assertEqual(food.versions.count(), 1)
+
     def test_legacy_consolidation_preserves_meals_components_proposals_and_derivation(
         self,
     ):

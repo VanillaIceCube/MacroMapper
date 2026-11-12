@@ -24,6 +24,10 @@ def clean_natural_servings(values):
     for value in values:
         if not isinstance(value, dict):
             raise ValidationError("Each serving size must be an object.")
+        if set(value) != {"key", "label", "weight_grams"}:
+            raise ValidationError(
+                "Each serving size must contain only key, label and weight_grams."
+            )
         key = value.get("key", "")
         label = value.get("label", "")
         try:
