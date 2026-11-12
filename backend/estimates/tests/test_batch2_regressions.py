@@ -11,7 +11,7 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from foods.models import FoodItem
+from foods.models import FoodItem, FoodItemVersion
 from foods.services import create_food_version
 
 from ..models import MealProposal
@@ -327,6 +327,81 @@ class ConsumedRecipeFractionRegressionTests(TestCase):
                 self.proposal.refresh_from_db()
                 self.assertEqual(self.proposal.items, before)
                 self.assertEqual(self.proposal.revisions.count(), 0)
+
+    def test_separate_addon_does_not_merge_into_partially_consumed_recipe_ingredient(
+        self,
+    ):
+        recipe = shared_food(
+            name="Chilaquiles with yogurt",
+            components=[
+                {"food_item": self.tomatoes, "servings": Decimal("3"), "order": 0},
+                {"food_item": self.chips, "servings": Decimal("1"), "order": 1},
+                {"food_item": self.yogurt, "servings": Decimal("1"), "order": 2},
+            ],
+        )
+        self.proposal.items = normalize_items(
+            [
+                _catalog_food(recipe.current_version, servings="0.75", key="recipe"),
+                _catalog_food(
+                    self.chicken.current_version, servings="2", key="chicken"
+                ),
+            ]
+        )
+        self.proposal.save(update_fields=["items"])
+        original_children = deepcopy(self.proposal.items[0]["components"])
+        catalog_before = list(FoodItem.objects.order_by("pk").values())
+        versions_before = list(FoodItemVersion.objects.order_by("pk").values())
+
+        # This is a separately eaten side, even though the same food occurs in the recipe.
+        for servings, expected_addon in (("2", "2"), ("1", "3")):
+            self.proposal.refresh_from_db()
+            addition = _catalog_food(self.yogurt.current_version, servings=servings)
+            addition.update(food_item_id=None, food_version_id=None)
+            outcome = apply_proposal_follow_up(
+                proposal=self.proposal,
+                owner=self.owner,
+                follow_up=f"I also had {servings} full yogurt servings separately on the side",
+                items=deepcopy(self.proposal.items),
+                result={"items_to_add": [addition]},
+            )
+            self.assertTrue(outcome["applied"])
+            self.proposal.refresh_from_db()
+            self.assertEqual(len(self.proposal.items), 3)
+            recipe_item, chicken, addon = self.proposal.items
+            self.assertEqual(recipe_item["components"], original_children)
+            self.assertEqual(Decimal(recipe_item["servings"]), Decimal("0.75"))
+            self.assertEqual(
+                Decimal(recipe_item["nutrients"]["calories"]), Decimal("500")
+            )
+            self.assertEqual(Decimal(chicken["servings"]), Decimal("2"))
+            self.assertEqual(addon["food_item_id"], self.yogurt.pk)
+            self.assertEqual(addon["food_version_id"], self.yogurt.current_version_id)
+            self.assertEqual(Decimal(addon["servings"]), Decimal(expected_addon))
+            self.assertEqual(
+                list(FoodItem.objects.order_by("pk").values()), catalog_before
+            )
+            self.assertEqual(
+                list(FoodItemVersion.objects.order_by("pk").values()), versions_before
+            )
+
+        meal = accept_proposal(proposal=self.proposal)
+        self.assertEqual(meal.items.count(), 3)
+        self.assertEqual(
+            sum(item.calories for item in meal.items.all()), Decimal("875")
+        )
+        saved_recipe = meal.items.get(order=0)
+        self.assertEqual(saved_recipe.calories, Decimal("375"))
+        saved_yogurt = next(
+            child
+            for child in saved_recipe.component_snapshot
+            if child["food_item_id"] == self.yogurt.pk
+        )
+        self.assertEqual(Decimal(saved_yogurt["servings"]), Decimal("1"))
+        self.assertEqual(meal.items.get(order=2).calories, Decimal("300"))
+        self.assertEqual(list(FoodItem.objects.order_by("pk").values()), catalog_before)
+        self.assertEqual(
+            list(FoodItemVersion.objects.order_by("pk").values()), versions_before
+        )
 
     def test_explicit_exclusions_guard_conflicting_provider_quantity_and_portion_edits(
         self,
