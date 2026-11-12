@@ -275,3 +275,55 @@ describe('meal item adapters', () => {
     expect(itemNutrientTotal(saved, 'calories')).toBe(220);
   });
 });
+
+describe('source-backed nutrition integrity', () => {
+  const official = () =>
+    editableLeaf({
+      key: 'parent',
+      servings: '1',
+      source_kind: 'official_verified',
+      provenance: 'official',
+      nutrients: { calories: '710' },
+      evidence: {
+        status: 'source_backed_ai_components',
+        nutrients: { calories: { status: 'official_verified' } },
+      },
+      components: [editableLeaf({ key: 'child', servings: '1', nutrients: { calories: '400' } })],
+    });
+
+  test('retains official direct parent values across catalog and diary adapters', () => {
+    const food = {
+      ...catalogFood,
+      current_version: {
+        ...catalogFood.current_version,
+        evidence: official().evidence,
+        nutrients: [{ key: 'calories', amount: '710' }],
+        sources: [{ title: 'Secondary', url: 'https://example.com', is_official: false }],
+      },
+    };
+    const item = catalogFoodToMealItem(food);
+    expect(itemNutrientTotal(item, 'calories')).toBe(710);
+    expect(item.sources[0].is_official).toBe(false);
+    const saved = savedMealItemToEditableMealItem({
+      ...official(),
+      id: 1,
+      food_name: 'Pizza',
+      nutrients: [{ key: 'calories', amount: '1420' }],
+      servings: '2',
+      component_snapshot: [],
+    });
+    expect(itemNutrientTotal(saved, 'calories')).toBe(1420);
+    expect(saved.evidence.status).toBe('source_backed_ai_components');
+  });
+
+  test('component edits remove parent verification and use updated totals', () => {
+    const item = official();
+    const updated = changeMealItemNutrient([item], 'child', 'calories', '300')[0];
+    expect(updated.evidence.status).toBe('user_modified_estimate');
+    expect(updated.components[0].source_kind).toBe('user_modified_estimate');
+    expect(itemNutrientTotal(updated, 'calories')).toBe(300);
+    expect(itemNutrientTotal(item, 'calories')).toBe(710);
+    const counted = changeMealItemServings([item], 'parent', '2', item)[0];
+    expect(counted.evidence.status).toBe('source_backed_ai_components');
+  });
+});

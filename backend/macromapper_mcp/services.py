@@ -277,6 +277,7 @@ def strict_proposal_items(items):
                 "url",
                 "accessed_on",
                 "is_official",
+                "evidence",
             }:
                 raise ValidationError("Unknown source fields.")
             if "is_official" in source and type(source["is_official"]) is not bool:

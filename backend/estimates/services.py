@@ -16,6 +16,12 @@ from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
 
+from foods.evidence import (
+    nutrition_evidence,
+    source_data,
+    usable_nutrition,
+    version_evidence,
+)
 from foods.models import FoodItem, FoodItemVersion
 from foods.nutrients import NUTRIENT_FIELDS
 from foods.portions import portion_options_for_serving
@@ -318,18 +324,7 @@ def _source_kind(provenance):
 
 
 def _sources(version):
-    return [
-        {
-            "title": source.title,
-            "provider": source.provider,
-            "url": source.url,
-            "accessed_on": (
-                source.accessed_on.isoformat() if source.accessed_on else None
-            ),
-            "is_official": version.provenance == FoodItemVersion.Provenance.OFFICIAL,
-        }
-        for source in version.sources.all()
-    ]
+    return [source_data(source) for source in version.sources.all()]
 
 
 def _portion_options(item):
@@ -406,6 +401,7 @@ def _catalog_food(
         "portion_options": portion_options,
         "selected_portion_key": selected_portion_key,
         "provenance": version.provenance,
+        "evidence": version_evidence(version),
         "source_kind": _source_kind(version.provenance),
         "confidence_score": (
             str(version.confidence_score)
@@ -827,6 +823,12 @@ def _recalculate_item(item):
                         Decimal("0"),
                     )
                 )
+        for field, coverage in item.get("evidence", {}).get("nutrients", {}).items():
+            if (
+                coverage.get("status") == "official_verified"
+                and item.get("nutrients", {}).get(field) is not None
+            ):
+                nutrients[field] = item["nutrients"][field]
         item["nutrients"] = nutrients
     return item
 
@@ -936,7 +938,47 @@ def _published_source(source):
         address = None
     if address is not None and not address.is_global:
         raise _catalog_publication_error()
+    raw_evidence = source.get("evidence") or {}
+    if not isinstance(raw_evidence, dict):
+        raise _catalog_publication_error()
+    evidence = {}
+    if raw_evidence:
+        for field, limit in (
+            ("product_name", 200),
+            ("brand", 160),
+            ("region", 80),
+            ("serving_label", 120),
+            ("serving_unit", 16),
+            ("published_on", 40),
+            ("retrieval_response_id", 160),
+        ):
+            evidence[field] = _published_text(
+                raw_evidence.get(field, ""), max_length=limit, allow_blank=True
+            )
+        evidence["retrieved"] = raw_evidence.get("retrieved") is True
+        evidence["serving_quantity"] = _published_decimal(
+            raw_evidence.get("serving_quantity", 1), positive=True, maximum=100000
+        )
+        evidence["serving_weight_grams"] = _published_decimal(
+            raw_evidence.get("serving_weight_grams"),
+            allow_null=True,
+            positive=True,
+            maximum=100000,
+        )
+        raw_nutrients = raw_evidence.get("nutrients") or {}
+        if not isinstance(raw_nutrients, dict) or set(raw_nutrients) - set(
+            NUTRIENT_FIELDS
+        ):
+            raise _catalog_publication_error()
+        evidence["nutrients"] = {
+            field: _published_decimal(
+                raw_nutrients.get(field), allow_null=True, maximum=100000
+            )
+            for field in NUTRIENT_FIELDS
+        }
     return {
+        "is_official": source.get("is_official") is True,
+        "evidence": evidence,
         "title": title,
         "provider": provider,
         "url": url,
@@ -999,6 +1041,10 @@ def _published_provider_item(item, *, depth=0):
         )
         for field in NUTRIENT_FIELDS
     }
+    if not usable_nutrition(safe_nutrients) and not components:
+        raise EstimationProviderError(
+            "A proposed food has no usable nutrition. No catalog foods were published; try again or enter nutrition manually."
+        )
     confidence = _published_decimal(
         item.get("confidence_score"),
         allow_null=True,
@@ -1012,7 +1058,12 @@ def _published_provider_item(item, *, depth=0):
     if len(source_urls) != len(set(source_urls)):
         raise _catalog_publication_error()
 
-    return {
+    result = {
+        "region": _published_text(
+            item.get("region", item.get("evidence", {}).get("region", "")),
+            max_length=80,
+            allow_blank=True,
+        ),
         "key": key,
         "name": _published_text(item.get("name"), max_length=200),
         "provider_name": provider_name,
@@ -1054,6 +1105,24 @@ def _published_provider_item(item, *, depth=0):
         ],
     }
 
+    research_status = item.get("evidence", {}).get("research_status", "not_recorded")
+    if research_status not in {
+        "found",
+        "no_source_found",
+        "failed",
+        "not_attempted",
+        "not_recorded",
+    }:
+        research_status = "not_recorded"
+    result["evidence"] = nutrition_evidence(result, research_status=research_status)
+    result["provenance"] = (
+        "official"
+        if result["evidence"]["status"]
+        in {"official_verified", "source_backed_ai_components"}
+        else "ai_estimate"
+    )
+    return result
+
 
 def _fingerprint_decimal(value, *, decimal_places, default="0"):
     return str(_storage_decimal(value, decimal_places=decimal_places, default=default))
@@ -1061,6 +1130,26 @@ def _fingerprint_decimal(value, *, decimal_places, default="0"):
 
 def _shared_fingerprint(*, item, components):
     payload = {
+        "evidence": {
+            key: value
+            for key, value in item.get("evidence", {}).items()
+            if key != "confidence"
+        },
+        "sources": sorted(
+            [
+                {
+                    **source,
+                    "accessed_on": None,
+                    "evidence": {
+                        key: value
+                        for key, value in source.get("evidence", {}).items()
+                        if key != "retrieval_response_id"
+                    },
+                }
+                for source in item.get("sources", [])
+            ],
+            key=lambda source: source["url"],
+        ),
         "name": " ".join(item["name"].casefold().split()),
         "provider_name": " ".join(item.get("provider_name", "").casefold().split()),
         "origin_type": item.get("origin_type") or FoodItem.OriginType.GENERIC,
@@ -1603,6 +1692,27 @@ def _visible_catalog_version(
     return queryset.filter(visible).select_related("food_item").first()
 
 
+def _review_definition_changed(item, original):
+    if any(
+        not _matches_catalog_value(
+            item.get("nutrients", {}).get(field),
+            original.get("nutrients", {}).get(field),
+            decimal_places=4,
+        )
+        for field in NUTRIENT_FIELDS
+    ):
+        return True
+    children, previous = item.get("components", []), original.get("components", [])
+    return len(children) != len(previous) or any(
+        child["key"] != old["key"]
+        or not _matches_catalog_value(
+            child.get("servings"), old.get("servings"), decimal_places=4
+        )
+        or _review_definition_changed(child, old)
+        for child, old in zip(children, previous)
+    )
+
+
 def secure_review_items(
     *,
     proposal,
@@ -1690,6 +1800,13 @@ def secure_review_items(
         result["components"] = [
             secure(component, depth=depth + 1) for component in requested_components
         ]
+        if _review_definition_changed(result, original):
+            result["evidence"] = {
+                **original.get("evidence", {}),
+                "status": "user_modified_estimate",
+                "nutrients": {},
+            }
+
         if original.get("components") and not result["components"]:
             result["nutrients"] = {field: None for field in NUTRIENT_FIELDS}
         return result
@@ -1851,12 +1968,15 @@ def _definition(item, components):
             else None
         ),
         "nutrients": nutrients,
+        "evidence": item.get("evidence", {}),
         "sources": [
             {
                 "title": source["title"],
                 "provider": source.get("provider", ""),
                 "url": source["url"],
                 "accessed_on": source.get("accessed_on"),
+                "is_official": source.get("is_official"),
+                "evidence": source.get("evidence", {}),
             }
             for source in item.get("sources", [])
         ],
@@ -2001,7 +2121,14 @@ def _apply_review_attribution(
             item["provenance"] = FoodItemVersion.Provenance.USER_MODIFIED_ESTIMATE
             item["source_kind"] = "user_modified_estimate"
             item["confidence_score"] = None
+            item["evidence"] = {
+                **version_evidence(version),
+                "status": "user_modified_estimate",
+                "nutrients": {},
+                "confidence": {"model": None, "evidence": None, "combined": None},
+            }
         elif version is not None:
+            item["evidence"] = version_evidence(version)
             item["provenance"] = version.provenance
             item["source_kind"] = _source_kind(version.provenance)
             item["confidence_score"] = (

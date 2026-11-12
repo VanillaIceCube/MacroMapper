@@ -972,7 +972,7 @@ class ComponentGraphTests(TestCase):
     def test_each_missing_component_field_rebuilds_the_snapshot(self):
         original = deepcopy(self.saved_item.component_snapshot)
         for nested in (False, True):
-            for field in original[0]:
+            for field in set(original[0]) - {"evidence"}:
                 with self.subTest(field=field, nested=nested):
                     incomplete = deepcopy(original)
                     component = (

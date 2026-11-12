@@ -26,6 +26,18 @@ import {
   servingAmountValue,
 } from '../domain/mealItem';
 
+const evidenceLabels = {
+  source_backed_ai_components: { label: 'Official parent; AI components', color: 'success' },
+  partially_source_backed: { label: 'Partially source-backed estimate', color: 'warning' },
+};
+
+const researchLabels = {
+  no_source_found: 'No matching nutrition source found',
+  failed: 'Nutrition source retrieval failed',
+  not_attempted: 'Nutrition research was not completed',
+  not_recorded: 'Legacy evidence coverage was not recorded',
+};
+
 const sourceLabels = {
   official_verified: { label: 'Official / Verified', color: 'success' },
   catalog_estimate: { label: 'Catalog Estimate', color: 'info' },
@@ -50,13 +62,19 @@ export default function MealItemEditorRow({
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [nutritionEditing, setNutritionEditing] = useState(false);
   const [actionsAnchorEl, setActionsAnchorEl] = useState(null);
-  const source = sourceLabels[item.source_kind] || sourceLabels.ai_estimate;
+  const source =
+    evidenceLabels[item.evidence?.status] ||
+    sourceLabels[item.source_kind] ||
+    sourceLabels.ai_estimate;
   const isComponent = depth > 0;
   const canEditItem = !isComponent || allowComponentEditing;
   const options = displayedPortionOptions(item);
   const activePortion = selectedPortion(item);
   const hasDetails =
-    item.confidence_score != null || item.provider_name || Boolean(item.sources?.length);
+    item.confidence_score != null ||
+    item.provider_name ||
+    Boolean(item.sources?.length) ||
+    Boolean(item.evidence);
   const hasActions = hasDetails || canEditItem;
   const accentColor =
     item.source_kind === 'ai_estimate' || item.source_kind === 'user_modified_estimate'
@@ -285,6 +303,31 @@ export default function MealItemEditorRow({
                   />
                 )}
               </Stack>
+              {item.evidence?.status === 'source_backed_ai_components' && (
+                <Typography variant="caption">
+                  Official source for parent; components estimated by AI.
+                </Typography>
+              )}
+              {researchLabels[item.evidence?.research_status] && (
+                <Typography variant="caption" role="status">
+                  {researchLabels[item.evidence.research_status]}
+                </Typography>
+              )}
+              {item.evidence?.confidence && (
+                <Typography variant="caption">
+                  Model confidence describes estimation, not source verification.
+                  {item.evidence.confidence.combined != null &&
+                    ` Combined confidence: ${Math.round(item.evidence.confidence.combined * 100)}% (weakest dependency).`}
+                </Typography>
+              )}
+              {Object.entries(item.evidence?.nutrients || {}).map(([nutrient, coverage]) => (
+                <Typography variant="caption" key={nutrient}>
+                  {nutrient}:{' '}
+                  {coverage.status === 'official_verified'
+                    ? 'Official source verified'
+                    : 'Estimated; not source verified'}
+                </Typography>
+              ))}
               {!!item.sources?.length && (
                 <Stack component="ul" spacing={0.25} sx={{ my: 0.5, pl: 2.25 }}>
                   {item.sources.map((entry) => (

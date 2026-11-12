@@ -89,6 +89,15 @@ const provenanceLabels = {
   user_entered: 'User Entered',
 };
 
+const evidenceLabel = (item) =>
+  ({
+    source_backed_ai_components: 'Official parent; AI components',
+    partially_source_backed: 'Partially source-backed estimate',
+    user_modified_estimate: 'User Adjusted',
+  })[item.evidence?.status] ||
+  provenanceLabels[item.provenance] ||
+  'Unknown';
+
 const catalogPageSize = 20;
 const initialCatalogRequest = {
   query: '',
@@ -1348,7 +1357,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                         {availableFoods.map((food) => {
                           const version = food.current_version || {};
                           const source =
-                            provenanceLabels[version.provenance] ||
+                            evidenceLabel(version) ||
                             (food.scope === 'personal' ? 'Personal' : 'Catalog');
                           const scopeLabel =
                             food.scope === 'personal'
@@ -2577,7 +2586,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                           Provenance
                                         </Typography>
                                         <Typography variant="body2" sx={{ fontWeight: 750 }}>
-                                          {provenanceLabels[item.provenance] || 'Unknown'}
+                                          {evidenceLabel(item)}
                                         </Typography>
                                       </Box>
                                     </Box>

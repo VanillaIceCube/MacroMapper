@@ -15,7 +15,6 @@ from .services import (
     create_builder_proposal,
     create_proposal,
     create_proposal_revision,
-    normalize_items,
     saved_meal_version_ids,
     secure_review_items,
 )
@@ -43,6 +42,7 @@ ITEM_FIELDS = {
     "portion_options",
     "selected_portion_key",
     "provenance",
+    "evidence",
     "source_kind",
     "confidence_score",
     "is_user_modified",
@@ -298,9 +298,9 @@ class ProposalItemsField(serializers.JSONField):
                 "A proposal may contain at most 20 foods."
             )
         seen_keys = set()
-        return normalize_items(
-            [_validate_item(item, seen_keys=seen_keys) for item in data]
-        )
+        # Normalize only after services restore server-owned evidence. Otherwise
+        # an unchanged official composite is replaced by inferred child totals.
+        return [_validate_item(item, seen_keys=seen_keys) for item in data]
 
 
 class MapYourMealItemsField(serializers.JSONField):
@@ -310,9 +310,9 @@ class MapYourMealItemsField(serializers.JSONField):
         if len(data) > 20:
             raise serializers.ValidationError("A meal may contain at most 20 foods.")
         seen_keys = set()
-        return normalize_items(
-            [_validate_item(item, seen_keys=seen_keys) for item in data]
-        )
+        # Normalize only after services restore server-owned evidence. Otherwise
+        # an unchanged official composite is replaced by inferred child totals.
+        return [_validate_item(item, seen_keys=seen_keys) for item in data]
 
 
 class MapYourMealDraftSerializer(serializers.Serializer):
