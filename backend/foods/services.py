@@ -86,10 +86,43 @@ def create_food_version(*, food_item, definition, created_by):
         locked_item.versions.aggregate(highest=Max("version_number"))["highest"] or 0
     ) + 1
 
+    candidate_fields = definition.copy()
+    candidate_nutrients = candidate_fields.pop("nutrients", {})
+    candidate_fields.pop("sources", None)
+    candidate_fields.pop("components", None)
+    # Deduplication must retain the same validation gate as inserting a new version.
+    FoodItemVersion(
+        food_item=locked_item,
+        version_number=next_version,
+        created_by=created_by,
+        **candidate_nutrients,
+        **candidate_fields,
+    ).full_clean()
     fingerprint = definition_fingerprint(definition)
     if locked_item.scope == FoodItem.Scope.SHARED and locked_item.canonical_identity:
         existing = locked_item.versions.filter(content_fingerprint=fingerprint).first()
         if existing is not None:
+            for source_data in definition.get("sources", []):
+                SourceReference(food_version=existing, **source_data).full_clean(
+                    validate_unique=False, validate_constraints=False
+                )
+            for component_data in definition.get("components", []):
+                child = component_data["food_item"]
+                child_version = (
+                    component_data.get("food_version") or child.current_version
+                )
+                if child_version is None or child_version.food_item_id != child.pk:
+                    raise ValidationError(
+                        {
+                            "components": "A pinned component version must belong to its food."
+                        }
+                    )
+                FoodComponent(
+                    parent_version=existing,
+                    child_version=child_version,
+                    servings=component_data["servings"],
+                    order=component_data.get("order", 0),
+                ).full_clean(validate_unique=False, validate_constraints=False)
             _add_version_evidence(existing, definition)
             _select_shared_current(locked_item)
             food_item.current_version = locked_item.current_version

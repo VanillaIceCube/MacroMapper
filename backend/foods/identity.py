@@ -62,7 +62,7 @@ def canonical_url(value):
 
 
 def identity_source_url(*, provider_name, sources):
-    """Use only provider-owned hostnames, never third-party evidence URLs."""
+    """Use provider-name hostname hints; this is not an ownership verifier."""
     provider = provider_identity(provider_name)
     if not provider:
         return ""

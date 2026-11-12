@@ -124,6 +124,17 @@ class CanonicalFoodIdentityTests(TestCase):
         self.assertNotEqual(official.pk, ai.pk)
         self.assertEqual(food.current_version_id, official.pk)
 
+    def test_version_reuse_preserves_confidence_and_source_validation_gates(self):
+        food, original = self.publish()
+        for invalid in (
+            {**definition(), "confidence_score": Decimal("2")},
+            {**definition(), "sources": [{"title": "Bad URL", "url": "not-a-url"}]},
+        ):
+            with self.assertRaises(ValidationError):
+                create_food_version(food_item=food, definition=invalid, created_by=None)
+        self.assertEqual(food.versions.count(), 1)
+        self.assertEqual(original.estimate_evidence.count(), 1)
+
     def test_current_version_tie_uses_earliest_version(self):
         food, original = self.publish()
         self.publish(calories="141")

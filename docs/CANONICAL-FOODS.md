@@ -8,10 +8,13 @@ normalized; provider foods do not split merely because their classification is
 removed, while branded size/SKU names remain distinct.
 
 An explicit product identifier is scoped to its provider and market. Otherwise
-an explicitly supplied identity URL, or a source on the provider's own hostname,
+an explicitly supplied identity URL, or a source whose hostname starts with the
+normalized provider name,
 also constrains identity. URL fragments and tracking parameters are ignored;
-country paths and meaningful query parameters are preserved. Third-party source
-URLs do not define identity. Unknown versus known identity URLs/markets are
+country paths and meaningful query parameters are preserved. This hostname
+heuristic is an identity hint, not proof of domain ownership or official
+nutrition provenance. Unmatched third-party source URLs do not define identity.
+Unknown versus known identity URLs/markets are
 conservatively distinct: adding evidence must not silently merge potentially
 different regional products. Unrecognized synonyms and cross-domain provider
 aliases need explicit review rather than fuzzy automatic merging.
