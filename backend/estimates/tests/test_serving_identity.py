@@ -312,6 +312,91 @@ class ServingIdentityTests(TestCase):
             Decimal("450"),
         )
 
+    def weightless_medium_personal_apple(self):
+        return create_food_item(
+            name="Yellow apple",
+            scope="personal",
+            origin_type="generic",
+            provider_name="",
+            owner=self.user,
+            created_by=self.user,
+            definition={
+                "serving_quantity": Decimal("1"),
+                "serving_unit": "item",
+                "serving_label": "1 medium apple",
+                "serving_weight_grams": None,
+                "natural_servings": [
+                    {"key": "large", "label": "Large", "weight_grams": "225"}
+                ],
+                "provenance": "user_entered",
+                "confidence_score": None,
+                "nutrients": {"calories": Decimal("80")},
+                "sources": [],
+                "components": [],
+            },
+        )
+
+    def test_natural_size_without_base_weight_does_not_resolve_large_intent(self):
+        personal = self.weightless_medium_personal_apple()
+        original_version_id = personal.current_version_id
+        catalog = _catalog_food(personal.current_version)
+        self.assertNotIn(
+            "size:large", {option["key"] for option in catalog["portion_options"]}
+        )
+        description = "Two large yellow apples"
+        provider = Mock()
+        provider.extract_intents.return_value = {
+            "name": "Yellow apples",
+            "items": [
+                {
+                    "raw_text": description,
+                    "search_name": "Yellow apple",
+                    "quantity": 2,
+                    "defining_terms": ["large", "yellow"],
+                }
+            ],
+        }
+        provider.estimate.return_value = self.size_estimate(
+            self.large_yellow_apple(servings=2)
+        )
+        with patch("estimates.services.get_estimation_provider", return_value=provider):
+            proposal = create_proposal(
+                owner=self.user, description=description, entry_date=date(2026, 11, 11)
+            )
+        provider.extract_intents.assert_called_once_with(description)
+        provider.estimate.assert_called_once_with(description)
+        item = proposal.items[0]
+        self.assertNotEqual(item["food_item_id"], personal.pk)
+        self.assertEqual(item["selected_portion_key"], "size:large")
+        self.assertEqual(Decimal(item["serving_weight_grams"]), Decimal("225"))
+        self.assertEqual(Decimal(item["servings"]), Decimal("2"))
+        meal = accept_proposal(proposal=proposal)
+        self.assertEqual(meal.items.get().calories, Decimal("240"))
+        personal.refresh_from_db()
+        self.assertEqual(personal.current_version_id, original_version_id)
+        self.assertIsNone(personal.current_version.serving_weight_grams)
+        self.assertEqual(personal.current_version.calories, Decimal("80"))
+        self.assertEqual(personal.versions.count(), 1)
+
+    def test_declared_medium_base_remains_usable_without_base_weight(self):
+        personal = self.weightless_medium_personal_apple()
+        with patch("estimates.services.get_estimation_provider") as provider:
+            proposal = create_proposal(
+                owner=self.user,
+                description="Two medium yellow apples",
+                entry_date=date(2026, 11, 11),
+            )
+        provider.assert_not_called()
+        item = proposal.items[0]
+        self.assertEqual(item["food_item_id"], personal.pk)
+        self.assertEqual(item["food_version_id"], personal.current_version_id)
+        self.assertEqual(item["selected_portion_key"], "base")
+        self.assertEqual(Decimal(item["servings"]), Decimal("2"))
+        self.assertIsNone(item["serving_weight_grams"])
+        meal = accept_proposal(proposal=proposal)
+        self.assertEqual(meal.items.get().calories, Decimal("160"))
+        self.assertEqual(meal.items.get().food_version_id, personal.current_version_id)
+
     def test_unsupported_serialized_size_publishes_new_version_instead_of_small_addon(
         self,
     ):
