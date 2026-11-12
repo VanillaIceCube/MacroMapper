@@ -112,9 +112,9 @@ def _validate_portion_options(item, *, serving_quantity, serving_unit, serving_l
         unit=serving_unit,
         label=serving_label,
     )
-    if not isinstance(raw_options, list) or len(raw_options) > 12:
+    if not isinstance(raw_options, list) or len(raw_options) > 20:
         raise serializers.ValidationError(
-            "A proposed food may contain at most 12 portion options."
+            "A proposed food may contain at most 20 portion options."
         )
 
     options = []

@@ -158,7 +158,7 @@ def portion_options_for_serving(
                 {
                     "key": f"size:{natural['key']}",
                     "label": natural["label"],
-                    "unit_label": natural["label"],
+                    "unit_label": natural["label"][:32],
                     "serving_multiplier": _decimal_string(
                         Decimal(natural["weight_grams"]) / base_weight
                     ),

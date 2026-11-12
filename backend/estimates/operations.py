@@ -68,6 +68,13 @@ def apply_tree_operations(items, result):
             else indexed[parent_key][0].setdefault("components", [])
         )
         if destination is not siblings:
+            if node.get("food_version_id") and any(
+                child.get("food_version_id") == node["food_version_id"]
+                for child in destination
+            ):
+                raise ValidationError(
+                    "That ingredient already exists at the destination. Adjust its quantity or remove the duplicate first."
+                )
             siblings.remove(node)
             destination.append(node)
             changed = True
