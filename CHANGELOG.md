@@ -1,5 +1,11 @@
 ## 2026-11-11
 
+### Removed
+
+- Remove retired Jules notebooks, persona prompts and active operating instructions after the linked PRs merged and a fresh open-PR inventory passed (#368); preserve general maintenance guidance, historical evidence and independent CI/security/release controls.
+
+## 2026-11-11
+
 ### Fixed
 
 - Update MCP test fixtures to import from the estimates helper module after decomposition, and correct root-level Django test commands to discover the full backend suite.
