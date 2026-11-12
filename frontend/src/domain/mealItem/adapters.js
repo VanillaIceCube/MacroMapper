@@ -21,9 +21,11 @@ const withPortionSelection = (item) => {
   return {
     ...item,
     portion_options: options,
-    selected_portion_key: options.some((option) => option.key === item.serving_unit)
-      ? item.serving_unit
-      : options[0].key,
+    selected_portion_key: options.some((option) => option.key === item.selected_portion_key)
+      ? item.selected_portion_key
+      : options.some((option) => option.key === item.serving_unit)
+        ? item.serving_unit
+        : options[0].key,
   };
 };
 
@@ -35,6 +37,10 @@ export const componentSnapshotToMealItem = (component) =>
     name: component.food_name || component.food_item_name,
     provider_name: component.provider_name || '',
     origin_type: component.origin_type,
+    market: component.market || '',
+    product_identifier: component.product_identifier || '',
+    identity_url: component.identity_url || '',
+    natural_servings: component.natural_servings || [],
     servings: String(component.servings ?? '1'),
     serving_quantity: component.serving_quantity || '1',
     serving_unit: component.serving_unit || 'serving',
@@ -42,6 +48,7 @@ export const componentSnapshotToMealItem = (component) =>
     serving_weight_grams: component.serving_weight_grams ?? null,
     serving_volume_ml: component.serving_volume_ml ?? null,
     portion_options: component.portion_options || [],
+    selected_portion_key: component.selected_portion_key,
     provenance: component.provenance || 'community_estimate',
     source_kind: sourceKindForProvenance(component.provenance || 'community_estimate'),
     confidence_score: component.confidence_score,
@@ -62,6 +69,10 @@ export const catalogFoodToMealItem = (food) => {
     name: food.name,
     provider_name: food.provider_name,
     origin_type: food.origin_type,
+    market: food.market || '',
+    product_identifier: food.product_identifier || '',
+    identity_url: food.identity_url || '',
+    natural_servings: version.natural_servings || [],
     servings: '1',
     serving_quantity: version.serving_quantity || '1',
     serving_unit: version.serving_unit || 'serving',
@@ -69,6 +80,7 @@ export const catalogFoodToMealItem = (food) => {
     serving_weight_grams: version.serving_weight_grams ?? null,
     serving_volume_ml: version.serving_volume_ml ?? null,
     portion_options: version.portion_options || [],
+    selected_portion_key: version.selected_portion_key,
     provenance,
     source_kind: sourceKindForProvenance(provenance),
     confidence_score: version.confidence_score,
@@ -94,10 +106,7 @@ export const proposalItemToMealItem = (item) => {
     sources: item.sources || [],
     components: (item.components || []).map(proposalItemToMealItem),
   });
-  return {
-    ...normalized,
-    selected_portion_key: item.selected_portion_key || normalized.selected_portion_key,
-  };
+  return normalized;
 };
 
 export const mealItemToProposalItem = (item) => ({
@@ -107,6 +116,10 @@ export const mealItemToProposalItem = (item) => ({
   name: item.name,
   provider_name: item.provider_name || '',
   origin_type: item.origin_type || 'generic',
+  market: item.market || '',
+  product_identifier: item.product_identifier || '',
+  identity_url: item.identity_url || '',
+  natural_servings: item.natural_servings || [],
   servings: String(item.servings ?? '1'),
   serving_quantity: item.serving_quantity || '1',
   serving_unit: item.serving_unit || 'serving',
@@ -133,6 +146,10 @@ export const savedMealItemToEditableMealItem = (item) => {
     name: item.food_name,
     provider_name: item.provider_name,
     origin_type: item.origin_type,
+    market: item.market || '',
+    product_identifier: item.product_identifier || '',
+    identity_url: item.identity_url || '',
+    natural_servings: item.natural_servings || [],
     servings: String(servings),
     serving_quantity: item.serving_quantity,
     serving_unit: item.serving_unit,
@@ -140,6 +157,7 @@ export const savedMealItemToEditableMealItem = (item) => {
     serving_weight_grams: item.serving_weight_grams ?? null,
     serving_volume_ml: item.serving_volume_ml ?? null,
     portion_options: item.portion_options || [],
+    selected_portion_key: item.selected_portion_key,
     provenance: item.provenance,
     source_kind: sourceKindForProvenance(item.provenance),
     confidence_score: item.confidence_score,

@@ -1,5 +1,11 @@
 import { itemNutrientTotal, servingsValue } from '../nutrition/calculations';
-import { roundedNumberString, selectedPortion } from './portions';
+import {
+  portionOptions,
+  roundedNumberString,
+  selectedPortion,
+  servingAmountValue,
+  standardPortionLabels,
+} from './portions';
 
 export function updateMealItemTree(items, key, update) {
   return items.map((item) =>
@@ -40,10 +46,28 @@ export function changeMealItemServings(items, key, amount, item) {
 }
 
 export const changeMealItemPortion = (items, key, selectedPortionKey) =>
-  updateMealItemTree(items, key, (item) => ({
-    ...item,
-    selected_portion_key: selectedPortionKey,
-  }));
+  updateMealItemTree(items, key, (item) => {
+    const nextPortion = portionOptions(item).find((option) => option.key === selectedPortionKey);
+    if (!nextPortion) return item;
+    const currentPortion = selectedPortion(item);
+    const changesSize =
+      (currentPortion.key.startsWith('size:') ||
+        (currentPortion.key === 'base' && !standardPortionLabels[item.serving_unit])) &&
+      selectedPortionKey.startsWith('size:');
+    const count = servingAmountValue(item);
+    const multiplier = Number(nextPortion.serving_multiplier);
+    return {
+      ...item,
+      selected_portion_key: selectedPortionKey,
+      ...(changesSize &&
+      count !== '' &&
+      Number.isFinite(Number(count)) &&
+      Number.isFinite(multiplier) &&
+      multiplier > 0
+        ? { servings: roundedNumberString(Number(count) * multiplier) }
+        : {}),
+    };
+  });
 
 const zeroNutrients = (item) => ({
   ...item,

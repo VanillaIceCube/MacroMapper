@@ -303,6 +303,9 @@ export default function MealItemEditorRow({
         {!!item.components?.length && (
           <Collapse in={componentsOpen} unmountOnExit>
             <Stack spacing={0.75} sx={{ mt: 0.85 }}>
+              <Typography variant="caption" sx={{ color: 'var(--atlas-ink-muted)' }}>
+                Ingredients shown per full portion; totals above reflect the amount eaten.
+              </Typography>
               {item.components.map((component) => (
                 <MealItemEditorRow
                   key={component.key}

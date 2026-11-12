@@ -1291,6 +1291,110 @@ describe('DiaryPage', () => {
     expect(within(dialog).queryByText('Breakfast Burrito')).not.toBeInTheDocument();
   });
 
+  test('shows saved natural size counts separately from the canonical food name', async () => {
+    const savedApples = {
+      ...meal,
+      items: [
+        {
+          ...meal.items[0],
+          food_name: 'Red apple',
+          servings: '3',
+          selected_portion_key: 'size:large',
+          portion_options: [
+            { key: 'base', label: 'one small apple', serving_multiplier: '1' },
+            { key: 'size:large', label: 'Large', serving_multiplier: '1.5' },
+          ],
+          nutrients: [{ key: 'calories', amount: '300' }],
+        },
+      ],
+    };
+    fetchDailyDiary.mockResolvedValue(response({ meals: [savedApples], totals: [] }));
+    renderWithProviders(<DiaryPage />);
+    expect(await screen.findByText('2 × Red apple')).toBeVisible();
+    expect(screen.getByText('Large')).toBeVisible();
+  });
+
+  test('renders and saves an AI ingredient move without retaining a top-level duplicate', async () => {
+    const user = userEvent.setup();
+    const ingredient = (key, name, servings, calories) => ({
+      ...estimatedProposal.items[0],
+      key,
+      name,
+      provider_name: '',
+      origin_type: 'generic',
+      servings,
+      nutrients: { calories },
+    });
+    const eggs = ingredient('eggs', 'Egg', '2', '70');
+    const fish = {
+      ...ingredient('breaded-tilapia', 'Breaded tilapia', '1', '320'),
+      components: [
+        ingredient('tilapia', 'Tilapia', '1', '150'),
+        ingredient('flour', 'Flour', '1', '50'),
+        ingredient('breading', 'Breading', '1', '120'),
+      ],
+    };
+    const original = { ...estimatedProposal, items: [fish, eggs] };
+    const corrected = {
+      ...original,
+      items: [{ ...fish, components: [...fish.components, eggs] }],
+    };
+    fetchDailyDiary.mockResolvedValue(response({ meals: [], totals: [] }));
+    createMealProposal.mockResolvedValue(response(original));
+    adjustMealProposal.mockResolvedValue(
+      response({ applied: true, message: 'Moved eggs into breaded tilapia.', proposal: corrected }),
+    );
+    updateMealProposal.mockResolvedValue(response(corrected));
+    acceptMealProposal.mockResolvedValue(response(meal));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Map your Meal with AI' }));
+    const estimateDialog = await screen.findByRole('dialog', { name: /Map it with AI/ });
+    await user.type(
+      within(estimateDialog).getByRole('textbox', { name: 'Describe what you ate' }),
+      'Breaded tilapia made with two eggs, flour and breading',
+    );
+    await user.click(within(estimateDialog).getByRole('button', { name: 'Create estimate' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    expect(within(dialog).getByLabelText('Egg macro values')).toBeVisible();
+
+    await user.type(
+      within(dialog).getByRole('textbox', { name: 'Describe an AI adjustment' }),
+      'Put the two eggs inside the breaded tilapia',
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'Apply adjustment' }));
+    await within(dialog).findByText('Moved eggs into breaded tilapia.');
+    expect(within(dialog).queryByLabelText('Egg macro values')).not.toBeInTheDocument();
+    expect(
+      within(within(dialog).getByLabelText('Breaded tilapia macro values')).getByText('460'),
+    ).toBeVisible();
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Expand components for Breaded tilapia' }),
+    );
+    expect(within(dialog).getAllByLabelText('Egg macro values')).toHaveLength(1);
+    expect(
+      within(within(dialog).getByLabelText('Egg macro values')).getByText('140'),
+    ).toBeVisible();
+    await user.click(within(dialog).getByRole('button', { name: 'Save meal' }));
+    await waitFor(() =>
+      expect(updateMealProposal).toHaveBeenCalledWith(
+        90,
+        expect.objectContaining({
+          items: [
+            expect.objectContaining({
+              key: 'breaded-tilapia',
+              components: expect.arrayContaining([
+                expect.objectContaining({ key: 'eggs', servings: '2' }),
+              ]),
+            }),
+          ],
+        }),
+        'access-token',
+      ),
+    );
+  });
+
   test('keeps AI Adjustments in Map Your Meal after estimation', async () => {
     const user = userEvent.setup();
     fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
