@@ -19,6 +19,31 @@ keeping reviewed user adjustments private, version-linked, and durable in meal
 snapshots. See the [product vision](../docs/PRODUCT_VISION.md) for the
 remaining roadmap.
 
+## Estimates test organization
+
+`estimates/tests/` is a discoverable Python package. Keep its `__init__.py` and
+name new modules `test_*.py`; do not recreate a competing `estimates/tests.py`.
+Use `test_proposals.py` for proposal API behavior, `test_adjustments.py` for
+adjustment lifecycle/rollback, `test_admin.py` for admin immutability, and
+`test_provider.py` for provider requests and normalization. Shared data builders
+belong in `helpers.py`, which does not define discoverable test classes.
+
+Import helpers with `from .helpers import ...` and app modules with `from
+..models import ...` (or their absolute app paths). Patch dependencies where the
+code under test looks them up, such as `estimates.services.get_estimation_provider`,
+not where test helpers live. Keep provider calls mocked; no API key is needed.
+
+From the repository root, run `python backend/manage.py test estimates` for all
+four modules, or append a module/class/method such as
+`estimates.tests.test_provider.OpenAIProviderTests`. Also run
+`python backend/manage.py test backend` to verify full Django discovery. The
+explicit directory matters at the repository root: without a label, discovery
+starts in the current directory and can report zero tests. CI instead runs
+`python manage.py test` with `backend` as its working directory. Compare test
+inventories and assertions before/after moving tests, including class decorators,
+setup/teardown, helpers and subtests; a green reduced suite is insufficient.
+See the [PR #305 preservation audit](../docs/ESTIMATES-TEST-REFACTOR.md).
+
 ## 🧭 Structure
 - `app/`: Django settings, URL routing, and the WSGI server entry point
 - `authentication/`: custom user, registration, login, refresh, password reset,
@@ -248,7 +273,7 @@ optional follow-up fields retain existing confidence and provider metadata when
 no replacement is supplied. Views inject the response serializer and provider
 getter to avoid a service/serializer import cycle and keep provider calls patchable.
 See [PR #181](https://github.com/VanillaIceCube/MacroMapper/pull/181) and
-`estimates.tests.MealAdjustmentLifecycleTests` for both endpoints' failure coverage.
+`estimates.tests.test_adjustments.MealAdjustmentLifecycleTests` for both endpoints' failure coverage.
 
 ## 🔔 Notification API
 All `/api/` endpoints require a JWT access token. Notification querysets are
@@ -375,7 +400,7 @@ SMTP-compatible backends can instead use the documented `DJANGO_EMAIL_HOST`,
 
 ## 🧰 Checks
 ```powershell
-python backend/manage.py test
+python backend/manage.py test backend
 ruff check backend
 ruff format backend --check
 ```
@@ -468,3 +493,12 @@ mail is sent by tests; mocks cover success, credentials, network/timeouts,
 400/401/403/422/429/500/503, both silent modes, partial batches, safe fallback and
 the real reset caller's generic response/redacted logs. Production public
 readiness cannot establish authenticated password-reset inbox delivery.
+
+## Persistence regression guidance
+
+Preserve recipient scoping and serializer saves on notification PATCH even when
+read state is unchanged or omitted; change `read_at` only on state transitions.
+Keep malformed reset-ID and duplicate-registration race coverage. Estimated
+portion weights must remain positive after rounding before division; retain
+tiny/zero/negative input and exact conversion tests. Snapshot and proposal
+cleanup requirements are described in the invariants section above.

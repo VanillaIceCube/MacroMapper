@@ -21,7 +21,7 @@ from rest_framework.exceptions import APIException, ValidationError
 
 from estimates.models import MealProposal
 from estimates.services import create_proposal
-from estimates.tests import ai_estimate
+from estimates.tests.helpers import ai_estimate
 from foods.models import FoodItem
 from foods.services import create_food_item, create_food_version
 from meals.models import MealEntry

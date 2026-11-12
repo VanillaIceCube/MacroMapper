@@ -1,5 +1,7 @@
-import { NUTRIENT_FIELDS as nutrientDefinitions } from '../../domain/nutrition/definitions';
-import { macroCalorieSegments as calculateMacroCalorieSegments } from '../../domain/nutrition/calculations';
+import {
+  NUTRIENT_FIELDS as nutrientDefinitions,
+  macroCalorieSegments as calculateMacroCalorieSegments,
+} from '../../domain/nutrition';
 
 const nutrientPresentation = {
   calories: {

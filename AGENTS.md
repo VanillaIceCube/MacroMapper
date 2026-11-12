@@ -82,7 +82,7 @@ Optional frontend variable:
 Run checks in proportion to the change:
 
 ```powershell
-python backend/manage.py test
+python backend/manage.py test backend
 ruff check backend
 ruff format backend --check
 Set-Location frontend
@@ -121,12 +121,6 @@ Secret-dependent workflows must fail visibly when their credentials are unavaila
 External GitHub Actions use immutable commit SHAs with version comments.
 Keep that convention when updating workflows or composite actions; preserve
 review/scanner failure gates and do not treat action updates as deployment approval.
-
-## Jules recurring agents
-
-Nora and Marty use the [v3 operating rules](.jules/README.md): at most one open
-PR per agent per repository. Repeat runs maintain the existing PR, integrate
-current main, and verify its latest head instead of opening another PR.
 
 ## 🔑 OpenAI reviewer isolation
 
