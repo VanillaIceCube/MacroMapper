@@ -18,7 +18,9 @@ def usable_nutrition(nutrients):
             if value.is_finite() and value >= 0:
                 return True
         except (InvalidOperation, ValueError, TypeError):
-            pass
+            # Unknown or malformed fields cannot establish usable nutrition;
+            # another independently valid nutrient may still make this partial food usable.
+            continue
     return False
 
 
