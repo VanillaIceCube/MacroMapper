@@ -160,3 +160,66 @@ class ServingIdentityTests(TestCase):
         self.assertFalse(
             any(option["key"].startswith("size:") for option in item["portion_options"])
         )
+
+    def test_follow_up_large_apple_stays_separate_from_existing_small_apples(self):
+        small_apples = _catalog_food(
+            self.apple.current_version, servings="2", key="small-apples"
+        )
+        proposal = MealProposal.objects.create(
+            owner=self.user,
+            entry_date=date(2026, 11, 11),
+            name="Apples",
+            description="Two small red apples",
+            items=[small_apples],
+        )
+        original_small = deepcopy(small_apples)
+        added_large = _serialize_food(
+            EstimatedFood(
+                name="Red apple",
+                servings=1,
+                serving_quantity=1,
+                serving_unit="item",
+                serving_label="1 large apple",
+                serving_weight_grams=225,
+                natural_servings=self.sizes,
+                confidence_score=0.8,
+                nutrients={"calories": 120},
+            ),
+            key="new-large-apple",
+        )
+        outcome = apply_proposal_follow_up(
+            proposal=proposal,
+            owner=self.user,
+            follow_up="I also ate one large red apple separately",
+            items=deepcopy(proposal.items),
+            result={"items_to_add": [added_large]},
+        )
+        self.assertTrue(outcome["applied"])
+        proposal.refresh_from_db()
+        self.assertEqual(len(proposal.items), 2)
+        self.assertEqual(proposal.items[0], original_small)
+        large = proposal.items[1]
+        self.assertEqual(large["food_item_id"], self.apple.pk)
+        self.assertEqual(large["food_version_id"], self.apple.current_version_id)
+        self.assertEqual(large["selected_portion_key"], "size:large")
+        self.assertEqual(Decimal(large["servings"]), Decimal("1.5"))
+        multiplier = next(
+            Decimal(option["serving_multiplier"])
+            for option in large["portion_options"]
+            if option["key"] == "size:large"
+        )
+        self.assertEqual(Decimal(large["servings"]) / multiplier, Decimal("1"))
+        self.assertEqual(
+            Decimal(large["servings"]) * Decimal(large["serving_weight_grams"]),
+            Decimal("225"),
+        )
+        meal = accept_proposal(proposal=proposal)
+        self.assertEqual(meal.items.count(), 2)
+        self.assertEqual(
+            sum(item.calories for item in meal.items.all()), Decimal("280")
+        )
+        self.assertEqual(meal.items.get(order=0).calories, Decimal("160"))
+        self.assertEqual(meal.items.get(order=1).calories, Decimal("120"))
+        self.assertEqual(meal.items.get(order=1).selected_portion_key, "size:large")
+        self.assertEqual(self.apple.versions.count(), 1)
+        self.assertEqual(FoodItem.objects.filter(scope="personal").count(), 0)
