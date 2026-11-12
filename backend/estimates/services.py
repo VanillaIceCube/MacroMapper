@@ -1403,6 +1403,7 @@ def _follow_up_identity(item):
         return (
             "food_item",
             str(item["food_item_id"]),
+            str(item.get("food_version_id")),
             portion_key if portion_key.startswith("size:") else "",
         )
     return _semantic_food_identity(item)

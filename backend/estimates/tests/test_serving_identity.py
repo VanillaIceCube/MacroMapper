@@ -9,8 +9,9 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.test import APIClient
 
+from foods.identity import version_definition
 from foods.models import FoodItem
-from foods.services import create_food_item
+from foods.services import create_food_item, create_food_version
 
 from ..models import MealProposal
 from ..provider import EstimatedFood, _serialize_food
@@ -222,4 +223,71 @@ class ServingIdentityTests(TestCase):
         self.assertEqual(meal.items.get(order=1).calories, Decimal("120"))
         self.assertEqual(meal.items.get(order=1).selected_portion_key, "size:large")
         self.assertEqual(self.apple.versions.count(), 1)
+        self.assertEqual(FoodItem.objects.filter(scope="personal").count(), 0)
+
+    def test_added_size_does_not_merge_different_version_serving_bases(self):
+        small_definition = version_definition(self.apple.current_version)
+        large_definition = deepcopy(small_definition)
+        large_definition.update(
+            serving_label="1 large apple",
+            serving_weight_grams=Decimal("225"),
+            nutrients={"calories": Decimal("120")},
+        )
+        historical_large = create_food_version(
+            food_item=self.apple, definition=large_definition, created_by=None
+        )
+        historical_item = _catalog_food(
+            historical_large, servings="2", key="historical-large"
+        )
+        current_small = create_food_version(
+            food_item=self.apple, definition=small_definition, created_by=None
+        )
+        self.assertNotEqual(historical_large.pk, current_small.pk)
+        proposal = MealProposal.objects.create(
+            owner=self.user,
+            entry_date=date(2026, 11, 11),
+            name="Apples",
+            description="Two large apples from a previously reviewed version",
+            items=[historical_item],
+        )
+        added_large = _serialize_food(
+            EstimatedFood(
+                name="Red apple",
+                servings=1,
+                serving_unit="item",
+                serving_label="1 large apple",
+                serving_weight_grams=225,
+                natural_servings=self.sizes,
+                confidence_score=0.8,
+                nutrients={"calories": 120},
+            ),
+            key="new-large-apple",
+        )
+        for expected_current_servings in ("1.5", "3"):
+            proposal.refresh_from_db()
+            outcome = apply_proposal_follow_up(
+                proposal=proposal,
+                owner=self.user,
+                follow_up="I also ate one more large apple separately",
+                items=deepcopy(proposal.items),
+                result={"items_to_add": [deepcopy(added_large)]},
+            )
+            self.assertTrue(outcome["applied"])
+            proposal.refresh_from_db()
+            self.assertEqual(len(proposal.items), 2)
+            self.assertEqual(proposal.items[0], historical_item)
+            added = proposal.items[1]
+            self.assertEqual(added["food_item_id"], self.apple.pk)
+            self.assertEqual(added["food_version_id"], current_small.pk)
+            self.assertEqual(added["selected_portion_key"], "size:large")
+            self.assertEqual(
+                Decimal(added["servings"]), Decimal(expected_current_servings)
+            )
+        meal = accept_proposal(proposal=proposal)
+        self.assertEqual(meal.items.count(), 2)
+        self.assertEqual(meal.items.get(order=0).food_version_id, historical_large.pk)
+        self.assertEqual(meal.items.get(order=1).food_version_id, current_small.pk)
+        self.assertEqual(meal.items.get(order=0).calories, Decimal("240"))
+        self.assertEqual(meal.items.get(order=1).calories, Decimal("240"))
+        self.assertEqual(self.apple.versions.count(), 3)
         self.assertEqual(FoodItem.objects.filter(scope="personal").count(), 0)
