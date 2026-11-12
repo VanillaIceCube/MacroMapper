@@ -9,6 +9,7 @@ import json
 from dataclasses import dataclass
 from datetime import timedelta
 from types import SimpleNamespace
+from uuid import UUID
 
 from django.core.exceptions import PermissionDenied
 from django.core.serializers.json import DjangoJSONEncoder
@@ -29,6 +30,7 @@ from estimates.views import MealProposalViewSet
 from foods.models import FoodComponent, FoodItem, FoodItemVersion, SourceReference
 from foods.views import FoodItemViewSet
 from meals.models import MealEntry, MealItem
+from meals.serializers import MealItemSerializer
 from meals.services import daily_totals
 from meals.views import MealEntryViewSet
 from notifications.models import Notification
@@ -36,6 +38,14 @@ from notifications.views import NotificationViewSet
 
 from .auth import principal
 from .models import Confirmation
+
+
+class OperationError(ValidationError):
+    """Only fixed, app-authored guidance may cross the sanitized tool boundary."""
+
+    def __init__(self, guidance):
+        self.guidance = guidance
+        super().__init__(guidance)
 
 
 @dataclass(frozen=True)
@@ -331,6 +341,25 @@ def validated(action, view, target, payload):
     return serializer
 
 
+def validate_draft(action, serializer, owner, target):
+    if action not in {"meal.draft_create", "meal.draft_update"}:
+        return
+    # The JSON field validates shape, not catalog authorization. After snapshot
+    # bounds catalog expansion, run save_meal_draft's pure builder validation.
+    # Never materialize foods or proposals before explicit confirmation.
+    from django.core.exceptions import ValidationError as DjangoValidationError
+
+    try:
+        builder_fields(serializer, owner, target)
+    except DjangoValidationError:
+        raise OperationError(
+            "Draft items must reference visible catalog foods and matching components. "
+            "For a manual food, preview and confirm food.create first, then use its "
+            "food_item_id and food_version_id in a new meal draft preview. "
+            "No meal was saved."
+        ) from None
+
+
 def catalog_state(food_ids, version_ids, owner):
     """Bound and lock reachable catalog definitions before recursive serializers."""
     food_ids, pending, visited, edges = set(food_ids), set(version_ids), set(), []
@@ -491,6 +520,7 @@ def preview_change(raw, action, target_id, payload, authorized_paid=False):
                 "Use individual notification operations for more than 200 entries."
             )
     digest = snapshot(action, target, token.user, payload, ids)
+    validate_draft(action, serializer, token.user, target)
     Confirmation.objects.filter(
         owner=token.user, expires_at__lte=timezone.now()
     ).delete()
@@ -530,13 +560,36 @@ def preview_change(raw, action, target_id, payload, authorized_paid=False):
     }
 
 
-def invoke(operation, view, target_id):
+def invoke(action, operation, view, target_id):
     response = getattr(view, operation.method)(
         view.request, **({"pk": target_id} if operation.detail else {})
     )
     if not 200 <= response.status_code < 300:
         raise ValidationError("Operation unavailable; no automatic retry.")
-    return result(response.data)
+    # Catch output formatting failures only after the business call succeeds.
+    # Real service/serializer failures must still roll back approval and writes.
+    output = response.data
+    try:
+        formatted = result(output)
+        if not formatted["truncated"]:
+            json_value(formatted, maximum=65536)
+            return formatted
+    except (ValidationError, ValueError, TypeError, OverflowError):
+        pass
+    kind = "meal" if action == "proposal.accept" else action.split(".")[0]
+    record_id = output.get("id", target_id) if isinstance(output, dict) else target_id
+    if type(record_id) is not int:
+        record_id = target_id
+    return {
+        "data": {
+            "id": record_id,
+            "action": action,
+            "target_id": target_id,
+            "applied": True,
+            "detail": f"Change applied once. Expanded output exceeded the MCP budget. Read the existing record with get_{kind} or review it in MacroMapper; do not repeat the mutation to recover detail.",
+        },
+        "truncated": True,
+    }
 
 
 def builder_fields(serializer, owner, target):
@@ -557,7 +610,13 @@ def builder_fields(serializer, owner, target):
 
 def confirm_change(raw, confirmation_id, confirmed, authorized_paid):
     if confirmed is not True:
-        raise ValidationError("Explicit user approval is required.")
+        raise OperationError("Explicit user approval is required.")
+    try:
+        confirmation_id = UUID(str(confirmation_id))
+    except (ValueError, TypeError, AttributeError):
+        raise OperationError(
+            "Invalid confirmation ID; prepare a new preview."
+        ) from None
     with transaction.atomic():
         token = principal(raw, write=True, lock=True)
         pending = (
@@ -572,12 +631,13 @@ def confirm_change(raw, confirmation_id, confirmed, authorized_paid):
             .first()
         )
         if pending is None:
-            raise ValidationError("Confirmation unavailable; preview again.")
+            raise OperationError(
+                "Confirmation expired, already used, or unavailable for this connection. "
+                "Inspect current records, then prepare a new preview if still needed."
+            )
         operation = OPERATIONS[pending.action]
         if type(authorized_paid) is not bool or operation.paid != authorized_paid:
-            raise ValidationError(
-                "Use the confirmation tool matching the preview kind."
-            )
+            raise OperationError("Use the confirmation tool matching the preview kind.")
         token = principal(raw, write=True, paid=operation.paid, lock=True)
         view = view_for(
             operation,
@@ -601,7 +661,10 @@ def confirm_change(raw, confirmation_id, confirmed, authorized_paid):
             )
             != pending.fingerprint
         ):
-            raise ValidationError("Target or catalog changed; preview again.")
+            raise OperationError(
+                "Target or catalog changed; inspect current records and preview again."
+            )
+        validate_draft(pending.action, serializer, token.user, target)
         prepared = (
             builder_fields(serializer, token.user, target)
             if operation.serializer is MapYourMealAdjustmentSerializer
@@ -612,7 +675,7 @@ def confirm_change(raw, confirmation_id, confirmed, authorized_paid):
             return {
                 "applied": True,
                 "action": pending.action,
-                "result": invoke(operation, view, pending.target_id),
+                "result": invoke(pending.action, operation, view, pending.target_id),
             }
     # No SQLite writer lock over the provider wait. The approval stays consumed
     # even if a paid call fails or has an ambiguous outcome; never retry it here.
@@ -747,25 +810,13 @@ def list_records(raw, kind, query, limit, offset):
         # Do not serialize repeated item snapshots merely to discover its ID.
         queryset = queryset.prefetch_related(None)
     if kind == "meals":
-        queryset = queryset.prefetch_related(None).prefetch_related(
-            Prefetch(
-                "items",
-                queryset=MealItem.objects.select_related(
-                    "food_version", "food_version__food_item"
-                ).order_by("order", "id")[:21],
-                to_attr="_mcp_items",
-            )
-        )
+        return list_meals(queryset, view, token.user, limit, offset)
     records = list(queryset[offset : offset + limit + 1])
-    bound_related_cache(records, kind)
-    # Guard recursive catalog serialization, including historical meal versions.
-    food_ids = [obj.pk for obj in records[:limit]] if kind == "foods" else []
-    version_ids = (
-        {item.food_version_id for obj in records[:limit] for item in obj.items.all()}
-        if kind == "meals"
-        else set()
+    catalog_state(
+        [obj.pk for obj in records[:limit]] if kind == "foods" else [],
+        [],
+        token.user,
     )
-    catalog_state(food_ids, version_ids, token.user)
     return result(
         [proposal_summary(record) for record in records[:limit]]
         if kind == "proposals"
@@ -775,6 +826,66 @@ def list_records(raw, kind, query, limit, offset):
         if len(records) > limit and offset + limit <= 1000
         else None,
     )
+
+
+def meal_summary(meal):
+    return {
+        "id": meal.pk,
+        "name": meal.name[:120],
+        "entry_date": meal.entry_date,
+        "updated_at": meal.updated_at,
+        "item_count": MealItem.objects.filter(meal_entry=meal).count(),
+        "truncated": True,
+        "detail": "Summary only. Use get_meal with item_limit/item_offset for complete item pages. If a single item exceeds the budget, review full details in MacroMapper before editing.",
+    }
+
+
+def list_meals(queryset, view, owner, limit, offset):
+    queryset = queryset.prefetch_related(None).prefetch_related(
+        Prefetch(
+            "items",
+            queryset=MealItem.objects.select_related(
+                "food_version", "food_version__food_item"
+            ).order_by("order", "id")[:21],
+            to_attr="_mcp_items",
+        )
+    )
+    records = list(queryset[offset : offset + limit + 1])
+    bound_related_cache(records, "meals")
+    output = []
+    for meal in records[:limit]:
+        try:
+            catalog_state(
+                [], {item.food_version_id for item in meal.items.all()}, owner
+            )
+            page = result(view.get_serializer(meal).data)
+            if page["truncated"]:
+                raise ValidationError("Incomplete meal.")
+            output.append(page["data"])
+        except ValidationError:
+            output.append(meal_summary(meal))
+    while True:
+        count = len(output)
+        has_more = len(records) > count
+        try:
+            page = result(
+                output,
+                has_more=has_more,
+                next_offset=offset + count
+                if has_more and offset + count <= 1000
+                else None,
+            )
+            page["truncated"] |= any(
+                record.get("truncated", False) for record in output
+            )
+            json_value(page, maximum=65536)
+            return page
+        except ValidationError:
+            if count > 1:
+                output = output[: max(1, count // 2)]
+                continue
+            # Include envelope overhead when a single full meal barely fits.
+            output = [meal_summary(records[0])]
 
 
 def bound_related_cache(records, kind):
@@ -791,40 +902,78 @@ def bound_related_cache(records, kind):
 def get_record(raw, kind, target_id):
     if kind == "proposals":
         return get_proposal(raw, target_id)
+    if kind == "meals":
+        return get_meal(raw, target_id)
     token = principal(raw)
     classes = {
         "foods": FoodItemViewSet,
-        "meals": MealEntryViewSet,
-        "proposals": MealProposalViewSet,
         "notifications": NotificationViewSet,
     }
     operation = Operation(classes[kind], "retrieve", "GET")
     view = view_for(operation, token.user, target_id=target_id)
-    original = view.get_queryset
-    if kind == "meals":
-        view.get_queryset = lambda: (
-            original()
-            .prefetch_related(None)
-            .prefetch_related(
-                Prefetch(
-                    "items",
-                    queryset=MealItem.objects.select_related(
-                        "food_version", "food_version__food_item"
-                    ).order_by("order", "id")[:21],
-                    to_attr="_mcp_items",
-                )
-            )
-        )
     target = view.get_object()
-    bound_related_cache([target], kind)
     catalog_state(
         [target.pk] if kind == "foods" else [],
-        {item.food_version_id for item in target.items.all()}
-        if kind == "meals"
-        else set(),
+        [],
         token.user,
     )
     return result(view.get_serializer(target).data)
+
+
+def get_meal(raw, target_id, item_limit=20, item_offset=0):
+    if (
+        type(item_limit) is not int
+        or not 1 <= item_limit <= 20
+        or type(item_offset) is not int
+        or not 0 <= item_offset <= 1000
+    ):
+        raise ValidationError("Use a valid meal item page.")
+    token = principal(raw)
+    view = view_for(
+        Operation(MealEntryViewSet, "retrieve", "GET"), token.user, target_id=target_id
+    )
+    original = view.get_queryset
+    view.get_queryset = lambda: original().prefetch_related(None)
+    meal = view.get_object()
+    serializer = view.get_serializer(meal)
+    serializer.fields.pop("items")
+    output = dict(serializer.data)
+    items_query = (
+        MealItem.objects.filter(meal_entry=meal)
+        .select_related("food_version", "food_version__food_item")
+        .order_by("order", "id")
+    )
+    total = items_query.count()
+    items = list(items_query[item_offset : item_offset + item_limit])
+    output.update(item_count=total, item_offset=item_offset)
+    while True:
+        next_offset = item_offset + len(items)
+        has_more = next_offset < total
+        try:
+            catalog_state([], {item.food_version_id for item in items}, token.user)
+            output["items"] = MealItemSerializer(
+                items, many=True, context={"request": view.request}
+            ).data
+            page = result(
+                output,
+                has_more=has_more,
+                next_offset=next_offset if has_more and next_offset <= 1000 else None,
+            )
+            if page["truncated"]:
+                raise ValidationError("Incomplete meal item.")
+            json_value(page, maximum=65536)
+            return page
+        except ValidationError:
+            if len(items) > 1:
+                items = items[: max(1, len(items) // 2)]
+                continue
+            return result(
+                meal_summary(meal)
+                | {
+                    "item_offset": item_offset,
+                    "detail": "This meal item or metadata exceeds the MCP detail budget. Review the complete saved meal in MacroMapper; this summary is not complete editable data.",
+                },
+            ) | {"truncated": True, "has_more": has_more, "next_offset": None}
 
 
 def proposal_summary(proposal):
@@ -1056,7 +1205,10 @@ def operation_schema(raw, action):
                 "items": "same item schema recursively; at most five levels",
             }
             schema["constraints"] = (
-                "Catalog IDs must be paired and visible; edits retain existing provenance. Choose selected_portion_key from portion_options. No unknown fields."
+                "Catalog IDs must be paired and visible; edits retain existing provenance. "
+                "Meal drafts require catalog-linked items, including components. "
+                "For manual foods, separately preview/confirm food.create first, then use its catalog IDs. "
+                "Choose selected_portion_key from portion_options. No unknown fields."
             )
         return schema
 

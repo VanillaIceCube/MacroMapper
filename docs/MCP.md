@@ -55,10 +55,40 @@ new preview. Paid approval is consumed before the provider wait, even if that
 request fails; inspect the outcome and never retry it automatically. At most ten
 pending previews are kept per account.
 
+Meal draft previews validate the same catalog authorization and component rules as
+saving. Every draft item must reference a visible catalog food/version pair. To
+enter a manual food, first separately preview and confirm `food.create`, then use
+the returned food ID and its current version ID in a fresh meal draft preview.
+This preserves personal-food ownership and provenance; a source URL or
+`user_entered` label alone does not create a catalog food. `meal.draft_create`
+saves a diary meal directly; it does not create an estimation proposal.
+Invalid draft references now fail before an approval is stored, with fixed
+guidance. Invalid, expired, used, wrong-connection and stale confirmations also
+return actionable guidance without exposing private validation details.
+
 Pages contain at most 20 records. Nutrition totals cover at most 31 days, 500 meals
 and 2,000 meal items; bulk notification previews cover at most 200 existing entries.
 Large or deeply nested data is rejected or explicitly marked truncated. Narrow the
 request rather than treating truncated output or missing nutrients as complete.
+
+Successful nonpaid mutations return the ordinary result when it fits. An expanded
+result exceeding the existing 2,000-node/64-KiB budget, or requiring trimming,
+returns an explicitly truncated success receipt with the saved record ID and
+readback guidance. The mutation and one-use approval commit together; business
+failures still roll back both. Do not replay a successful mutation to recover its
+expanded output.
+
+`meal_diary` can reduce the requested page size to fit the output budget; follow
+the returned `next_offset`, rather than adding the requested limit. An oversized
+individual meal becomes a marked summary with an accurate item count and no
+partial item array. `get_meal(meal_id, item_limit=20, item_offset=0)` preserves
+ordinary small-meal reads and pages complete saved items adaptively; follow
+`next_offset` as `item_offset` until `has_more` is false before editing. If even
+one item or the meal metadata cannot fit without trimming, the response contains
+only an explicit summary directing complete review to the saved meal in
+MacroMapper. Summary data is never a complete editable meal. Existing offset
+limits remain; use MacroMapper for records beyond those bounds. No read calls AI
+or writes to the diary.
 
 Proposal lists do not duplicate current items or historical revision snapshots.
 `get_proposal(proposal_id, item_limit=20, item_offset=0)` returns current items and
