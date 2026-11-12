@@ -84,7 +84,13 @@ export const changeMealItemNutrient = (items, key, nutrient, totalValue) =>
     const clampedTotalValue = Number.isFinite(rawNumeric) && rawNumeric < 0 ? '0' : totalValue;
 
     if (item.components?.length) {
-      const currentCalories = itemNutrientTotal(item, 'calories');
+      // Once edited, a composite uses its component totals. An official parent
+      // can differ from inferred components, so scale against those components.
+      const currentCalories =
+        item.components.reduce(
+          (total, component) => total + (itemNutrientTotal(component, 'calories') || 0),
+          0,
+        ) * servingsValue(item);
       if (
         nutrient !== 'calories' ||
         clampedTotalValue === '' ||

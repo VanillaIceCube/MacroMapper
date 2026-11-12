@@ -325,5 +325,10 @@ describe('source-backed nutrition integrity', () => {
     expect(itemNutrientTotal(item, 'calories')).toBe(710);
     const counted = changeMealItemServings([item], 'parent', '2', item)[0];
     expect(counted.evidence.status).toBe('source_backed_ai_components');
+    const resized = changeMealItemNutrient([item], 'parent', 'calories', '600')[0];
+    expect(itemNutrientTotal(resized, 'calories')).toBe(600);
+    expect(resized.evidence.status).toBe('user_modified_estimate');
+    const portionOnly = changeMealItemPortion([item], 'child', 'base')[0];
+    expect(portionOnly.evidence.status).toBe('source_backed_ai_components');
   });
 });
