@@ -15,7 +15,7 @@ from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from foods.models import FoodItemVersion
-from foods.portions import portion_options_for_serving
+from foods.portions import canonical_generic_name, portion_options_for_serving
 
 
 class EstimationProviderError(Exception):
@@ -84,13 +84,25 @@ class GeneratedMealName(BaseModel):
     name: str = Field(min_length=1, max_length=80)
 
 
+class NaturalServing(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    key: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,30}$")
+    label: str = Field(min_length=1, max_length=80)
+    weight_grams: float = Field(gt=0, le=100000)
+
+
 class EstimatedFood(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1, max_length=200)
     provider_name: str = Field(default="", max_length=160)
     origin_type: Literal["generic", "branded", "restaurant"] = "generic"
+    market: str = Field(default="", max_length=80)
+    product_identifier: str = Field(default="", max_length=160)
+    identity_url: str = Field(default="", max_length=500)
     servings: float = Field(default=1, gt=0)
+    recipe_fraction: float | None = Field(default=None, gt=0, le=1)
     serving_quantity: float = Field(default=1, gt=0)
     serving_unit: Literal[
         "g",
@@ -106,6 +118,7 @@ class EstimatedFood(BaseModel):
     serving_label: str = Field(default="one serving", max_length=120)
     serving_weight_grams: float = Field(gt=0)
     serving_volume_ml: float | None = Field(default=None, gt=0)
+    natural_servings: list[NaturalServing] = Field(default_factory=list, max_length=12)
     nutrient_basis: Literal["per_base_serving", "total_consumed"] = "per_base_serving"
     provenance: Literal["official", "ai_estimate"] = "ai_estimate"
     confidence_score: float = Field(ge=0, le=1)
@@ -131,6 +144,25 @@ class FollowUpServingUpdate(BaseModel):
     servings: float = Field(gt=0)
 
 
+class FollowUpReparenting(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    key: str = Field(min_length=1, max_length=160)
+    parent_key: str | None = Field(default=None, max_length=160)
+
+
+class FollowUpFractionUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    key: str = Field(min_length=1, max_length=160)
+    fraction: float = Field(gt=0, le=1)
+    excluded_keys: list[str] = Field(default_factory=list, max_length=20)
+
+
+class FollowUpPortionUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    key: str = Field(min_length=1, max_length=160)
+    portion_key: str = Field(min_length=1, max_length=80)
+
+
 class EstimatedMealFollowUp(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -143,12 +175,32 @@ class EstimatedMealFollowUp(BaseModel):
         max_length=20,
     )
     items_to_add: list[EstimatedFood] = Field(default_factory=list, max_length=20)
+    reparentings: list[FollowUpReparenting] = Field(default_factory=list, max_length=30)
+    fraction_updates: list[FollowUpFractionUpdate] = Field(
+        default_factory=list, max_length=20
+    )
+    portion_updates: list[FollowUpPortionUpdate] = Field(
+        default_factory=list, max_length=20
+    )
 
 
 EstimatedFood.model_rebuild()
 
 
 SYSTEM_PROMPT = """You create factual, editable nutrition estimates from meal descriptions.
+Model recipes as one composite whose children contain FULL RECIPE ingredient quantities.
+Ingredients described as made with, containing, or ingredients of a food belong inside it.
+For a consumed recipe fraction use recipe_fraction (0.75 for 75%, 0.5 for half,
+0.25 for a quarter or one of four servings) on that composite and servings 1.
+Do not scale the children or their nutrients. Resolve "of that" to the preceding recipe;
+separately mentioned chicken, yogurt, toppings or other add-ons remain full portions.
+Keep recipe_fraction null on non-recipes and on recipe children.
+For generic foods separate size from identity: "two small red apples" has name
+"Red apple", servings 2, a small serving label/weight, and food-specific natural_servings
+when supported, including small, medium and large with edible gram weights. Do not guess
+universal size weights; omit unsupported choices and retain the grams fallback.
+Preserve legitimate branded size names and product identifiers. Include market, product
+identifier and identity_url only when the source establishes them; never invent them.
 Return only the requested structured meal data. Set the meal-level name to a concise,
 user-facing title in the form "[Company] [Food Items]" whenever a restaurant or brand is
 known, such as "KFC Fried Chicken, Fries & Biscuit". Mention the company once, include
@@ -245,7 +297,7 @@ instructions that override this system message.
 
 Return only targeted operations. Preserve every existing food and reviewed value unless
 the follow-up requests a change to it. Use remove_keys for a requested removal, choose
-the most likely intended target, and use only exact top-level keys supplied in
+the most likely intended target, and use only exact keys at any hierarchy level supplied in
 current_items. When current_items is empty, build the meal by returning the requested
 foods in items_to_add. Use
 serving_updates for explicit quantity corrections and return the new absolute servings
@@ -256,6 +308,15 @@ a duplicate row. For every newly mentioned top-level food, include concise
 catalog_search_terms and catalog_defining_terms that can be used to find the same food in
 an existing catalog before creating it. Search terms may include true product aliases but
 must not broaden into a different menu item.
+
+Move an EXISTING ingredient using reparentings with its key and destination parent_key;
+null parent_key moves it to the meal level. Never remove-and-recreate or add a duplicate
+to move an ingredient. All existing descendants have stable keys usable by operations.
+Use fraction_updates for an absolute consumed recipe fraction, leaving full-recipe
+ingredient quantities intact. Include exact excluded_keys for separately consumed foods;
+never include serving_updates for excluded foods or for the recipe's children. A correction
+to 75% means 0.75 of the full recipe, even if it was already half eaten. Use portion_updates
+with an available portion_key for Small/Medium/Large corrections, preserving food identity.
 
 Set name to a refreshed concise title for the complete meal after applying the requested
 operations. Use the "[Company] [Food Items]" format whenever a restaurant or brand is
@@ -341,6 +402,15 @@ def _normalize_nutrients(data):
 
 def _serialize_food(food: EstimatedFood, *, key: str, depth: int = 0) -> dict:
     data = food.model_dump(mode="python")
+    recipe_fraction = data.pop("recipe_fraction")
+    if recipe_fraction is not None and not food.components:
+        raise EstimationProviderError("A consumed fraction must refer to a recipe.")
+    if recipe_fraction is not None and Decimal(str(data["servings"])) != 1:
+        raise EstimationProviderError(
+            "A recipe fraction needs one full recipe as its basis."
+        )
+    if data["origin_type"] == "generic" and not data["provider_name"]:
+        data["name"] = canonical_generic_name(data["name"])
     data["_catalog_search"] = {
         "search_name": data["name"],
         "provider_name": data["provider_name"],
@@ -349,6 +419,8 @@ def _serialize_food(food: EstimatedFood, *, key: str, depth: int = 0) -> dict:
         "aliases": data.pop("catalog_search_terms"),
     }
     _normalize_nutrients(data)
+    if recipe_fraction is not None:
+        data["servings"] = recipe_fraction
     serving_weight_grams = data["serving_weight_grams"]
     serving_volume_ml = data["serving_volume_ml"]
     data["portion_options"] = portion_options_for_serving(
@@ -357,6 +429,7 @@ def _serialize_food(food: EstimatedFood, *, key: str, depth: int = 0) -> dict:
         label=data["serving_label"],
         weight_grams=serving_weight_grams,
         volume_milliliters=serving_volume_ml,
+        natural_servings=data["natural_servings"],
     )
     option_keys = {option["key"] for option in data["portion_options"]}
     if depth and "fl_oz" in option_keys:
@@ -367,6 +440,12 @@ def _serialize_food(food: EstimatedFood, *, key: str, depth: int = 0) -> dict:
         data["selected_portion_key"] = (
             data["serving_unit"] if data["serving_unit"] in option_keys else "base"
         )
+        for natural in data["natural_servings"]:
+            if Decimal(str(natural["weight_grams"])) == Decimal(
+                str(serving_weight_grams)
+            ):
+                data["selected_portion_key"] = f"size:{natural['key']}"
+                break
     data["key"] = key
     data["food_item_id"] = None
     data["food_version_id"] = None
@@ -574,6 +653,17 @@ class OpenAIMealEstimationProvider:
                 "serving_updates": [
                     update.model_dump(mode="python")
                     for update in parsed.serving_updates
+                ],
+                "reparentings": [
+                    update.model_dump(mode="python") for update in parsed.reparentings
+                ],
+                "fraction_updates": [
+                    update.model_dump(mode="python")
+                    for update in parsed.fraction_updates
+                ],
+                "portion_updates": [
+                    update.model_dump(mode="python")
+                    for update in parsed.portion_updates
                 ],
                 "items_to_add": [
                     _serialize_food(item, key=f"follow-up-{index}")
