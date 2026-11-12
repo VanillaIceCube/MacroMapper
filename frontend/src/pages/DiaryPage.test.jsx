@@ -1351,17 +1351,17 @@ describe('DiaryPage', () => {
     await screen.findByText('Nothing logged yet');
     await user.click(screen.getByRole('button', { name: 'Map your Meal with AI' }));
     const estimateDialog = await screen.findByRole('dialog', { name: /Map it with AI/ });
-    await user.type(
+    fireEvent.change(
       within(estimateDialog).getByRole('textbox', { name: 'Describe what you ate' }),
-      'Breaded tilapia made with two eggs, flour and breading',
+      { target: { value: 'Breaded tilapia made with two eggs, flour and breading' } },
     );
     await user.click(within(estimateDialog).getByRole('button', { name: 'Create estimate' }));
     const dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
     expect(within(dialog).getByLabelText('Egg macro values')).toBeVisible();
 
-    await user.type(
+    fireEvent.change(
       within(dialog).getByRole('textbox', { name: 'Describe an AI adjustment' }),
-      'Put the two eggs inside the breaded tilapia',
+      { target: { value: 'Put the two eggs inside the breaded tilapia' } },
     );
     await user.click(within(dialog).getByRole('button', { name: 'Apply adjustment' }));
     await within(dialog).findByText('Moved eggs into breaded tilapia.');
