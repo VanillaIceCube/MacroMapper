@@ -4,6 +4,7 @@ from decimal import Decimal, InvalidOperation
 from django.db import transaction
 from rest_framework import serializers
 
+from foods.evidence import source_data, version_evidence
 from foods.models import FoodItem, FoodItemVersion
 from foods.nutrients import NUTRIENT_METADATA
 from foods.portions import portion_options_for_serving
@@ -135,6 +136,11 @@ def _is_valid_component_snapshot(components):
 
 
 class MealItemSerializer(serializers.ModelSerializer):
+    evidence = serializers.SerializerMethodField()
+
+    def get_evidence(self, instance):
+        return version_evidence(instance.food_version)
+
     food_item_id = serializers.IntegerField(source="food_version.food_item_id")
     food_version_id = serializers.IntegerField(read_only=True)
     provenance = serializers.CharField(source="food_version.provenance", read_only=True)
@@ -176,10 +182,12 @@ class MealItemSerializer(serializers.ModelSerializer):
             "serving_quantity",
             "serving_unit",
             "serving_label",
+            "selected_portion_key",
             "serving_weight_grams",
             "serving_volume_ml",
             "portion_options",
             "provenance",
+            "evidence",
             "confidence_score",
             "component_snapshot",
             "nutrients",
@@ -206,17 +214,7 @@ class MealItemSerializer(serializers.ModelSerializer):
         return _component_tree(instance.food_version)
 
     def get_sources(self, instance):
-        return [
-            {
-                "title": source.title,
-                "provider": source.provider,
-                "url": source.url,
-                "accessed_on": source.accessed_on,
-                "is_official": instance.food_version.provenance
-                == instance.food_version.Provenance.OFFICIAL,
-            }
-            for source in instance.food_version.sources.all()
-        ]
+        return [source_data(source) for source in instance.food_version.sources.all()]
 
     def get_portion_options(self, instance):
         version = instance.food_version
@@ -226,6 +224,7 @@ class MealItemSerializer(serializers.ModelSerializer):
             label=version.serving_label,
             weight_grams=version.serving_weight_grams,
             volume_milliliters=version.serving_volume_ml,
+            natural_servings=version.natural_servings,
         )
 
 

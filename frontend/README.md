@@ -115,8 +115,20 @@ New follow-up foods also search the catalog before a shared estimate is created.
 Ambiguous quantities and targets receive a disclosed best-effort assumption at
 lower confidence; failed requests keep the draft and input available for retry.
 Users must review the persisted draft before saving: they can rename the meal,
-switch between validated unit/portion options, adjust the amount without
-changing the nutritional basis, remove ingredients, and add catalog foods.
+switch between validated unit/portion options, remove ingredients, and add catalog foods.
+Natural serving sizes supplied for the specific food (for example, Small,
+Medium, and Large apples) remain separate from its canonical name. Switching
+between these sizes preserves the count and recalculates consumed nutrition
+from their gram equivalents; measurement units such as grams and ounces convert
+the displayed amount while preserving the consumed weight. Foods without natural
+size definitions keep their declared serving and available weight/volume options.
+Selected portions survive proposal review and saved-meal editing alongside the
+historical nutrition snapshot.
+Composite ingredient rows show the amounts for one full portion. The parent
+count records the fraction eaten, and scales the composite total once; it does
+not rewrite recipe ingredients or separately added foods. AI hierarchy corrections
+replace the displayed tree with the validated response, keeping ingredient
+identifiers and quantities rather than adding a second copy at meal level.
 The same Map Your Meal editor and full set of nutrition, portion, catalog, and
 nested-component controls are used for AI-reviewed meals, manual mapping, and
 editing existing diary entries. Existing meals save back to the same entry
@@ -334,3 +346,16 @@ Use the domain package entry points and dependency-direction/cycle tests when
 moving calculations; presentation labels, colors and chart decoration stay in
 the UI. Authentication and notification changes retain safe parsing, pending
 controls, retry feedback and profile cleanup through the shared request helpers.
+
+## Nutrition evidence display
+
+Meal review retains official parent nutrition while showing inferred component
+values separately. Details expose mixed/partial evidence, clickable sources,
+per-nutrient coverage, model confidence and failed/unavailable research warnings.
+User changes clear verification for the changed definition; consumed count changes
+preserve per-serving evidence. Legacy records remain readable. See the
+[backend evidence contract](../docs/NUTRITION-INTEGRITY.md).
+Natural-size changes also preserve the food's per-serving evidence. Changing an
+ingredient's size changes its recipe contribution, so verification and confidence
+on enclosing composites are cleared and their totals are recalculated. Switching
+measurement units alone preserves both consumed nutrition and composite evidence.

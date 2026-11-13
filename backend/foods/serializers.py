@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from rest_framework import serializers
 
+from .evidence import version_evidence
 from .models import (
     FoodComponent,
     FoodItem,
@@ -11,14 +12,23 @@ from .models import (
     SourceReference,
 )
 from .nutrients import NUTRIENT_METADATA
-from .portions import portion_options_for_serving
+from .portions import clean_natural_servings, portion_options_for_serving
 from .services import create_food_item, create_food_version
 
 
 class SourceReferenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = SourceReference
-        fields = ("id", "title", "provider", "url", "accessed_on")
+        fields = (
+            "id",
+            "title",
+            "provider",
+            "url",
+            "accessed_on",
+            "is_official",
+            "evidence",
+        )
+        read_only_fields = ("is_official", "evidence")
 
 
 def _serialized_nutrients(version):
@@ -41,6 +51,19 @@ def _portion_options(version):
         label=version.serving_label,
         weight_grams=version.serving_weight_grams,
         volume_milliliters=version.serving_volume_ml,
+        natural_servings=version.natural_servings,
+    )
+
+
+def _selected_portion_key(version):
+    return next(
+        (
+            option["key"]
+            for option in _portion_options(version)
+            if option["key"].startswith("size:")
+            and Decimal(option["serving_multiplier"]) == 1
+        ),
+        "base",
     )
 
 
@@ -54,6 +77,14 @@ def _components_for_version(version, context):
 
 
 class FoodComponentSerializer(serializers.ModelSerializer):
+    natural_servings = serializers.JSONField(
+        source="child_version.natural_servings", read_only=True
+    )
+    evidence = serializers.SerializerMethodField()
+
+    def get_evidence(self, instance):
+        return version_evidence(instance.child_version)
+
     food_item_id = serializers.IntegerField(source="child_version.food_item_id")
     food_item_name = serializers.CharField(source="child_version.food_item.name")
     food_version_id = serializers.IntegerField(source="child_version_id")
@@ -94,8 +125,10 @@ class FoodComponentSerializer(serializers.ModelSerializer):
             "serving_quantity",
             "serving_unit",
             "serving_label",
+            "natural_servings",
             "portion_options",
             "provenance",
+            "evidence",
             "confidence_score",
             "nutrients",
             "sources",
@@ -124,10 +157,16 @@ class FoodComponentSerializer(serializers.ModelSerializer):
 
 
 class FoodItemVersionSerializer(serializers.ModelSerializer):
+    evidence = serializers.SerializerMethodField()
+
+    def get_evidence(self, instance):
+        return version_evidence(instance)
+
     nutrients = serializers.SerializerMethodField()
     sources = SourceReferenceSerializer(many=True, read_only=True)
     components = serializers.SerializerMethodField()
     portion_options = serializers.SerializerMethodField()
+    selected_portion_key = serializers.SerializerMethodField()
 
     class Meta:
         model = FoodItemVersion
@@ -137,10 +176,13 @@ class FoodItemVersionSerializer(serializers.ModelSerializer):
             "serving_quantity",
             "serving_unit",
             "serving_label",
+            "natural_servings",
             "serving_weight_grams",
             "serving_volume_ml",
             "portion_options",
+            "selected_portion_key",
             "provenance",
+            "evidence",
             "confidence_score",
             "derived_from",
             "estimation_provider",
@@ -163,6 +205,9 @@ class FoodItemVersionSerializer(serializers.ModelSerializer):
 
     def get_portion_options(self, instance):
         return _portion_options(instance)
+
+    def get_selected_portion_key(self, instance):
+        return _selected_portion_key(instance)
 
 
 class NutrientValuesInputSerializer(serializers.Serializer):
@@ -235,6 +280,14 @@ class FoodComponentInputSerializer(serializers.Serializer):
 
 
 class FoodDefinitionInputSerializer(serializers.Serializer):
+    natural_servings = serializers.JSONField(required=False)
+
+    def validate_natural_servings(self, value):
+        try:
+            return clean_natural_servings(value)
+        except DjangoValidationError as error:
+            raise serializers.ValidationError(error.messages) from error
+
     serving_quantity = serializers.DecimalField(
         max_digits=10,
         decimal_places=3,
@@ -313,6 +366,10 @@ class FoodItemSerializer(serializers.ModelSerializer):
             "scope",
             "origin_type",
             "provider_name",
+            "market",
+            "product_identifier",
+            "identity_url",
+            "merged_into",
             "current_version",
             "definition",
             "created_at",
@@ -321,6 +378,7 @@ class FoodItemSerializer(serializers.ModelSerializer):
         read_only_fields = (
             "id",
             "scope",
+            "merged_into",
             "current_version",
             "created_at",
             "updated_at",

@@ -78,6 +78,8 @@ async def call(function, *args):
         return await asyncio.shield(wrapped)
     except PermissionDenied:
         raise ToolError("MCP permission denied.") from None
+    except services.OperationError as error:
+        raise ToolError(error.guidance) from None
     except (
         APIException,
         DatabaseError,
@@ -176,9 +178,11 @@ def create_server():
         )
 
     @tool()
-    async def get_meal(meal_id: ID) -> Result:
-        """Read one of your saved meals, quantities and nutrients; large outputs mark truncation."""
-        return await call(services.get_record, "meals", meal_id)
+    async def get_meal(
+        meal_id: ID, item_limit: Limit = 20, item_offset: Offset = 0
+    ) -> Result:
+        """Read your saved meal with complete items in adaptive pages. Follow next_offset as item_offset until has_more is false. A truncated summary requires full review in MacroMapper; never treat it as complete editable data."""
+        return await call(services.get_meal, meal_id, item_limit, item_offset)
 
     @tool()
     async def nutrition_totals(start: date, end: date) -> Result:

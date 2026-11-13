@@ -26,6 +26,11 @@ export const servingsValue = (item) => {
 export function perServingNutrient(item, key) {
   if (!item || typeof item !== 'object') return null;
   const components = Array.isArray(item.components) ? item.components : [];
+  const coverage = item.evidence?.nutrients?.[key];
+  if (coverage?.status === 'official_verified' && item.nutrients?.[key] != null) {
+    const numeric = Number(item.nutrients[key]);
+    if (Number.isFinite(numeric)) return numeric;
+  }
   if (components.length) {
     const knownValues = components
       .map((component) => ({
