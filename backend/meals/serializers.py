@@ -182,6 +182,7 @@ class MealItemSerializer(serializers.ModelSerializer):
             "serving_quantity",
             "serving_unit",
             "serving_label",
+            "selected_portion_key",
             "serving_weight_grams",
             "serving_volume_ml",
             "portion_options",
@@ -223,6 +224,7 @@ class MealItemSerializer(serializers.ModelSerializer):
             label=version.serving_label,
             weight_grams=version.serving_weight_grams,
             volume_milliliters=version.serving_volume_ml,
+            natural_servings=version.natural_servings,
         )
 
 

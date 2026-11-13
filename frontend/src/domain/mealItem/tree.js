@@ -1,5 +1,11 @@
 import { itemNutrientTotal, servingsValue } from '../nutrition/calculations';
-import { roundedNumberString, selectedPortion } from './portions';
+import {
+  portionOptions,
+  roundedNumberString,
+  selectedPortion,
+  servingAmountValue,
+  standardPortionLabels,
+} from './portions';
 
 const adjusted = (item) => ({
   ...item,
@@ -19,8 +25,12 @@ export function updateMealItemTree(items, key, update, affectsNutrition = true) 
     if (item.key === key) return update(item);
     const components = updateMealItemTree(item.components || [], key, update, affectsNutrition);
     const changed = components.some((child, index) => child !== item.components[index]);
+    const nutritionChanged =
+      typeof affectsNutrition === 'function'
+        ? components.some((child, index) => affectsNutrition(item.components[index], child))
+        : affectsNutrition;
     return changed
-      ? affectsNutrition
+      ? nutritionChanged
         ? adjusted({ ...item, components })
         : { ...item, components }
       : item;
@@ -64,11 +74,30 @@ export const changeMealItemPortion = (items, key, selectedPortionKey) =>
   updateMealItemTree(
     items,
     key,
-    (item) => ({
-      ...item,
-      selected_portion_key: selectedPortionKey,
-    }),
-    false,
+    (item) => {
+      const nextPortion = portionOptions(item).find((option) => option.key === selectedPortionKey);
+      if (!nextPortion) return item;
+      const currentPortion = selectedPortion(item);
+      const changesSize =
+        (currentPortion.key.startsWith('size:') ||
+          (currentPortion.key === 'base' && !standardPortionLabels[item.serving_unit])) &&
+        selectedPortionKey.startsWith('size:');
+      const count = servingAmountValue(item);
+      const multiplier = Number(nextPortion.serving_multiplier);
+      return {
+        ...item,
+        selected_portion_key: selectedPortionKey,
+        ...(changesSize &&
+        count !== '' &&
+        Number.isFinite(Number(count)) &&
+        Number.isFinite(multiplier) &&
+        multiplier > 0
+          ? { servings: roundedNumberString(Number(count) * multiplier) }
+          : {}),
+      };
+    },
+    (before, after) =>
+      Number(before.servings) !== Number(after.servings) || before.evidence !== after.evidence,
   );
 
 const zeroNutrients = (item) => ({

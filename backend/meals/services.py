@@ -133,6 +133,7 @@ def _component_tree(version, visited=None, *, component_map=None, nutrient_cache
                     label=child.serving_label,
                     weight_grams=child.serving_weight_grams,
                     volume_milliliters=child.serving_volume_ml,
+                    natural_servings=child.natural_servings,
                 ),
                 "provenance": child.provenance,
                 "evidence": version_evidence(child),
@@ -161,6 +162,21 @@ def _component_tree(version, visited=None, *, component_map=None, nutrient_cache
             }
         )
     return snapshots
+
+
+def _snapshot_portions(snapshot, requested):
+    for index, component in enumerate(snapshot):
+        if index >= len(requested):
+            continue
+        selected = requested[index].get("selected_portion_key", "base")
+        if selected in {
+            option["key"] for option in component.get("portion_options", [])
+        }:
+            component["selected_portion_key"] = selected
+        _snapshot_portions(
+            component.get("components", []), requested[index].get("components", [])
+        )
+    return snapshot
 
 
 @transaction.atomic
@@ -205,10 +221,12 @@ def replace_meal_items(*, meal_entry, item_inputs):
             serving_quantity=version.serving_quantity,
             serving_unit=version.serving_unit,
             serving_label=version.serving_label,
-            component_snapshot=_component_tree(
-                version,
-                component_map=component_map,
-                nutrient_cache=nutrient_cache,
+            selected_portion_key=item_input.get("selected_portion_key", "base"),
+            component_snapshot=_snapshot_portions(
+                _component_tree(
+                    version, component_map=component_map, nutrient_cache=nutrient_cache
+                ),
+                item_input.get("portion_selections", {}).get("components", []),
             ),
             **{
                 field: amount * servings if amount is not None else None
