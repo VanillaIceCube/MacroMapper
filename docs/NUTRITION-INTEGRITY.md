@@ -95,12 +95,17 @@ snapshots may omit evidence and remain readable. Source URLs can remain as linea
 on adjusted foods, while no adjusted value is presented as verified. Review input
 cannot override server-owned evidence, even when returned metadata is round-tripped.
 
-Shared content fingerprints include evidence and sources so old unsourced content
-cannot swallow a newly verified publication. This is content integrity, not the
-canonical identity redesign in #70. That issue should separate identity/content
-fingerprints and consolidate evidence-equivalent versions. #258 still owns food
-identity versus serving selection; this batch validates serving evidence without
-renaming foods or redesigning portions.
+Canonical food identity is separate from version content fingerprints (Batch 2,
+#70). Trust-bearing evidence and source classifications participate in version
+content identity, so old unsourced content cannot swallow a verified publication.
+Retrieval IDs and confidence remain additional estimate evidence rather than
+splitting otherwise equivalent content. Identity still preserves explicit market,
+product identifiers and product URLs. Canonical `market` and evidence `region`
+share the supplied regional context; contradictory nonblank values are rejected
+before publication. Both remain blank when no regional context is supplied.
+Nutrition or serving changes create versions under the same canonical food. See [CANONICAL-FOODS.md](CANONICAL-FOODS.md).
+The merged schema applies Batch 3's evidence migration before Batch 2's additive
+canonical-food migration. Neither migration repairs production data.
 
 ## Deferred existing-data remediation
 

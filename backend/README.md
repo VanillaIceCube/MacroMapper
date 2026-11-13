@@ -19,6 +19,15 @@ keeping reviewed user adjustments private, version-linked, and durable in meal
 snapshots. See the [product vision](../docs/PRODUCT_VISION.md) for the
 remaining roadmap.
 
+## Food identity, recipes and portions
+
+See [canonical identities and safe duplicate cleanup](../docs/CANONICAL-FOODS.md)
+and [meal interpretation semantics](../docs/MEAL-INTERPRETATION.md). Shared food
+identity is independent of consumed quantity and nutritional definition. Recipes
+retain full-recipe ingredient quantities; their parent servings carry the eaten
+fraction. Natural size choices use food-specific weights and remain editable
+without creating personal food copies or rewriting older meal snapshots.
+
 ## Estimates test organization
 
 `estimates/tests/` is a discoverable Python package. Keep its `__init__.py` and
@@ -34,7 +43,7 @@ code under test looks them up, such as `estimates.services.get_estimation_provid
 not where test helpers live. Keep provider calls mocked; no API key is needed.
 
 From the repository root, run `python backend/manage.py test estimates` for all
-four modules, or append a module/class/method such as
+estimate modules, or append a module/class/method such as
 `estimates.tests.test_provider.OpenAIProviderTests`. Also run
 `python backend/manage.py test backend` to verify full Django discovery. The
 explicit directory matters at the repository root: without a label, discovery

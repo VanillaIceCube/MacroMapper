@@ -33,6 +33,10 @@ management are outside the registry.
 The registry exposes 18 tools covering 19 closed mutation actions. Call
 `operation_schema(action)` before preparing a change: it returns the allowed
 fields, required values, bounds and scopes for that action.
+Meal-item descriptors separate string product identity metadata from the bounded
+`natural_servings` array (at most 12 food-specific gram definitions) and
+`portion_options` array (at most 20 selectable conversions), matching the
+application's writable serializers.
 
 | Area | Read tools | Confirmed actions |
 | --- | --- | --- |

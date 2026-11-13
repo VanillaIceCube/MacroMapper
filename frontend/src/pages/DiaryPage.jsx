@@ -64,6 +64,8 @@ import {
   proposalItemToMealItem,
   removeMealItemFromTree,
   savedMealItemToEditableMealItem,
+  selectedPortion,
+  servingAmountValue,
 } from '../domain/mealItem';
 import CalorieContributionChart from '../components/nutrition/CalorieContributionChart';
 import MacroCalorieBar from '../components/nutrition/MacroCalorieBar';
@@ -2476,7 +2478,15 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                   const confidence = Number(item.confidence_score);
                                   const hasConfidence =
                                     item.confidence_score !== null && Number.isFinite(confidence);
-                                  const itemContext = [item.provider_name, item.serving_label]
+                                  const portion = selectedPortion(item);
+                                  const isNaturalSize = portion.key.startsWith('size:');
+                                  const count = isNaturalSize
+                                    ? servingAmountValue(item)
+                                    : item.servings;
+                                  const itemContext = [
+                                    item.provider_name,
+                                    isNaturalSize ? portion.label : item.serving_label,
+                                  ]
                                     .filter(Boolean)
                                     .join(' · ');
 
@@ -2511,7 +2521,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                           variant="body2"
                                           sx={{ fontWeight: 800, lineHeight: 1.25 }}
                                         >
-                                          {formatAmount(item.servings)} × {item.food_name}
+                                          {formatAmount(count)} × {item.food_name}
                                         </Typography>
                                         {itemContext && (
                                           <Typography

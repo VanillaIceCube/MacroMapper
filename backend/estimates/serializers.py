@@ -7,7 +7,7 @@ from rest_framework import serializers
 
 from foods.models import FoodItem, FoodItemVersion
 from foods.nutrients import NUTRIENT_FIELDS
-from foods.portions import portion_options_for_serving
+from foods.portions import clean_natural_servings, portion_options_for_serving
 
 from .models import MealProposal, MealProposalRevision
 from .services import (
@@ -28,6 +28,10 @@ SOURCE_KINDS = {
 }
 ITEM_FIELDS = {
     "key",
+    "natural_servings",
+    "market",
+    "product_identifier",
+    "identity_url",
     "food_item_id",
     "food_version_id",
     "name",
@@ -108,9 +112,9 @@ def _validate_portion_options(item, *, serving_quantity, serving_unit, serving_l
         unit=serving_unit,
         label=serving_label,
     )
-    if not isinstance(raw_options, list) or len(raw_options) > 12:
+    if not isinstance(raw_options, list) or len(raw_options) > 20:
         raise serializers.ValidationError(
-            "A proposed food may contain at most 12 portion options."
+            "A proposed food may contain at most 20 portion options."
         )
 
     options = []
@@ -259,8 +263,13 @@ def _validate_item(item, *, depth=0, seen_keys=None):
         serving_label=serving_label,
     )
 
+    try:
+        natural_servings = clean_natural_servings(item.get("natural_servings", []))
+    except DjangoValidationError as error:
+        raise serializers.ValidationError(error.messages) from error
     return {
         "key": key,
+        "natural_servings": natural_servings,
         "food_item_id": food_item_id,
         "food_version_id": food_version_id,
         "name": name,

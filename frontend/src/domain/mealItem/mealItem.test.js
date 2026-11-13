@@ -11,6 +11,7 @@ import {
   removeMealItemFromTree,
 } from './tree';
 import { itemNutrientTotal } from '../nutrition/calculations';
+import { servingAmountValue } from './portions';
 
 const editableLeaf = (overrides = {}) => ({
   key: 'food',
@@ -60,6 +61,62 @@ const catalogFood = {
 };
 
 describe('meal item tree operations', () => {
+  test('changes natural serving sizes while preserving count and food identity', () => {
+    const apple = editableLeaf({
+      name: 'Red apple',
+      food_item: 7,
+      food_version: 9,
+      servings: '2',
+      selected_portion_key: 'size:small',
+      serving_weight_grams: '149',
+      portion_options: [
+        { key: 'base', label: 'one small apple', serving_multiplier: '1' },
+        { key: 'size:small', label: 'Small', serving_multiplier: '1' },
+        { key: 'size:medium', label: 'Medium', serving_multiplier: '1.2' },
+        { key: 'size:large', label: 'Large', serving_multiplier: '1.5' },
+        { key: 'g', label: 'g', serving_multiplier: String(1 / 149) },
+      ],
+    });
+    const medium = changeMealItemPortion([apple], 'food', 'size:medium')[0];
+    expect(servingAmountValue(medium)).toBe('2');
+    expect(medium).toMatchObject({ name: 'Red apple', food_item: 7, food_version: 9 });
+    expect(itemNutrientTotal(medium, 'calories')).toBe(240);
+    const large = changeMealItemPortion([medium], 'food', 'size:large')[0];
+    expect(servingAmountValue(large)).toBe('2');
+    expect(itemNutrientTotal(large, 'calories')).toBe(300);
+    const grams = changeMealItemPortion([large], 'food', 'g')[0];
+    expect(servingAmountValue(grams)).toBe('447');
+    expect(itemNutrientTotal(grams, 'calories')).toBe(300);
+    const backToSmall = changeMealItemPortion([grams], 'food', 'size:small')[0];
+    expect(servingAmountValue(backToSmall)).toBe('3');
+    expect(itemNutrientTotal(backToSmall, 'calories')).toBe(300);
+    const base = { ...apple, selected_portion_key: 'base' };
+    const baseToMedium = changeMealItemPortion([base], 'food', 'size:medium')[0];
+    expect(servingAmountValue(baseToMedium)).toBe('2');
+    expect(itemNutrientTotal(baseToMedium, 'calories')).toBe(240);
+    expect(apple.servings).toBe('2');
+    expect(changeMealItemPortion([apple], 'food', 'missing')[0]).toBe(apple);
+  });
+
+  test('retains full recipe ingredients and scales only the consumed parent', () => {
+    const recipe = editableLeaf({
+      key: 'recipe',
+      servings: '0.75',
+      selected_portion_key: 'base',
+      components: [
+        editableLeaf({ key: 'tomatoes', servings: '3', nutrients: { calories: '20' } }),
+        editableLeaf({ key: 'chips', servings: '2', nutrients: { calories: '100' } }),
+      ],
+    });
+    expect(itemNutrientTotal(recipe, 'calories')).toBe(195);
+    const half = changeMealItemServings([recipe], 'recipe', '0.5', recipe)[0];
+    expect(itemNutrientTotal(half, 'calories')).toBe(130);
+    expect(half.components).toEqual(recipe.components);
+    const reloaded = proposalItemToMealItem(mealItemToProposalItem(half));
+    expect(itemNutrientTotal(reloaded, 'calories')).toBe(130);
+    expect(reloaded.components.map((item) => item.servings)).toEqual(['3', '2']);
+  });
+
   test('keeps decimal entry text and updates nested trees immutably', () => {
     const child = editableLeaf({
       key: 'child',
@@ -153,6 +210,28 @@ describe('meal item tree operations', () => {
 });
 
 describe('meal item adapters', () => {
+  test('keeps saved natural serving selection and nutrition snapshots', () => {
+    const saved = savedMealItemToEditableMealItem({
+      id: 21,
+      food_item_id: 7,
+      food_version_id: 9,
+      food_name: 'Red apple',
+      servings: '3',
+      serving_unit: 'item',
+      serving_label: 'one small apple',
+      selected_portion_key: 'size:large',
+      portion_options: [
+        { key: 'size:small', label: 'Small', serving_multiplier: '1' },
+        { key: 'size:large', label: 'Large', serving_multiplier: '1.5' },
+      ],
+      nutrients: [{ key: 'calories', amount: '300' }],
+      component_snapshot: [],
+    });
+    expect(servingAmountValue(saved)).toBe('2');
+    expect(itemNutrientTotal(saved, 'calories')).toBe(300);
+    expect(mealItemToProposalItem(saved).selected_portion_key).toBe('size:large');
+  });
+
   test('preserves proposal identifiers, provenance, confidence, and nested sources', () => {
     const source = { title: 'Official source', url: 'https://example.com/food' };
     const proposal = {
@@ -164,6 +243,10 @@ describe('meal item adapters', () => {
       provenance: 'user_modified_estimate',
       source_kind: 'user_modified_estimate',
       confidence_score: '0.87',
+      market: 'US',
+      product_identifier: 'apple-123',
+      identity_url: 'https://example.com/food',
+      natural_servings: [{ key: 'small', label: 'Small', weight_grams: '149' }],
       nutrients: { calories: '100' },
       selected_portion_key: 'half',
       portion_options: [
@@ -330,5 +413,53 @@ describe('source-backed nutrition integrity', () => {
     expect(resized.evidence.status).toBe('user_modified_estimate');
     const portionOnly = changeMealItemPortion([item], 'child', 'base')[0];
     expect(portionOnly.evidence.status).toBe('source_backed_ai_components');
+  });
+
+  test('natural size changes retain food evidence and invalidate affected composite ancestors', () => {
+    const child = editableLeaf({
+      key: 'apple',
+      servings: '1',
+      selected_portion_key: 'size:small',
+      nutrients: { calories: '100' },
+      provenance: 'official',
+      evidence: { nutrients: { calories: { status: 'official_verified' } } },
+      portion_options: [
+        { key: 'size:small', label: 'Small', serving_multiplier: '1' },
+        { key: 'size:medium', label: 'Medium', serving_multiplier: '1.2' },
+        { key: 'g', label: 'g', serving_multiplier: '0.01' },
+      ],
+    });
+    const parent = { ...official(), components: [child] };
+    const outer = { ...official(), key: 'outer', components: [parent] };
+    const resized = changeMealItemPortion([outer], 'apple', 'size:medium')[0];
+    expect(resized.evidence.status).toBe('user_modified_estimate');
+    expect(resized.components[0].evidence.status).toBe('user_modified_estimate');
+    expect(resized.components[0].components[0].evidence).toBe(child.evidence);
+    expect(resized.components[0].components[0].provenance).toBe('official');
+    expect(itemNutrientTotal(resized, 'calories')).toBe(120);
+
+    const measured = changeMealItemPortion([outer], 'apple', 'g')[0];
+    expect(measured.evidence).toBe(outer.evidence);
+    expect(measured.components[0].evidence).toBe(parent.evidence);
+    expect(itemNutrientTotal(measured, 'calories')).toBe(710);
+    const backToSize = changeMealItemPortion([measured], 'apple', 'size:medium')[0];
+    expect(backToSize.evidence).toBe(outer.evidence);
+    expect(itemNutrientTotal(backToSize, 'calories')).toBe(710);
+
+    const sameSize = changeMealItemPortion(
+      [{ ...parent, components: [{ ...child, servings: '1.0000' }] }],
+      'apple',
+      'size:small',
+    )[0];
+    expect(sameSize.evidence).toBe(parent.evidence);
+
+    const ownSize = changeMealItemPortion(
+      [{ ...parent, selected_portion_key: 'size:small', portion_options: child.portion_options }],
+      'parent',
+      'size:medium',
+    )[0];
+    expect(ownSize.evidence).toBe(parent.evidence);
+    expect(servingAmountValue(ownSize)).toBe('1');
+    expect(itemNutrientTotal(ownSize, 'calories')).toBe(852);
   });
 });

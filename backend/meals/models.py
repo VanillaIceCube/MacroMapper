@@ -49,6 +49,7 @@ class MealItem(models.Model):
     serving_quantity = models.DecimalField(max_digits=10, decimal_places=3)
     serving_unit = models.CharField(max_length=16)
     serving_label = models.CharField(max_length=120, blank=True)
+    selected_portion_key = models.CharField(max_length=80, default="base")
     component_snapshot = models.JSONField(default=list, blank=True)
     calories = models.DecimalField(
         max_digits=14,
