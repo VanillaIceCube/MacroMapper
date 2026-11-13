@@ -64,6 +64,8 @@ import {
   proposalItemToMealItem,
   removeMealItemFromTree,
   savedMealItemToEditableMealItem,
+  selectedPortion,
+  servingAmountValue,
 } from '../domain/mealItem';
 import CalorieContributionChart from '../components/nutrition/CalorieContributionChart';
 import MacroCalorieBar from '../components/nutrition/MacroCalorieBar';
@@ -88,6 +90,17 @@ const provenanceLabels = {
   user_modified_estimate: 'User Adjusted',
   user_entered: 'User Entered',
 };
+
+const evidenceLabel = (item) =>
+  item.evidence?.status === 'legacy_unverified' && item.provenance === 'official'
+    ? 'Legacy official; evidence unrecorded'
+    : {
+        source_backed_ai_components: 'Official parent; AI components',
+        partially_source_backed: 'Partially source-backed estimate',
+        user_modified_estimate: 'User Adjusted',
+      }[item.evidence?.status] ||
+      provenanceLabels[item.provenance] ||
+      'Unknown';
 
 const catalogPageSize = 20;
 const initialCatalogRequest = {
@@ -1348,7 +1361,7 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
                         {availableFoods.map((food) => {
                           const version = food.current_version || {};
                           const source =
-                            provenanceLabels[version.provenance] ||
+                            evidenceLabel(version) ||
                             (food.scope === 'personal' ? 'Personal' : 'Catalog');
                           const scopeLabel =
                             food.scope === 'personal'
@@ -2465,7 +2478,15 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                   const confidence = Number(item.confidence_score);
                                   const hasConfidence =
                                     item.confidence_score !== null && Number.isFinite(confidence);
-                                  const itemContext = [item.provider_name, item.serving_label]
+                                  const portion = selectedPortion(item);
+                                  const isNaturalSize = portion.key.startsWith('size:');
+                                  const count = isNaturalSize
+                                    ? servingAmountValue(item)
+                                    : item.servings;
+                                  const itemContext = [
+                                    item.provider_name,
+                                    isNaturalSize ? portion.label : item.serving_label,
+                                  ]
                                     .filter(Boolean)
                                     .join(' · ');
 
@@ -2500,7 +2521,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                           variant="body2"
                                           sx={{ fontWeight: 800, lineHeight: 1.25 }}
                                         >
-                                          {formatAmount(item.servings)} × {item.food_name}
+                                          {formatAmount(count)} × {item.food_name}
                                         </Typography>
                                         {itemContext && (
                                           <Typography
@@ -2577,7 +2598,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                           Provenance
                                         </Typography>
                                         <Typography variant="body2" sx={{ fontWeight: 750 }}>
-                                          {provenanceLabels[item.provenance] || 'Unknown'}
+                                          {evidenceLabel(item)}
                                         </Typography>
                                       </Box>
                                     </Box>

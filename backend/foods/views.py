@@ -3,6 +3,7 @@ from django.db.models import (
     DateField,
     IntegerField,
     OuterRef,
+    Q,
     Subquery,
     Value,
     When,
@@ -44,9 +45,19 @@ class FoodItemViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
+        available = FoodItem.objects.active()
+        if self.action == "retrieve":
+            available = FoodItem.objects.filter(
+                Q(archived_at__isnull=True)
+                | Q(
+                    scope=FoodItem.Scope.SHARED,
+                    merged_into__scope=FoodItem.Scope.SHARED,
+                    merged_into__archived_at__isnull=True,
+                    merged_into__isnull=False,
+                )
+            )
         queryset = (
-            FoodItem.objects.active()
-            .visible_to(self.request.user)
+            available.visible_to(self.request.user)
             .select_related("owner", "current_version")
             .prefetch_related("current_version__sources")
         )

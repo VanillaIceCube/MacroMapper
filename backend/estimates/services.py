@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import hashlib
 import ipaddress
-import json
 import re
 import unicodedata
 from copy import deepcopy
@@ -12,18 +10,29 @@ from types import SimpleNamespace
 from urllib.parse import urlsplit
 
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
+from foods.evidence import (
+    nutrition_evidence,
+    source_data,
+    usable_nutrition,
+    version_evidence,
+)
 from foods.models import FoodItem, FoodItemVersion
 from foods.nutrients import NUTRIENT_FIELDS
-from foods.portions import portion_options_for_serving
+from foods.portions import (
+    canonical_generic_name,
+    clean_natural_servings,
+    portion_options_for_serving,
+)
 from foods.services import build_component_map, create_food_item
 from meals.models import MealEntry
 from meals.services import _effective_nutrients, generate_meal_name, replace_meal_items
 
 from .models import MealProposal, MealProposalRevision
+from .operations import apply_tree_operations, index_tree
 from .provider import EstimationProviderError, get_estimation_provider
 
 STOP_WORDS = {
@@ -160,6 +169,8 @@ def _best_phrase_span(*, phrase_tokens, query_tokens):
 
 
 def _catalog_food_rank(food, *, user):
+    from foods.identity import product_name, provider_identity, version_fingerprint
+
     provenance_rank = {
         FoodItemVersion.Provenance.OFFICIAL: 5,
         FoodItemVersion.Provenance.USER_ENTERED: 4,
@@ -168,8 +179,24 @@ def _catalog_food_rank(food, *, user):
         FoodItemVersion.Provenance.AI_ESTIMATE: 1,
     }
     version = food.current_version
+    owner_priority = int(food.owner_id == user.pk)
+    if owner_priority and version.derived_from_id:
+        base = version.derived_from
+        if (
+            base.food_item.scope == FoodItem.Scope.SHARED
+            and product_name(food.name, food.provider_name)
+            == product_name(base.food_item.name, base.food_item.provider_name)
+            and provider_identity(food.provider_name)
+            == provider_identity(base.food_item.provider_name)
+            and food.market == base.food_item.market
+            and food.product_identifier == base.food_item.product_identifier
+            and (version.content_fingerprint or version_fingerprint(version))
+            == (base.content_fingerprint or version_fingerprint(base))
+        ):
+            # Legacy no-op private copies must not shadow the canonical shared estimate.
+            owner_priority = -1
     return (
-        int(food.owner_id == user.pk),
+        owner_priority,
         provenance_rank.get(version.provenance, 0),
         len(version.sources.all()),
         version.confidence_score or Decimal("-1"),
@@ -264,6 +291,16 @@ def _has_partial_catalog_conflict(*, description, matches, unmatched_tokens):
 
 
 def _quantity_for_match(*, match, all_tokens, used_quantity_indexes):
+    food = match["food"]
+    natural_sizes = (
+        {option["key"] for option in food.current_version.natural_servings}
+        if food.origin_type == FoodItem.OriginType.GENERIC
+        else set()
+    )
+    if food.origin_type == FoodItem.OriginType.GENERIC and not food.provider_name:
+        declared_size = _size_key(food.current_version.serving_label)
+        if declared_size:
+            natural_sizes.add(declared_size)
     for index in range(match["start"] - 1, max(match["start"] - 4, -1), -1):
         token = all_tokens[index]
         if token["index"] in used_quantity_indexes:
@@ -274,6 +311,8 @@ def _quantity_for_match(*, match, all_tokens, used_quantity_indexes):
         if (
             token["index"] in match["provider_indexes"]
             or token["normalized"] in QUERY_IGNORED_WORDS
+            or ("small" if token["normalized"] == "smallish" else token["normalized"])
+            in natural_sizes
         ):
             continue
         break
@@ -318,18 +357,7 @@ def _source_kind(provenance):
 
 
 def _sources(version):
-    return [
-        {
-            "title": source.title,
-            "provider": source.provider,
-            "url": source.url,
-            "accessed_on": (
-                source.accessed_on.isoformat() if source.accessed_on else None
-            ),
-            "is_official": version.provenance == FoodItemVersion.Provenance.OFFICIAL,
-        }
-        for source in version.sources.all()
-    ]
+    return [source_data(source) for source in version.sources.all()]
 
 
 def _portion_options(item):
@@ -339,6 +367,7 @@ def _portion_options(item):
         label=item.get("serving_label", ""),
         weight_grams=item.get("serving_weight_grams"),
         volume_milliliters=item.get("serving_volume_ml"),
+        natural_servings=item.get("natural_servings", []),
     )
 
 
@@ -372,6 +401,7 @@ def _catalog_food(
         label=version.serving_label,
         weight_grams=version.serving_weight_grams,
         volume_milliliters=version.serving_volume_ml,
+        natural_servings=version.natural_servings,
     )
     option_keys = {option["key"] for option in portion_options}
     if depth and "fl_oz" in option_keys:
@@ -382,6 +412,14 @@ def _catalog_food(
         selected_portion_key = (
             version.serving_unit if version.serving_unit in option_keys else "base"
         )
+        for natural in version.natural_servings:
+            if (
+                version.serving_weight_grams is not None
+                and Decimal(str(natural["weight_grams"]))
+                == version.serving_weight_grams
+            ):
+                selected_portion_key = f"size:{natural['key']}"
+                break
     return {
         "key": item_key,
         "food_item_id": food.pk,
@@ -389,6 +427,9 @@ def _catalog_food(
         "name": food.name,
         "provider_name": food.provider_name,
         "origin_type": food.origin_type,
+        "market": food.market,
+        "product_identifier": food.product_identifier,
+        "identity_url": food.identity_url,
         "servings": str(servings),
         "serving_quantity": str(version.serving_quantity),
         "serving_unit": version.serving_unit,
@@ -403,9 +444,11 @@ def _catalog_food(
             if version.serving_volume_ml is not None
             else None
         ),
+        "natural_servings": version.natural_servings,
         "portion_options": portion_options,
         "selected_portion_key": selected_portion_key,
         "provenance": version.provenance,
+        "evidence": version_evidence(version),
         "source_kind": _source_kind(version.provenance),
         "confidence_score": (
             str(version.confidence_score)
@@ -496,7 +539,56 @@ def _intent_queries(intent):
     return queries
 
 
+def _size_key(text):
+    match = re.search(r"\b(smallish|small|medium|large|tiny|jumbo)\b", text, re.I)
+    return (
+        ("small" if match[1].casefold() == "smallish" else match[1].casefold())
+        if match
+        else ""
+    )
+
+
+def _catalog_supports_size(food, size_key):
+    if not size_key:
+        return True
+    version = food.current_version
+    options = portion_options_for_serving(
+        quantity=version.serving_quantity,
+        unit=version.serving_unit,
+        label=version.serving_label,
+        weight_grams=version.serving_weight_grams,
+        volume_milliliters=version.serving_volume_ml,
+        natural_servings=version.natural_servings,
+    )
+    return any(option["key"] == f"size:{size_key}" for option in options) or (
+        version.serving_unit in {"item", "serving"}
+        and version.serving_quantity == 1
+        and _size_key(version.serving_label) == size_key
+    )
+
+
 def _resolve_catalog_intent(*, intent, user, foods):
+    intent = deepcopy(intent)
+    requested_size = intent.get("requested_size_key") or _size_key(
+        " ".join(
+            [
+                intent.get("raw_text", ""),
+                intent.get("search_name", ""),
+                *intent.get("defining_terms", []),
+            ]
+        )
+    )
+    if not intent.get("provider_name"):
+        intent["search_name"] = canonical_generic_name(intent.get("search_name", ""))
+        intent["defining_terms"] = [
+            canonical_generic_name(term + " food").removesuffix(" food")
+            for term in intent.get("defining_terms", [])
+            if term.casefold()
+            not in {"small", "smallish", "medium", "large", "tiny", "jumbo"}
+        ]
+        intent["aliases"] = [
+            canonical_generic_name(alias) for alias in intent.get("aliases", [])
+        ]
     provider_tokens = _identity_tokens(intent.get("provider_name", ""))
     provider_identity = "".join(provider_tokens)
     defining_tokens = _intent_defining_tokens(intent)
@@ -506,6 +598,20 @@ def _resolve_catalog_intent(*, intent, user, foods):
 
     candidates = []
     for food in foods:
+        if food.origin_type == FoodItem.OriginType.GENERIC and not food.provider_name:
+            if not _catalog_supports_size(food, requested_size):
+                continue
+            requested_weight = intent.get("requested_serving_weight_grams")
+            if (
+                not requested_size
+                and requested_weight is not None
+                and (
+                    food.current_version.serving_weight_grams is None
+                    or Decimal(requested_weight)
+                    != food.current_version.serving_weight_grams
+                )
+            ):
+                continue
         food_provider_tokens = _identity_tokens(food.provider_name)
         food_provider_identity = "".join(food_provider_tokens)
         if provider_identity:
@@ -582,6 +688,7 @@ def _resolve_catalog_intent(*, intent, user, foods):
     )
     selected = candidates[0]
     selected["servings"] = _decimal(intent.get("quantity"), default="1")
+    selected["raw_text"] = intent.get("raw_text", "")
     return selected
 
 
@@ -629,19 +736,26 @@ def _brief_generated_meal_name(value):
 def resolve_catalog_intents(*, intents, user):
     foods = _visible_catalog_foods(user)
     matches = []
-    matches_by_food_id = {}
+    matches_by_portion = {}
     unmatched_descriptions = []
     for intent in intents:
         match = _resolve_catalog_intent(intent=intent, user=user, foods=foods)
         if match is None:
             unmatched_descriptions.append(intent["raw_text"])
             continue
-        food_id = match["food"].pk
-        if food_id in matches_by_food_id:
-            matches_by_food_id[food_id]["servings"] += match["servings"]
+        food = match["food"]
+        size_key = (
+            _size_key(match["raw_text"])
+            if food.origin_type == FoodItem.OriginType.GENERIC
+            and not food.provider_name
+            else ""
+        )
+        portion_identity = (food.pk, size_key)
+        if portion_identity in matches_by_portion:
+            matches_by_portion[portion_identity]["servings"] += match["servings"]
             continue
         matches.append(match)
-        matches_by_food_id[food_id] = match
+        matches_by_portion[portion_identity] = match
     return {
         "matches": matches,
         "unmatched_description": " + ".join(unmatched_descriptions),
@@ -685,6 +799,19 @@ def _resolve_catalog_clause(*, description, user, foods):
         minimum_score = 0.86 if len("".join(name_tokens)) <= 6 else 0.78
         if name_match is None or name_match["score"] < minimum_score:
             continue
+        start = all_tokens[name_match["start"]]["char_start"]
+        end = all_tokens[name_match["end"]]["char_end"]
+        match_context = (
+            FOOD_ITEM_BOUNDARY_PATTERN.split(description[:start])[-1]
+            + description[start:end]
+            + FOOD_ITEM_BOUNDARY_PATTERN.split(description[end:])[0]
+        )
+        if (
+            food.origin_type == FoodItem.OriginType.GENERIC
+            and not food.provider_name
+            and not _catalog_supports_size(food, _size_key(match_context))
+        ):
+            continue
         provider_match = _best_phrase_span(
             phrase_tokens=_identity_tokens(food.provider_name),
             query_tokens=query_tokens,
@@ -698,6 +825,7 @@ def _resolve_catalog_clause(*, description, user, foods):
             {
                 "food": food,
                 "score": name_match["score"],
+                "raw_text": match_context,
                 "name_indexes": name_match["indexes"],
                 "provider_indexes": provider_indexes,
                 "provider_score": provider_match["score"] if provider_match else 0,
@@ -744,6 +872,22 @@ def _resolve_catalog_clause(*, description, user, foods):
     covered_indexes = claimed_name_indexes | used_quantity_indexes
     for match in selected:
         covered_indexes.update(match["provider_indexes"])
+        if match["food"].origin_type == FoodItem.OriginType.GENERIC:
+            available = {
+                option["key"]
+                for option in match["food"].current_version.natural_servings
+            }
+            declared_size = _size_key(match["food"].current_version.serving_label)
+            if declared_size:
+                available.add(declared_size)
+            for token in all_tokens:
+                size = (
+                    "small"
+                    if token["normalized"] == "smallish"
+                    else token["normalized"]
+                )
+                if size in available:
+                    covered_indexes.add(token["index"])
     unmatched_tokens = [
         token
         for token in all_tokens
@@ -782,6 +926,8 @@ def resolve_catalog_matches(*, description, user):
             user=user,
             foods=foods,
         )
+        for match in resolution["matches"]:
+            match.setdefault("raw_text", clause)
         matches.extend(resolution["matches"])
         unmatched_description = resolution["unmatched_description"]
         if unmatched_description:
@@ -827,6 +973,12 @@ def _recalculate_item(item):
                         Decimal("0"),
                     )
                 )
+        for field, coverage in item.get("evidence", {}).get("nutrients", {}).items():
+            if (
+                coverage.get("status") == "official_verified"
+                and item.get("nutrients", {}).get(field) is not None
+            ):
+                nutrients[field] = item["nutrients"][field]
         item["nutrients"] = nutrients
     return item
 
@@ -936,7 +1088,47 @@ def _published_source(source):
         address = None
     if address is not None and not address.is_global:
         raise _catalog_publication_error()
+    raw_evidence = source.get("evidence") or {}
+    if not isinstance(raw_evidence, dict):
+        raise _catalog_publication_error()
+    evidence = {}
+    if raw_evidence:
+        for field, limit in (
+            ("product_name", 200),
+            ("brand", 160),
+            ("region", 80),
+            ("serving_label", 120),
+            ("serving_unit", 16),
+            ("published_on", 40),
+            ("retrieval_response_id", 160),
+        ):
+            evidence[field] = _published_text(
+                raw_evidence.get(field, ""), max_length=limit, allow_blank=True
+            )
+        evidence["retrieved"] = raw_evidence.get("retrieved") is True
+        evidence["serving_quantity"] = _published_decimal(
+            raw_evidence.get("serving_quantity", 1), positive=True, maximum=100000
+        )
+        evidence["serving_weight_grams"] = _published_decimal(
+            raw_evidence.get("serving_weight_grams"),
+            allow_null=True,
+            positive=True,
+            maximum=100000,
+        )
+        raw_nutrients = raw_evidence.get("nutrients") or {}
+        if not isinstance(raw_nutrients, dict) or set(raw_nutrients) - set(
+            NUTRIENT_FIELDS
+        ):
+            raise _catalog_publication_error()
+        evidence["nutrients"] = {
+            field: _published_decimal(
+                raw_nutrients.get(field), allow_null=True, maximum=100000
+            )
+            for field in NUTRIENT_FIELDS
+        }
     return {
+        "is_official": source.get("is_official") is True,
+        "evidence": evidence,
         "title": title,
         "provider": provider,
         "url": url,
@@ -999,6 +1191,10 @@ def _published_provider_item(item, *, depth=0):
         )
         for field in NUTRIENT_FIELDS
     }
+    if not usable_nutrition(safe_nutrients) and not components:
+        raise EstimationProviderError(
+            "A proposed food has no usable nutrition. No catalog foods were published; try again or enter nutrition manually."
+        )
     confidence = _published_decimal(
         item.get("confidence_score"),
         allow_null=True,
@@ -1007,14 +1203,49 @@ def _published_provider_item(item, *, depth=0):
     key = item.get("key")
     if not isinstance(key, str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,160}", key):
         raise _catalog_publication_error()
+    safe_name = _published_text(item.get("name"), max_length=200)
+    if origin_type == "generic" and not provider_name:
+        safe_name = _published_text(canonical_generic_name(safe_name), max_length=200)
+    try:
+        natural_servings = clean_natural_servings(item.get("natural_servings", []))
+    except ValidationError as error:
+        raise _catalog_publication_error() from error
+    for natural in natural_servings:
+        _published_text(natural["label"], max_length=80)
     safe_sources = [_published_source(source) for source in sources]
     source_urls = [source["url"] for source in safe_sources]
     if len(source_urls) != len(set(source_urls)):
         raise _catalog_publication_error()
 
-    return {
+    region = _published_text(
+        item.get("region") or item.get("evidence", {}).get("region", ""),
+        max_length=80,
+        allow_blank=True,
+    )
+    market = _published_text(item.get("market", ""), max_length=80, allow_blank=True)
+    if (
+        region
+        and market
+        and _normalize_search_token(region) != _normalize_search_token(market)
+    ):
+        raise _catalog_publication_error()
+    # The identity's market and source verification's region describe the same
+    # explicitly supplied context; neither may contradict the other.
+    region, market = region or market, market or region
+    result = {
+        "region": region,
         "key": key,
-        "name": _published_text(item.get("name"), max_length=200),
+        "name": safe_name,
+        "natural_servings": natural_servings,
+        "market": market,
+        "product_identifier": _published_text(
+            item.get("product_identifier", ""), max_length=160, allow_blank=True
+        ),
+        "identity_url": _published_source(
+            {"title": "Product identity", "url": item["identity_url"]}
+        )["url"]
+        if item.get("identity_url")
+        else "",
         "provider_name": provider_name,
         "origin_type": origin_type,
         "servings": _published_decimal(
@@ -1054,52 +1285,23 @@ def _published_provider_item(item, *, depth=0):
         ],
     }
 
-
-def _fingerprint_decimal(value, *, decimal_places, default="0"):
-    return str(_storage_decimal(value, decimal_places=decimal_places, default=default))
-
-
-def _shared_fingerprint(*, item, components):
-    payload = {
-        "name": " ".join(item["name"].casefold().split()),
-        "provider_name": " ".join(item.get("provider_name", "").casefold().split()),
-        "origin_type": item.get("origin_type") or FoodItem.OriginType.GENERIC,
-        "serving_quantity": _fingerprint_decimal(
-            item.get("serving_quantity"), decimal_places=3, default="1"
-        ),
-        "serving_unit": item.get("serving_unit") or "serving",
-        "serving_label": " ".join(item.get("serving_label", "").casefold().split()),
-        "serving_weight_grams": (
-            _fingerprint_decimal(item.get("serving_weight_grams"), decimal_places=3)
-            if item.get("serving_weight_grams") is not None
-            else None
-        ),
-        "serving_volume_ml": (
-            _fingerprint_decimal(item.get("serving_volume_ml"), decimal_places=3)
-            if item.get("serving_volume_ml") is not None
-            else None
-        ),
-        "nutrients": {
-            field: (
-                _fingerprint_decimal(value, decimal_places=4)
-                if value is not None
-                else None
-            )
-            for field in NUTRIENT_FIELDS
-            for value in [item.get("nutrients", {}).get(field)]
-        },
-        "components": [
-            {
-                "fingerprint": component["food_item"].shared_fingerprint,
-                "version": component["food_version"].pk,
-                "servings": str(component["servings"]),
-                "order": component["order"],
-            }
-            for component in components
-        ],
-    }
-    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+    research_status = item.get("evidence", {}).get("research_status", "not_recorded")
+    if research_status not in {
+        "found",
+        "no_source_found",
+        "failed",
+        "not_attempted",
+        "not_recorded",
+    }:
+        research_status = "not_recorded"
+    result["evidence"] = nutrition_evidence(result, research_status=research_status)
+    result["provenance"] = (
+        "official"
+        if result["evidence"]["status"]
+        in {"official_verified", "source_backed_ai_components"}
+        else "ai_estimate"
+    )
+    return result
 
 
 def _shared_definition(*, item, components, estimate):
@@ -1134,49 +1336,14 @@ def _materialize_shared_item(*, item, estimate):
             }
         )
 
-    fingerprint = _shared_fingerprint(item=item, components=components)
-    existing = (
-        FoodItem.objects.active()
-        .filter(
-            scope=FoodItem.Scope.SHARED,
-            shared_fingerprint=fingerprint,
-            current_version__isnull=False,
-        )
-        .select_related("current_version")
-        .first()
-    )
-    if existing:
-        return existing, existing.current_version
+    from foods.services import publish_shared_food
 
-    try:
-        with transaction.atomic():
-            food = create_food_item(
-                name=item["name"],
-                scope=FoodItem.Scope.SHARED,
-                origin_type=item.get("origin_type") or FoodItem.OriginType.GENERIC,
-                provider_name=item.get("provider_name", ""),
-                owner=None,
-                definition=_shared_definition(
-                    item=item,
-                    components=components,
-                    estimate=estimate,
-                ),
-                created_by=None,
-                shared_fingerprint=fingerprint,
-            )
-    except IntegrityError as error:
-        food = (
-            FoodItem.objects.filter(
-                scope=FoodItem.Scope.SHARED,
-                shared_fingerprint=fingerprint,
-                current_version__isnull=False,
-            )
-            .select_related("current_version")
-            .first()
-        )
-        if food is None:
-            raise _catalog_publication_error() from error
-    return food, food.current_version
+    return publish_shared_food(
+        item=item,
+        definition=_shared_definition(
+            item=item, components=components, estimate=estimate
+        ),
+    )
 
 
 def _shared_estimate_items(estimate):
@@ -1189,6 +1356,7 @@ def _shared_estimate_items(estimate):
     normalized = normalize_items(
         [_published_provider_item(item) for item in estimate["items"]]
     )
+    index_tree(normalized)
     result = []
     for item in normalized:
         food, version = _materialize_shared_item(item=item, estimate=estimate)
@@ -1210,15 +1378,57 @@ def _semantic_food_identity(item):
     )
 
 
+def _select_described_size(item, description):
+    if item.get("origin_type") != FoodItem.OriginType.GENERIC:
+        return
+    # Require the size and food name in the same clause. Do not borrow the size
+    # of another meal item, or reinterpret a branded marketed size.
+    name_tokens = _identity_tokens(item.get("name", ""))
+    for clause in re.split(r"[+;,.]|\band\b|\bplus\b", description, flags=re.I):
+        tokens = _identity_tokens(clause)
+        if not all(
+            any(_token_similarity(token, candidate) >= 0.86 for candidate in tokens)
+            for token in name_tokens
+        ):
+            continue
+        size_key = _size_key(clause)
+        if not size_key:
+            continue
+        option = next(
+            (
+                option
+                for option in item.get("portion_options", [])
+                if option["key"] == f"size:{size_key}"
+            ),
+            None,
+        )
+        if option:
+            item["servings"] = _decimal_string(
+                _decimal(item["servings"], default="1")
+                * Decimal(option["serving_multiplier"])
+            )
+            item["selected_portion_key"] = option["key"]
+        return
+
+
 def create_proposal(*, owner, description, entry_date, before_apply=None):
     description = description.strip()
     resolution = resolve_catalog_matches(description=description, user=owner)
+    holistic = bool(
+        re.search(
+            r"\b(?:ingredients|recipe|batch|made with|made of)\b|\d+\s*%",
+            description,
+            re.I,
+        )
+    )
+    if holistic:
+        resolution = {"matches": [], "unmatched_description": description}
     provider = None
     intent_name = ""
     if resolution["unmatched_description"]:
         provider = get_estimation_provider()
         try:
-            search_plan = provider.extract_intents(description)
+            search_plan = None if holistic else provider.extract_intents(description)
         except (AttributeError, EstimationProviderError):
             search_plan = None
         if isinstance(search_plan, dict):
@@ -1231,15 +1441,24 @@ def create_proposal(*, owner, description, entry_date, before_apply=None):
         [match["food"].current_version_id for match in matches]
     )
     nutrient_cache = {}
-    catalog_items = [
-        _catalog_food(
-            match["food"].current_version,
-            servings=match["servings"],
-            component_map=component_map,
-            nutrient_cache=nutrient_cache,
+    catalog_items = []
+    used_catalog_keys = set()
+    for match in matches:
+        key = f"catalog-{match['food'].pk}"
+        if key in used_catalog_keys:
+            key = f"{key}-instance-{len(catalog_items)}"
+        used_catalog_keys.add(key)
+        catalog_items.append(
+            _catalog_food(
+                match["food"].current_version,
+                servings=match["servings"],
+                key=key,
+                component_map=component_map,
+                nutrient_cache=nutrient_cache,
+            )
         )
-        for match in matches
-    ]
+    for match, item in zip(matches, catalog_items, strict=True):
+        _select_described_size(item, match.get("raw_text") or description)
     if matches and not resolution["unmatched_description"]:
         confidence_values = [
             match["food"].current_version.confidence_score
@@ -1322,7 +1541,13 @@ def create_proposal(*, owner, description, entry_date, before_apply=None):
 
 def _follow_up_identity(item):
     if item.get("food_item_id"):
-        return ("food_item", str(item["food_item_id"]))
+        portion_key = item.get("selected_portion_key", "")
+        return (
+            "food_item",
+            str(item["food_item_id"]),
+            str(item.get("food_version_id")),
+            portion_key if portion_key.startswith("size:") else "",
+        )
     return _semantic_food_identity(item)
 
 
@@ -1344,7 +1569,11 @@ def _follow_up_search_intent(item):
         search.get("provider_name") or item.get("provider_name", "")
     ).strip()
     search_name = str(search.get("search_name") or item.get("name", "")).strip()
-    raw_text = " ".join(value for value in (search_name, provider_name) if value)
+    raw_text = " ".join(
+        value
+        for value in (search_name, provider_name, item.get("serving_label", ""))
+        if value
+    )
     intents = _validated_search_intents(
         {
             "items": [
@@ -1359,7 +1588,20 @@ def _follow_up_search_intent(item):
             ]
         }
     )
-    return intents[0] if intents else None
+    if not intents:
+        return None
+    intent = intents[0]
+    selected = item.get("selected_portion_key", "")
+    if selected.startswith("size:"):
+        intent["requested_size_key"] = selected.removeprefix("size:")
+    if (
+        item.get("serving_unit") in {"item", "serving"}
+        and item.get("serving_weight_grams") is not None
+    ):
+        intent["requested_serving_weight_grams"] = _published_decimal(
+            item["serving_weight_grams"], positive=True, maximum=100000
+        )
+    return intent
 
 
 @transaction.atomic
@@ -1375,33 +1617,23 @@ def apply_proposal_follow_up(
         raise ValidationError("Accepted proposals cannot receive follow-up changes.")
 
     current_items = deepcopy(items)
-    current_by_key = {item["key"]: item for item in current_items}
-    remove_keys = set(result.get("remove_keys") or [])
-    serving_updates = {}
-    for update in result.get("serving_updates") or []:
-        if isinstance(update, dict) and "key" in update:
-            serving_updates[update["key"]] = update.get("servings")
-
-    remove_keys &= set(current_by_key)
-    serving_updates = {
-        key: servings
-        for key, servings in serving_updates.items()
-        if key in current_by_key and key not in remove_keys
+    original_composites = {
+        key
+        for key, (node, _) in index_tree(current_items).items()
+        if node.get("components")
     }
+    operations_applied = apply_tree_operations(current_items, result)
+    for key, (node, _) in index_tree(current_items).items():
+        if key in original_composites and not node.get("components"):
+            node["nutrients"] = {field: None for field in NUTRIENT_FIELDS}
+    remove_keys = set(result.get("remove_keys") or [])
+    serving_updates = result.get("serving_updates") or []
+    retained_items = current_items
 
-    retained_items = [item for item in current_items if item["key"] not in remove_keys]
-    for item in retained_items:
-        if item["key"] in serving_updates:
-            item["servings"] = str(
-                _storage_decimal(
-                    serving_updates[item["key"]],
-                    decimal_places=4,
-                    default="1",
-                )
-            )
-
-    existing_identities = {_follow_up_identity(item) for item in retained_items}
+    # A newly added food is separately consumed at meal level. A matching
+    # recipe ingredient must retain its full-recipe quantity and parent scope.
     retained_by_identity = {_follow_up_identity(item): item for item in retained_items}
+    existing_identities = set(retained_by_identity)
     items_by_identity = dict(retained_by_identity)
     next_revision_number = len(proposal.revisions.all()) + 1
     foods = _visible_catalog_foods(owner)
@@ -1419,6 +1651,30 @@ def apply_proposal_follow_up(
                 catalog_match["food"].current_version,
                 servings=item.get("servings", "1"),
             )
+            requested_portion = item.get("selected_portion_key", "")
+            natural_option = next(
+                (
+                    option
+                    for option in candidate_item["portion_options"]
+                    if option["key"] == requested_portion
+                    and requested_portion.startswith("size:")
+                ),
+                None,
+            )
+            if natural_option is not None:
+                # Provider servings count its declared natural size. Transfer that
+                # count to the immutable catalog base without relying on wording
+                # that canonical name normalization has already removed.
+                candidate_item["servings"] = _decimal_string(
+                    _decimal(item.get("servings"), default="1")
+                    * Decimal(natural_option["serving_multiplier"])
+                )
+                candidate_item["selected_portion_key"] = requested_portion
+            else:
+                _select_described_size(
+                    candidate_item,
+                    f"{item.get('name', '')} {item.get('serving_label', '')}",
+                )
             is_catalog_item = True
         else:
             candidate_item = deepcopy(item)
@@ -1469,7 +1725,8 @@ def apply_proposal_follow_up(
     ]
 
     if (
-        not remove_keys
+        not operations_applied
+        and not remove_keys
         and not serving_updates
         and not added_items
         and not merged_addition
@@ -1494,7 +1751,12 @@ def apply_proposal_follow_up(
         proposal.entry_date = entry_date
     if notes is not None:
         proposal.notes = notes
-    proposal.items = normalize_items([*retained_items, *added_items])
+    # Restore or invalidate verification against the immutable definitions before
+    # normalization can preserve direct verified parent values. Recipe fraction
+    # changes alone keep evidence; ingredient/quantity changes clear it first.
+    proposal.items = normalize_items(
+        _apply_review_attribution(items=[*retained_items, *added_items], owner=owner)
+    )
     proposal.generator = MealProposal.Generator.OPENAI
     provider_name = result.get("provider_name") or ""
     if (
@@ -1567,9 +1829,15 @@ def _visible_catalog_versions_map(*, owner, pairs, allowed_version_ids=()):
     query = Q()
     for food_item_id, version_id in pairs:
         query |= Q(pk=version_id, food_item_id=food_item_id)
-    visible = Q(food_item__archived_at__isnull=True) & (
-        Q(food_item__scope=FoodItem.Scope.SHARED) | Q(food_item__owner=owner)
-    )
+    visible = (
+        Q(food_item__archived_at__isnull=True)
+        | Q(
+            food_item__scope=FoodItem.Scope.SHARED,
+            food_item__merged_into__scope=FoodItem.Scope.SHARED,
+            food_item__merged_into__archived_at__isnull=True,
+            food_item__merged_into__isnull=False,
+        )
+    ) & (Q(food_item__scope=FoodItem.Scope.SHARED) | Q(food_item__owner=owner))
     if allowed_version_ids:
         visible |= Q(pk__in=allowed_version_ids)
     versions = (
@@ -1595,12 +1863,39 @@ def _visible_catalog_version(
         pk=version_id,
         food_item_id=food_item_id,
     )
-    visible = Q(food_item__archived_at__isnull=True) & (
-        Q(food_item__scope=FoodItem.Scope.SHARED) | Q(food_item__owner=owner)
-    )
+    visible = (
+        Q(food_item__archived_at__isnull=True)
+        | Q(
+            food_item__scope=FoodItem.Scope.SHARED,
+            food_item__merged_into__scope=FoodItem.Scope.SHARED,
+            food_item__merged_into__archived_at__isnull=True,
+            food_item__merged_into__isnull=False,
+        )
+    ) & (Q(food_item__scope=FoodItem.Scope.SHARED) | Q(food_item__owner=owner))
     if version_id in allowed_version_ids:
         visible |= Q(pk=version_id)
     return queryset.filter(visible).select_related("food_item").first()
+
+
+def _review_definition_changed(item, original):
+    if any(
+        not _matches_catalog_value(
+            item.get("nutrients", {}).get(field),
+            original.get("nutrients", {}).get(field),
+            decimal_places=4,
+        )
+        for field in NUTRIENT_FIELDS
+    ):
+        return True
+    children, previous = item.get("components", []), original.get("components", [])
+    return len(children) != len(previous) or any(
+        child["key"] != old["key"]
+        or not _matches_catalog_value(
+            child.get("servings"), old.get("servings"), decimal_places=4
+        )
+        or _review_definition_changed(child, old)
+        for child, old in zip(children, previous)
+    )
 
 
 def secure_review_items(
@@ -1629,6 +1924,7 @@ def secure_review_items(
         )
     if nutrient_cache is None:
         nutrient_cache = {}
+    index_tree(items)
     existing = _items_by_key(proposal.items)
 
     def secure(item, *, depth=0):
@@ -1677,9 +1973,7 @@ def secure_review_items(
         result["servings"] = item["servings"]
         result["nutrients"] = item["nutrients"]
         requested_components = item.get("components", [])
-        original_component_keys = {
-            component["key"] for component in original.get("components", [])
-        }
+        original_component_keys = set(existing)
         if any(
             component["key"] not in original_component_keys
             for component in requested_components
@@ -1690,6 +1984,13 @@ def secure_review_items(
         result["components"] = [
             secure(component, depth=depth + 1) for component in requested_components
         ]
+        if _review_definition_changed(result, original):
+            result["evidence"] = {
+                **original.get("evidence", {}),
+                "status": "user_modified_estimate",
+                "nutrients": {},
+            }
+
         if original.get("components") and not result["components"]:
             result["nutrients"] = {field: None for field in NUTRIENT_FIELDS}
         return result
@@ -1834,6 +2135,7 @@ def _definition(item, components):
         ),
         "serving_unit": item.get("serving_unit") or "serving",
         "serving_label": item.get("serving_label") or "one serving",
+        "natural_servings": item.get("natural_servings", []),
         "serving_weight_grams": (
             _storage_decimal(item.get("serving_weight_grams"), decimal_places=3)
             if item.get("serving_weight_grams") is not None
@@ -1851,12 +2153,15 @@ def _definition(item, components):
             else None
         ),
         "nutrients": nutrients,
+        "evidence": item.get("evidence", {}),
         "sources": [
             {
                 "title": source["title"],
                 "provider": source.get("provider", ""),
                 "url": source["url"],
                 "accessed_on": source.get("accessed_on"),
+                "is_official": source.get("is_official"),
+                "evidence": source.get("evidence", {}),
             }
             for source in item.get("sources", [])
         ],
@@ -1930,6 +2235,10 @@ def _matches_catalog_tree(item, version, *, component_map=None, nutrient_cache=N
     ):
         return False
 
+    if clean_natural_servings(
+        item.get("natural_servings", [])
+    ) != clean_natural_servings(version.natural_servings):
+        return False
     requested_components = item.get("components", [])
     catalog_components = component_map.get(version.pk, ())
     if len(requested_components) != len(catalog_components):
@@ -2001,7 +2310,14 @@ def _apply_review_attribution(
             item["provenance"] = FoodItemVersion.Provenance.USER_MODIFIED_ESTIMATE
             item["source_kind"] = "user_modified_estimate"
             item["confidence_score"] = None
+            item["evidence"] = {
+                **version_evidence(version),
+                "status": "user_modified_estimate",
+                "nutrients": {},
+                "confidence": {"model": None, "evidence": None, "combined": None},
+            }
         elif version is not None:
+            item["evidence"] = version_evidence(version)
             item["provenance"] = version.provenance
             item["source_kind"] = _source_kind(version.provenance)
             item["confidence_score"] = (
@@ -2070,7 +2386,7 @@ def _materialize_item(
     )
     if (
         catalog_version is not None
-        and _matches_catalog_nutrients(item, catalog_version)
+        and _matches_catalog_tree(item, catalog_version)
         and _matches_materialized_components(catalog_version, components)
     ):
         return catalog_version.food_item, catalog_version
@@ -2100,10 +2416,39 @@ def _materialize_item(
         origin_type=origin_type,
         provider_name=provider_name,
         owner=owner,
+        market=item.get("market", ""),
+        product_identifier=item.get("product_identifier", ""),
+        identity_url=item.get("identity_url", ""),
         definition=definition,
         created_by=owner,
     )
     return food, food.current_version
+
+
+def _materialize_meal_items(
+    *, items, owner, catalog_versions_map, allowed_version_ids=()
+):
+    item_inputs = []
+    for order, item in enumerate(items):
+        food, version = _materialize_item(
+            owner=owner,
+            item=item,
+            allowed_version_ids=allowed_version_ids,
+            catalog_versions_map=catalog_versions_map,
+        )
+        item_inputs.append(
+            {
+                "food_item": food,
+                "food_version": version.pk,
+                "selected_portion_key": item.get("selected_portion_key", "base"),
+                "portion_selections": item,
+                "servings": _storage_decimal(
+                    item.get("servings"), decimal_places=4, default="1"
+                ),
+                "order": order,
+            }
+        )
+    return item_inputs
 
 
 def saved_meal_version_ids(meal):
@@ -2184,24 +2529,12 @@ def _save_meal_draft(*, owner, meal, entry_date, name, notes, items):
         allowed_version_ids=allowed_version_ids,
         catalog_versions_map=catalog_versions_map,
     )
-    item_inputs = []
-    for order, item in enumerate(reviewed_items):
-        food, version = _materialize_item(
-            owner=owner,
-            item=item,
-            allowed_version_ids=allowed_version_ids,
-            catalog_versions_map=catalog_versions_map,
-        )
-        item_inputs.append(
-            {
-                "food_item": food,
-                "food_version": version.pk,
-                "servings": _storage_decimal(
-                    item.get("servings"), decimal_places=4, default="1"
-                ),
-                "order": order,
-            }
-        )
+    item_inputs = _materialize_meal_items(
+        items=reviewed_items,
+        owner=owner,
+        catalog_versions_map=catalog_versions_map,
+        allowed_version_ids=allowed_version_ids,
+    )
 
     if meal is None:
         meal = MealEntry.objects.create(
@@ -2262,23 +2595,9 @@ def accept_proposal(*, proposal):
         name=proposal.name,
         notes=notes,
     )
-    item_inputs = []
-    for order, item in enumerate(items):
-        food, version = _materialize_item(
-            owner=proposal.owner,
-            item=item,
-            catalog_versions_map=catalog_versions_map,
-        )
-        item_inputs.append(
-            {
-                "food_item": food,
-                "food_version": version.pk,
-                "servings": _storage_decimal(
-                    item.get("servings"), decimal_places=4, default="1"
-                ),
-                "order": order,
-            }
-        )
+    item_inputs = _materialize_meal_items(
+        items=items, owner=proposal.owner, catalog_versions_map=catalog_versions_map
+    )
     replace_meal_items(meal_entry=meal, item_inputs=item_inputs)
     proposal.items = items
     proposal.status = MealProposal.Status.ACCEPTED

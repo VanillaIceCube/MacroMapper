@@ -1,4 +1,64 @@
+import re
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+
+from django.core.exceptions import ValidationError
+
+SIZE_WORDS = r"smallish|small|medium|large|tiny|jumbo"
+
+
+def canonical_generic_name(name):
+    """Remove leading portion language, retaining varieties and branded names elsewhere."""
+    return re.sub(
+        rf"^(?:(?:\d+(?:\.\d+)?|one|two|three)\s+)?(?:{SIZE_WORDS})\s+",
+        "",
+        name,
+        flags=re.I,
+    ).strip()
+
+
+def clean_natural_servings(values):
+    if not isinstance(values, list) or len(values) > 12:
+        raise ValidationError("Supply at most twelve food-specific serving sizes.")
+    cleaned = []
+    keys = set()
+    for value in values:
+        if not isinstance(value, dict):
+            raise ValidationError("Each serving size must be an object.")
+        if set(value) != {"key", "label", "weight_grams"}:
+            raise ValidationError(
+                "Each serving size must contain only key, label and weight_grams."
+            )
+        key = value.get("key", "")
+        label = value.get("label", "")
+        try:
+            weight = Decimal(str(value.get("weight_grams")))
+        except (InvalidOperation, ValueError, TypeError) as error:
+            raise ValidationError("Each serving size needs a gram weight.") from error
+        if (
+            not isinstance(key, str)
+            or not re.fullmatch(r"[a-z][a-z0-9_-]{0,30}", key)
+            or key in keys
+            or not isinstance(label, str)
+            or not label.strip()
+            or len(label) > 80
+            or re.search(r"[<>\x00-\x1f]|https?://|www\.", label)
+            or not weight.is_finite()
+            or weight <= 0
+            or weight > 100000
+        ):
+            raise ValidationError(
+                "Supply unique serving sizes with valid labels and weights."
+            )
+        keys.add(key)
+        cleaned.append(
+            {
+                "key": key,
+                "label": label.strip(),
+                "weight_grams": format(weight.normalize(), "f"),
+            }
+        )
+    return cleaned
+
 
 MASS_UNITS_IN_GRAMS = {
     "g": Decimal("1"),
@@ -70,7 +130,13 @@ def _clean_estimated_volume(value):
 
 
 def portion_options_for_serving(
-    *, quantity, unit, label="", weight_grams=None, volume_milliliters=None
+    *,
+    quantity,
+    unit,
+    label="",
+    weight_grams=None,
+    volume_milliliters=None,
+    natural_servings=(),
 ):
     """Return exact display-unit conversions anchored to one declared serving."""
 
@@ -87,6 +153,21 @@ def portion_options_for_serving(
             "serving_multiplier": "1",
         }
     ]
+
+    # Natural sizes describe this food, never universal size-to-weight guesses.
+    if weight_grams is not None:
+        base_weight = _decimal(weight_grams)
+        for natural in clean_natural_servings(list(natural_servings)):
+            options.append(
+                {
+                    "key": f"size:{natural['key']}",
+                    "label": natural["label"],
+                    "unit_label": natural["label"][:32],
+                    "serving_multiplier": _decimal_string(
+                        Decimal(natural["weight_grams"]) / base_weight
+                    ),
+                }
+            )
 
     if unit not in MASS_UNITS_IN_GRAMS and weight_grams is not None:
         serving_weight = _clean_estimated_weight(weight_grams)

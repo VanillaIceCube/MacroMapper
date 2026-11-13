@@ -35,6 +35,20 @@ class FoodItem(models.Model):
         default=OriginType.GENERIC,
     )
     provider_name = models.CharField(max_length=160, blank=True)
+    market = models.CharField(max_length=80, blank=True)
+    product_identifier = models.CharField(max_length=160, blank=True)
+    identity_url = models.URLField(max_length=500, blank=True)
+    canonical_identity = models.CharField(
+        max_length=64, null=True, blank=True, unique=True, editable=False
+    )
+    merged_into = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="merged_foods",
+        editable=False,
+    )
     shared_fingerprint = models.CharField(
         max_length=64,
         null=True,
@@ -84,6 +98,18 @@ class FoodItem(models.Model):
 
     def clean(self):
         super().clean()
+        if self.canonical_identity and self.scope != self.Scope.SHARED:
+            raise ValidationError(
+                {"canonical_identity": "Only shared foods have canonical identities."}
+            )
+        if self.merged_into_id and (
+            self.scope != self.Scope.SHARED
+            or self.merged_into.scope != self.Scope.SHARED
+            or self.merged_into_id == self.pk
+        ):
+            raise ValidationError(
+                {"merged_into": "Only distinct shared foods can be consolidated."}
+            )
         if self.scope == self.Scope.SHARED and self.owner_id is not None:
             raise ValidationError({"owner": "Shared foods cannot have an owner."})
         if self.scope == self.Scope.PERSONAL and self.owner_id is None:
@@ -151,6 +177,10 @@ class FoodItemVersion(models.Model):
     )
     serving_unit = models.CharField(max_length=16, choices=ServingUnit)
     serving_label = models.CharField(max_length=120, blank=True)
+    natural_servings = models.JSONField(default=list, blank=True)
+    content_fingerprint = models.CharField(
+        max_length=64, blank=True, editable=False, db_index=True
+    )
     serving_weight_grams = models.DecimalField(
         max_digits=10,
         decimal_places=3,
@@ -166,6 +196,7 @@ class FoodItemVersion(models.Model):
         validators=[MinValueValidator(Decimal("0.001"))],
     )
     provenance = models.CharField(max_length=24, choices=Provenance)
+    evidence = models.JSONField(default=dict, blank=True)
     confidence_score = models.DecimalField(
         max_digits=4,
         decimal_places=3,
@@ -273,6 +304,9 @@ class FoodItemVersion(models.Model):
 
     def clean(self):
         super().clean()
+        from .identity import validate_natural_servings
+
+        validate_natural_servings(self.natural_servings)
         if self.derived_from_id and self.pk and self.derived_from_id == self.pk:
             raise ValidationError(
                 {"derived_from": "A food version cannot be derived from itself."}
@@ -290,7 +324,28 @@ class FoodItemVersion(models.Model):
         return f"{self.food_item} v{self.version_number}"
 
 
+class FoodVersionEvidence(models.Model):
+    """Append-only estimation metadata for equivalent immutable definitions."""
+
+    food_version = models.ForeignKey(
+        FoodItemVersion, on_delete=models.CASCADE, related_name="estimate_evidence"
+    )
+    fingerprint = models.CharField(max_length=64)
+    metadata = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["food_version", "fingerprint"],
+                name="unique_food_version_evidence",
+            )
+        ]
+
+
 class SourceReference(models.Model):
+    is_official = models.BooleanField(null=True, blank=True, default=None)
+    evidence = models.JSONField(default=dict, blank=True)
     food_version = models.ForeignKey(
         FoodItemVersion,
         on_delete=models.CASCADE,

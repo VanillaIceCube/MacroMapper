@@ -810,6 +810,47 @@ class FoodApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("nutrients", response.data["definition"])
 
+    def test_natural_servings_are_normalized_in_saved_food_and_readback(self):
+        self.client.force_authenticate(user=self.owner)
+        payload = self.personal_food_payload()
+        payload["definition"]["natural_servings"] = [
+            {"key": "small", "label": "  Small  ", "weight_grams": 40.0},
+            {"key": "large", "label": " Large ", "weight_grams": " 80.500 "},
+        ]
+        expected = [
+            {"key": "small", "label": "Small", "weight_grams": "40"},
+            {"key": "large", "label": "Large", "weight_grams": "80.5"},
+        ]
+
+        created = self.client.post("/api/foods/", payload, format="json")
+
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED, created.data)
+        self.assertEqual(created.data["current_version"]["natural_servings"], expected)
+        food = FoodItem.objects.get(pk=created.data["id"])
+        self.assertEqual(food.current_version.natural_servings, expected)
+        readback = self.client.get(f"/api/foods/{food.pk}/")
+        self.assertEqual(readback.status_code, status.HTTP_200_OK)
+        self.assertEqual(readback.data["current_version"]["natural_servings"], expected)
+
+    def test_natural_servings_reject_unsupported_extra_fields_without_saving(self):
+        self.client.force_authenticate(user=self.owner)
+        payload = self.personal_food_payload()
+        payload["definition"]["natural_servings"] = [
+            {
+                "key": "small",
+                "label": "Small",
+                "weight_grams": "40",
+                "unsupported": "discard me",
+            }
+        ]
+        previous_count = FoodItem.objects.count()
+
+        response = self.client.post("/api/foods/", payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("natural_servings", response.data["definition"])
+        self.assertEqual(FoodItem.objects.count(), previous_count)
+
     def test_personal_foods_are_private_for_retrieve_update_and_delete(self):
         self.client.force_authenticate(user=self.owner)
         url = f"/api/foods/{self.other_food.id}/"
