@@ -2233,6 +2233,30 @@ def _materialize_item(
     return food, food.current_version
 
 
+def _materialize_meal_items(
+    *, items, owner, catalog_versions_map, allowed_version_ids=()
+):
+    item_inputs = []
+    for order, item in enumerate(items):
+        food, version = _materialize_item(
+            owner=owner,
+            item=item,
+            allowed_version_ids=allowed_version_ids,
+            catalog_versions_map=catalog_versions_map,
+        )
+        item_inputs.append(
+            {
+                "food_item": food,
+                "food_version": version.pk,
+                "servings": _storage_decimal(
+                    item.get("servings"), decimal_places=4, default="1"
+                ),
+                "order": order,
+            }
+        )
+    return item_inputs
+
+
 def saved_meal_version_ids(meal):
     version_ids = set(meal.items.values_list("food_version_id", flat=True))
 
@@ -2311,24 +2335,12 @@ def _save_meal_draft(*, owner, meal, entry_date, name, notes, items):
         allowed_version_ids=allowed_version_ids,
         catalog_versions_map=catalog_versions_map,
     )
-    item_inputs = []
-    for order, item in enumerate(reviewed_items):
-        food, version = _materialize_item(
-            owner=owner,
-            item=item,
-            allowed_version_ids=allowed_version_ids,
-            catalog_versions_map=catalog_versions_map,
-        )
-        item_inputs.append(
-            {
-                "food_item": food,
-                "food_version": version.pk,
-                "servings": _storage_decimal(
-                    item.get("servings"), decimal_places=4, default="1"
-                ),
-                "order": order,
-            }
-        )
+    item_inputs = _materialize_meal_items(
+        items=reviewed_items,
+        owner=owner,
+        catalog_versions_map=catalog_versions_map,
+        allowed_version_ids=allowed_version_ids,
+    )
 
     if meal is None:
         meal = MealEntry.objects.create(
@@ -2389,23 +2401,9 @@ def accept_proposal(*, proposal):
         name=proposal.name,
         notes=notes,
     )
-    item_inputs = []
-    for order, item in enumerate(items):
-        food, version = _materialize_item(
-            owner=proposal.owner,
-            item=item,
-            catalog_versions_map=catalog_versions_map,
-        )
-        item_inputs.append(
-            {
-                "food_item": food,
-                "food_version": version.pk,
-                "servings": _storage_decimal(
-                    item.get("servings"), decimal_places=4, default="1"
-                ),
-                "order": order,
-            }
-        )
+    item_inputs = _materialize_meal_items(
+        items=items, owner=proposal.owner, catalog_versions_map=catalog_versions_map
+    )
     replace_meal_items(meal_entry=meal, item_inputs=item_inputs)
     proposal.items = items
     proposal.status = MealProposal.Status.ACCEPTED
