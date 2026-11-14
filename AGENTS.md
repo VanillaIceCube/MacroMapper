@@ -24,7 +24,7 @@ When setup, routing, environment variables, deployment, or CI/CD changes, update
 - Backend/authentication: `backend/README.md`
 - Frontend/routing: `frontend/README.md`
 - Deployment: `deploy/README.md`
-- GitHub automation: `.github/README-WORKFLOWS.md`
+- GitHub automation: `.github/README.md`
 - User-visible or operational changes: `CHANGELOG.md`
 
 ## Changelog format
@@ -116,7 +116,7 @@ MacroMapper automation includes lint, tests, CodeQL, dependency review, npm
 malware review, Dependabot auto-merge, AI PR reviewers, deployment, and
 scheduled security-alert aggregation.
 
-Secret-dependent workflows must fail visibly when their credentials are unavailable. Keep GitHub App permissions and the credential separation described in `.github/README-WORKFLOWS.md`.
+Secret-dependent workflows must fail visibly when their credentials are unavailable. Keep GitHub App permissions and the credential separation described in `.github/README.md`.
 
 External GitHub Actions use immutable commit SHAs with version comments.
 Keep that convention when updating workflows or composite actions; preserve
@@ -129,7 +129,7 @@ Use `OBI_WAN_OPENAI_API_KEY`, `LINT_EASTWOOD_OPENAI_API_KEY`, and
 all security-alert model calls. `OPENAI_REVIEWERS_PROJECT_ID` identifies this repository's
 reviewer project. Keep credentials separate across repositories and application
 environments, preserve visible missing-key failures, and follow the deferred
-cutover steps in `.github/README-WORKFLOWS.md`.
+cutover steps in `.github/README.md`.
 
 Meal estimation keeps `MACROMAPPER_OPENAI_API_KEY`, with separate production
 and local keys/projects. Store local values only in ignored `backend/.env` or

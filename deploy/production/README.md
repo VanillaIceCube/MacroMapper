@@ -295,7 +295,7 @@ project. The deployment job has no GitHub environment binding. Updating the
 secret takes effect in a new private release bundle during the separately
 authorized app release; it does not change the running container. Keep the old
 key valid for rollback until all consumers and retained recovery bundles are
-accounted for. See the [migration and validation steps](../../.github/README-WORKFLOWS.md#-independent-estimation-credentials).
+accounted for. See the [migration and validation steps](../../.github/README.md#-application-credentials).
 
 
 ## 🔌 Shared MCP framework

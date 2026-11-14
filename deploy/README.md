@@ -80,7 +80,7 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml up -d --f
 
 Never add a real key to the tracked
 `deploy/backend.env` example. Production uses a separate key and the approved
-release procedure; see the [credential migration guide](../.github/README-WORKFLOWS.md#-independent-estimation-credentials).
+release procedure; see the [credential migration guide](../.github/README.md#-application-credentials).
 
 
 ## 🔌 Shared MCP framework
