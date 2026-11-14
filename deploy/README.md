@@ -85,7 +85,7 @@ release procedure; see the [credential migration guide](../.github/README-WORKFL
 
 ## 🔌 Shared MCP framework
 
-The [app MCP guide](../docs/MCP.md) defines app-owned OAuth, exact proxy trust, readiness and first-enable recovery. Local MCP development uses a disposable database, `DJANGO_MCP_ENABLED=1`, the exact backend/frontend origins and `VITE_MCP_ENABLED=1`, with `python serve.py` selecting ASGI. Ordinary hot reload remains disabled by default. Production enables both sides through its reviewed app policy and frontend Dockerfile; its existing shared Nginx routes belong to Infrastructure.
+The [app MCP guide](../backend/macromapper_mcp/README.md) defines app-owned OAuth, exact proxy trust, readiness and first-enable recovery. Local MCP development uses a disposable database, `DJANGO_MCP_ENABLED=1`, the exact backend/frontend origins and `VITE_MCP_ENABLED=1`, with `python serve.py` selecting ASGI. Ordinary hot reload remains disabled by default. Production enables both sides through its reviewed app policy and frontend Dockerfile; its existing shared Nginx routes belong to Infrastructure.
 
 <a id="development-dependency-reproducibility"></a>
 

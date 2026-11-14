@@ -318,7 +318,7 @@ or revocation. Track live/local acceptance separately in issue #289.
 
 ## 🔌 Shared MCP framework
 
-The backend test gate checks the pinned MCP framework manifest, runs ordinary backend tests and separately runs `app_mcp macromapper_mcp` with MCP enabled and the application factory. Synthetic OAuth and mocked provider tests cover domain permissions without live credentials or paid requests. The shared deployment workflow stays unchanged: MacroMapper enables the connection UI through its app-owned Docker build default. See [the app MCP guide](../docs/MCP.md).
+The backend test gate checks the pinned MCP framework manifest, runs ordinary backend tests and separately runs `app_mcp macromapper_mcp` with MCP enabled and the application factory. Synthetic OAuth and mocked provider tests cover domain permissions without live credentials or paid requests. The shared deployment workflow stays unchanged: MacroMapper enables the connection UI through its app-owned Docker build default. See [the app MCP guide](../backend/macromapper_mcp/README.md).
 
 ## 🛡️ Dependency evidence and alert lifecycle parity
 

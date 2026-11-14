@@ -11,6 +11,11 @@
 
 - Align the license text, formatting, and 2025-2026 copyright with FullStackTemplate and the other application repositories.
 
+### Removed
+
+- Remove superseded shared and application MCP documentation redirects; point references directly at their backend-owned guides.
+
+
 ## 2026-11-11
 
 ### Added
