@@ -26,14 +26,10 @@ information rather than medical or prescriptive dietary advice.
 
 ## 📚 Documentation
 
-- [Product vision](docs/PRODUCT_VISION.md) — scope, roadmap, and author's note.
-
 - [Backend](backend/README.md) — setup, APIs, authentication, email, and MCP.
 - [Frontend](frontend/README.md) — setup, pages, components, and browser tests.
 - [Deployment](deploy/README.md) — local Docker, configuration, and live-server guides.
 - [GitHub setup and workflows](.github/README-WORKFLOWS.md) — first-PR setup and automation.
-- [Scripts](scripts/README.md) — repository helpers.
-- [Tests](tests/README.md) — validation commands and coverage.
 - [Changelog](CHANGELOG.md) — project updates.
 
 ## 📜 License

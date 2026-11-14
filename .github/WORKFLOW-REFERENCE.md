@@ -516,7 +516,6 @@ versions, API/range evidence failures and known malware fail visibly. Removing t
 whole frontend has no remaining npm graph. This gate is distinct from the scheduled
 repository-alert feed. Mocked regressions make no API writes or model calls.
 
-Python malware coverage follows [the canonical decision](WORKFLOW-REFERENCE.md#-python-dependency-review).
 Shared deployment files are synchronized to the Infrastructure source pin, including
 the approved Action-upgrade/unauthorized-drift regression. Update the source before
 consumers; never edit a vendored workflow or test independently.
@@ -546,7 +545,6 @@ The path-aware test gate includes `.github/**`, `scripts/**`, `deploy/**`,
 `tests/**` and maintained docs in automation validation. It runs workflow and
 composite syntax, parser-only script checks and synthetic Compose configuration
 plus the existing Batch 1 suites and focused mocked composite regressions.
-[Coverage and external boundaries](../tests/README.md#-coverage-and-limitations) are explicit.
 
 `scripts/bounded_log.py` retains early, sampled failing and late context within
 16,000 characters for reviewers. Full output is streamed with `tee`; failed
@@ -584,7 +582,7 @@ installation capabilities are not expanded.
 
 ## Architecture and production summaries
 
-The [canonical architecture reference](CI-CD-ARCHITECTURE.md) maps PR/fork/
+The [canonical architecture reference](../docs/CI-CD-ARCHITECTURE.md) maps PR/fork/
 Dependabot paths, required checks, reviewer interactions, scheduled alerts,
 main-to-env-prod/manual release paths and credential trust boundaries to source.
 Its per-repository source inventory is checked against actual workflow YAML.
@@ -675,13 +673,3 @@ the Jules GitHub App installation are not observable through repository files.
 An owner must separately inspect remaining external schedules and app access
 and authorize any disable/uninstall/credential changes. Source cleanup and a
 production promotion do not perform those external operations.
-
-## 🐍 Python dependency review
-
-Retain the configured vulnerability review and independent blocking checks.
-Vulnerability audits, publishing attestations, and known-malware reports have
-different coverage; none establishes that an arbitrary package is safe.
-The existing npm malware review does not imply complete Python malware coverage.
-Adding a Python malware gate requires a complete resolved dependency graph,
-freshness/error handling, reviewed permissions, and a maintenance owner. This
-documentation cleanup introduces no scanner, credentials, spend, or gate waiver.

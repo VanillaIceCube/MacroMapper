@@ -168,4 +168,3 @@ The main README introduces the repository. Keep setup, commands, configuration,
 and maintenance details in the owning folder README and its linked references.
 Use consistent headings: 🧭 Structure, 💻 Local development, ⚙️ Configuration,
 🧪 Checks, 🔌 MCP integration, and 📚 Reference where applicable.
-Use the folder READMEs linked from the [main README](README.md#-documentation) for scripts, tests, and other guides.

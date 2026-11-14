@@ -274,7 +274,7 @@ remain application-specific.
 
 Notifications expose Retry and retain failed actions. Item/bulk controls disable
 overlapping actions through response parsing. Failed/malformed mark-read responses
-keep the inbox open instead of navigating. Preserve these invariants in frontend regression tests.
+keep the inbox open instead of navigating.
 
 ## Development dependency reproducibility
 
@@ -339,31 +339,8 @@ Meal review retains official parent nutrition while showing inferred component
 values separately. Details expose mixed/partial evidence, clickable sources,
 per-nutrient coverage, model confidence and failed/unavailable research warnings.
 User changes clear verification for the changed definition; consumed count changes
-preserve per-serving evidence. Legacy records remain readable. See the
-[backend evidence contract](../backend/REFERENCE.md#-catalog-and-meal-invariants).
+preserve per-serving evidence. Legacy records remain readable.
 Natural-size changes also preserve the food's per-serving evidence. Changing an
 ingredient's size changes its recipe contribution, so verification and confidence
 on enclosing composites are cleared and their totals are recalculated. Switching
 measurement units alone preserves both consumed nutrition and composite evidence.
-
-## 🔌 Connection response handling
-
-Connection API successes must contain JSON objects; empty, unreadable, null,
-scalar, and array success bodies fail safely. Error messages use the first
-nonblank `error_description`, `detail`, or `error`, then an HTTP-status fallback.
-Never display raw HTML, parser errors, or unrelated response fields. Preserve
-JWT refresh/retry, validated return paths, consent, and revocation behavior;
-cover these paths with mocked-fetch service and integration tests.
-
-## 🔄 Toolchain maintenance
-
-Keep React/React DOM and Material UI/icons on compatible versions. Use the
-Node range in `package.json`, the checked-in lockfile, and this app's Vite
-configuration. Preserve its API variable and build-output conventions. After
-dependency changes, verify a clean install, strict lint, formatting, tests, and
-production build; extend browser journeys with disposable application fixtures.
-
-TypeScript stays within the parser/tooling compatibility range recorded in the
-lockfile. Do not force a major upgrade outside supported peer ranges; review
-the blocked upgrade in [#224](https://github.com/VanillaIceCube/MacroMapper/issues/224)
-and verify the whole lint/build/test stack when released support changes.
