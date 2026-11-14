@@ -11,6 +11,10 @@
 
 - Align the license text, formatting, and 2025-2026 copyright with FullStackTemplate and the other application repositories.
 
+### Removed
+
+- Delete historical Batch 2/3 parity reports and hash snapshots, completed authentication adoption audits, and the estimates test-preservation audit; remove obsolete links without moving or consolidating documentation.
+
 ## 2026-11-11
 
 ### Added

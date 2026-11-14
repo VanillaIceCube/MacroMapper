@@ -22,17 +22,10 @@ integration contracts, maintenance, and recorded verification.
 
 ## 🧰 Maintenance and integration
 
-- [Authentication/frontend adoption audit](AUTH-PARITY.md).
 - [Automation coverage and failure diagnostics](AUTOMATION-COVERAGE.md).
 - [Canonical food identity and conservative consolidation](CANONICAL-FOODS.md).
 - [Connections API response handling](CONNECTIONS-ERROR-HANDLING.md).
-- [Estimates test preservation: PR #305](ESTIMATES-TEST-REFACTOR.md).
 - [Meal interpretation and portion semantics](MEAL-INTERPRETATION.md).
 - [Nutrition catalog integrity (Batch 3)](NUTRITION-INTEGRITY.md).
 - [Python dependency malware decision — 2026-11-05](PYTHON-MALWARE-DECISION.md).
 - [TypeScript 7 compatibility — 2026-11-05](TYPESCRIPT-COMPATIBILITY.md).
-
-## 🗂️ Verification and history
-
-- [Batch 2 adoption and acceptance record](BATCH2-PARITY.md).
-- [Batch 3 shared capability parity](BATCH3-PARITY.md).

@@ -51,7 +51,6 @@ starts in the current directory and can report zero tests. CI instead runs
 `python manage.py test` with `backend` as its working directory. Compare test
 inventories and assertions before/after moving tests, including class decorators,
 setup/teardown, helpers and subtests; a green reduced suite is insufficient.
-See the [PR #305 preservation audit](../docs/ESTIMATES-TEST-REFACTOR.md).
 
 ## 🧭 Structure
 - `app/`: Django settings, URL routing, and the WSGI server entry point
@@ -431,7 +430,6 @@ candidate user's final username/email before account creation. Validation failur
 return HTTP 400 with a human-readable `error`; non-string passwords also return
 400. Password reset already validates against the existing user. Notification
 bulk mark-read/clear operations are transactional and remain recipient-scoped.
-See [the adoption audit](../docs/AUTH-PARITY.md) for evidence and boundaries.
 
 ## Development dependency reproducibility
 

@@ -274,7 +274,7 @@ remain application-specific.
 
 Notifications expose Retry and retain failed actions. Item/bulk controls disable
 overlapping actions through response parsing. Failed/malformed mark-read responses
-keep the inbox open instead of navigating. See [the audit](../docs/AUTH-PARITY.md).
+keep the inbox open instead of navigating.
 
 ## Development dependency reproducibility
 
