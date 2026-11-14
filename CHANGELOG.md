@@ -1,3 +1,9 @@
+## 2026-11-13
+
+### Changed
+
+- Align the license text, formatting, and 2025-2026 copyright with FullStackTemplate and the other application repositories.
+
 ## 2026-11-11
 
 ### Added
