@@ -241,7 +241,7 @@ npm run build
 
 ## 🔌 Shared MCP framework
 
-See [the app MCP guide](../backend/macromapper_mcp/README.md). Consent, the profile-menu Connected Apps link and connection revocation require `VITE_MCP_ENABLED=1`. The production Dockerfile defaults this build argument to `1`; raw Vite development remains opt-in. Pass `--build-arg VITE_MCP_ENABLED=0` for a deliberately disabled image. Preserve JWT-only consent and validated connection return paths. The existing UI lists the actual requested read/write/estimate permissions; enabling it does not create an OAuth client or grant.
+See [the app MCP guide](../docs/MCP.md). Consent, the profile-menu Connected Apps link and connection revocation require `VITE_MCP_ENABLED=1`. The production Dockerfile defaults this build argument to `1`; raw Vite development remains opt-in. Pass `--build-arg VITE_MCP_ENABLED=0` for a deliberately disabled image. Preserve JWT-only consent and validated connection return paths. The existing UI lists the actual requested read/write/estimate permissions; enabling it does not create an OAuth client or grant.
 
 ## 🔒 Transitive dependency maintenance
 
@@ -274,7 +274,7 @@ remain application-specific.
 
 Notifications expose Retry and retain failed actions. Item/bulk controls disable
 overlapping actions through response parsing. Failed/malformed mark-read responses
-keep the inbox open instead of navigating.
+keep the inbox open instead of navigating. See [the audit](../docs/AUTH-PARITY.md).
 
 ## Development dependency reproducibility
 
@@ -339,7 +339,8 @@ Meal review retains official parent nutrition while showing inferred component
 values separately. Details expose mixed/partial evidence, clickable sources,
 per-nutrient coverage, model confidence and failed/unavailable research warnings.
 User changes clear verification for the changed definition; consumed count changes
-preserve per-serving evidence. Legacy records remain readable.
+preserve per-serving evidence. Legacy records remain readable. See the
+[backend evidence contract](../docs/NUTRITION-INTEGRITY.md).
 Natural-size changes also preserve the food's per-serving evidence. Changing an
 ingredient's size changes its recipe contribution, so verification and confidence
 on enclosing composites are cleared and their totals are recalculated. Switching

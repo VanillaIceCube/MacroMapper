@@ -21,7 +21,8 @@ remaining roadmap.
 
 ## Food identity, recipes and portions
 
-Shared food
+See [canonical identities and safe duplicate cleanup](../docs/CANONICAL-FOODS.md)
+and [meal interpretation semantics](../docs/MEAL-INTERPRETATION.md). Shared food
 identity is independent of consumed quantity and nutritional definition. Recipes
 retain full-recipe ingredient quantities; their parent servings carry the eaten
 fraction. Natural size choices use food-specific weights and remain editable
@@ -50,6 +51,7 @@ starts in the current directory and can report zero tests. CI instead runs
 `python manage.py test` with `backend` as its working directory. Compare test
 inventories and assertions before/after moving tests, including class decorators,
 setup/teardown, helpers and subtests; a green reduced suite is insufficient.
+See the [PR #305 preservation audit](../docs/ESTIMATES-TEST-REFACTOR.md).
 
 ## 🧭 Structure
 - `app/`: Django settings, URL routing, and the WSGI server entry point
@@ -420,7 +422,7 @@ than repeating historical item snapshots. Follow `get_proposal` item offsets bef
 editing/accepting; oversized single items require full review in the website.
 Sanitized error references support diagnosis without logging private meal payloads.
 
-See [the app MCP guide](macromapper_mcp/README.md) for the `macromapper_mcp` registry, read/write/estimate scopes, confirmation, ASGI startup and additive migrations. The canonical [MCP framework](app_mcp/README.md) remains unchanged. Install the domain app in both profiles so its confirmation migration is stable; install OAuth Toolkit only when enabled. Run ordinary backend tests and the separately enabled framework/domain suite. REST JWT authentication is unchanged.
+See [the app MCP guide](../docs/MCP.md) for the `macromapper_mcp` registry, read/write/estimate scopes, confirmation, ASGI startup and additive migrations. The canonical [MCP framework](../docs/MCP-FRAMEWORK.md) remains unchanged. Install the domain app in both profiles so its confirmation migration is stable; install OAuth Toolkit only when enabled. Run ordinary backend tests and the separately enabled framework/domain suite. REST JWT authentication is unchanged.
 
 ## Authentication and notification parity
 
@@ -429,6 +431,7 @@ candidate user's final username/email before account creation. Validation failur
 return HTTP 400 with a human-readable `error`; non-string passwords also return
 400. Password reset already validates against the existing user. Notification
 bulk mark-read/clear operations are transactional and remain recipient-scoped.
+See [the adoption audit](../docs/AUTH-PARITY.md) for evidence and boundaries.
 
 ## Development dependency reproducibility
 
@@ -499,5 +502,8 @@ cleanup requirements are described in the invariants section above.
 
 ## Nutrition catalog evidence
 
-The metadata migration does not repair production records; production execution needs
+See [the Batch 3 integrity contract](../docs/NUTRITION-INTEGRITY.md) for publication
+validation, per-food research, additive source/nutrient evidence, immutable diary
+history, and the deferred read-only audit/explicit-ID quarantine procedure. The
+metadata migration does not repair production records; production execution needs
 separate authorization. All research regressions use mocked provider responses.

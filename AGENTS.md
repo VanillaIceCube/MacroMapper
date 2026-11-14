@@ -139,12 +139,12 @@ the Actions repository secret. Never store keys in `deploy/backend.env`.
 
 ## 🔌 Shared MCP framework
 
-MCP framework changes follow [backend/app_mcp/README.md](backend/app_mcp/README.md). FullStackTemplate owns the canonical Python package; keep all consumer hashes/pins aligned. MacroMapper implements its own registry and scopes; shared framework files remain unchanged. Preserve Notoli credentials, scopes, tool permissions and exact proxy trust.
+MCP framework changes follow [docs/MCP-FRAMEWORK.md](backend/app_mcp/README.md). FullStackTemplate owns the canonical Python package; keep all consumer hashes/pins aligned. MacroMapper implements its own registry and scopes; shared framework files remain unchanged. Preserve Notoli credentials, scopes, tool permissions and exact proxy trust.
 
 
 ## 🧭 App-owned MCP
 
-Follow [the app MCP contract](backend/macromapper_mcp/README.md) and #284. MacroMapper owns its OAuth,
+Follow [the app MCP contract](docs/MCP.md) and #284. MacroMapper owns its OAuth,
 existing-account consent and domain registry; Infrastructure supplies ordinary
 Nginx routing. Do not restore the shared issuer or YNAB dependency. Preserve
 REST JWT/login behavior and exact trusted peer `172.20.0.3`. Read is the default
@@ -168,3 +168,4 @@ The main README introduces the repository. Keep setup, commands, configuration,
 and maintenance details in the owning folder README and its linked references.
 Use consistent headings: 🧭 Structure, 💻 Local development, ⚙️ Configuration,
 🧪 Checks, 🔌 MCP integration, and 📚 Reference where applicable.
+See the [documentation index](docs/README.md) for scripts, tests, and other guides.

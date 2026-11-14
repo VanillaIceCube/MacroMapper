@@ -318,7 +318,7 @@ or revocation. Track live/local acceptance separately in issue #289.
 
 ## 🔌 Shared MCP framework
 
-The backend test gate checks the pinned MCP framework manifest, runs ordinary backend tests and separately runs `app_mcp macromapper_mcp` with MCP enabled and the application factory. Synthetic OAuth and mocked provider tests cover domain permissions without live credentials or paid requests. The shared deployment workflow stays unchanged: MacroMapper enables the connection UI through its app-owned Docker build default. See [the app MCP guide](../backend/macromapper_mcp/README.md).
+The backend test gate checks the pinned MCP framework manifest, runs ordinary backend tests and separately runs `app_mcp macromapper_mcp` with MCP enabled and the application factory. Synthetic OAuth and mocked provider tests cover domain permissions without live credentials or paid requests. The shared deployment workflow stays unchanged: MacroMapper enables the connection UI through its app-owned Docker build default. See [the app MCP guide](../docs/MCP.md).
 
 ## 🛡️ Dependency evidence and alert lifecycle parity
 
@@ -516,6 +516,7 @@ versions, API/range evidence failures and known malware fail visibly. Removing t
 whole frontend has no remaining npm graph. This gate is distinct from the scheduled
 repository-alert feed. Mocked regressions make no API writes or model calls.
 
+Python malware coverage follows [the canonical decision](../docs/PYTHON-MALWARE-DECISION.md).
 Shared deployment files are synchronized to the Infrastructure source pin, including
 the approved Action-upgrade/unauthorized-drift regression. Update the source before
 consumers; never edit a vendored workflow or test independently.
@@ -545,6 +546,7 @@ The path-aware test gate includes `.github/**`, `scripts/**`, `deploy/**`,
 `tests/**` and maintained docs in automation validation. It runs workflow and
 composite syntax, parser-only script checks and synthetic Compose configuration
 plus the existing Batch 1 suites and focused mocked composite regressions.
+[Coverage and external boundaries](../docs/AUTOMATION-COVERAGE.md) are explicit.
 
 `scripts/bounded_log.py` retains early, sampled failing and late context within
 16,000 characters for reviewers. Full output is streamed with `tee`; failed
