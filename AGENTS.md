@@ -139,7 +139,7 @@ the Actions repository secret. Never store keys in `deploy/backend.env`.
 
 ## 🔌 Shared MCP framework
 
-MCP framework changes follow [docs/MCP-FRAMEWORK.md](backend/mcp_framework/README.md). FullStackTemplate owns the canonical Python package; keep all consumer hashes/pins aligned. MacroMapper implements its own registry and scopes; shared framework files remain unchanged. Preserve Notoli credentials, scopes, tool permissions and exact proxy trust.
+MCP framework changes follow [docs/MCP-FRAMEWORK.md](backend/app_mcp/README.md). FullStackTemplate owns the canonical Python package; keep all consumer hashes/pins aligned. MacroMapper implements its own registry and scopes; shared framework files remain unchanged. Preserve Notoli credentials, scopes, tool permissions and exact proxy trust.
 
 
 ## 🧭 App-owned MCP

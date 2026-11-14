@@ -9,7 +9,7 @@ integration contracts, maintenance, and recorded verification.
 - [Frontend](../frontend/README.md).
 - [Deployment](../deploy/README.md).
 - [GitHub setup and workflows](../.github/README-WORKFLOWS.md).
-- [Plugins and client connections](../plugins/README.md).
+- [Plugins and client connections](../backend/app_mcp/README.md).
 - [Scripts](../scripts/README.md).
 - [Tests](../tests/README.md).
 - [Application tour](../frontend/docs/APPLICATION-TOUR.md).
@@ -22,7 +22,7 @@ integration contracts, maintenance, and recorded verification.
 
 ## 🧰 Maintenance and integration
 
-- [MCP framework](../backend/mcp_framework/README.md).
+- [MCP framework](../backend/app_mcp/README.md).
 - [Authentication/frontend adoption audit](AUTH-PARITY.md).
 - [Automation coverage and failure diagnostics](AUTOMATION-COVERAGE.md).
 - [Canonical food identity and conservative consolidation](CANONICAL-FOODS.md).

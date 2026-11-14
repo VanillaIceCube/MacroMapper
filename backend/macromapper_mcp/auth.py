@@ -10,7 +10,7 @@ ESTIMATE = "macromapper:estimate"
 
 def principal(raw, *, write=False, paid=False, lock=False):
     # Lazy import keeps the normal MCP-disabled Django profile discoverable.
-    from mcp_framework.oauth import resolve_token
+    from app_mcp.oauth import resolve_token
 
     if not isinstance(raw, str) or not raw or len(raw) > 4096:
         raise PermissionDenied("MCP permission denied.")

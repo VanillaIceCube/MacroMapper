@@ -1,7 +1,7 @@
 # 🔌 MacroMapper MCP
 
 MacroMapper owns its MCP tools and OAuth in [#284](https://github.com/VanillaIceCube/MacroMapper/issues/284).
-The existing [canonical framework](../mcp_framework/README.md) supplies transport, discovery,
+The existing [canonical framework](../app_mcp/README.md) supplies transport, discovery,
 PKCE, consent and revocation unchanged. Infrastructure routes the application's
 own endpoints; no shared issuer, new service, network or YNAB dependency is needed.
 Website login, REST JWTs and existing AI estimation remain independent.
@@ -181,7 +181,7 @@ before `python manage.py migrate` and `python serve.py`. Set `VITE_MCP_ENABLED=1
 for Vite. Do not reuse a production database or token in tests.
 
 Run `python manage.py test` in `backend`, then separately
-`DJANGO_MCP_ENABLED=1 DJANGO_MCP_BASE_URL=http://localhost:8000 python manage.py test mcp_framework macromapper_mcp`.
+`DJANGO_MCP_ENABLED=1 DJANGO_MCP_BASE_URL=http://localhost:8000 python manage.py test app_mcp macromapper_mcp`.
 Run frontend tests/lint/build, the canonical framework/parity checks and the
 production deployment suite on disposable Docker. Tests exercise synthetic OAuth,
 real app services and mocked AI; deployment checks do not establish live client
