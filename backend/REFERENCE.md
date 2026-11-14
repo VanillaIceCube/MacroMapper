@@ -1,0 +1,509 @@
+# 🛠️ MacroMapper Backend (Django)
+
+Production release ownership: use the [app-only release/recovery guide](../deploy/production/README.md).
+
+MacroMapper is a personal nutrition and activity tracker. Its backend will
+support individual meal/activity histories, reusable Food Items and composite
+ingredient breakdowns, source-aware GPT estimates, and factual nutrition
+reporting. It does not provide medical, clinical, or prescriptive dietary
+advice.
+
+The current Django REST Framework implementation supplies JWT authentication,
+a custom email-first user model, password-reset email delivery, and a
+recipient-scoped notification API. It also supplies a source-aware Food Item
+catalog with versioned definitions, components, nutrients, and private personal
+foods, plus an owner-scoped meal diary with durable food, component, and
+nutrient values. It also persists catalog-first, GPT-assisted meal proposals
+and materializes initial AI definitions as reusable shared catalog foods while
+keeping reviewed user adjustments private, version-linked, and durable in meal
+snapshots. See the [product vision](../docs/PRODUCT_VISION.md) for the
+remaining roadmap.
+
+## Food identity, recipes and portions
+
+See [canonical identities and safe duplicate cleanup](../docs/CANONICAL-FOODS.md)
+and [meal interpretation semantics](../docs/MEAL-INTERPRETATION.md). Shared food
+identity is independent of consumed quantity and nutritional definition. Recipes
+retain full-recipe ingredient quantities; their parent servings carry the eaten
+fraction. Natural size choices use food-specific weights and remain editable
+without creating personal food copies or rewriting older meal snapshots.
+
+## Estimates test organization
+
+`estimates/tests/` is a discoverable Python package. Keep its `__init__.py` and
+name new modules `test_*.py`; do not recreate a competing `estimates/tests.py`.
+Use `test_proposals.py` for proposal API behavior, `test_adjustments.py` for
+adjustment lifecycle/rollback, `test_admin.py` for admin immutability, and
+`test_provider.py` for provider requests and normalization. Shared data builders
+belong in `helpers.py`, which does not define discoverable test classes.
+
+Import helpers with `from .helpers import ...` and app modules with `from
+..models import ...` (or their absolute app paths). Patch dependencies where the
+code under test looks them up, such as `estimates.services.get_estimation_provider`,
+not where test helpers live. Keep provider calls mocked; no API key is needed.
+
+From the repository root, run `python backend/manage.py test estimates` for all
+estimate modules, or append a module/class/method such as
+`estimates.tests.test_provider.OpenAIProviderTests`. Also run
+`python backend/manage.py test backend` to verify full Django discovery. The
+explicit directory matters at the repository root: without a label, discovery
+starts in the current directory and can report zero tests. CI instead runs
+`python manage.py test` with `backend` as its working directory. Compare test
+inventories and assertions before/after moving tests, including class decorators,
+setup/teardown, helpers and subtests; a green reduced suite is insufficient.
+See the [PR #305 preservation audit](../docs/ESTIMATES-TEST-REFACTOR.md).
+
+## 🧭 Structure
+- `app/`: Django settings, URL routing, and the WSGI server entry point
+- `authentication/`: custom user, registration, login, refresh, password reset,
+  and email delivery
+- `foods/`: reusable Food Items, immutable versions, components, nullable
+  nutrient columns, source references, and authenticated catalog APIs
+- `estimates/`: owner-scoped draft meal proposals, catalog-first matching,
+  OpenAI Responses API integration, editable review persistence, and acceptance
+- `meals/`: private dated meal entries, historically stable saved
+  component/nutrient values, owner-scoped CRUD, and daily totals
+- `notifications/`: persisted notifications for the authenticated app
+  header
+- `environment.yml`: Conda environment definition
+- `requirements.txt`: pip dependencies used locally, in CI, and in Docker
+- `ruff.toml`: backend lint and formatting configuration
+
+Maintain the Python version in `environment.yml` and pip dependency versions in
+`requirements.txt` manually. Docker builds use both files; CI reads the Python
+version from `environment.yml` and installs dependencies from `requirements.txt`.
+
+Goals and activity remain separate planned apps. The `estimates` app uses the
+`foods` catalog, publishes deduplicated base AI definitions without proposal or
+diary context, and creates private derived definitions for reviewed nutrient or
+component changes without taking ownership of diary history.
+
+## 🔐 Authentication API
+- `POST /auth/register/`
+  - Body: `email`, `password`, and optional `username`
+  - Returns: `access`, `refresh`, `username`, `email`, and a success message
+- `POST /auth/login/`
+  - Body: `email`, `password`
+  - Returns: `access`, `refresh`, `username`, and `email`
+- `POST /auth/refresh/`
+  - Body: `refresh`
+  - Returns a new access token
+- `POST /auth/forgot-password/`
+  - Body: `email`
+  - Always returns a generic success response for valid email-shaped input
+- `POST /auth/reset-password/`
+  - Body: `uid`, `token`, `password`
+
+## Food Catalog API
+All food and nutrient endpoints require a JWT access token.
+
+- `GET /api/foods/`
+  - Returns active shared foods plus personal foods owned by the current user.
+  - Accepts `?search=` for case-insensitive name, provider, and source lookup.
+  - Filters combine with search: `scope=personal|shared`, a partial `provider`,
+    one or more comma-separated `provenance` values, and
+    `origin_type=generic|branded|restaurant`.
+  - Accepts bounded `limit` and supported `ordering` parameters so catalog
+    browsing does not require loading the full visible catalog.
+- `GET /api/foods/{id}/`
+  - Returns the current serving quantity/unit and human-readable serving label,
+    provenance, confidence, nutrients, sources,
+    and exact component-version references.
+- `POST /api/foods/`
+  - Creates a private personal Food Item and its first definition.
+- `PATCH /api/foods/{id}/`
+  - Updates owned identity fields and creates a new immutable definition when
+    `definition` is supplied.
+- `DELETE /api/foods/{id}/`
+  - Archives an owned personal food without erasing its definitions.
+Shared foods are read-only through the user API. Other users' personal foods
+resolve as not found. Composite definitions store quantities as a decimal count
+of each child's serving and pin the exact child version, so later catalog edits
+do not rewrite a composite.
+
+Nutrient columns use canonical units and apply to the definition's declared
+serving: calories (`kcal`); protein, carbohydrates, fat, fiber, and sugar (`g`);
+and sodium and cholesterol (`mg`). A null column means unavailable, while an
+explicit zero means a known zero. Additional nutrients can be introduced with
+nullable schema migrations so existing catalog versions remain unknown rather
+than being rewritten as zero.
+
+Create and update requests supply a nested `definition` object:
+
+```json
+{
+  "name": "Example toast",
+  "origin_type": "branded",
+  "provider_name": "Example Bakery",
+  "definition": {
+    "serving_quantity": "1",
+    "serving_unit": "item",
+    "serving_label": "one slice",
+    "provenance": "user_entered",
+    "confidence_score": null,
+    "nutrients": {
+      "calories": "80",
+      "fiber": "0"
+    },
+    "sources": [],
+    "components": []
+  }
+}
+```
+
+## Meal Diary API
+All meal endpoints require a JWT access token and expose only the authenticated
+user's entries.
+
+- `GET /api/meals/?date=YYYY-MM-DD`
+- `GET /api/meals/{id}/`
+- `POST /api/meals/`
+- `PATCH /api/meals/{id}/`
+- `DELETE /api/meals/{id}/`
+- `POST /api/meals/drafts/` with the complete reviewed meal item tree
+  - Creates a meal from the same editable draft used by manual mapping and AI
+    review, materializing private food versions only where nutrition or
+    components changed.
+- `PUT /api/meals/{id}/draft/` with the complete reviewed meal item tree
+  - Updates the existing meal in place through the same validation and
+    materialization path; unchanged items retain their pinned food versions.
+- `POST /api/meals/{id}/adjustments/` with an `adjustment`, the current meal
+  details, and editable items
+  - Applies the existing constrained AI-adjustment flow to a temporary draft
+    and returns it for review without changing the saved meal. The edited meal
+    is persisted only when the client subsequently saves it.
+- `GET /api/meals/daily/?date=YYYY-MM-DD`
+  - Returns the day's meals and summed saved nutrient values.
+
+Create requests provide `entry_date`, `name`, optional `notes`, and
+`item_inputs`. Each item contains a visible `food_item`, positive `servings`,
+and a unique `order`. Saved items pin and copy the selected Food Item version,
+including its nested composite components and nullable nutrient columns.
+Editing an existing item submits its returned `food_version_id` as
+`food_version` so quantity changes continue to use the original saved values even
+if the catalog has since changed.
+
+The draft endpoints accept `entry_date`, `name`, optional `notes`, and `items`
+in the meal-proposal review shape. This full tree supports quantity, portion,
+nutrition, source, and nested-component edits consistently for manual meals,
+AI-reviewed meals, and existing diary entries. Existing archived food versions
+remain valid only when they were already pinned by the meal being updated.
+
+## GPT Meal Proposal API
+All proposal endpoints require a JWT access token and expose only the current
+user's proposals.
+
+- `GET /api/meal-proposals/`
+- `GET /api/meal-proposals/{id}/`
+- `POST /api/meal-proposals/` with `description` and `entry_date`
+  - Returns descriptions fully resolved by the fast deterministic catalog path
+    without calling the model. When that path leaves anything unresolved,
+    OpenAI first extracts separate structured food intents containing provider,
+    quantity, aliases, and product-defining terms without web search.
+  - Resolves each extracted intent independently against visible shared and
+    personal catalog foods. Provider constraints and product-defining terms
+    prevent a generic or partial match from selecting a different menu item.
+    Only intents still unmatched are sent to OpenAI with web search for a full
+    nutrition estimate.
+  - Materializes the normalized AI result and its components as deduplicated,
+    immediately active, read-only shared Food Items only after a server-side
+    publication boundary reconstructs allowlisted fields, validates numeric and
+    source data, normalizes catalog text, and rejects control, markup, URL-like,
+    instruction-like, or personal-metadata payloads. The private proposal
+    references those exact versions; its description, date, owner, and review
+    state are never copied into the shared catalog.
+- `PATCH /api/meal-proposals/{id}/` with edited `name`, `entry_date`, and/or
+  `items`
+- `POST /api/meal-proposals/{id}/follow-up/` with `follow_up`, the current
+  `name`, `notes`, `entry_date`, and current `items`
+  - Sends the original description and current reviewed draft to the estimation
+    provider, then applies only constrained top-level additions, explicit
+    removals, or absolute serving corrections.
+  - Preserves existing foods and local review edits, rejects duplicate
+    additions, and requires the provider to make a disclosed best-effort
+    assumption when a target or portion is ambiguous.
+  - Resolves AI-extracted additions against the visible catalog before
+    materializing genuinely new shared foods with their sources and provenance,
+    then records a separate immutable `ai_follow_up` proposal revision.
+- `POST /api/meal-proposals/adjustments/` with an `adjustment`, the current
+  builder `name`, `entry_date`, optional `notes`, and editable `items`
+  - Creates a draft from manually assembled foods, then applies the requested
+    constrained AI adjustment when possible.
+- `DELETE /api/meal-proposals/{id}/` for unaccepted drafts
+- `POST /api/meal-proposals/{id}/accept/`
+  - Reuses unchanged shared definitions. Nutrient or component edits create a
+    private `user_modified_estimate` definition linked to the shared base,
+    then create a dated meal snapshot and lock the proposal.
+
+Nutrients remain anchored to one declared serving quantity, unit, and label.
+GPT supplies a concise natural base such as `1 burger`, `1 plate`, or
+`1 medium carrot`, plus the edible gram weight of that serving. The backend
+uses that weight to generate validated `portion_options` with a deterministic
+Grams conversion for every estimated item and component.
+Structured estimates also declare whether nutrient values describe one base
+serving or the full consumed amount. Full-amount values are normalized to the
+base serving before catalog materialization, and a serving-weight plausibility
+check catches obvious mislabeled totals. The diary therefore applies the
+proposal's serving count exactly once.
+
+Proposal labels distinguish `official_verified`, `catalog_estimate`,
+`ai_estimate`, and `user_modified_estimate`. Generated, user-reviewed, and
+accepted proposal revisions preserve immutable item snapshots and parent
+lineage. Shared AI food versions retain provider/model/response metadata,
+confidence, serving conversions, and source URLs; personal adjustments point
+back to the base version without changing it. Exact normalized AI definitions
+are fingerprinted so equivalent results reuse one shared Food Item. OpenAI
+requests use structured outputs, enable web
+search for source discovery, and set `store=false`. They return nutrition data
+only and explicitly exclude dietary, medical, clinical, and treatment advice.
+Follow-up requests use the same non-stored provider flow and retain the current
+draft when the provider is unavailable or cannot produce an applicable change.
+
+## 🧩 Snapshot and adjustment invariants
+
+Food responses, catalog estimates and meal snapshots share the complete reachable
+component graph, loaded in batches by tree level. Reuse the graph and nutrient
+caches across meal items instead of issuing separate queries for each child.
+Visible catalog-version lookups are also batched during validation/materialization.
+
+`MealItemSerializer` reuses a nonempty persisted component snapshot only after
+recursive validation of required fields, identifiers, decimal values, portions,
+nutrients, sources and nested components. Missing or malformed legacy snapshots
+are rebuilt from the saved food-version graph, preserving pinned history rather
+than using the latest catalog definition. Source access dates are ISO strings.
+See [PR #153](https://github.com/VanillaIceCube/MacroMapper/pull/153) and
+`meals.tests.ComponentGraphTests` for structural and query-count coverage.
+
+Meal-entry and builder adjustment endpoints share `process_meal_adjustment`.
+Provider resolution, follow-up processing and response serialization stay inside
+its cleanup boundary: failures delete the created proposal, and successful
+temporary meal-entry proposals are deleted after serialization. Missing/null
+optional follow-up fields retain existing confidence and provider metadata when
+no replacement is supplied. Views inject the response serializer and provider
+getter to avoid a service/serializer import cycle and keep provider calls patchable.
+See [PR #181](https://github.com/VanillaIceCube/MacroMapper/pull/181) and
+`estimates.tests.test_adjustments.MealAdjustmentLifecycleTests` for both endpoints' failure coverage.
+
+## 🔔 Notification API
+All `/api/` endpoints require a JWT access token. Notification querysets are
+always scoped to the authenticated recipient.
+
+- `GET /api/notifications/`
+- `PATCH /api/notifications/{id}/` with `{"is_read": true}` or
+  `{"is_read": false}`
+- `DELETE /api/notifications/{id}/`
+- `PATCH /api/notifications/mark-all-read/`
+- `DELETE /api/notifications/clear-all/`
+
+Notifications retain an event type, title, message, optional actor, and
+optional frontend `target_path`. MacroMapper's nutrition and activity apps can
+create them without coupling notification delivery to a specific domain model.
+
+## 💻 Local Setup
+From the repository root:
+
+```powershell
+python -m pip install -r backend/requirements.txt
+python backend/manage.py migrate
+python backend/manage.py runserver 8000
+```
+
+Optional `backend/.env` values are loaded automatically:
+
+```env
+DJANGO_SECRET_KEY=local-only-key
+DJANGO_DEBUG=1
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,macromapper.localhost
+DJANGO_CORS_ALLOWED_ORIGINS=http://macromapper.localhost:3000
+DJANGO_CSRF_TRUSTED_ORIGINS=http://macromapper.localhost:3000
+DJANGO_FRONTEND_BASE_URL=http://macromapper.localhost:3000
+MACROMAPPER_OPENAI_API_KEY=<openai-project-api-key>
+OPENAI_MEAL_ESTIMATION_MODEL=gpt-5.6-luna
+OPENAI_MEAL_ESTIMATION_TIMEOUT=110
+```
+
+Use only the `Local · Application · AI Estimate` key from the separate
+`MacroMapper Development` OpenAI project in this local env file. Never use a
+reviewer or production key locally. See the [credential migration guide](../.github/README-WORKFLOWS.md#-independent-estimation-credentials).
+
+The OpenAI key is optional for local catalog/manual workflows. An unmatched
+description returns `503 Service Unavailable` with a safe explanation when the
+key is absent or the provider cannot respond. Saving a meal with a blank name
+asks the configured model for a concise name based on its selected foods; if
+that request fails, the meal is saved with a sequential name such as `Meal-00`.
+
+`OPENAI_MEAL_ESTIMATION_TIMEOUT` is the total wall-clock AI budget, shared by
+intent extraction and nutrition estimation; default 110 seconds, allowed range
+greater than 0 through 110. SDK retries are disabled. SDK-only calls run in a
+bounded pool of two threads; if a timed-out call is still completing, its slot
+remains occupied and additional AI requests fail safely rather than queueing.
+Late results cannot publish database records. The existing JSON 503 response
+preserves the editable frontend draft. ORM work stays on the request thread.
+Initial catalog reads and AI waits happen outside a database transaction; the
+catalog publication, proposal and revision are committed together afterward.
+This avoids holding SQLite read locks while other request threads save data.
+Blank-name draft saves also generate the name before opening the write
+transaction, then revalidate catalog visibility and reviewed items before
+materializing and saving the meal together with its items.
+Production Gunicorn uses one worker with four request threads and a 120-second
+worker-liveness timeout; the AI budget bounds request wait time.
+
+The default database is `backend/db.sqlite3`. Override it with
+`DJANGO_SQLITE_PATH`. The `macromapper.localhost` host is accepted by
+default while `DJANGO_DEBUG=1`.
+
+With `DJANGO_DEBUG=0`, startup requires an explicit `DJANGO_SECRET_KEY` and
+`DJANGO_ALLOWED_HOSTS`; local host/origin defaults are omitted. Session and
+CSRF cookies require HTTPS. Django accepts the Host header rather than
+`X-Forwarded-Host`; production Nginx overwrites `X-Forwarded-Proto` with its
+trusted HTTPS value. Do not expose the backend directly to the internet.
+The shared production overlay supplies a private raw environment file,
+retains the SQLite bind mount and outbound provider access, and runs deployment
+checks/migrations before starting Gunicorn. See the
+[production configuration and recovery guide](../deploy/README.md).
+
+## Docker Hot Reload
+The development Compose workflow builds `backend/Dockerfile.dev`, mounts the
+backend source, and runs Django's autoreloading development server:
+
+```powershell
+docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml up --build -d backend
+docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml exec -T backend python manage.py migrate
+```
+
+The development backend listens on `http://macromapper.localhost:8000`.
+Use the production Dockerfile and Compose file when testing Gunicorn, Nginx,
+HTTPS, or deployment-shaped behavior.
+
+## ✉️ Email
+Local development defaults to Django's console email backend. A local-only
+sender can be configured while messages remain in the console:
+
+```env
+DJANGO_EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+DJANGO_DEFAULT_FROM_EMAIL=MacroMapper <no-reply@macromapper.localhost>
+```
+
+Production can use the included Resend HTTPS backend with a sender on the
+verified production sending domain:
+
+```env
+DJANGO_EMAIL_BACKEND=authentication.email_backends.ResendApiEmailBackend
+DJANGO_EMAIL_HOST_KEY=<resend-api-key>
+DJANGO_EMAIL_TIMEOUT=10
+DJANGO_DEFAULT_FROM_EMAIL=MacroMapper <no-reply@updates.judeandrewalaba.com>
+```
+
+Resend requires `DJANGO_DEFAULT_FROM_EMAIL` to use a domain verified in the
+Resend account. The `.localhost` sender is only for console-email development
+and must not be used with `ResendApiEmailBackend`. See the
+[deployment guide](../deploy/production/README.md#ci-inputs-and-private-host-preparation) for the
+production credential setup. Sender-domain verification remains an operator
+prerequisite; app releases do not change DNS.
+
+When diagnosing delivery issues with `ResendApiEmailBackend`, check the Django server logs under logger `authentication.email_backends`. Failed requests log structured `ERROR` messages containing HTTP status codes (e.g., HTTP 429 rate limit or 5xx provider error) or network/timeout exception categories without disclosing API keys, email body text, or password reset tokens.
+
+SMTP-compatible backends can instead use the documented `DJANGO_EMAIL_HOST`,
+`DJANGO_EMAIL_PORT`, `DJANGO_EMAIL_USE_TLS`, and
+`DJANGO_EMAIL_HOST_USER` settings.
+
+## 🧰 Checks
+```powershell
+python backend/manage.py test backend
+ruff check backend
+ruff format backend --check
+```
+
+
+## 🔌 Shared MCP framework
+
+Proposal reads use summary lists and bounded pages of current review items rather
+than repeating historical item snapshots. Follow `get_proposal` item offsets before
+editing/accepting; oversized single items require full review in the website.
+Sanitized error references support diagnosis without logging private meal payloads.
+
+See [the app MCP guide](../docs/MCP.md) for the `macromapper_mcp` registry, read/write/estimate scopes, confirmation, ASGI startup and additive migrations. The canonical [MCP framework](../docs/MCP-FRAMEWORK.md) remains unchanged. Install the domain app in both profiles so its confirmation migration is stable; install OAuth Toolkit only when enabled. Run ordinary backend tests and the separately enabled framework/domain suite. REST JWT authentication is unchanged.
+
+## Authentication and notification parity
+
+Registration validates passwords with Django's configured validators against the
+candidate user's final username/email before account creation. Validation failures
+return HTTP 400 with a human-readable `error`; non-string passwords also return
+400. Password reset already validates against the existing user. Notification
+bulk mark-read/clear operations are transactional and remain recipient-scoped.
+See [the adoption audit](../docs/AUTH-PARITY.md) for evidence and boundaries.
+
+## Development dependency reproducibility
+
+See [Docker dependency volumes and image maintenance](../deploy/README.md#development-dependency-reproducibility).
+
+## Disposable browser-test backend
+
+The frontend `npm run test:e2e` wrapper runs `scripts/e2e_backend.py` with
+`scripts/e2e_settings.py`: synthetic secret, fresh temporary SQLite, local file
+email, test-only fast hashing, disabled MCP and loopback-only binding. It refuses
+state directories without the wrapper marker and prevents dotenv loading.
+Install `backend/requirements.txt` in your activated Python environment first.
+This harness never reads the developer database or production settings and does
+not change the normal server/test-runner hashing policy. See frontend/README.md.
+
+
+## Transactional email failure handling
+
+`ResendApiEmailBackend` sends once per message. An HTTP 2xx means provider
+acceptance, not confirmed inbox delivery. `EMAIL_TIMEOUT` is a finite socket
+operation timeout: default 10 seconds, supported `0 < seconds <= 30`. Invalid, nonfinite,
+bool or larger runtime values produce a safe warning and use 10 seconds. The
+`DJANGO_EMAIL_TIMEOUT` environment setting is parsed as an integer at startup;
+malformed text fails configuration visibly rather than changing delivery policy.
+
+The backend preserves `fail_silently`: false re-raises the original exception;
+true logs the failure, continues the batch and returns only successful sends.
+Missing credentials log `configuration` and return 0 only in silent mode. The
+password-reset caller deliberately uses false, catches failures, emits a safe
+caller event and returns the same generic 200 response for known and unknown
+accounts. No recipient/user ID, exception text/traceback, reset URL/token, key or
+message content is included in these logs.
+
+Logger `authentication.email_backends` emits ERROR records with
+`delivery_provider=resend`, `delivery_category` and numeric `delivery_status`
+(or unknown). Categories: `configuration`, `request` (HTTP 4xx except 429),
+`rate_limit` (429), `provider` (HTTP 5xx), `timeout`, `network`, `unexpected`.
+The text formatter includes category/status even when structured fields are not
+configured. Provider bodies and error strings are untrusted and never read for
+logging. Template's established HTML/reply-to support and app sender identities
+are preserved; generic failure behavior is equivalent across all three apps.
+
+Operator recovery: check these safe categories and the existing Resend dashboard
+using the existing account. Missing key/401/403 calls for credential selection,
+permissions or sender-domain verification; fix deployment configuration through
+the documented release path without logging/rotating keys.400/422 means inspect
+payload rules using synthetic data. 429/5xx/network/timeouts indicate capacity or
+provider availability; check status/rate limits before asking for a fresh reset.
+Repeated configuration/auth failures or a sustained outage warrant operator
+attention through existing channels. This adds logs, not a monitoring service.
+
+There is no automatic retry, queue or resend: a timeout may occur after provider
+acceptance, so a blind retry could duplicate a reset email. Idempotency/backoff
+and durable delivery tracking would need their own bounded design. No production
+mail is sent by tests; mocks cover success, credentials, network/timeouts,
+400/401/403/422/429/500/503, both silent modes, partial batches, safe fallback and
+the real reset caller's generic response/redacted logs. Production public
+readiness cannot establish authenticated password-reset inbox delivery.
+
+## Persistence regression guidance
+
+Preserve recipient scoping and serializer saves on notification PATCH even when
+read state is unchanged or omitted; change `read_at` only on state transitions.
+Keep malformed reset-ID and duplicate-registration race coverage. Estimated
+portion weights must remain positive after rounding before division; retain
+tiny/zero/negative input and exact conversion tests. Snapshot and proposal
+cleanup requirements are described in the invariants section above.
+
+## Nutrition catalog evidence
+
+See [the Batch 3 integrity contract](../docs/NUTRITION-INTEGRITY.md) for publication
+validation, per-food research, additive source/nutrient evidence, immutable diary
+history, and the deferred read-only audit/explicit-ID quarantine procedure. The
+metadata migration does not repair production records; production execution needs
+separate authorization. All research regressions use mocked provider responses.

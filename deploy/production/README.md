@@ -1,4 +1,6 @@
-# App-only production release and recovery
+# 🚀 Production releases and recovery
+
+For local development, use the [deployment README](../README.md).
 
 This is the implementation of approved architecture v2. Main merges and
 production promotions require owner authorization within the current mission

@@ -1,4 +1,4 @@
-# Local Docker development
+# 🐳 MacroMapper deployment
 
 For shared-host deployment, use the [production release and recovery guide](production/README.md).
 The commands below operate local development stacks.
@@ -8,7 +8,9 @@ an upstream response. The backend's default 110-second total AI budget leaves
 time to return a controlled error. Production uses the separately owned
 Infrastructure gateway with the same 120-second API read timeout.
 
-## Local Docker with `macromapper.localhost`
+<a id="local-docker-with-macromapperlocalhost"></a>
+
+## 💻 Local Docker with `macromapper.localhost`
 
 For source iteration, copy `backend.env` to `deploy/.env` only if you do not
 already have a local environment file, then initialize only a missing database:
@@ -43,7 +45,9 @@ proxy and defaults to ports 80/443/8000/3000; override its `MACROMAPPER_*_PORT`
 variables when another local app owns those ports. Do not use this standalone
 command on the shared production host.
 
-## Local persistence and troubleshooting
+<a id="local-persistence-and-troubleshooting"></a>
+
+## 🛟 Local persistence and troubleshooting
 
 Both local stacks use `deploy/db.sqlite3`; keep it when restarting containers.
 The hot-reload stack mounts the backend and frontend source trees. Ordinary
@@ -83,7 +87,9 @@ release procedure; see the [credential migration guide](../.github/README-WORKFL
 
 The [app MCP guide](../docs/MCP.md) defines app-owned OAuth, exact proxy trust, readiness and first-enable recovery. Local MCP development uses a disposable database, `DJANGO_MCP_ENABLED=1`, the exact backend/frontend origins and `VITE_MCP_ENABLED=1`, with `python serve.py` selecting ASGI. Ordinary hot reload remains disabled by default. Production enables both sides through its reviewed app policy and frontend Dockerfile; its existing shared Nginx routes belong to Infrastructure.
 
-## Development dependency reproducibility
+<a id="development-dependency-reproducibility"></a>
+
+## 📦 Development dependency reproducibility
 
 Development images pin reviewed multi-platform Node 26 and Miniforge 26.9.4-0
 registry digests. Production Dockerfiles and the independent release engine are
@@ -99,25 +105,16 @@ Run `node --test tests/dev-dependencies.test.cjs` from the repository root for t
 credential-free mocked lifecycle/exit-status regression. Compose configuration
 checks do not deploy or touch application data.
 
-## Non-deploying repository validation
+<a id="non-deploying-repository-validation"></a>
 
-CI runs `python scripts/validate_repository.py` from the repository root with
-Actionlint, pinned PyYAML 6.0.3, Git Bash/Bash, PowerShell 7 and Docker Compose
-installed. `scripts/install_actionlint.sh` installs the checksum-verified Linux
-validator; other platforms can install the same Actionlint 1.7.12 release.
-The validator parses maintained scripts, checks workflow/composite syntax and
-renders development/local/production Compose using temporary synthetic env files.
-It starts no containers and reads no private `.env`, database or certificate.
-Actionlint's only compatibility exception is its unrecognized GitHub
-`vulnerability-alerts` permission; other findings fail normally.
+## 🧪 Repository validation
 
-Browser checks use separate loopback ports and disposable settings, not the
-production release path. The Infrastructure-owned release source pin and parity
-enforcement stay authoritative; see docs/BATCH2-PARITY.md. Documentation/workflow
-changes alone do not justify restarting the application or shared gateway.
+See the [repository tests and validation guide](../tests/README.md).
 
 
-Production-promotion PRs receive a managed impact summary derived from their
-current env-prod comparison. It informs review; release authorization, migration
-guards and data-safe recovery still follow the [production guide](production/README.md).
-See [CI/CD architecture](../docs/CI-CD-ARCHITECTURE.md).
+## 📚 Further reading
+
+- [Live-server releases and recovery](production/README.md).
+- [Backend configuration](../backend/README.md).
+- [Frontend development](../frontend/README.md).
+- [Repository scripts](../scripts/README.md).
