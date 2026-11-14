@@ -21,8 +21,8 @@ remaining roadmap.
 
 ## Food identity, recipes and portions
 
-See [canonical identities and safe duplicate cleanup](../docs/CANONICAL-FOODS.md)
-and [meal interpretation semantics](../docs/MEAL-INTERPRETATION.md). Shared food
+See [canonical identities and safe duplicate cleanup](REFERENCE.md#-catalog-and-meal-invariants)
+and [meal interpretation semantics](REFERENCE.md#-catalog-and-meal-invariants). Shared food
 identity is independent of consumed quantity and nutritional definition. Recipes
 retain full-recipe ingredient quantities; their parent servings carry the eaten
 fraction. Natural size choices use food-specific weights and remain editable
@@ -51,7 +51,6 @@ starts in the current directory and can report zero tests. CI instead runs
 `python manage.py test` with `backend` as its working directory. Compare test
 inventories and assertions before/after moving tests, including class decorators,
 setup/teardown, helpers and subtests; a green reduced suite is insufficient.
-See the [PR #305 preservation audit](../docs/ESTIMATES-TEST-REFACTOR.md).
 
 ## 🧭 Structure
 - `app/`: Django settings, URL routing, and the WSGI server entry point
@@ -431,7 +430,6 @@ candidate user's final username/email before account creation. Validation failur
 return HTTP 400 with a human-readable `error`; non-string passwords also return
 400. Password reset already validates against the existing user. Notification
 bulk mark-read/clear operations are transactional and remain recipient-scoped.
-See [the adoption audit](../docs/AUTH-PARITY.md) for evidence and boundaries.
 
 ## Development dependency reproducibility
 
@@ -498,12 +496,53 @@ read state is unchanged or omitted; change `read_at` only on state transitions.
 Keep malformed reset-ID and duplicate-registration race coverage. Estimated
 portion weights must remain positive after rounding before division; retain
 tiny/zero/negative input and exact conversion tests. Snapshot and proposal
-cleanup requirements are described in the invariants section above.
+cleanup requirements follow the [catalog and meal invariants](#-catalog-and-meal-invariants).
 
 ## Nutrition catalog evidence
 
-See [the Batch 3 integrity contract](../docs/NUTRITION-INTEGRITY.md) for publication
+See the [catalog and meal invariants](#-catalog-and-meal-invariants) for publication
 validation, per-food research, additive source/nutrient evidence, immutable diary
 history, and the deferred read-only audit/explicit-ID quarantine procedure. The
 metadata migration does not repair production records; production execution needs
 separate authorization. All research regressions use mocked provider responses.
+
+## 🔐 Authentication maintenance
+
+Validate registration passwords against the prospective user and reset passwords
+against the existing user. Preserve password whitespace, generic recovery
+responses, recipient-scoped notifications, and atomic bulk operations. Keep
+pending/error handling and JWT retry behavior aligned with the frontend.
+Regression suites, rather than old adoption reports, are the current contract.
+
+## 🥗 Catalog and meal invariants
+
+Canonical food identity is separate from serving definitions and consumed
+quantity. Keep provider/market/product distinctions conservative; do not fuzzily
+merge uncertain regional or branded items. Immutable food versions and saved
+meal/proposal snapshots retain their pinned components, sources, and nutrients.
+
+Research is required for unresolved food estimates. Preserve the distinction
+between official values, researched estimates, user adjustments, and missing
+evidence. An HTTP success or a source URL alone does not establish verified
+nutrition. Reject nutrition-empty shared publication while preserving valid
+partial values and zeroes; keep private overrides attributable.
+
+Represent a consumed recipe fraction on its parent and scale totals once.
+Keep separately consumed additions separate. Food-specific natural serving
+weights drive portion choices; changing a serving updates the draft instance
+without rewriting shared catalog versions. Invalid hierarchy moves fail
+atomically and preserve identifiers, provenance, and source evidence.
+
+### Reviewed catalog maintenance
+
+`python backend/manage.py consolidate_foods FIRST_ID SECOND_ID` previews a
+duplicate consolidation. Add `--apply` only after reviewing real identifiers,
+identity evidence, and a backup under the authorized maintenance procedure.
+Preserve archived aliases, original versions, and historical snapshots.
+
+`python backend/manage.py audit_catalog_nutrition` is read-only by default.
+Explicit-ID quarantine uses `--archive --food-id REVIEWED_ID` after separate
+review and backup. Database remediation is separate from routine source tests;
+never silently rewrite saved diary history or run maintenance on production
+as a test. The regression suites beside `foods`, `estimates`, and `meals`
+define the current validation and preservation behavior.

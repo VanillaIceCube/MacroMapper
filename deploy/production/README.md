@@ -74,7 +74,7 @@ for every pull/migration/startup; no `latest` selector is used.
 
 Land reviewed source on `main`, then promote only an authorized, deployable
 revision to `env-prod` through the normal review and CI gates. These are source
-requirements from the [shared main-first policy](https://github.com/VanillaIceCube/FullStackTemplate/blob/main/docs/SHARED-ROLLOUT-POLICY.md#main-first-releases):
+requirements from the [shared main-first policy](https://github.com/VanillaIceCube/FullStackTemplate/blob/main/AGENTS.md#production):
 the promotion's entire source tree must match its exact reviewed main commit.
 These are source
 and operator rules; the workflow's branch check does not enforce main ancestry.
