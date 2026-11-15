@@ -44,8 +44,11 @@ Local `.env` files are excluded from Docker build contexts.
 
 For direct `npm` development, an unset API origin uses `http://localhost:8000`.
 An explicit shell value overrides that default; an explicit blank uses same-origin.
-Vite's `import.meta.env.BASE_URL` supplies the router/asset base. Development uses
-port 3000; production Nginx serves the static build and preserves SPA deep links.
+Vite's `base` setting supplies `%BASE_URL%` for HTML asset URLs. The current
+`BrowserRouter` has no `basename` and uses domain-root routes. An asset prefix
+change alone does not configure subdirectory routing. The API origin is separate
+from both settings. Development uses port 3000; production Nginx serves the static
+build and preserves SPA deep links.
 
 ## 🗺️ Routes and behavior
 
@@ -99,6 +102,35 @@ relying on color alone. Initial AI definitions are reusable shared catalog
 foods; substantive review edits are saved as private versions derived from the
 shared base.
 
+## 🧭 Product intent
+
+MacroMapper is personal-use first: accounts, meals and custom foods remain private.
+Catalog-first text estimates expose components, quantities, sources and confidence
+for review before saving a pinned diary snapshot. A Food Item can be consumed
+directly or composed of other Food Items; personal meal edits never redefine the
+shared canonical food. Official/verified, reusable community/AI estimates and private
+personal records retain distinct trust states. Unknown nutrients are unavailable,
+never zero. Track calories, protein, carbohydrate, fat, fiber, sugar, sodium,
+cholesterol and available micronutrients without implying clinical guidance.
+
+Goals, calculated user-editable targets, activity logging and expanded trends remain
+planned. The planned baseline describes non-exercise life; only activities explicitly
+counted toward the budget add estimated calories. Avoid double-counting regular
+exercise. Activity estimates and targets are editable tracking information, never
+medical advice. Weight tracking, photos/barcodes and household/social/coaching
+features remain deferred.
+
+<details>
+<summary>A note from the author</summary>
+
+First and foremost, I created this application because I wanted a Calorie Counting App. I used to use MyFitnessPal, but I wanted something AI-Powered, and all options were like $20 bucks a month. I also didn't want to take pictures of my food? I mean I feel like that would just give you the worst estimate of all time.
+
+I had a vision where you'd write up a description then it would do it's best to fact check it against the internet. Like if I said I wanted a double double animal style with no lettuce (this is an example, I love lettuce) from inn-n-out, it would go to the internet and find the double double facts, find the animal style if it can, then break it down into components, and then remove the lettuce. And that info would be available for everyone in the application, with confidence level, the actual source, and a provenance marking.
+
+Outside of that, I mean my goal was to get a good personal use application that utilized generative AI in a manner that you could trust and audit it.
+
+</details>
+
 ## 🔐 Sessions and connections
 
 Authentication forms disable submission while pending. Tokens and profile data
@@ -117,6 +149,19 @@ Optional consent and Connected Apps use `VITE_MCP_ENABLED=1`. Preserve JWT-only
 consent and validated return paths. See the [backend MCP guide](../backend/README.md#-mcp-integration).
 The production Dockerfile enables this build argument by default; raw Vite
 development remains opt-in. Enabling the UI does not register a client or grant.
+
+### Connections response contract
+
+Successful consent, decision, list and revoke responses must be JSON objects.
+Unreadable, empty, null, scalar or array successes reject with `Request failed.`;
+a protocol failure must not follow a callback or claim revocation succeeded.
+HTTP failures use the first nonblank string in `error_description`, `detail`, then
+`error`, otherwise `HTTP <status>`. Never expose raw HTML/plaintext, parser errors,
+nested objects or unrelated JSON fields as fallback messages. Backend public error
+fields must be safe to display. Preserve JWT-only headers, omitted cookies, form
+encoding, signed consent tickets and validated callbacks. Invalid refresh credentials
+clear the session; transient proxy/refresh failures retain it for retry. Notoli
+retains its extra post-refresh 401 handling and legacy API-base compatibility.
 
 ## 🧮 Domain architecture
 
@@ -289,45 +334,3 @@ See [Docker dependency maintenance](../deploy/README.md#development-dependency-r
 
 - [Backend and MCP integration](../backend/README.md).
 - [Local Docker and production releases](../deploy/README.md).
-
-### Connections response contract
-
-Successful consent, decision, list and revoke responses must be JSON objects.
-Unreadable, empty, null, scalar or array successes reject with `Request failed.`;
-a protocol failure must not follow a callback or claim revocation succeeded.
-HTTP failures use the first nonblank string in `error_description`, `detail`, then
-`error`, otherwise `HTTP <status>`. Never expose raw HTML/plaintext, parser errors,
-nested objects or unrelated JSON fields as fallback messages. Backend public error
-fields must be safe to display. Preserve JWT-only headers, omitted cookies, form
-encoding, signed consent tickets and validated callbacks. Invalid refresh credentials
-clear the session; transient proxy/refresh failures retain it for retry. Notoli
-retains its extra post-refresh 401 handling and legacy API-base compatibility.
-
-## 🧭 Product intent
-
-MacroMapper is personal-use first: accounts, meals and custom foods remain private.
-Catalog-first text estimates expose components, quantities, sources and confidence
-for review before saving a pinned diary snapshot. A Food Item can be consumed
-directly or composed of other Food Items; personal meal edits never redefine the
-shared canonical food. Official/verified, reusable community/AI estimates and private
-personal records retain distinct trust states. Unknown nutrients are unavailable,
-never zero. Track calories, protein, carbohydrate, fat, fiber, sugar, sodium,
-cholesterol and available micronutrients without implying clinical guidance.
-
-Goals, calculated user-editable targets, activity logging and expanded trends remain
-planned. The planned baseline describes non-exercise life; only activities explicitly
-counted toward the budget add estimated calories. Avoid double-counting regular
-exercise. Activity estimates and targets are editable tracking information, never
-medical advice. Weight tracking, photos/barcodes and household/social/coaching
-features remain deferred.
-
-<details>
-<summary>A note from the author</summary>
-
-First and foremost, I created this application because I wanted a Calorie Counting App. I used to use MyFitnessPal, but I wanted something AI-Powered, and all options were like $20 bucks a month. I also didn't want to take pictures of my food? I mean I feel like that would just give you the worst estimate of all time.
-
-I had a vision where you'd write up a description then it would do it's best to fact check it against the internet. Like if I said I wanted a double double animal style with no lettuce (this is an example, I love lettuce) from inn-n-out, it would go to the internet and find the double double facts, find the animal style if it can, then break it down into components, and then remove the lettuce. And that info would be available for everyone in the application, with confidence level, the actual source, and a provenance marking.
-
-Outside of that, I mean my goal was to get a good personal use application that utilized generative AI in a manner that you could trust and audit it.
-
-</details>
