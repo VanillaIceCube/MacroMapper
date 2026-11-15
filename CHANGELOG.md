@@ -1,3 +1,46 @@
+# Changelog
+
+All notable changes to this project are documented in this file.
+
+## 2026-11-14
+
+### Fixed
+
+- Reject unsafe paths, symlinks and duplicate members in exported ChatGPT ZIPs, bound archive expansion, and cover hostile exports with offline regressions.
+
+### Changed
+
+- Align the default ChatGPT listing with its read-only OAuth grant and document explicit configuration and new consent for broader variants.
+- Export ChatGPT artwork as a square binary PNG instead of embedding its raster data in SVG, preserving its appearance while keeping the complete PR within review limits.
+- Consolidate durable documentation into existing owning READMEs, move the active CI inventory beside workflow guidance, and repair links and architecture regressions.
+- Restore consistent changelog titles, chronological dates, ordered categories, and spacing while preserving historical entries.
+- Align shared agent instructions across the repository family while preserving application-specific contracts and Infrastructure authorization controls.
+- Move active CI helpers into `.github/tools/`, browser helpers beside `frontend/e2e/` journeys, and the MCP checker into `backend/`; update callers, path filters, regressions, and owning guides while preserving existing checks and isolation.
+- Move the local certificate helper into `deploy/`.
+
+### Removed
+
+- Remove the root `scripts/` folder and retired production deployment/bundle compatibility stubs.
+- Remove duplicate documentation indexes, redirects, stale narratives and historical receipts after preserving useful contracts. Remove obsolete tour, design and visual-receipt screenshots; retain the author’s original note in the frontend guide.
+- Remove the root `tests/` directory and its CI invocations; retain backend, frontend/browser, action-local, and shared release suites.
+
+## 2026-11-13
+
+### Changed
+
+- Standardize root ignore rules across the repository family for local environments, builds, caches, test reports, databases, and certificates; keep configuration examples and dependency lockfiles visible.
+- Standardize GitHub documentation across the four repositories: setup in `.github/README.md`, workflow behavior in `.github/workflows/README.md`, and shared reviewer/action contracts in `.github/actions/README.md`.
+- Consolidate current backend, frontend, and style guidance into the existing folder READMEs; remove separate reference/style files and historical duplication.
+- Standardize ChatGPT package metadata, artwork, offline validation, portable archives, and existing-listing overlays under `backend/app_mcp/chatgpt/` ([FullStackTemplate #324](https://github.com/VanillaIceCube/FullStackTemplate/issues/324)).
+- Rename the shared MCP Python package to `app_mcp`, consolidate source pins and hashes beside it, and retain its existing Django app label and OAuth behavior ([FullStackTemplate #324](https://github.com/VanillaIceCube/FullStackTemplate/issues/324)).
+- Reorganize the main README as a project introduction with folder guides; consolidate setup, API/workflow references, scripts, tests, and documentation indexes with consistent emoji headings.
+- Move shared MCP documentation beside the framework, retain legacy guide links, and make application MCP and plugin guides discoverable from the backend.
+- Align the license text, formatting, and 2025-2026 copyright with FullStackTemplate and the other application repositories.
+
+### Removed
+
+- Delete historical Batch 2/3 parity reports and hash snapshots, completed authentication adoption audits, and the estimates test-preservation audit; remove obsolete links without moving or consolidating documentation.
+
 ## 2026-11-11
 
 ### Added
@@ -13,59 +56,26 @@
 - Reject nutrition-empty shared foods while retaining legitimate partial values and zeroes; add a read-only catalog audit with explicit-ID quarantine that preserves diary/version history (#92).
 - Require estimation research and retain matched official source, serving and nutrient evidence, with distinct missing-source and retrieval-failure outcomes (#77).
 - Preserve source-level classification, official parent values and AI component evidence across proposals, catalog reuse and diary snapshots; show mixed/partial evidence and clear verification after user edits (#69).
-
-## 2026-11-11
-
-### Fixed
-
 - Keep successful MCP nonpaid meal mutations committed exactly once when expanded output exceeds the existing node/byte limits; return an explicit bounded receipt instead of rolling back a valid write (#393).
 - Adapt diary and meal-item page sizes to the output budget, expose accurate summary/truncation markers, and direct oversized single-item review to the saved meal in MacroMapper (#393).
 - Validate draft catalog references and components during MCP preview, explain the separately confirmed personal-food creation step for manual foods, and return safe actionable confirmation errors (#394).
-
-## 2026-11-11
-
-### Removed
-
-- Remove retired Jules notebooks, persona prompts and active operating instructions after the linked PRs merged and a fresh open-PR inventory passed (#368); preserve general maintenance guidance, historical evidence and independent CI/security/release controls.
-
-## 2026-11-11
-
-### Fixed
-
 - Update MCP test fixtures to import from the estimates helper module after decomposition, and correct root-level Django test commands to discover the full backend suite.
-
-### Changed
-
-- Organize all 59 estimates tests into focused proposal, adjustment, admin and provider modules with shared fixtures, preserving their assertions, decorators and subtests. Document Django discovery and the test-preservation inventory.
-- Expose meal-item and nutrition domain entry points for frontend consumers; enforce public UI imports, unique exports, UI independence and acyclic dependencies in architecture tests.
-
-## 2026-11-11
-
-### Fixed
-
 - Handle non-JSON Connections API responses with safe HTTP status errors, preserve structured OAuth errors, and reject invalid success payloads without exposing response bodies. Reuse the existing safe parser and cover consent, listing, revocation and session recovery regressions ([shared rollout](https://github.com/VanillaIceCube/FullStackTemplate/issues/311)).
-
-## 2026-11-11
-
-### Fixed
-
 - Keep responsive Diary layout assertions compatible with jsdom 31 CSSOM whitespace and viewport-aware computed styles, preserving mobile and desktop layout checks.
 - Refresh transitive development-only Zod to 4.6.7 to resolve GHSA-mrhx-c7xc-m3w5.
 
 ### Changed
 
+- Organize all 59 estimates tests into focused proposal, adjustment, admin and provider modules with shared fixtures, preserving their assertions, decorators and subtests. Document Django discovery and the test-preservation inventory.
+- Expose meal-item and nutrition domain entry points for frontend consumers; enforce public UI imports, unique exports, UI independence and acyclic dependencies in architecture tests.
 - Align transitive Babel core 7.29.13 and its compatible helper patches with Notoli and FullStackTemplate while retaining the separate direct Babel parser 8 dependency.
 - Upgrade the frontend test environment to jsdom 31.
 - Upgrade all CodeQL init/analyze entry points atomically to v4.39.3 and regenerate the checked workflow source inventory.
 - Synchronize the pinned Infrastructure release standard for docker/login-action v4.8.0, including the canonical action-upgrade parity regression, and refresh the workflow source inventory.
 
-## 2026-11-07
+### Removed
 
-### Fixed
-
-- Anchor the browser-native Meal Diary date picker to its existing visible trigger instead of an offset 1x1 input. Preserve the restored navigation alignment and compact button widths, Food & Servings alignment and empty-date safety; add production-build/mobile anchor and picker-opening regression coverage.
-
-# Changelog
+- Remove retired Jules notebooks, persona prompts and active operating instructions after the linked PRs merged and a fresh open-PR inventory passed (#368); preserve general maintenance guidance, historical evidence and independent CI/security/release controls.
 
 ## 2026-11-07
 
@@ -75,41 +85,14 @@
 
 ### Fixed
 
+- Anchor the browser-native Meal Diary date picker to its existing visible trigger instead of an offset 1x1 input. Preserve the restored navigation alignment and compact button widths, Food & Servings alignment and empty-date safety; add production-build/mobile anchor and picker-opening regression coverage.
 - Keep a valid diary date when the native input is cleared, preventing the next-day action from throwing and blanking the page.
 
 ### Changed
 
 - Record the cancelled coordinated rollback and clarified #382 visual restoration: keep the pre-#377 date-control alignment, sizing and placement while preserving its independent date safety guard, earlier Food & Servings functionality and all security/release safeguards. Historical batch/rollback evidence remains; #255/#200 are not declared accepted by this source change.
-
-## 2026-11-07
-
-### Changed
-
 - Revert product batch #377 after owner-reported site-wide regressions, restoring the previous diary date controls while retaining the earlier Food & Servings heading/alignment implementation. The minor date-picker defect may return as the accepted recovery tradeoff.
 - Withdraw the batch acceptance and remove its added visual test command, fixture suite and batch-only unit assertions. Retain the original investigation/screenshots below as historical evidence; preserve all preceding security and release safeguards and current application data.
-
-## 2026-11-06
-
-### Fixed
-
-- Anchor the native diary date picker to the visible date button and keep date
-  navigation at the right edge on phones, tablets, and desktops.
-- Add regression coverage for the existing Food & Servings heading and full-cell
-  centering of calories, confidence, and provenance, including wrapped context.
-
-## 2026-11-06
-
-### Fixed
-
-- Restore security-alert action loading by resolving repository variables in caller workflows and passing validated explicit composite inputs.
-- Cover default, empty, explicit and invalid configuration plus empty/nonempty mocked alert pipelines and all three caller contracts.
-
-## 2026-11-06
-
-### Fixed
-
-- Transactional email failures now expose safe categories/status codes without exception payloads, tracebacks or recipient/token data; reset responses remain generic.
-- Resend requests use a finite bounded timeout, with explicit safe fallback and mocked coverage for failure policy and both fail_silently modes.
 
 ## 2026-11-06
 
@@ -117,55 +100,47 @@
 
 - Managed production-promotion impact summaries from the actual current target comparison, with bounded metadata, owned-comment updates and race/permission coverage.
 - Source-linked Mermaid CI/CD architecture and checked per-repository workflow/action inventories, preserving application and gateway trust differences.
-
-### Fixed
-
-- Architecture guidance no longer presents completed reviewer credential migration or obsolete test/runtime assumptions as future work.
-
-## 2026-11-06
-
-### Added
-
 - Bounded, attributed human discussion context and conservative App-owned reviewer follow-ups, with adversarial, stale-head, idempotency and permission regressions.
 - Safe Responses token/latency evidence, dated partial cost estimates and validated owner configuration/recovery controls; existing Luna model selection is preserved.
 
 ### Fixed
 
+- Anchor the native diary date picker to the visible date button and keep date
+  navigation at the right edge on phones, tablets, and desktops.
+- Add regression coverage for the existing Food & Servings heading and full-cell
+  centering of calories, confidence, and provenance, including wrapped context.
+- Restore security-alert action loading by resolving repository variables in caller workflows and passing validated explicit composite inputs.
+- Cover default, empty, explicit and invalid configuration plus empty/nonempty mocked alert pipelines and all three caller contracts.
+- Transactional email failures now expose safe categories/status codes without exception payloads, tracebacks or recipient/token data; reset responses remain generic.
+- Resend requests use a finite bounded timeout, with explicit safe fallback and mocked coverage for failure policy and both fail_silently modes.
+- Architecture guidance no longer presents completed reviewer credential migration or obsolete test/runtime assumptions as future work.
 - Reviewer ownership no longer falls back to persona-name matching; old-head verdicts are rejected and writer runs serialize.
 
 ## 2026-11-05
+
 ### Added
+
 - Shared isolated authentication browser tests with disposable data and local-only reset mail.
 - Repository syntax/Compose validation and mocked request/history/lint attribution coverage.
-### Fixed
-- Preserve early, failing and late CI diagnostics within bounded reviewer context and failure artifacts.
-### Changed
-- Use bulk form setup for validation/API unit cases while retaining typed happy paths and assertions.
-
-## 2026-11-05
-### Added
 - Shared development dependency lifecycle regression for fresh, unchanged, changed and failed installs.
-### Changed
-- Pin development Node/Miniforge multi-platform image digests and refresh frontend dependencies only when manifests change.
-
-## 2026-11-05
-### Added
 - Immutable workflow-policy and bounded changed-version malware regression coverage.
 - Evidence-based Python malware scanning decision and shared release upgrade regression.
+
 ### Fixed
+
+- Preserve early, failing and late CI diagnostics within bounded reviewer context and failure artifacts.
 - Missing or invalid dependency evidence now fails PR malware review visibly.
-### Changed
-- Explicit scanner/path-filter grants support read-only repository defaults; unused orchestration issue writes removed.
-- Adopt the reviewed Infrastructure release template/test contract with readable Action versions.
-
-## 2026-11-05
-
-### Fixed
 - Bound malware classification to repository source advisories instead of scanning the global catalogue.
 - Recover the exact structured concurrent-close response only after verifying saved lifecycle state and body.
 - Recover omitted alert refs deterministically and interrupted Project synchronization without duplicate issues or resetting planning.
 - Retry inconsistent exact-head Dependabot check readiness safely and route signed SHA-only Action updates to manual review.
 
+### Changed
+
+- Use bulk form setup for validation/API unit cases while retaining typed happy paths and assertions.
+- Pin development Node/Miniforge multi-platform image digests and refresh frontend dependencies only when manifests change.
+- Explicit scanner/path-filter grants support read-only repository defaults; unused orchestration issue writes removed.
+- Adopt the reviewed Infrastructure release template/test contract with readable Action versions.
 
 ## 2026-11-03
 
@@ -182,17 +157,9 @@
 - Enforce configured password validators before registration, including similarity to the final username/email; reject non-string passwords without creating users.
 - Prevent concurrent auth submissions, preserve request headers through JWT refresh, and remove stale/blank session profile fields.
 - Make notification loads retryable, preserve failed actions for retry, and disable overlapping item/bulk actions through response parsing. Bulk operations use explicit transactions.
-
-## 2026-11-02
-
-### Fixed
-
 - Hold native Dependabot auto-merge behind a required policy result for each head; validate signed group metadata, paginate all open dependency alerts and support configured reviewer bot identities.
-
 - Reject missing or invalid AI reviewer events instead of converting them into successful comments; adopt the canonical persona/fork/verdict regression suite.
-
 - Adopt FullStackTemplate protected Dependabot auto-merge and atomic CodeQL regressions, requiring current-head approvals, live protected-branch checks and idempotent native activation; remove the PR-token merge path (FullStackTemplate #240).
-
 - Resolve the transitive minimatch advisory with a scoped modern-version override and regenerated frontend lockfile; document parent API compatibility and removal checks ([FullStackTemplate #267](https://github.com/VanillaIceCube/FullStackTemplate/issues/267)).
 
 ### Changed
@@ -216,9 +183,7 @@
 - Enable the reviewed MacroMapper MCP production profile and frontend connection UI with exact existing gateway trust, metadata/challenge readiness, additive OAuth/confirmation migrations and retained disabled-controller recovery for first activation.
 - Synchronize the canonical release test pin to `a6712af44a65efbe349daf2d215bb1ca638b3a9e`, covering app-owned enabled MCP policy without changing the shared deployment controller or workflow.
 - Use GPT-6 Luna for all OpenAI PR reviewers and security-alert grouping while preserving existing review gates, isolated credentials and token budgets.
-
 - Remove the unreleased central MCP resource, shared-issuer credential requirements and enabled rollout policy; restore app-owned optional OAuth scaffolding with MacroMapper MCP disabled and meal/nutrition MCP deferred. Preserve website, REST, AI estimation and existing production history.
-
 - Reconcile existing production merge history into main without changing runtime source; document main-first reviewed releases, back-merging exceptional production fixes and intentional release lag while MCP activation dependencies remain pending.
 
 ## 2026-10-29
@@ -231,7 +196,6 @@
 ### Fixed
 
 - Adopt the same reviewed Infrastructure release fixture pin `ee9c0d40421a8b3f4886340b188a21e86c6429cf` across all consumers, including exact app-mode topology and metadata content-type checks.
-
 - Lock meal/catalog state throughout MCP confirmation, including an early SQLite writer barrier, with real concurrent website-edit/catalog-update tests that preserve the newer committed data.
 - Prepare and test a separately staged disabled-policy rollback tool so a failed first enabled rollout can restore its captured disabled backend without incompatible MCP readiness, immutable-bundle edits or bypassing the failure barrier.
 
@@ -259,23 +223,19 @@
 
 ## 2026-10-20
 
+### Added
+
+- Add the reusable, hash-pinned MCP/OAuth framework and isolated consent, token lifecycle and transport tests.
+
 ### Fixed
 
 - Fail closed on incomplete dependency reviews and retain sanitized structured evidence with a bounded RoboCop report.
 - Preserve alert history and Project metadata before auto-close; verify concurrent closure without suppressing unrelated API errors and use the current Work type field.
 
-
-## 2026-10-20
-
-### Added
-
-- Add the reusable, hash-pinned MCP/OAuth framework and isolated consent, token lifecycle and transport tests.
-
 ### Changed
 
 - Provide opt-in ASGI startup and optional consent/Connected Apps pages; retain ordinary REST/Gunicorn behavior with MCP disabled by default.
 - Keep production MCP explicitly disabled; meal and nutrition tools remain outside this framework rollout.
-
 
 ## 2026-10-19
 
@@ -283,15 +243,6 @@
 
 - Separate Obi-Wan, Lint Eastwood, and RoboCop OpenAI secrets, including RoboCop alert aggregation; pass only each reviewer's own credentials, stage `OPENAI_REVIEWERS_PROJECT_ID` independently, and document the deferred per-repository key migration.
 - Document independent production and local estimation credentials while preserving `MACROMAPPER_OPENAI_API_KEY` and the existing release procedure.
-All notable changes to this project are documented in this file.
-
-## 2026-10-18
-
-### Changed
-
-- Synchronized the shared Infrastructure release-test source pin with the
-  template adoption work while preserving this application's release runtime,
-  deployment workflow, and network/trust policy.
 
 ## 2026-10-18
 
@@ -302,80 +253,71 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Synchronized the shared Infrastructure release-test source pin with the
+  template adoption work while preserving this application's release runtime,
+  deployment workflow, and network/trust policy.
 - Updated Nora and Marty to v3: one open PR per agent, with repeat runs maintaining the existing PR and integrating current main.
 
 ## 2026-10-17
+
 ### Removed
+
 - Retire the recurring Jules Kira downstream-reconciliation role, delete its external schedule, and preserve the evidence and remaining findings through explicit tickets.
 
 ## 2026-10-11
-### Fixed
-- Allow slow meal estimates within coordinated two-minute server/proxy limits, with a shared 110-second AI deadline and controlled JSON errors instead of worker termination.
-- Bound SDK concurrency, disable automatic retries and serve ordinary API requests alongside AI waits; retain drafts and explain the two-minute wait.
-- Keep estimation and blank-name meal naming waits outside SQLite transactions while committing catalog/proposal or meal/item writes atomically, so concurrent writes are not held behind slow AI calls.
 
-## 2026-10-11
-### Fixed
-- Adopt the shared release client identity so Cloudflare accepts public readiness probes without changing edge protections or response checks.
-
-## 2026-10-11
-### Fixed
-- Pin remaining external CI/composite actions to their existing version commits without upgrading action versions or changing gates.
-- Remove stale production proxy instructions from agent guidance, align operator authorization and verify tracked documentation links and anchors.
-
-## 2026-10-11
 ### Added
+
 - Enforce pinned shared-source parity for release tools, workflow stages and five equivalent deployment test modules.
 - Verify app-specific readiness/configuration, offline recovery packaging and rejection of shared code/test/workflow drift.
-### Fixed
-- Include owner/reviewer replies and explicit deleted-line context when reconciling prior AI findings; preserve independent scanner and review gates.
-### Changed
-- Isolate deployment policy in `app.json`; remove unreachable cross-application branches while preserving transaction and recovery safeguards.
-- Use one canonical production guide and retain local Docker instructions separately.
-
-## 2026-10-11
-### Added
 - Add app-only production Compose, immutable digest bundles, protected maintenance/app locks, complete configuration/image/environment/SQLite recovery, explicit rollback and bounded readiness checks.
 - Validate raw credentials and Compose boundaries with disposable containers, and exercise SQLite/failure recovery and lock contention on Linux.
-### Changed
-- Consolidate production instructions in `deploy/production/README.md`; focus `deploy/README.md` on local Docker and link other guides to the canonical instructions.
-- Pin every external production deployment action, including checkout, to an immutable commit SHA.
-- Serialize production releases and stage each CI attempt privately; activate only after the approved host-owned ingress cutover.
-### Removed
-- Move PR-specific audit and coordination documents into issue #240, preserving their history outside the permanent deployment guides.
-- Remove obsolete shared-proxy/Notoli-override source files; retain historical versions in Git and preserve the local hot-reload stack.
-- Remove shared Nginx/certificate lifecycle and mutable production image selection from the app deployment workflow.
-
-## 2026-10-11
-### Added
 - Document the PR #239 component audit, release/recovery gaps, local evidence,
   and reconciliation of the VM audit for MacroMapper #240 and Notoli #904.
-### Fixed
-- Correct deployment documentation that treated unauthorized PR #239 as approved
-  implementation or historical host reports as verified current production facts.
-### Changed
-- Move shared coordination to Infrastructure #4 and record Agent 5 ownership,
-  the refreshed Agent 3 audit and proposed v2 contract without implying approval.
-- Consolidate the launch handoff into coordination checkpoints and distinguish
-  architecture, PR merge, and production authorization.
-
-## 2026-10-11
-### Added
 - Add shared production ingress artifacts that preserve Notoli's existing
   networks and route MacroMapper through its public proxy.
 - Save consistent SQLite and release recovery files before production migrations
   and test routing, Compose merges, database preservation, and failed migrations.
+
 ### Fixed
+
+- Allow slow meal estimates within coordinated two-minute server/proxy limits, with a shared 110-second AI deadline and controlled JSON errors instead of worker termination.
+- Bound SDK concurrency, disable automatic retries and serve ordinary API requests alongside AI waits; retain drafts and explain the two-minute wait.
+- Keep estimation and blank-name meal naming waits outside SQLite transactions while committing catalog/proposal or meal/item writes atomically, so concurrent writes are not held behind slow AI calls.
+- Adopt the shared release client identity so Cloudflare accepts public readiness probes without changing edge protections or response checks.
+- Pin remaining external CI/composite actions to their existing version commits without upgrading action versions or changing gates.
+- Remove stale production proxy instructions from agent guidance, align operator authorization and verify tracked documentation links and anchors.
+- Include owner/reviewer replies and explicit deleted-line context when reconciling prior AI findings; preserve independent scanner and review gates.
+- Correct deployment documentation that treated unauthorized PR #239 as approved
+  implementation or historical host reports as verified current production facts.
 - Require explicit production secret/hosts, omit development origin defaults,
   secure session/CSRF cookies, and overwrite untrusted forwarded protocol/host headers.
+
 ### Changed
+
+- Isolate deployment policy in `app.json`; remove unreachable cross-application branches while preserving transaction and recovery safeguards.
+- Use one canonical production guide and retain local Docker instructions separately.
+- Consolidate production instructions in `deploy/production/README.md`; focus `deploy/README.md` on local Docker and link other guides to the canonical instructions.
+- Pin every external production deployment action, including checkout, to an immutable commit SHA.
+- Serialize production releases and stage each CI attempt privately; activate only after the approved host-owned ingress cutover.
+- Move shared coordination to Infrastructure #4 and record Agent 5 ownership,
+  the refreshed Agent 3 audit and proposed v2 contract without implying approval.
+- Consolidate the launch handoff into coordination checkpoints and distinguish
+  architecture, PR merge, and production authorization.
 - Deploy reviewed SHA-tagged images with private environment files and same-origin
   frontend requests; document shared-host setup, recovery, and live acceptance.
+
 ### Removed
+
+- Move PR-specific audit and coordination documents into issue #240, preserving their history outside the permanent deployment guides.
+- Remove obsolete shared-proxy/Notoli-override source files; retain historical versions in Git and preserve the local hot-reload stack.
+- Remove shared Nginx/certificate lifecycle and mutable production image selection from the app deployment workflow.
 - Remove host-wide Docker pruning and separate TLS uploads from MacroMapper deployment.
 
 ## 2026-10-10
+
 ### Fixed
+
 - Ignore the entire local Codex ticket-body and TLS certificate folders so
   VS Code can apply its ignored-resource color to the folders and their contents.
 - Clean up failed and temporary meal-adjustment proposals consistently and retain
@@ -388,7 +330,9 @@ All notable changes to this project are documented in this file.
   included in saved meal snapshots.
 - Reuse the complete reachable food component graph for catalog estimates and meal
   snapshots, with shared nutrient calculations and queries batched by tree level.
+
 ### Changed
+
 - Organize frontend nutrition and meal-item logic into focused domain modules,
   separate presentation metadata, and preserve existing calculations and editing
   safeguards while migrating all consumers to the new paths.
@@ -398,7 +342,9 @@ All notable changes to this project are documented in this file.
   `frontend/docs/`, update their links, and exclude them from Docker build contexts.
 - Move GitHub setup and recovery documentation into `.github/` alongside the
   workflow guide, and update documentation links.
+
 ### Removed
+
 - Remove unused YAML dependencies and the unused catalog-match wrapper from
   the backend.
 - Remove the unused ASGI server entry point; backend deployment uses Gunicorn
@@ -414,7 +360,9 @@ All notable changes to this project are documented in this file.
   creation, linking, and recovery with GitHub CLI and the GitHub UI.
 
 ## 2026-10-09
+
 ### Fixed
+
 - Handle incomplete nutrition and portion data safely, clamp negative meal input,
   and preserve decimal quantity entry and deterministic calorie chart ordering.
 - Reduce repeated food component and catalog-version queries and reuse complete
@@ -429,12 +377,16 @@ All notable changes to this project are documented in this file.
   profile information, and share error formatting across authentication pages.
 
 ## 2026-09-22
+
 ### Fixed
+
 - Keep the compact Map it with AI dialog from flashing the full meal builder
   while its backdrop-close animation finishes.
 - Keep the existing Add from the Catalog results and scroll viewport in place
   while switching between All, My Foods, and Shared.
+
 ### Changed
+
 - Upgrade the frontend lint toolchain to ESLint 10 and preserve React and JSX
   accessibility coverage with ESLint 10-compatible plugins.
 - Use consistent title capitalization for the Daily Summary and Meal Log headings.
@@ -444,15 +396,21 @@ All notable changes to this project are documented in this file.
   radius tokens, with sharper cards, controls, menus, and dialogs throughout.
 
 ## 2026-09-20
+
 ### Added
+
 - Add an in-context Retry action for failed catalog loads, searches, and
   pagination requests while preserving the exact failed request.
+
 ### Fixed
+
 - Keep pagination, scope changes, sorting, filter removal, and retries tied to
   the last applied catalog request instead of silently applying draft criteria.
 - Keep catalog filter alignment and wrapping styles inside Material UI's supported
   styling API instead of forwarding them to the browser DOM.
+
 ### Changed
+
 - Reorganize Add from Catalog result cards around the food name first, with
   provider and serving context beneath it while provenance and confidence stay
   inside optional estimate details beneath the nutrition summary.
@@ -472,13 +430,17 @@ All notable changes to this project are documented in this file.
   beside the serving information.
 
 ## 2026-09-05
+
 ### Added
+
 - Add the author's personal motivation to the README.
 - Add a captioned six-image tour of the daily nutrition and AI meal-estimation
   experiences to the README.
 
 ## 2026-08-31
+
 ### Fixed
+
 - Complete the Material UI 9 layout migration across the frontend so meal-log
   actions, navigation, editor controls, nutrition summaries, charts, and dialogs
   retain their intended alignment and wrapping.
@@ -487,15 +449,21 @@ All notable changes to this project are documented in this file.
   return-to-today action only after navigating away from today.
 - Restore centered authentication layouts and keep the meal-diary date controls
   compact and correctly positioned after the Material UI 9 upgrade.
+
 ### Changed
+
 - Open the Meal Diary directly for signed-in users and remove the redundant
   Home destination.
 
 ## 2026-08-30
+
 ### Added
+
 - Add combinable catalog scope, provider, provenance, and source-aware search
   filters to Map Your Meal, with visible active filters and add confirmation.
+
 ### Fixed
+
 - Preserve personal-food provenance, validated meal dates, and intentionally
   removed recipe components throughout AI-adjusted meal drafts.
 - Preserve reviewed meal dates and notes even when an AI follow-up produces no
@@ -505,7 +473,9 @@ All notable changes to this project are documented in this file.
 - Ignore stale catalog responses when a newer food search has started.
 - Allow AI adjustments to reuse archived food versions already pinned to the
   existing meal being edited.
+
 ### Changed
+
 - Make AI Adjustments available while editing existing diary entries. AI
   changes remain a reviewable modal draft until the user saves the meal.
 - Use one complete Map Your Meal draft for AI review, manual mapping, and
@@ -514,14 +484,20 @@ All notable changes to this project are documented in this file.
   place.
 
 ## 2026-08-29
+
 ### Added
+
 - Rotate the Map it with AI input placeholder across 100 examples covering
   everyday meals, restaurants, cuisines, quantities, drinks, substitutions,
   leftovers, and uncertain descriptions.
+
 ### Fixed
+
 - Keep broad catalog searches responsive by rendering at most the first 25
   matches.
+
 ### Changed
+
 - Load the 20 most recently created visible foods when Map Your Meal opens,
   while keeping broader catalog searches explicitly limited in the interface.
 - Rename the Add meal modal to Map Your Meal.
@@ -555,15 +531,21 @@ All notable changes to this project are documented in this file.
   tags above each food result.
 - Add an AI-style estimate-details action to catalog foods for reviewing their
   metadata and supporting source links.
+
 ### Removed
+
 - Remove personal-food creation from Map Your Meal; existing personal foods
   remain available through catalog search.
 
 ## 2026-08-24
+
 ### Added
+
 - Included each user's original Adjust with AI follow-up request in the saved
   meal Context, while retaining AI result messages separately in revision history.
+
 ### Changed
+
 - Redesigned manual meal entry as a responsive meal-building workflow that
   mirrors estimate review with editable meal details, catalog nutrition and
   provenance, portion-aware item controls, live meal totals and
@@ -578,11 +560,15 @@ All notable changes to this project are documented in this file.
   thicker stacked bars, and whole-number macro-split values.
 
 ## 2026-08-23
+
 ### Added
+
 - Added conversational AI follow-ups to meal-estimate review so users can add
   forgotten foods or request clear removals and serving corrections while
   preserving the current editable draft, provenance, and revision history.
+
 ### Fixed
+
 - Preserved concise AI-generated meal titles for mixed catalog and estimated
   foods, using a brief company-and-food naming format instead of diary prose.
 - Rolled up known daily nutrient values even when another saved food lacks that
@@ -598,7 +584,9 @@ All notable changes to this project are documented in this file.
   globally visible; unsafe or instruction-like metadata is rejected atomically.
 - Kept meal review usable after an AI follow-up request fails by preserving the
   draft and request, showing a retryable error, and always unlocking the dialog.
+
 ### Changed
+
 - Redesigned the meal diary as a Quick Logbook with date and nutrition
   summaries at the top, macro calorie-split and calories-by-meal charts, compact
   color-coded daily nutrient cards, parallel estimate/manual entry paths, and
@@ -614,7 +602,9 @@ All notable changes to this project are documented in this file.
   tightly cropped artwork across the application shell and install icons.
 
 ## 2026-08-22
+
 ### Added
+
 - Added typo-tolerant multi-food catalog resolution that extracts quantities,
   prefers complete composites, groups duplicate identities, and sends only
   unmatched foods to GPT.
@@ -629,7 +619,9 @@ All notable changes to this project are documented in this file.
 - Added consistently abbreviated portion-option dropdowns that pair a concise
   natural serving with appropriate weight or volume conversions for every
   GPT-estimated item.
+
 ### Fixed
+
 - Prevented a partial catalog hit from dropping other requested foods or
   silently resetting their requested counts to one.
 - Normalized GPT nutrient totals back to their declared base serving so a
@@ -656,7 +648,9 @@ All notable changes to this project are documented in this file.
   reused composites remain uniquely editable.
 - Removed the invalid root-level Docker Dependabot scan and documented that
   Docker dependency checks run from the backend and frontend directories.
+
 ### Changed
+
 - Kept unchanged AI definitions shared while saving substantive nutrient or
   component edits as private user-modified versions derived from the shared
   base, with explicit adjusted-by-user attribution in the review UI.
@@ -692,7 +686,9 @@ All notable changes to this project are documented in this file.
   tightened the spacing between those controls so nutrient cards stay aligned.
 
 ## 2026-08-16
+
 ### Added
+
 - Added owner-scoped, catalog-first GPT meal proposals with structured OpenAI
   web research, persisted sources/confidence/provider metadata, editable
   component review, and acceptance into durable private diary snapshots.
@@ -710,7 +706,9 @@ All notable changes to this project are documented in this file.
   launch-nutrient totals, and delete confirmation.
 - Added backend authorization and historical-value regression coverage plus frontend
   create, edit, delete, and daily-total tests.
+
 ### Fixed
+
 - Made native AI `REQUEST_CHANGES` verdicts fail their corresponding required
   reviewer checks, including repeated blocking verdicts, while approvals and
   non-blocking comments continue to pass.
@@ -725,7 +723,9 @@ All notable changes to this project are documented in this file.
   seeded nutrient definitions and saved nutrient values.
 - Allowed existing meals to retain and resize archived personal foods through
   their pinned historical versions without making those foods newly selectable.
+
 ### Changed
+
 - Replaced the inherited dark, pale-yellow, amber, and gray placeholder styling
   across the application shell, authentication screens, dashboard, menus,
   notifications, forms, feedback states, manifest, and application mark with
@@ -749,7 +749,9 @@ All notable changes to this project are documented in this file.
   definition or amount tables.
 
 ## 2026-08-14
+
 ### Added
+
 - Added Django-native Food Item catalog models and authenticated APIs for
   versioned nutrient definitions, composite foods, source references, shared
   catalog lookup, and private personal-food management.
@@ -758,7 +760,9 @@ All notable changes to this project are documented in this file.
   account capabilities available today.
 - Added Vite and Vitest frontend tooling with explicit development, test,
   production-build, and Docker configuration.
+
 ### Fixed
+
 - Prevented Django admin users from mutating historical Food Item definitions,
   nutrient definitions, related nutrient/source/component rows, the managed
   current-version pointer, or an existing Food Item's privacy classification.
@@ -767,7 +771,9 @@ All notable changes to this project are documented in this file.
 - Prevented RoboCop from treating neutral CodeQL summaries for intentionally
   path-scoped language omissions as security coverage gaps when the authoritative
   scope and aggregate gates succeed and a default-branch baseline exists.
+
 ### Changed
+
 - Made MacroMapper the sole application identity across runtime configuration,
   deployment guidance, user-agent metadata, navigation, test fixtures, and
   repository documentation.
@@ -791,20 +797,28 @@ All notable changes to this project are documented in this file.
   production image on Node.js 26.
 - Kept generated dependency lockfile payloads out of AI reviewer prompts so
   large lockfile migrations do not crowd out source, build, and security review.
+
 ### Removed
+
 - Removed the reusable application initializer and the remaining starter,
   generated-repository, Lorem Ipsum, and fake-profile placeholders.
 - Removed Create React App, its Jest runtime, the `react-router-dom`
   compatibility package, and the unused `web-vitals` dependency.
 
 ## 2026-08-12
+
 ### Added
+
 - Added primary-source web search and bounded tracked-repository usage evidence
   to Obi-Wan's Dependabot semver-major reviews.
+
 ### Fixed
+
 - Preserved every normalized major-upgrade field when publishing GitHub reviews
   so upstream rationale and repository exposure are no longer dropped.
+
 ### Changed
+
 - Reframed Obi-Wan's major-upgrade brief around why the update appeared, why
   upstream required a major version, exact repository exposure, material
   benefits, sources, and a concrete recommendation while retaining his calm
@@ -813,13 +827,17 @@ All notable changes to this project are documented in this file.
   matters, repository impact, recommendation, and sources.
 
 ## 2026-08-02
+
 ### Fixed
+
 - Made Dependabot semver-major upgrade briefs collect the first release in the
   new major line and fail visibly when Obi-Wan omits the upstream change,
   repository impact, or recommendation required for an actionable review.
 
 ## 2026-07-27
+
 ### Added
+
 - Added an advisory Obi-Wan major-upgrade brief for Dependabot semver-major
   updates, including external GitHub Release notes where available and
   concisely reporting upstream changes, repository impact, and a
@@ -836,7 +854,9 @@ All notable changes to this project are documented in this file.
   source mounts.
 - Bound development Docker ports to localhost and made documented `.env` and
   port overrides authoritative.
+
 ### Fixed
+
 - Made the upstream major-upgrade collector executable under mocked registry
   and GitHub-release responses, including npm's string and object repository
   metadata forms and degraded lookup paths.
@@ -846,7 +866,9 @@ All notable changes to this project are documented in this file.
 - Removed the stale standalone `CodeQL` required-check context that blocked
   scope-empty pull requests while retaining the real CodeQL scope and analyzer
   checks.
+
 ### Changed
+
 - Restored the three AI reviewer child checks and `Auto Merge` as required
   main-branch gates, matching Notoli's review policy while retaining the
   template's compatible CodeQL check set.
@@ -863,12 +885,16 @@ All notable changes to this project are documented in this file.
   and the protected placeholder page.
 - Removed the persistent translucent selection overlay from the drawer's Home
   item.
+
 ### Removed
+
 - Removed the shared multi-application local-ingress scripts and configuration;
   MacroMapper now uses its own application proxy like Notoli.
 
 ## 2026-07-26
+
 ### Added
+
 - Added a shared local TLS ingress that routes Notoli, MacroMapper, and
   MacroMapper by `.localhost` hostname while one container owns ports
   80 and 443.
@@ -890,7 +916,9 @@ All notable changes to this project are documented in this file.
 - Added first-run documentation for CI secrets, three AI reviewer Apps,
   security alert aggregation, branch rules, Cloudflare, DigitalOcean, GHCR,
   Resend, and production deployment.
+
 ### Fixed
+
 - Prevented port-free `macromapper.localhost` authentication requests
   from falling through to Notoli's backend when all three local applications
   are running.
@@ -912,7 +940,9 @@ All notable changes to this project are documented in this file.
 - Fixed dependency-review reporting for large initial lockfiles by keeping detailed package JSON in the check logs and annotations.
 - Removed the Dependabot-only auto-merge job from required status checks so normal pull requests are not blocked by its intentional skip.
 - Replaced the inherited Create React App toolchain that introduced high and critical transitive dependency vulnerabilities.
+
 ### Changed
+
 - Reduced the authenticated frontend to a reusable header, navigation drawer,
   notifications, profile/logout controls, and one placeholder Material UI
   Paper.
@@ -933,7 +963,9 @@ All notable changes to this project are documented in this file.
   non-Docker development.
 - Adapted Notoli's application-specific boards, lists, and notes into the
   reusable Workspace, Collection, and Item domain.
+
 ### Removed
+
 - Removed the Workspace, Collection, and Item backend, starter data, sharing,
   ordering, mobile gestures, component showcase, and related frontend routes,
   services, documentation, and tests.
