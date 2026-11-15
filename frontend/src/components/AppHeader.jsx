@@ -196,16 +196,7 @@ export default function AppHeader({ title, setDrawerOpen }) {
 
   return (
     <Box sx={{ flexGrow: 1 }}>
-      <AppBar
-        position="sticky"
-        sx={{
-          color: 'var(--atlas-ink)',
-          background: 'rgba(255, 253, 248, 0.96)',
-          boxShadow: 'none',
-          borderBottom: '1px solid var(--atlas-border)',
-          backdropFilter: 'blur(12px)',
-        }}
-      >
+      <AppBar position="sticky">
         <Toolbar sx={{ width: '100%', maxWidth: 1280, mx: 'auto', gap: { xs: 0, sm: 0.5 } }}>
           <Stack
             direction="row"

@@ -1,4 +1,6 @@
 import { act, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import fieldAtlasTheme from './theme';
 
 const { roots } = vi.hoisted(() => ({ roots: [] }));
 
@@ -61,7 +63,26 @@ describe('application startup', () => {
 
     const app = within(container);
     expect(await app.findByRole('heading', { name: 'Login' })).toBeVisible();
-    expect(app.getByRole('textbox', { name: 'Email' })).toBeVisible();
+    const email = app.getByRole('textbox', { name: 'Email' });
+    await userEvent.setup().type(email, 'reader@example.com');
+    expect(email).toHaveFocus();
+    expect(email).toHaveValue('reader@example.com');
+    expect(app.getByText('Email', { selector: 'label' })).toHaveStyle({
+      color: fieldAtlasTheme.palette.primary.dark,
+    });
+    expect(app.getByRole('heading', { name: 'MacroMapper' })).toHaveStyle({
+      color: fieldAtlasTheme.palette.text.primary,
+    });
+    expect(document.body).toHaveStyle({
+      backgroundColor: fieldAtlasTheme.palette.background.default,
+      color: fieldAtlasTheme.palette.text.primary,
+      boxSizing: 'border-box',
+    });
+    expect(getComputedStyle(document.body).fontFamily).toContain('Inter');
+    expect(getComputedStyle(email).fontFamily).toContain('Inter');
+    expect(
+      getComputedStyle(app.getByRole('heading', { name: 'MacroMapper' })).fontFamily,
+    ).toContain('Newsreader');
     expect(app.getByLabelText('Password')).toBeVisible();
     expect(app.getByRole('button', { name: 'Login' })).toBeEnabled();
     expect(window.location.pathname).toBe('/login');

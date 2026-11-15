@@ -39,8 +39,6 @@ export default function AppNavigationDrawer({ open, setOpen }) {
       onClose={() => setOpen(false)}
       sx={{
         '& .MuiDrawer-paper': {
-          bgcolor: 'var(--atlas-paper)',
-          color: 'var(--atlas-ink)',
           borderLeft: '1px solid var(--atlas-border-strong)',
           borderTopLeftRadius: 'var(--atlas-radius-prominent)',
           borderBottomLeftRadius: 'var(--atlas-radius-prominent)',
@@ -53,8 +51,6 @@ export default function AppNavigationDrawer({ open, setOpen }) {
         sx={{
           width: { xs: 280, sm: 320 },
           minHeight: '100%',
-          bgcolor: 'var(--atlas-paper)',
-          color: 'var(--atlas-ink)',
         }}
         role="navigation"
       >
@@ -91,7 +87,7 @@ export default function AppNavigationDrawer({ open, setOpen }) {
             <CloseIcon />
           </IconButton>
         </Stack>
-        <Divider sx={{ mx: 2, borderColor: 'var(--atlas-border)' }} />
+        <Divider sx={{ mx: 2 }} />
         <List sx={{ px: 1.5, pt: 2 }}>
           <ListItemButton onClick={goDiary} selected={isDiary} sx={navigationItemStyles(isDiary)}>
             <ListItemIcon

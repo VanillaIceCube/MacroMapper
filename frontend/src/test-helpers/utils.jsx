@@ -1,4 +1,5 @@
 import { render } from '@testing-library/react';
+import CssBaseline from '@mui/material/CssBaseline';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { MemoryRouter } from 'react-router';
 import fieldAtlasTheme from '../theme';
@@ -17,6 +18,7 @@ const testTheme = createTheme(fieldAtlasTheme, {
 export function renderWithProviders(ui, { routeEntries = ['/'], ...renderOptions } = {}) {
   return render(
     <ThemeProvider theme={testTheme}>
+      <CssBaseline />
       <MemoryRouter initialEntries={routeEntries}>{ui}</MemoryRouter>
     </ThemeProvider>,
     renderOptions,

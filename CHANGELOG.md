@@ -12,6 +12,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Make the Field Atlas theme the source for global palette, nutrient, radius and derived CSS tokens; move shared focus and app-bar styling into Material UI defaults while preserving contextual layouts and accessibility rules.
 - Add direct authentication-shell, nutrition-card and macro-bar regressions; separate meal-item adapter and tree coverage while retaining public API workflows.
 - Pair frontend tests with the owning source basename and extension, consolidate behavior and integration cases without losing coverage, and align applicable shared regression checks.
 - Use semantic authentication and Connected Apps links, align common frontend dependency ranges, and standardize Vite environment, router base and build-output configuration.

@@ -8,8 +8,11 @@ authentication, and the application shell.
 - `docker/`: production/development Dockerfiles and Nginx configuration.
   Docker builds keep `frontend/` as their context; `.dockerignore` stays at the
   frontend root.
+- `src/theme.js`: palette and nutrient tokens, typography, document colors and
+  Material UI defaults. `CssBaseline` exposes its tokens as CSS custom properties.
 - `src/index.css`: the single global stylesheet, loaded by `src/index.jsx`; keep
-  theme tokens, document defaults, shared controls and app-specific rules here.
+  platform rendering, element resets, app layout, contour artwork, native links
+  and reduced-motion rules here, consuming the theme's custom properties.
 - `src/components/`: reusable interface components.
 - `src/pages/`: application pages and routes.
 - `src/services/`: API requests and session handling.
@@ -196,8 +199,15 @@ measurement units alone preserves both consumed nutrition and composite evidence
 
 - Use Material UI components and responsive `sx` values before adding custom
   layout primitives.
-- Use the centralized Material UI theme in `src/theme.js` and the matching CSS
-  custom properties in `src/index.css`; do not introduce one-off brand colors.
+- Use the centralized Material UI theme in `src/theme.js`. Its `MuiCssBaseline`
+  overrides publish the existing CSS custom properties, including derived border,
+  contour and link-focus colors; do not duplicate palette values in `src/index.css`.
+  `App` and the shared test renderer install the app theme and `CssBaseline`.
+- Keep common MUI typography, input/focus behavior and app-bar chrome in the theme.
+  Keep responsive geometry, contextual surfaces and menu frames in their owning
+  components; diary and ingredient menus intentionally differ from header overlays.
+  The global stylesheet retains the explicit border-box reset, numeric formatting,
+  contour layout, native authentication-link behavior and reduced-motion rules.
 - Follow the Field Atlas direction: warm paper surfaces, ink structure, restrained
   cartographic details, and factual rather than clinical language.
 - Use Bone `#F6F1E7` for the canvas, Midnight ink `#17324D` for text and
@@ -205,8 +215,8 @@ measurement units alone preserves both consumed nutrition and composite evidence
   Persimmon `#E46B3C` for editable estimates, and Mineral blue `#A9CAD4` for
   neutral data surfaces.
 - Use Midnight ink for calories, Forest for protein, the accessible dark
-  Mineral token for carbohydrates, Persimmon for fat, and the deeper activity
-  token for activity. Apply these semantic tokens consistently to cards,
+  Mineral token for carbohydrates, Persimmon for fat, and the named nutrient
+  tokens for the remaining tracked nutrients. Apply these semantic tokens consistently to cards,
   legends, and charts. Pair every state color with text, an icon, or another
   non-color cue.
 - Use `Newsreader` for editorial headings and `Inter` for navigation, controls,

@@ -32,7 +32,6 @@ export default function AuthPageShell({ children, title }) {
           pb: { xs: 3, sm: 4 },
           width: '100%',
           maxWidth: 520,
-          background: 'var(--atlas-paper)',
           border: '1px solid var(--atlas-border-strong)',
           boxShadow: '0 24px 70px rgba(23, 50, 77, 0.1)',
         }}
