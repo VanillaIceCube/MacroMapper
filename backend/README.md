@@ -11,7 +11,6 @@ permissions, notifications, and application integrations.
   build context and write exclusion patterns relative to that context root.
 - `apps/foods/`, `apps/estimates/`, `apps/meals/`: catalog, proposals, and diary.
 - `apps/authentication/`, `apps/notifications/`: accounts and notifications.
-- `apps/email/`: provider delivery backend and its tests; this is a plain Python package without models or a Django app label.
 - `apps/mcp/`: shared `framework/`, application `tools/` and `chatgpt/` packaging.
 
 ## 💻 Local development
@@ -281,35 +280,45 @@ getter to avoid a service/serializer import cycle and keep provider calls patcha
 
 ## ✉️ Email
 
-Local development uses Django's console email backend. The included
-Resend HTTPS backend is configured with:
+Local development uses Django's console email backend. Resend delivery uses the
+maintained [django-anymail backend](https://anymail.dev/en/stable/esps/resend/):
 
 ```env
-DJANGO_EMAIL_BACKEND=apps.email.backends.ResendApiEmailBackend
+DJANGO_EMAIL_BACKEND=anymail.backends.resend.EmailBackend
 DJANGO_EMAIL_HOST_KEY=<resend-api-key>
 DJANGO_EMAIL_TIMEOUT=10
 DJANGO_DEFAULT_FROM_EMAIL=<sender-on-a-verified-domain>
 ```
 
-Keep `.localhost` senders with console delivery. Live delivery uses an approved
+`config/settings.py` maps the existing `DJANGO_EMAIL_HOST_KEY` through
+`EMAIL_HOST_PASSWORD` into `ANYMAIL["RESEND_API_KEY"]`; no new credential is needed.
+Known historical custom-backend selectors normalize to the maintained backend.
+Console, SMTP and other explicitly configured backends retain their selection.
+Keep `.localhost` senders with console delivery; live delivery uses an approved
 sender domain and private credentials configured through the production guide.
-Plain text, HTML, multipart alternatives, `cc`, `bcc`, and `reply_to` are supported.
+Plain text, HTML alternatives, `cc`, `bcc` and `reply_to` remain supported.
 
-The socket-operation timeout defaults to 10 seconds and supports `0 < seconds <= 30`.
-The environment value is parsed as an integer. Invalid runtime timeout values fall
-back safely; malformed startup configuration fails visibly. A successful provider
-response means acceptance, not confirmed inbox delivery.
+`ANYMAIL["REQUESTS_TIMEOUT"]` accepts the configured integer timeout when
+`0 < seconds <= 30`, falling back to 10 seconds outside that range. Malformed
+integer startup configuration still fails visibly. Raw Anymail request/response
+dumps stay disabled with `DEBUG_API_REQUESTS=False`; do not enable them because
+they include credentials, recipients and message content. HTTP sessions have no
+automatic retries. A timeout may occur after acceptance, so this application does
+not retry or resend automatically. Provider acceptance does not prove inbox delivery.
 
-Failures preserve `fail_silently`: false re-raises, while true skips failures and
-returns the number sent. Password reset returns a generic response for known and
-unknown accounts, including delivery failures. Logger `apps.email.backends`
-records safe category/status fields: `configuration`, `request`, `rate_limit`,
-`provider`, `timeout`, `network`, or `unexpected`. Never log provider response
-bodies, recipient details, reset tokens, message contents, or credentials.
+Operational provider/network failures preserve `fail_silently`: false raises,
+while true skips failed messages and returns the number sent. Missing API keys
+are visible Anymail configuration errors before any HTTP request. Exceptions can
+hold sensitive provider/message details; never log their text, tracebacks,
+recipients, reset tokens or credentials. Authentication catches delivery errors
+and logs only its generic password-reset failure message; known and unknown
+accounts receive the same public response even when delivery fails.
 
-Diagnose failures using those categories and the existing provider dashboard.
-There is no automatic retry or resend: a timeout may occur after acceptance.
-Use mocked delivery tests; production email receipt requires separate verification.
+Project-owned configuration and mocked HTTP contracts live in
+`config/test_email.py`; password-reset privacy tests remain in
+`apps/authentication/tests.py`. Use the existing provider dashboard for delivery
+investigation. No custom provider wrapper, tracking/inbound route or webhook
+extras are installed. Production mail receipt remains separately verified.
 
 ## 🔌 MCP integration
 

@@ -246,6 +246,18 @@ and local keys/projects. Store local values only in ignored `backend/.env` or
 `deploy/.env`; production values enter the approved private release bundle via
 the Actions repository secret. Never store keys in `deploy/backend.env`.
 
+## ✉️ Email delivery
+
+Use the pinned django-anymail Resend backend directly; do not recreate a custom
+provider wrapper. Preserve console-local and explicit SMTP/custom selections,
+existing credentials, bounded API timeout with the 10-second fallback, disabled
+API dumps and no automatic retries. Missing-key configuration errors must fail
+before HTTP. Keep generic reset responses and safe caller-only error logging;
+never log exception/provider bodies, recipients, reset tokens or credentials.
+Use mocked Requests-boundary tests in `backend/config/test_email.py` and the
+retained authentication privacy tests. No live mail or new webhook routes are
+part of this contract; see the [backend guide](backend/README.md#-email).
+
 ## 🔌 MCP integration
 
 Shared MCP framework changes originate in FullStackTemplate's canonical Python

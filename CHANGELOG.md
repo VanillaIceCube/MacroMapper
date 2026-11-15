@@ -14,6 +14,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Replace the custom Resend backend with pinned django-anymail, preserving existing credentials, backend selectors, bounded timeouts and password-reset privacy while removing the temporary email wrapper package.
 - Separate provider email delivery into `apps/email/`, keeping password-reset behavior and privacy coverage in authentication.
 - Group Django application packages under `backend/apps/`, group shared MCP `framework/`, application `tools/` and `chatgpt/` packaging under `apps.mcp` and project configuration to `backend/config/`, preserving existing app labels, database tables and migration identities.
 - Move backend/frontend Docker exclusions beside each production/development Dockerfile using Dockerfile-specific ignore files while preserving build contexts and frontend configuration inputs.

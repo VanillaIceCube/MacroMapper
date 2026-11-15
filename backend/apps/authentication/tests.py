@@ -1,6 +1,8 @@
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
 from unittest.mock import patch
-from urllib.error import HTTPError, URLError
 
+import requests
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.db import IntegrityError
@@ -298,8 +300,12 @@ class PasswordResetTests(APITestCase):
 
 
 @override_settings(
-    EMAIL_BACKEND="apps.email.backends.ResendApiEmailBackend",
-    EMAIL_HOST_PASSWORD="sk-private-key",
+    EMAIL_BACKEND="anymail.backends.resend.EmailBackend",
+    ANYMAIL={
+        "RESEND_API_KEY": "sk-private-key",
+        "REQUESTS_TIMEOUT": 10,
+        "DEBUG_API_REQUESTS": False,
+    },
 )
 class PasswordResetFailurePrivacyTests(APITestCase):
     def setUp(self):
@@ -309,19 +315,32 @@ class PasswordResetFailurePrivacyTests(APITestCase):
             password="fixture-password-123",
         )
 
-    @patch("apps.email.backends.request.urlopen")
+    @patch("requests.sessions.Session.request")
     def test_real_reset_caller_keeps_failure_and_unknown_account_responses_equal(
-        self, urlopen
+        self, request
     ):
-        for exc in [
-            HTTPError("https://api.resend.com/emails", 429, PRIVATE, {}, None),
-            TimeoutError(PRIVATE),
-            URLError(PRIVATE),
-        ]:
-            with self.subTest(error=type(exc).__name__):
-                urlopen.reset_mock()
-                urlopen.side_effect = exc
-                with self.assertLogs("apps", level="ERROR") as logs:
+        response = requests.Response()
+        response.status_code = 429
+        response._content = PRIVATE.encode()
+        response.headers["Content-Type"] = "text/plain"
+        failures = [
+            response,
+            requests.Timeout(PRIVATE),
+            requests.ConnectionError(PRIVATE),
+        ]
+        for failure in failures:
+            with self.subTest(failure=type(failure).__name__):
+                request.reset_mock()
+                request.side_effect = (
+                    failure if isinstance(failure, Exception) else None
+                )
+                request.return_value = failure
+                output, errors = StringIO(), StringIO()
+                with (
+                    self.assertLogs("apps.authentication", level="ERROR") as logs,
+                    redirect_stdout(output),
+                    redirect_stderr(errors),
+                ):
                     known = self.client.post(
                         "/auth/forgot-password/",
                         {"email": "fixture@example.test"},
@@ -334,15 +353,18 @@ class PasswordResetFailurePrivacyTests(APITestCase):
                 )
                 self.assertEqual(known.status_code, 200)
                 self.assertEqual(known.data, unknown.data)
-                urlopen.assert_called_once()
+                request.assert_called_once()
+                text = output.getvalue() + errors.getvalue()
                 for record in logs.records:
                     self.assertIsNone(record.exc_info)
-                    for private in [
-                        "private-token",
-                        "sk-private-key",
-                        "recipient@example.test",
-                        "fixture@example.test",
-                        "user_id",
-                        "private-body",
-                    ]:
-                        self.assertNotIn(private, record.getMessage())
+                    text += record.getMessage()
+                for private in [
+                    "private-token",
+                    "sk-private-key",
+                    "recipient@example.test",
+                    "fixture@example.test",
+                    "user_id",
+                    "private-body",
+                    "token=",
+                ]:
+                    self.assertNotIn(private, text)
