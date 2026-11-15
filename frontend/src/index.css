@@ -30,7 +30,6 @@
   --activity-color: #356b7f;
   --background-color: var(--atlas-bone);
   --secondary-background-color: var(--atlas-paper);
-  --primary-color: var(--atlas-forest);
   --secondary-color: var(--atlas-ink);
   --text-color: var(--atlas-ink);
 }

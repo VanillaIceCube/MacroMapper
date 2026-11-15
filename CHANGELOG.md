@@ -24,6 +24,7 @@ All notable changes to this project are documented in this file.
 
 ### Removed
 
+- Remove the unreferenced primary-color CSS alias; retain the Field Atlas tokens used by the application.
 - Remove the custom frontend development entrypoint and automatic dependency reinstall; start Vite directly and install changed dependencies manually in the development container.
 - Remove frontend end-to-end suites, Playwright configuration and dependencies, browser-test helpers and CI jobs; retain component, backend, action-local and shared release checks.
 - Remove the root `scripts/` folder and retired production deployment/bundle compatibility stubs.
