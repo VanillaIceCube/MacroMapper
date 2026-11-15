@@ -87,7 +87,7 @@ history; do not reset or force-push either branch to manufacture parity.
 Production may deliberately remain on an earlier reviewed release. MacroMapper's
 current policy enables its own MCP/OAuth under #284; the retired shared issuer
 remains removed. The application owns user permissions, confirmation and client
-setup; Infrastructure owns ordinary Nginx routing only. See [the MCP contract](../../backend/apps/mcp/tools/README.md).
+setup; Infrastructure owns ordinary Nginx routing only. See [the MCP contract](../../backend/apps/mcp/README.md#application-tools).
 Branch reconciliation does not authorize a deployment, require matching production
 trees or authorize unrelated newer main changes for production.
 
@@ -308,8 +308,8 @@ accounted for. See the [migration and validation steps](../../.github/README.md#
 
 ## 🔌 Shared MCP framework
 
-MacroMapper uses the unchanged [canonical framework](../../backend/apps/mcp/framework/README.md)
-and its own [domain/OAuth contract](../../backend/apps/mcp/tools/README.md). Its fixed production
+MacroMapper uses the unchanged [canonical framework](../../backend/apps/mcp/README.md#framework)
+and its own [domain/OAuth contract](../../backend/apps/mcp/README.md#application-tools). Its fixed production
 settings enable MCP at the app origin and trust only gateway peer `172.20.0.3`.
 The release checks that exact gateway address while preserving all existing
 networks and Notoli's `.2` trust. The frontend Docker build enables connection

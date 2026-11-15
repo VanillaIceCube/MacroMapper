@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## 2026-11-15
+
+### Changed
+
+- Use Django OAuth Toolkit's built-in MCP client registration, remove custom management commands and document explicit public-client onboarding and validation behavior (#428).
+
 ## 2026-11-14
 
 ### Fixed
@@ -14,6 +20,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Consolidate MCP framework, tools and ChatGPT guidance into one `apps/mcp/README.md`, preserving permissions, tool catalogs and connection instructions.
 - Replace the custom Resend backend with pinned django-anymail, preserving existing credentials, backend selectors, bounded timeouts and password-reset privacy while removing the temporary email wrapper package.
 - Separate provider email delivery into `apps/email/`, keeping password-reset behavior and privacy coverage in authentication.
 - Group Django application packages under `backend/apps/`, group shared MCP `framework/`, application `tools/` and `chatgpt/` packaging under `apps.mcp` and project configuration to `backend/config/`, preserving existing app labels, database tables and migration identities.
@@ -41,6 +48,8 @@ All notable changes to this project are documented in this file.
 
 ### Removed
 
+- Remove unused MCP framework source-pin and hash-manifest metadata; retain coordinated source review and runtime tests.
+- Remove the local ChatGPT package/listing builders and their test modules; retain source manifests/artwork and ordinary/MCP runtime checks.
 - Inline the production server selection in the Dockerfile and remove the standalone server launcher, preserving MCP enablement and Gunicorn worker/thread/timeout settings.
 - Remove the standalone shared MCP framework checker and its CI invocation; retain framework source pins, manifests and backend/MCP test profiles.
 - Remove centralized frontend lint-configuration, theme/MUI compatibility and domain-architecture suites and their unused direct `@babel/parser` dependency; preserve shared support and all colocated application, component and service tests.

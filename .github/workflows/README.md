@@ -97,7 +97,7 @@ the first CI run when creating or recovering the ruleset.
 
 ### Shared MCP framework
 
-The backend test gate runs ordinary backend tests and separately runs `apps.mcp.framework apps.mcp.tools` with MCP enabled and the application factory. Synthetic OAuth and mocked provider tests cover domain permissions without live credentials or paid requests. The shared deployment workflow stays unchanged: MacroMapper enables the connection UI through its app-owned Docker build default. See [the app MCP guide](../../backend/apps/mcp/tools/README.md).
+The backend test gate runs ordinary backend tests and separately runs `apps.mcp.framework apps.mcp.tools` with MCP enabled and the application factory. Synthetic OAuth and mocked provider tests cover domain permissions without live credentials or paid requests. The shared deployment workflow stays unchanged: MacroMapper enables the connection UI through its app-owned Docker build default. See [the app MCP guide](../../backend/apps/mcp/README.md#application-tools).
 
 ## 🔒 Merge and dependency controls
 

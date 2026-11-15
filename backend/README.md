@@ -324,16 +324,16 @@ extras are installed. Production mail receipt remains separately verified.
 
 The shared MCP framework remains owned by FullStackTemplate. Preserve its source
 pin and manifest when adopting canonical changes; see the
-[framework guide](apps/mcp/framework/README.md) for source ownership and the retained tests.
+[framework guide](apps/mcp/README.md#framework) for source ownership and the retained tests.
 
-The [MCP README](apps/mcp/framework/README.md) explains shared transport,
+The [MCP README](apps/mcp/README.md#framework) explains shared transport,
 OAuth, configuration, and verification.
 
 Application tools, scopes, consent, and client setup live in the
-[MacroMapper MCP README](apps/mcp/tools/README.md).
+[MacroMapper MCP README](apps/mcp/README.md#application-tools).
 
-Connection manifests, artwork, and package builders live in
-[chatgpt/](apps/mcp/chatgpt/README.md).
+Connection manifests and artwork live in
+[chatgpt/](apps/mcp/README.md#chatgpt).
 
 ## 🧪 Checks
 
