@@ -12,6 +12,8 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Align frontend npm commands: production builds run strict lint first and `lint:fix` applies available lint fixes.
+- Document frontend API configuration through development Compose and production build arguments, and exclude local frontend env files from Docker build contexts.
 - Rename shared frontend test support to `src/test-helpers/`, retain application and feature tests beside their implementation, and preserve application-specific helper behavior.
 - Consolidate shared frontend test setup, helpers and suites under `src/tests/`, update imports and discovery paths, and retain App, startup and feature tests beside their implementation.
 - Replace mocked frontend startup wiring checks with real React entry-point integration coverage for the signed-out login route, isolated state and blocked network access.
