@@ -1,42 +1,59 @@
 # AGENTS.md
 
-Production release ownership: use the [app-only release/recovery guide](deploy/production/README.md).
-Common release code/tests and workflow stages are pinned to the Infrastructure
-release standard. Update the shared source, then synchronize both applications;
-CI's parity check rejects independent vendor edits. App policy lives in
-`deploy/production/app.json`; preserve its intentional network/readiness differences.
+## 🧭 Ownership and shared rollout
 
-## 🌿 Main-first release history
+FullStackTemplate owns reusable application engineering and the canonical MCP
+Python framework. Infrastructure owns shared ingress, host operations and the
+versioned application release engine. Each application owns its domain behavior,
+credentials, OAuth issuer, consent, permissions and MCP tools; do not introduce a
+shared authorization service, cross-application account mapping or YNAB dependency.
 
-Land reviewed source changes on `main` before an authorized `env-prod` promotion.
-Production may intentionally lag while rollout dependencies or acceptance are
-unfinished; do not deploy merely to make branch trees equal. An exceptional,
-explicitly owner-authorized production-branch fix must be reviewed and reconciled into `main` before the next
-promotion. Preserve existing release history and checks rather than resetting or
-force-pushing either branch. See the [production guide](deploy/production/README.md)
-and [#329](https://github.com/VanillaIceCube/MacroMapper/issues/329).
+Follow the [shared rollout policy](https://github.com/VanillaIceCube/FullStackTemplate/blob/main/.github/README.md#-shared-engineering-ownership-and-rollout)
+for reusable framework, automation, test or security changes. One canonical
+FullStackTemplate parent must inventory all four repositories as required,
+not applicable, already satisfied or explicitly deferred with reasons and evidence.
+Infrastructure-owned deployment/host changes use an Infrastructure parent with
+linked downstream work; do not relocate source ownership.
+The parent is complete only after required downstream adoptions are merged and
+verified, or explicitly deferred with an owner, tracking issue and acceptance.
+Record final-head/main checks and exact PR/commit/evidence links; template-only
+success is insufficient. Preserve active PRs, issue history, production controls
+and non-triggering labels when consolidating work.
 
-MacroMapper uses manual setup steps; do not assume Django or Node dependencies are installed.
+## 📚 Documentation ownership
 
-When setup, routing, environment variables, deployment, or CI/CD changes, update the relevant documentation:
+The main README introduces the repository. Keep setup, commands, configuration,
+and maintenance details in the owning folder README and its linked references.
+Use consistent headings: 🧭 Structure, 💻 Local development, ⚙️ Configuration,
+🧪 Checks, 🔌 MCP integration, and 📚 Reference where applicable.
+Use the owning folder READMEs linked below for setup and maintenance.
+Keep this file current when its commands or constraints change, and update the
+owning README/reference when setup, routing, environment, deployment or CI changes.
+Record user-visible or operational changes in `CHANGELOG.md`.
 
-- Root overview: `README.md`
-- Backend/authentication: `backend/README.md`
-- Frontend/routing: `frontend/README.md`
-- Deployment: `deploy/README.md`
-- GitHub automation: `.github/README-WORKFLOWS.md`
-- User-visible or operational changes: `CHANGELOG.md`
+GitHub setup belongs in [.github/README.md](.github/README.md), workflow behavior
+in [.github/workflows/README.md](.github/workflows/README.md), and the shared
+reviewer/action contract in [.github/actions/README.md](.github/actions/README.md).
 
-## Changelog format
-Add a dated section at the top of `CHANGELOG.md` and use only the non-empty headings below, in this order:
+Application setup/API/authentication belongs in [backend/README.md](backend/README.md),
+frontend routing/configuration/style in [frontend/README.md](frontend/README.md),
+and local Docker/deployment setup in [deploy/README.md](deploy/README.md).
 
-1. `### Added`
-2. `### Fixed`
-3. `### Changed`
-4. `### Removed`
+## 📝 Changelog format
 
-## Local development
-Backend:
+Keep the single `# Changelog` title and established introduction at the top;
+never place entries above them. Use newest-first `## YYYY-MM-DD` sections,
+reusing the existing date instead of creating a duplicate. Within each date,
+use only nonempty `### Added`, `### Fixed`, `### Changed`, `### Removed` groups,
+in that order, with no duplicate categories and entries filed under the correct
+group. Use `- ` bullets and one blank line around headings. Preserve substantive
+history and valid UTF-8 text when editing or merging entries.
+
+## 💻 Local development
+
+Use manual setup; do not assume Django or Node dependencies are installed.
+Use Python 3.12 in an isolated environment and the Node version range in
+`frontend/package.json`. From the repository root:
 
 ```powershell
 python -m pip install -r backend/requirements.txt
@@ -44,13 +61,20 @@ python backend/manage.py migrate
 python backend/manage.py runserver 8000
 ```
 
-Frontend:
+In a separate shell, from the repository root:
 
 ```powershell
 Set-Location frontend
 npm ci
 npm start
 ```
+
+For local Docker hot reload and optional standalone HTTPS, follow
+[deploy/README.md](deploy/README.md). Initialize only missing local environment
+and database files; never truncate an existing SQLite file. Local Compose/proxy
+files are not production release inputs.
+
+## ⚙️ Configuration
 
 Optional backend variables:
 
@@ -78,78 +102,164 @@ Optional frontend variable:
 
 - `VITE_API_BASE_URL` (development default: `http://localhost:8000`; leave blank in same-origin production)
 
-## Checks
-Run checks in proportion to the change:
+Use [backend/README.md](backend/README.md) for configuration semantics and
+ignored local dotenv files, and [frontend/README.md](frontend/README.md) for
+build-time settings. Client-side variables must contain no secrets.
+
+## 🧪 Checks
+
+Run checks in proportion to the change, from the repository root:
 
 ```powershell
 python backend/manage.py test backend
 ruff check backend
 ruff format backend --check
-Set-Location frontend
+```
+
+From `frontend/`:
+
+```powershell
 npm test
 npm run lint:strict
 npm run format:check
 npm run build
 ```
 
-## Production
-Production is designed for `https://macromapper.judeandrewalaba.com` behind
-Cloudflare and an origin Nginx proxy.
+For browser checks, install backend requirements in an isolated Python environment,
+then run `npx playwright install chromium` and `npm run test:e2e` from `frontend/`.
+Ports 8001/3001 must be free. Preserve disposable SQLite/file mail, synthetic
+accounts and isolation from developer dotenv files and databases; do not use real
+accounts, external email or paid AI calls. Follow `frontend/README.md` for the
+configured test pools and browser evidence limits.
 
-- Frontend: `/`
-- Authentication: `/auth/`
-- Django admin: `/admin/`
-- Notification and future nutrition/activity APIs: `/api/`
-- GitHub deployment branch: `env-prod`
-- GHCR images: `macromapper-backend` and `macromapper-frontend`
-- Deployment path: `/opt/apps/macromapper`
+For shared release changes, run `python deploy/check_parity.py` and
+`python -m unittest discover -s deploy/tests -v` with a disposable local/CI Docker
+daemon, plus all applicable consumer suites. Never test against production.
 
-For production domain or route changes, review the Infrastructure gateway/vhosts,
-the app release configuration and allowlist/base-URL variables.
-`deploy/nginx-proxy.conf` and `deploy/docker-compose.yml` are local/legacy-only;
-use the [local Docker guide](deploy/README.md) for hot reload and standalone HTTPS.
-Production operations follow only the [app release guide](deploy/production/README.md)
-and the separately authorized Infrastructure plan.
+## 🚀 Production
 
-## GitHub automation
-MacroMapper automation includes lint, tests, CodeQL, dependency review, npm
-malware review, Dependabot auto-merge, AI PR reviewers, deployment, and
-scheduled security-alert aggregation.
+Ordinary changes merge through reviewed `main` before promoting an exact reviewed
+source tree through the repository's existing `env-prod` process. Preserve all
+required CI, reviews, owner authorization and recovery gates. Explicitly
+owner-authorized deployment experiments must return promptly to `main` through
+review before the next ordinary promotion. Preserve both histories and newer main
+work; never reset or force-push to manufacture parity. Intentional release lag is
+allowed while prerequisites or acceptance remain unfinished. History reconciliation
+does not authorize deployment, and an absent production branch is not a reason
+to create one. Follow the [main-first release policy](https://github.com/VanillaIceCube/FullStackTemplate/blob/main/.github/README.md#main-first-releases).
 
-Secret-dependent workflows must fail visibly when their credentials are unavailable. Keep GitHub App permissions and the credential separation described in `.github/README-WORKFLOWS.md`.
+Common release code, tests, checker and workflow are owned by Infrastructure.
+Change `app-release/v1` at the source, regenerate its manifest, then synchronize
+all consumers to the same immutable source commit. Application repositories track
+that source in `deploy/shared-source.json`; never edit only a vendored copy.
+Preserve app-specific Compose, network/readiness policy, immutable image digests,
+SQLite capture/recovery and explicit rollback. Keep shared ingress/certificates
+and host operations within their separately authorized Infrastructure scope.
 
-External GitHub Actions use immutable commit SHAs with version comments.
-Keep that convention when updating workflows or composite actions; preserve
-review/scanner failure gates and do not treat action updates as deployment approval.
+Use the [app-only release/recovery guide](deploy/production/README.md).
+`deploy/production/app.json` owns the app's intentional network/readiness policy.
+Review Infrastructure gateway/vhosts, Cloudflare DNS/proxy/Redirect/WAF/Caching
+settings and allowlist/base-URL variables when domains or routes change.
+Retain prior release images and matched private recovery data; no host-wide Docker
+pruning. Cleanup requires the host operator to review disk usage and select unused
+app images explicitly. Releases manage only the app's backend/frontend; local
+`deploy/docker-compose.yml` and `deploy/nginx-proxy.conf` are local/legacy-only.
+
+Production uses `https://macromapper.judeandrewalaba.com` behind Cloudflare and
+origin Nginx, with deployment path `/opt/apps/macromapper` and GHCR images
+`macromapper-backend`/`macromapper-frontend`. Frontend is `/`, authentication
+`/auth/`, admin `/admin/` and application APIs `/api/`. Preserve the app's release
+history and intentional holds described in
+[MacroMapper #329](https://github.com/VanillaIceCube/MacroMapper/issues/329).
+Production operations follow the app guide and separately authorized
+Infrastructure plan; local Compose/proxy files are not release inputs.
+
+## 🤖 GitHub automation
+
+Preserve existing required checks, scanner/lint/test gates and reviewer budgets.
+Eligible same-repository human and Dependabot PRs retain their reviewers; forks
+remain excluded from secret-bearing reviews. Keep reviewer identities and
+serialized writers separate, validated optional `AI_REVIEW_*` settings aligned,
+and Dependabot lint auto-fixes disabled. External GitHub Actions use immutable
+commit SHAs with version comments. Workflow updates do not authorize deployment.
+
+The shared publisher fails after every `REQUEST_CHANGES`, including repeated or
+unchanged verdicts; valid `APPROVE`/`COMMENT` pass and unavailable/invalid output
+fails. Missing credentials, incomplete required major-upgrade briefs and oversized
+diffs must fail visibly. The shared diff budget is 512 KiB. Obi-Wan's semver-major
+Dependabot brief uses complete primary-source evidence; web search remains limited
+to that review path. Run the repository's publisher regression tests and
+Actionlint when changing this contract. Where used, the read-only `verify-gates.js` audit requires actual
+successful reviewer results, including after cancelled or skipped runs.
+
+Dependency review retains full JSON in the `dependency-review-evidence` artifact,
+passes it through a file rather than environment variables, and limits RoboCop's
+report to 16 KiB plus summary metadata. Disclose omitted entries; bounded reports
+must not change the independent gate's non-success verdict. Missing evidence
+fails. Preserve CodeQL scope outputs, full default-branch coverage and RoboCop
+baseline evidence; concurrent security-alert closure requires verified final state.
+
+Secret-dependent workflows fail visibly when credentials are unavailable.
+RoboCop's short-lived App token reads alerts and authors issue mutations;
+`SECURITY_ALERTS_TOKEN` is isolated to personal GitHub Project v2 synchronization.
+Keep App IDs/private keys, least-privilege permissions, trigger policy and field
+setup documented in `.github/README.md`. Security-alert variables resolve in the
+three caller workflows, not local composite metadata; pass explicit model, effort
+and token inputs. Run `.github/actions/custom-regressions/security-alert-contract.test.js`
+after changes; actual loading acceptance requires fresh controlled dispatches on
+corrected main. Preserve applicable bounded malware review and documented
+coverage decisions. Maintain CI architecture diagrams and regenerate
+`.github/workflows/ci-source-inventory.json` with `python .github/tools/ci_architecture.py` after
+workflow edits. Promotion summaries are informational.
+
+Main requires `AI Code Review / Obi-Wan Code-nobi code review`,
+`AI Build Sheriff Review / Lint Eastwood build sheriff review`, and
+`AI Security Review / RoboCop security review`. Preserve all other existing
+ruleset requirements and the documented CodeQL scope/analyzer checks. The
+standalone `CodeQL` Code Scanning results context is not emitted by documentation-only
+PRs; scope/analyzer checks preserve the failure gate. Keep same-repository
+Dependabot auto-merge within its existing policy and independent checks. Run
+both publisher test files when changing the reviewer contract.
 
 ## 🔑 OpenAI reviewer isolation
 
 Use `OBI_WAN_OPENAI_API_KEY`, `LINT_EASTWOOD_OPENAI_API_KEY`, and
 `ROBOCOP_OPENAI_API_KEY` for their respective reviewers; RoboCop also owns
-all security-alert model calls. `OPENAI_REVIEWERS_PROJECT_ID` identifies this repository's
-reviewer project. Keep credentials separate across repositories and application
-environments, preserve visible missing-key failures, and follow the deferred
-cutover steps in `.github/README-WORKFLOWS.md`.
+all security-alert model calls. `OPENAI_REVIEWERS_PROJECT_ID` identifies this
+repository's reviewer project. Keep credentials separate across repositories
+and application environments, preserve visible missing-key failures, and follow
+the credential ownership and cutover verification in `.github/README.md`.
+Store the three reviewer OpenAI keys and three reviewer App private keys in both
+Actions and Dependabot. Keep production, application, SSH and Project-token
+secrets outside Dependabot. A human PR smoke test does not prove Dependabot access.
+
+Use `gpt-6-luna` for OpenAI code, build and security reviewers and security-alert
+grouping. Preserve each reviewer's key/project isolation, budgets and blocking
+gates. Application AI model selection remains app-owned.
 
 Meal estimation keeps `MACROMAPPER_OPENAI_API_KEY`, with separate production
 and local keys/projects. Store local values only in ignored `backend/.env` or
 `deploy/.env`; production values enter the approved private release bundle via
 the Actions repository secret. Never store keys in `deploy/backend.env`.
 
+## 🔌 MCP integration
 
-## 🔌 Shared MCP framework
+Shared MCP framework changes originate in FullStackTemplate's canonical Python
+package; synchronize consumer hashes and pins. Derived applications own enablement,
+registries, scopes and business tools. Infrastructure supplies ordinary gateway
+routing and its optional MCP contract. Preserve existing Notoli credentials,
+scopes, tool permissions, connection and exact proxy trust. The retired central
+issuer is not a deployment prerequisite. Advertise an app service only after its
+own registry, OAuth and readiness checks pass; framework adoption alone does not
+authorize activation, client registration, owner consent or plugin installation.
 
-MCP framework changes follow [docs/MCP-FRAMEWORK.md](docs/MCP-FRAMEWORK.md). FullStackTemplate owns the canonical Python package; keep all consumer hashes/pins aligned. MacroMapper implements its own registry and scopes; shared framework files remain unchanged. Preserve Notoli credentials, scopes, tool permissions and exact proxy trust.
-
-
-## 🧭 App-owned MCP
-
-Follow [the app MCP contract](docs/MCP.md) and #284. MacroMapper owns its OAuth,
-existing-account consent and domain registry; Infrastructure supplies ordinary
-Nginx routing. Do not restore the shared issuer or YNAB dependency. Preserve
-REST JWT/login behavior and exact trusted peer `172.20.0.3`. Read is the default
-scope; writes need explicit confirmation and paid estimates also need their
-separate scope. Recheck token/user/ownership on every operation.
+Follow the [app MCP contract](backend/macromapper_mcp/README.md) and
+[MacroMapper #284](https://github.com/VanillaIceCube/MacroMapper/issues/284).
+MacroMapper owns OAuth, existing-account consent, its registry and scopes;
+shared framework files remain unchanged. Preserve REST JWT/login behavior and
+exact trusted peer `172.20.0.3`. Read is the default scope; writes need explicit
+confirmation and paid estimates also need their separate scope. Recheck token,
+user and ownership on every operation.
 
 Production policy and frontend Docker builds enable the reviewed app connector;
 local backend defaults remain off. Run both backend profiles and frontend tests,
@@ -158,6 +268,21 @@ explicit recovery. A failed first enable uses the retained previous disabled
 controller and its readiness policy, never an edited enabled bundle. Client
 registration, owner consent and plugin installation remain separate actions.
 
-## 🤖 Reviewer model policy
+## 🧩 Repository-specific contracts
 
-Use `gpt-6-luna` for OpenAI code, build and security reviewers and security-alert grouping. Preserve each reviewer’s existing key/project isolation, budgets and blocking gates. Application AI model selection remains app-owned.
+Preserve MacroMapper's AI/data and domain contracts in the
+[backend README](backend/README.md), [frontend README](frontend/README.md),
+[catalog identity guide](backend/README.md#-canonical-food-identity),
+[meal interpretation guide](backend/README.md#-meal-interpretation-and-portions) and
+[nutrition integrity guide](backend/README.md#-nutrition-evidence). Catalog/manual diary
+work needs no AI key. Keep provider calls mocked in tests, bounded estimation
+budgets, draft preservation and atomic publication; do not publish late results.
+Preserve source/confidence/provenance, historical nutrition snapshots, food
+identity/portion semantics and private user adjustments. Keep frontend domain
+modules independent of React/presentation and use their public entry points.
+
+Frontend uses Vite, Vitest/jsdom, ESLint 10 and `frontend/dist/`; production API
+requests remain same-origin with blank `VITE_API_BASE_URL`. Keep compatible
+Material UI/icon versions and dependency overrides documented in the frontend
+README. The estimates suite remains a discoverable `estimates/tests/` package;
+root-level full backend discovery requires `python backend/manage.py test backend`.

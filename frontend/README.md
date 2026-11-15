@@ -1,98 +1,43 @@
-# 🎨 MacroMapper Frontend (React)
+# 🎨 MacroMapper frontend
 
-Production release ownership: use the [app-only release/recovery guide](../deploy/production/README.md).
+The React application uses Vite and Material UI for pages, navigation,
+authentication, and the application shell.
 
-MacroMapper's frontend is a Vite-powered React 19 single-page application built
-with Material UI and React Router 8. It will provide an individual meal and
-activity diary, source-aware GPT meal proposals, nutrition goals, and trend
-reporting through MacroMapper's warm, editorial Field Atlas visual system.
+## 🧭 Structure
 
-The current implementation includes the authenticated application shell,
-private meal diary, and GPT-assisted estimate-review flow. See the
-[product vision](../docs/PRODUCT_VISION.md) for the remaining user experience
-and release sequence.
+- `src/components/`: reusable interface components.
+- `src/pages/`: application pages and routes.
+- `src/services/`: API requests and session handling.
+- `src/domain/`: pure nutrition, portion, and meal calculations.
+- `src/__tests__/`, `e2e/`: component and isolated browser tests.
 
-AI estimation can take up to two minutes; the dialog explains the wait and keeps
-the description when the backend returns a safe timeout error. Both the local
-frontend image's API proxy and the production Infrastructure gateway allow
-120 seconds, with a 110-second total AI budget in Django.
+## 💻 Local development
 
-## Domain entry points
+Use Node.js 24.15+ within 24.x or Node.js 26.x, matching `package.json`.
+From the repository root:
 
-Components and pages import meal-item operations from `src/domain/mealItem` and
-nutrition operations/definitions from `src/domain/nutrition`, using named imports
-relative to the consumer. Each package's `index.js` exposes its public API;
-consumers should not reach into `adapters`, `portions`, `tree`, `calculations`,
-or `definitions` directly. Keep export names unique within a package.
-
-Within domain implementations, direct relative imports remain appropriate and
-avoid routing a module's own dependencies through its entry point. Domain code
-may depend on other domain modules and pure utilities, but remains independent
-of React, Material UI, components, pages and presentation metadata. Keep labels
-and theme details in the existing presentation layer.
-
-Run `npm test -- src/__tests__/domainArchitecture.test.js` from `frontend` for
-public-boundary, export-collision, dependency-cycle and UI-independence checks.
-Add behavior tests beside domain implementations and run the full frontend suite
-and production build when changing entry points or their consumers.
-
-## 🧭 Visual system
-
-The coordinated rollback was cancelled before production changed. The owner then clarified #382: undo #377’s date-control visual changes. The prior responsive alignment, button sizing and native-input placement remain; the independent nonempty-date safety guard prevents clearing the input from breaking navigation. Earlier Food & Servings heading/full-cell alignment is retained. This does not resolve #255’s original native-picker anchoring concern; #255/#200 remain open for renewed acceptance. [Historical batch evidence and clarified scope](docs/visual-bugs-255-200.md) are retained without reapplying the rejected visuals.
-
-Run `npm run build` then `npx playwright test --config playwright.diary.config.mjs` for mobile/desktop date, food and meal-review presentation against the production build. The cases also run in the existing `npm run test:e2e` suite. Set `E2E_DIARY_BASE_URL` to the deployed origin to inspect its actual public assets; the fixtures intercept every application API request, use synthetic session data, and abort unexpected requests before any placeholder credential or write reaches a host. These checks do not prove an authenticated production backend journey or native OS calendar chrome.
-
-The frontend uses the Field Atlas direction described in
-[`docs/design/FIELD_ATLAS.md`](docs/design/FIELD_ATLAS.md). Shared theme
-configuration lives in `src/theme.js`, with matching semantic CSS tokens in
-`src/App.css`.
-
-Design mockups live alongside the guide in `docs/design/`, and the root README's
-application screenshots live in `docs/images/`. These documentation files are
-excluded from Docker build contexts.
-
-- Bone and warm paper surfaces keep the application calm and editorial.
-- Midnight ink provides text and structural contrast.
-- Forest marks primary actions and confirmed states, Persimmon marks editable
-  estimates, and Mineral blue supports neutral nutrition and activity data.
-- Nutrition data uses Midnight ink for calories, Forest for protein, dark
-  Mineral for carbohydrates, and Persimmon for fat.
-- Newsreader supplies editorial headings; Inter is used for controls, labels,
-  navigation, and body copy.
-- Color is always paired with labels, icons, borders, or other non-color cues.
-
-See [`STYLE_GUIDE.md`](STYLE_GUIDE.md) before adding or restyling frontend
-components.
-
-## Domain architecture
-
-Reusable nutrition and meal-item logic lives under `src/domain/`:
-
-```text
-src/domain/
-├── nutrition/
-│   ├── definitions.js   # Nutrient keys, units, classifications, and energy ratios
-│   └── calculations.js  # Normalization, totals, macro calories, and aggregation
-└── mealItem/
-    ├── portions.js      # Portion selection and serving conversions
-    ├── adapters.js      # Catalog, proposal, and saved-meal transformations
-    └── tree.js          # Immutable nested meal edits and nutrient scaling
+```powershell
+Set-Location frontend
+npm ci
+npm start
 ```
 
-Components and pages import these modules directly. Domain modules depend only
-on other domain modules or neutral utilities; they never import React, Material
-UI, components, or pages. Locale-aware number formatting is shared through
-`src/utils/nutritionFormatting.js` because portion labels and UI displays use the
-same conventions.
+Open `http://macromapper.localhost:3000`. For Docker hot reload, follow the
+[deployment guide](../deploy/README.md).
 
-Nutrient labels, CSS colors, chart gradients, and chart decoration belong in
-`src/components/nutrition/nutritionPresentation.js`. It combines presentation
-metadata with the authoritative domain definitions and calculated values.
-Domain tests live alongside their modules, and the architecture tests check
-dependency direction and circular imports. All consumers use the new paths,
-so no compatibility re-export files are needed.
+## ⚙️ Configuration
 
-## 🧭 Routes
+`VITE_API_BASE_URL` controls the API origin. Leave it blank for production same-origin
+requests; client-side settings must contain no secrets. The build output is
+`dist/`.
+
+An unset API origin defaults to localhost:8000 during development. Configure an
+explicit origin in the shell or ignored `.env.local`; leave it blank in production.
+Vite's `import.meta.env.BASE_URL` supplies the router/asset base. Development uses
+port 3000; production Nginx serves the static build and preserves SPA deep links.
+
+## 🗺️ Routes and behavior
+
 - `/login`: email and password login
 - `/register`: account creation with an optional username
 - `/forgot-password`: password-reset email request
@@ -143,107 +88,196 @@ relying on color alone. Initial AI definitions are reusable shared catalog
 foods; substantive review edits are saved as private versions derived from the
 shared base.
 
-React Router 8 requires no production routing API changes in MacroMapper. The
-application already imports its DOM routing APIs from `react-router` rather than
-the removed `react-router-dom` compatibility package. The test wrapper no
-longer passes the v7 future flags, whose behavior is standard in v8, and the
-application integration tests cover browser-router navigation, protected
-redirects, and unknown-route fallback behavior.
+## 🔐 Sessions and connections
 
-## 🔐 Authentication And Shell Behavior
-- Access and refresh tokens are stored in `sessionStorage`.
-- The profile name and email are stored for the app header.
-- API requests that receive a `401` attempt one refresh-token exchange.
-- An invalid refresh token clears the session and redirects to login.
-- Login and registration navigate directly to the protected Meal Diary.
-- The app header title is `MacroMapper`.
-- The header provides MacroMapper navigation, recipient-scoped
-  notifications, profile display, and logout action.
-- The drawer contains the Meal Diary destination and MacroMapper product description.
-- The responsive meal diary lets users search the
-  visible catalog, create a personal food, add/remove foods, change quantities,
-  inspect saved composite ingredients, and create, edit, or delete meals.
+Authentication forms disable submission while pending. Tokens and profile data
+live in `sessionStorage`; new sessions trim profile fields and clear absent values.
+Protected requests use the stored JWT when the caller omits Authorization.
+Public authentication forms do not receive an injected access token.
 
-## ✨ Planned Product Surfaces
+The request wrapper preserves object, tuple-array, and native `Headers` values
+through one JWT refresh/retry. Invalid refresh credentials clear the session;
+temporary refresh failures retain it. Notification failures keep actions available
+for Retry, and malformed mark-read responses must not navigate away.
+Use semantic links for destinations and buttons for actions, with keyboard and
+native new-tab coverage.
 
-The authenticated shell opens directly to the daily diary and includes the
-Food Item search and creation needed for manual meal logging. It will grow to
-include an AI meal-review flow, nutrition and activity goals, and trends.
+Optional consent and Connected Apps use `VITE_MCP_ENABLED=1`. Preserve JWT-only
+consent and validated return paths. See the [backend MCP guide](../backend/README.md#-mcp-integration).
+The production Dockerfile enables this build argument by default; raw Vite
+development remains opt-in. Enabling the UI does not register a client or grant.
 
-Authentication endpoint functions live in `src/services/authApiClient.js`.
-Notification functions live in `src/services/notificationApiClient.js`. Token
-refresh and unauthorized-response behavior live in
-`src/services/requestClient.js`.
-Meal, daily-total, catalog-search, and personal-food requests live in
-`src/services/mealApiClient.js`.
+## 🧮 Domain architecture
 
-## 💻 Local Setup
-The checked-in frontend dependencies require Node.js 24.15+ within 24.x or Node.js 26.x. CI reads
-that range from `package.json`, and the production Docker image uses Node.js 26.
+Components and pages import meal-item operations from `src/domain/mealItem` and
+nutrition operations/definitions from `src/domain/nutrition`, using named imports
+relative to the consumer. Each package's `index.js` exposes its public API;
+consumers should not reach into `adapters`, `portions`, `tree`, `calculations`,
+or `definitions` directly. Keep export names unique within a package.
 
-```powershell
-npm ci
-npm start
-```
+Within domain implementations, direct relative imports remain appropriate and
+avoid routing a module's own dependencies through its entry point. Domain code
+may depend on other domain modules and pure utilities, but remains independent
+of React, Material UI, components, pages and presentation metadata. Keep labels
+and theme details in the existing presentation layer.
 
-Open the development frontend at
-`http://macromapper.localhost:3000`. The development API default is
-`http://localhost:8000`. Override it with:
+Run `npm test -- src/__tests__/domainArchitecture.test.js` from `frontend` for
+public-boundary, export-collision, dependency-cycle and UI-independence checks.
+Add behavior tests beside domain implementations and run the full frontend suite
+and production build when changing entry points or their consumers.
 
-```env
-VITE_API_BASE_URL=http://localhost:8000
-```
+## 🥗 Nutrition evidence
 
-Production builds should normally leave `VITE_API_BASE_URL` blank so
-`/auth/...` and `/api/...` requests use the current origin.
+Meal review retains official parent nutrition while showing inferred component
+values separately. Details expose mixed/partial evidence, clickable sources,
+per-nutrient coverage, model confidence and failed/unavailable research warnings.
+User changes clear verification for the changed definition; consumed count changes
+preserve per-serving evidence. Legacy records remain readable. See the
+[backend evidence contract](../backend/README.md#-nutrition-evidence).
+Natural-size changes also preserve the food's per-serving evidence. Changing an
+ingredient's size changes its recipe contribution, so verification and confidence
+on enclosing composites are cleared and their totals are recalculated. Switching
+measurement units alone preserves both consumed nutrition and composite evidence.
 
-Vite exposes client-side variables only when they use the `VITE_` prefix. The
-production frontend image uses `nginx.conf` to serve Vite's `dist` directory
-and forward `/auth/`, `/api/`, and `/admin/` to the Compose backend service.
+## 🎨 Style guide
 
-On the shared production host, Notoli's existing public Nginx routes the
-MacroMapper hostname to its private frontend and sends `/auth/`, `/api/`,
-`/admin/`, and Django static assets directly to the private backend. CI builds
-with `VITE_API_BASE_URL` empty; provider credentials belong only to Django's
-runtime environment. SPA deep links retain the existing frontend fallback.
-See the [deployment guide](../deploy/README.md) for both Compose overlays.
+### Foundations
 
-## Docker Hot Reload
-The development Compose file supplies frontend environment variables directly,
-including `VITE_API_BASE_URL`, so this setup requires no frontend `.env` file.
+- Use Material UI components and responsive `sx` values before adding custom
+  layout primitives.
+- Use the centralized Material UI theme in `src/theme.js` and the matching CSS
+  custom properties in `src/App.css`; do not introduce one-off brand colors.
+- Follow the Field Atlas direction: warm paper surfaces, ink structure, restrained
+  cartographic details, and factual rather than clinical language.
+- Use Bone `#F6F1E7` for the canvas, Midnight ink `#17324D` for text and
+  structure, Forest `#2E6B4F` for confirmed states and primary actions,
+  Persimmon `#E46B3C` for editable estimates, and Mineral blue `#A9CAD4` for
+  neutral data surfaces.
+- Use Midnight ink for calories, Forest for protein, the accessible dark
+  Mineral token for carbohydrates, Persimmon for fat, and the deeper activity
+  token for activity. Apply these semantic tokens consistently to cards,
+  legends, and charts. Pair every state color with text, an icon, or another
+  non-color cue.
+- Use `Newsreader` for editorial headings and `Inter` for navigation, controls,
+  labels, and body copy. Apply tabular numerals to nutrition data with the
+  `numeric-data` class.
+- Prefer one-pixel ink borders, 10–14 px radii, and surface shifts to elevation.
+  Shadows should remain subtle and limited to floating menus or focus layers.
+- Preserve 44 px minimum interactive targets, visible keyboard focus, reduced
+  motion behavior, and WCAG 2.2 AA contrast.
+- Keep authenticated and public routes visually consistent with the shared
+  application shell.
 
-From the repository root, run:
+### Product language and layout
 
-```powershell
-docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml up --build -d
-```
+Use sentence case and factual `within target`, `above target`, and `below target`
+labels. Source badges combine icon and text; unknown values display `Unavailable`.
+Keep editorial mapping language around Describe → Review components → Save to diary;
+use ordinary language for settings. Compass/route/pin motifs orient and explain
+provenance; decorative coordinates must never imply a user's real location.
+Desktop rails and optional detail inspectors retain list context. Mobile actions
+remain visible above fixed navigation, and secondary destinations use overflow
+rather than crowding primary tabs. Charts describe patterns without praise, blame
+or medical interpretation.
 
-The development image uses `Dockerfile.dev`, mounts `frontend/`, and keeps
-`node_modules` in a Docker volume. Vite watches the mounted source and reloads
-without rebuilding the production image. Open
-`http://macromapper.localhost:3000`; the development API runs at
-`http://macromapper.localhost:8000`. Both ports are localhost-only by
-default and can be changed with the `MACROMAPPER_DEV_*_PORT` variables
-in `deploy/.env`.
+### Authentication
+- Build public authentication pages with `AuthPageShell`.
+- Give every form a visible heading, native submit behavior, and browser
+  autocomplete metadata.
+- Show API outcomes through the shared application snackbar.
+- Avoid exposing whether an email address belongs to an account in
+  forgot-password responses.
 
-## 🧰 Checks
-The Vite configuration controls frontend builds and tests. Browser-target
-overrides belong in `vite.config.mjs` through `build.target`.
+### Application shell
+
+- Keep `MacroMapper` as the app-header title.
+- Preserve the drawer, notification, profile, and logout entry points when
+  adding product routes.
+- Keep the Home page specific to MacroMapper and clearly distinguish active
+  capabilities from roadmap features.
+- Add future product routes behind `AuthenticatedRoute` unless they are
+  intentionally public.
+- Keep contour lines low contrast and away from dense forms, tables, and data
+  visualizations.
+- Concentrate mapping language around meal creation and provenance; use plain
+  language for ordinary settings and account actions.
+
+### Nutrition surfaces
+
+- Import nutrient definitions and calculations from `src/domain/nutrition/` and
+  meal-item portions, adapters, and tree operations from `src/domain/mealItem/`.
+  Keep domain modules independent of React, Material UI, components, and pages.
+- Keep labels, semantic colors, gradients, and chart decoration in
+  `components/nutrition/nutritionPresentation.js`. Share locale-aware number
+  formatting through `utils/nutritionFormatting.js`.
+
+- Present daily totals as bordered data cards with tabular numerals. Use the
+  semantic calorie, protein, carbohydrate, and fat tokens; keep secondary
+  nutrients on neutral paper surfaces. Calories use Midnight ink as a neutral
+  total and must not reuse a macro color.
+- In component-calorie comparisons, use thicker horizontal bars whose total
+  length represents component calories and whose stacked Forest, dark Mineral,
+  and Persimmon segments represent calories from protein, carbohydrates, and
+  fat. Fall back to Midnight ink when macro data is incomplete.
+- Use Forest to identify saved meals and confirmed catalog actions, Mineral for
+  neutral date and search surfaces, and Persimmon for user-entered food
+  estimates.
+- Call saved records “meal items” in the interface. Reserve component language
+  for the optional ingredient breakdown within a composite food.
+
+## 🧪 Checks
+
+From `frontend/`:
 
 ```powershell
 npm test
-npm run test:watch
 npm run lint:strict
 npm run format:check
 npm run build
 ```
 
+## 🌐 Browser tests
 
-## 🔌 Shared MCP framework
+`frontend/e2e/` owns the browser journeys and their helpers: `run_e2e.cjs` creates
+and cleans up disposable state, `e2e_backend.py` starts the isolated loopback
+backend, `e2e_settings.py` suppresses developer dotenv loading and selects temporary
+SQLite/file mail, and `collect_browser_artifacts.py` collects bounded failure
+evidence. `npm run test:e2e` invokes the runner from `frontend/`; CI collects reports
+with `python e2e/collect_browser_artifacts.py` from the same directory.
 
-See [the app MCP guide](../docs/MCP.md). Consent, the profile-menu Connected Apps link and connection revocation require `VITE_MCP_ENABLED=1`. The production Dockerfile defaults this build argument to `1`; raw Vite development remains opt-in. Pass `--build-arg VITE_MCP_ENABLED=0` for a deliberately disabled image. Preserve JWT-only consent and validated connection return paths. The existing UI lists the actual requested read/write/estimate permissions; enabling it does not create an OAuth client or grant.
+Install backend requirements in an activated Python environment. From `frontend/`:
 
-## 🔒 Transitive dependency maintenance
+```powershell
+npx playwright install chromium
+npm run test:e2e
+```
+
+Ports 8001 and 3001 must be free. The wrapper starts Django and Vite with fresh,
+marked temporary state and stops both before deleting that state. It uses synthetic
+users, temporary SQLite and file mail; it does not load developer `.env` files,
+reuse running servers, send external email, or make paid AI calls. The shared auth
+journeys cover registration, session isolation, logout, protected routing, invalid
+credentials, JWT expiry, and password reset. Product journeys belong under `e2e/`.
+
+The suite uses one Chromium worker, no retries, and a ten-minute global timeout.
+Linux CI installs Chromium with `--with-deps`. Failure artifacts are written to
+`test-results/` and `playwright-report/`; CI retains bounded evidence for seven
+days. Reports may include disposable tokens, so do not publish them in issues.
+
+Diary presentation also runs against a production build:
+
+```powershell
+npm run build
+npx playwright test --config playwright.diary.config.mjs
+```
+
+These cases use intercepted synthetic API fixtures and check mobile/desktop date,
+food and meal-review behavior. They do not prove live authenticated backend
+operations or OS-native calendar chrome. Keep `showPicker()` synchronous inside
+the user handler, with its existing click fallback. Preserve the nonempty-date
+guard, responsive navigation bounds and Today behavior.
+
+## 🛠️ Maintenance
 
 The frontend temporarily overrides `minimatch@>=9 <11.0.1` to `^11.0.1` for
 [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249).
@@ -258,104 +292,58 @@ parents use the retained matching API. Validate a clean `npm ci`, `npm ls
 minimatch glob --all`, strict lint, tests and the production build whenever a
 parent or override changes. Review upstream API changes before widening the
 selector. Remove overrides once all parent ranges natively accept patched
-versions, regenerate the lockfile and repeat those checks. Canonical rollout:
-[FullStackTemplate #267](https://github.com/VanillaIceCube/FullStackTemplate/issues/267).
+versions, regenerate the lockfile and repeat those checks.
 
-## Authentication and notification reliability
+Keep Material UI and icons on compatible versions and regenerate the lockfile
+together. Prefer `sx` and `slotProps`; preserve accessible control labels. For
+jsdom CSS assertions, check computed transition/animation longhands and use real
+browser tests for responsive geometry. Follow the Node range in `package.json`,
+and verify clean installs, strict lint, formatting, tests and production builds.
+See [Docker dependency maintenance](../deploy/README.md#development-dependency-reproducibility).
 
-All four authentication forms disable submission while requests are pending and
-restore it after failure. New sessions trim profile strings and remove absent or
-blank username/email fields. The request client normalizes object, tuple-array
-and native `Headers` inputs, preserves custom headers on one JWT refresh/retry,
-and attaches the stored access token when explicit Authorization is absent
-outside public auth forms. Invalid refresh credentials clear tokens/profile;
-transient refresh failures preserve the session. Existing consent return paths
-remain application-specific.
+## 📚 Related guides
 
-Notifications expose Retry and retain failed actions. Item/bulk controls disable
-overlapping actions through response parsing. Failed/malformed mark-read responses
-keep the inbox open instead of navigating. See [the audit](../docs/AUTH-PARITY.md).
+- [Backend and MCP integration](../backend/README.md).
+- [Local Docker and production releases](../deploy/README.md).
 
-## Development dependency reproducibility
+### Connections response contract
 
-Development images pin reviewed multi-platform Node 26 and Miniforge 26.9.4-0
-registry digests. Production Dockerfiles and the independent release engine are
-unchanged by this development-image policy. Refresh tags/digests together after
-registry verification and a disposable build/configuration check.
+Successful consent, decision, list and revoke responses must be JSON objects.
+Unreadable, empty, null, scalar or array successes reject with `Request failed.`;
+a protocol failure must not follow a callback or claim revocation succeeded.
+HTTP failures use the first nonblank string in `error_description`, `detail`, then
+`error`, otherwise `HTTP <status>`. Never expose raw HTML/plaintext, parser errors,
+nested objects or unrelated JSON fields as fallback messages. Backend public error
+fields must be safe to display. Preserve JWT-only headers, omitted cookies, form
+encoding, signed consent tickets and validated callbacks. Invalid refresh credentials
+clear the session; transient proxy/refresh failures retain it for retry. Notoli
+retains its extra post-refresh 401 handling and legacy API-base compatibility.
 
-The frontend development entrypoint hashes both `package.json` and
-`package-lock.json` inside its persistent `node_modules` volume. Fresh volumes
-install with `npm ci`; unchanged restarts reuse dependencies; changing either
-manifest reinstalls. Missing manifests or a failed installation stop startup and
-retry on the next invocation. Use one volume per checkout and restart after edits.
-Run `node --test tests/dev-dependencies.test.cjs` from the repository root for the
-credential-free mocked lifecycle/exit-status regression. Compose configuration
-checks do not deploy or touch application data.
+## 🧭 Product intent
 
-Supported test/build runtimes are Node24.15+ within24.x or Node26.x. jsdom30 explicitly excludes the end-of-life Node25 line; do not treat >=24 as universal support. Use the same supported runtime for before/after timings.
+MacroMapper is personal-use first: accounts, meals and custom foods remain private.
+Catalog-first text estimates expose components, quantities, sources and confidence
+for review before saving a pinned diary snapshot. A Food Item can be consumed
+directly or composed of other Food Items; personal meal edits never redefine the
+shared canonical food. Official/verified, reusable community/AI estimates and private
+personal records retain distinct trust states. Unknown nutrients are unavailable,
+never zero. Track calories, protein, carbohydrate, fat, fiber, sugar, sodium,
+cholesterol and available micronutrients without implying clinical guidance.
 
-## Optional isolated browser tests
+Goals, calculated user-editable targets, activity logging and expanded trends remain
+planned. The planned baseline describes non-exercise life; only activities explicitly
+counted toward the budget add estimated calories. Avoid double-counting regular
+exercise. Activity estimates and targets are editable tracking information, never
+medical advice. Weight tracking, photos/barcodes and household/social/coaching
+features remain deferred.
 
-Install the backend requirements in an activated Python environment, then from
-`frontend` run the following with Node 24.15+ within 24.x or Node 26.x:
+<details>
+<summary>A note from the author</summary>
 
-```powershell
-npm ci
-npx playwright install chromium
-npm run test:e2e
-```
+First and foremost, I created this application because I wanted a Calorie Counting App. I used to use MyFitnessPal, but I wanted something AI-Powered, and all options were like $20 bucks a month. I also didn't want to take pictures of my food? I mean I feel like that would just give you the worst estimate of all time.
 
-Linux CI uses `npx playwright install --with-deps chromium`. The wrapper creates
-a marked temporary directory, starts fresh Django/SQLite on 127.0.0.1:8001 and
-Vite on 127.0.0.1:3001, and removes only its generated state after both servers
-stop. Those ports must be free; existing servers are never reused. The backend
-does not load developer `.env` files, uses synthetic users, disables MCP, and
-writes reset messages to the temporary mail directory. No SMTP or model calls
-are made. Registration, reload/session isolation, logout/protected routing, bad
-credentials, expired access and valid/invalid password-reset tokens are covered.
+I had a vision where you'd write up a description then it would do it's best to fact check it against the internet. Like if I said I wanted a double double animal style with no lettuce (this is an example, I love lettuce) from inn-n-out, it would go to the internet and find the double double facts, find the animal style if it can, then break it down into components, and then remove the lettuce. And that info would be available for everyone in the application, with confidence level, the actual source, and a provenance marking.
 
-There is one Chromium worker, no retries, and a ten-minute global timeout. Local
-runs of the three shared journeys take roughly one minute after installation;
-CI also pays Python/npm/browser installation cost. Failure traces/screenshots
-and the HTML report are local in `test-results/` and `playwright-report/`. CI
-retains at most 20 MiB/file and 50 MiB/run for seven days, listing omitted files
-in `browser-evidence/INDEX.txt`; full text remains in the job log. Reports may
-contain disposable test tokens and should not be copied into public issues.
+Outside of that, I mean my goal was to get a good personal use application that utilized generative AI in a manner that you could trust and audit it.
 
-Add product journeys under `e2e/` using these isolated users and existing APIs.
-Keep authentication journeys shared; domain fixtures belong to their app. Do not
-add real customer accounts, external email or paid-model requests. Infrastructure
-has no browser application and retains its ingress/Docker protocol suites.
-
-## Native diary picker anchoring
-
-The browser-native date input shares the existing visible date button's positioned bounds. Responsive navigation alignment, original compact button minimum widths and the Today slot are preserved. Browser tests check input/trigger bounds at 320/375/600/768/1024/1440px, exercise real `showPicker()` user activation and date selection/Today return, and retain the prior diary/food/meal-review cases. A separate before/after measurement against production `94a60ab3` recorded zero visible button/navigation geometry change at those widths; that comparison is release evidence, not an automatic cross-revision CI assertion. The button still uses its click fallback when the picker API is unavailable. See #255; OS-provided calendar chrome on physical phones is a separate verification limit. [`showPicker()` API behavior](https://developer.mozilla.org/en-US/docs/Web/API/HTMLInputElement/showPicker) requires a user action, so the method stays synchronous inside the button handler.
-
-### jsdom 31 layout tests
-
-Vitest uses jsdom 31. Its CSS engine evaluates media queries at the default
-1024px viewport and may serialize whitespace differently. Responsive Diary tests
-check the generated mobile and desktop declarations and the computed desktop
-layout; the isolated browser suite continues to check real mobile/desktop geometry.
-
-## Calculation and input regression guidance
-
-Keep editable decimal text separate from committed numeric quantities. Preserve
-finite-value/portion validation, safe fallbacks and deterministic chart ordering.
-Use the domain package entry points and dependency-direction/cycle tests when
-moving calculations; presentation labels, colors and chart decoration stay in
-the UI. Authentication and notification changes retain safe parsing, pending
-controls, retry feedback and profile cleanup through the shared request helpers.
-
-## Nutrition evidence display
-
-Meal review retains official parent nutrition while showing inferred component
-values separately. Details expose mixed/partial evidence, clickable sources,
-per-nutrient coverage, model confidence and failed/unavailable research warnings.
-User changes clear verification for the changed definition; consumed count changes
-preserve per-serving evidence. Legacy records remain readable. See the
-[backend evidence contract](../docs/NUTRITION-INTEGRITY.md).
-Natural-size changes also preserve the food's per-serving evidence. Changing an
-ingredient's size changes its recipe contribution, so verification and confidence
-on enclosing composites are cleared and their totals are recalculated. Switching
-measurement units alone preserves both consumed nutrition and composite evidence.
+</details>

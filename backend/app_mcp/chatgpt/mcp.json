@@ -1,0 +1,26 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "macromapper": {
+      "type": "streamable-http",
+      "url": "https://macromapper.judeandrewalaba.com/mcp",
+      "extensions": {
+        "com.openai": {
+          "auth": {
+            "type": "oauth",
+            "client": {
+              "mode": "provided",
+              "clientId": "macromapper-chatgpt",
+              "tokenEndpointAuthMethod": "none"
+            },
+            "authorizationUrl": "https://macromapper.judeandrewalaba.com/auth/mcp/authorize/",
+            "tokenUrl": "https://macromapper.judeandrewalaba.com/auth/mcp/token/",
+            "baseScopes": [
+              "macromapper:read"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

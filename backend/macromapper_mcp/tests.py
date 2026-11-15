@@ -788,7 +788,7 @@ class PaidOperationTests(Fixtures, TransactionTestCase):
     ):
         from oauth2_provider.models import AccessToken
 
-        from mcp_framework.server import DjangoTokenVerifier
+        from app_mcp.server import DjangoTokenVerifier
 
         from . import server
 
@@ -1134,7 +1134,7 @@ class ProtocolTests(Fixtures, TransactionTestCase):
         import httpx2
         from django.core.asgi import get_asgi_application
 
-        from mcp_framework.asgi import create_application
+        from app_mcp.asgi import create_application
 
         application = create_application(get_asgi_application())
 

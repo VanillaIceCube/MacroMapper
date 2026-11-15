@@ -106,7 +106,7 @@ async def call(function, *args):
 
 
 def create_server():
-    from mcp_framework.server import create_server as framework_server
+    from app_mcp.server import create_server as framework_server
 
     server = framework_server(
         instructions=(
