@@ -115,6 +115,12 @@ build-time settings. Client-side variables must contain no secrets.
 
 ## 🧪 Checks
 
+Keep backend tests in owning `tests/` packages with descriptive behavior-based
+`test_*.py` modules and empty `__init__.py` files. Shared fixture helpers must not
+define discoverable test cases or import test modules. Group modules and classes
+by behavior, preserve test discovery and assertions when splitting, and keep the
+canonical MCP framework tests aligned across applications.
+
 Run checks in proportion to the change, from the repository root:
 
 ```powershell
@@ -254,7 +260,7 @@ existing credentials, bounded API timeout with the 10-second fallback, disabled
 API dumps and no automatic retries. Missing-key configuration errors must fail
 before HTTP. Keep generic reset responses and safe caller-only error logging;
 never log exception/provider bodies, recipients, reset tokens or credentials.
-Use mocked Requests-boundary tests in `backend/config/test_email.py` and the
+Use mocked Requests-boundary tests in `backend/config/tests/` and the
 retained authentication privacy tests. No live mail or new webhook routes are
 part of this contract; see the [backend guide](backend/README.md#-email).
 

@@ -33,6 +33,9 @@ a separate application key; see [local estimation setup](../deploy/README.md#-lo
 
 ## ⚙️ Configuration
 
+Production (`DJANGO_DEBUG=0`) requires an explicit nonblank `DJANGO_SECRET_KEY`.
+Static files use Django's default storage and the retained WhiteNoise middleware.
+
 Local runs load ignored `backend/.env`. The database defaults to
 `backend/db.sqlite3`; set `DJANGO_SQLITE_PATH` to use another local database.
 Use `config/settings.py` for current defaults.
@@ -64,6 +67,13 @@ A missing/unavailable provider returns a safe 503 while preserving the draft.
 Blank-name meal saves fall back to a sequential name if generation fails.
 
 ## 🔐 Authentication API
+
+Registration, login and reset preserve passwords exactly, including leading and
+trailing spaces. Request serializers reject malformed credential/link types with
+HTTP 400; email addresses are trimmed and normalized. Registration returns an
+explicit client error for duplicate identities and rolls back account creation,
+required onboarding and session creation together if any step fails. Recovery
+responses remain generic for valid email-shaped input.
 
 - `POST /auth/register/`
   - Body: `email`, `password`, and optional `username`
@@ -315,8 +325,8 @@ and logs only its generic password-reset failure message; known and unknown
 accounts receive the same public response even when delivery fails.
 
 Project-owned configuration and mocked HTTP contracts live in
-`config/test_email.py`; password-reset privacy tests remain in
-`apps/authentication/tests.py`. Use the existing provider dashboard for delivery
+`config/tests/`; password-reset privacy tests remain in
+`apps/authentication/tests/`. Use the existing provider dashboard for delivery
 investigation. No custom provider wrapper, tracking/inbound route or webhook
 extras are installed. Production mail receipt remains separately verified.
 
@@ -337,6 +347,23 @@ Connection manifests and artwork live in
 
 ## 🧪 Checks
 
+Backend tests live in an owning `tests/` package beside each app or configuration
+module. Use descriptive `test_*.py` filenames and behavior-based test class names,
+keep `__init__.py` empty, and put shared setup/builders in fixture-only modules
+such as `helpers.py`. Helpers must not define test cases or import test modules.
+Split independent behavior groups when that makes failures easier to locate;
+keep related end-to-end scenarios together.
+
+Authentication packages share registration, login, password recovery/reset and
+recovery-privacy groups. Configuration owns production settings and email
+configuration/delivery. The canonical MCP framework has identical profile, OAuth
+and transport test modules in all three applications; app tools remain app-owned.
+
+Foods own catalog queries, mutations, identity, serving options, publication and
+migration tests; meals own diary entries, drafts and component graphs. MCP tool
+tests separate catalog operations, confirmations, paid operations, drafts, response
+limits and transport. Run both the default and enabled MCP profiles.
+
 From the repository root:
 
 ```powershell
@@ -350,10 +377,14 @@ uv run --locked --project backend python backend/manage.py makemigrations --chec
 
 `apps/estimates/tests/` is a discoverable Python package. Keep its `__init__.py` and
 name new modules `test_*.py`; do not recreate a competing `apps/estimates/tests.py`.
-Use `test_proposals.py` for proposal API behavior, `test_adjustments.py` for
-adjustment lifecycle/rollback, `test_admin.py` for admin immutability, and
-`test_provider.py` for provider requests and normalization. Shared data builders
-belong in `helpers.py`, which does not define discoverable test classes.
+Group tests by behavior: catalog matching/publication/integrity, proposal review
+and follow-up, builder adjustments, recipe editing/portions/interpretation/evidence,
+natural-serving matching/selection, provider requests/deadlines, transactions, adjustment lifecycle,
+Gunicorn runtime and admin. For example, `test_recipe_portions.py` owns consumed
+fractions and `test_catalog_matching.py` owns catalog resolution. Shared fixture
+builders and setup-only mixins live in `helpers.py` and
+`natural_serving_fixtures.py`; test modules do not import
+other test modules or re-export test classes from the package initializer.
 
 Import helpers with `from .helpers import ...` and app modules with `from
 ..models import ...` (or their absolute app paths). Patch dependencies where the
@@ -382,8 +413,8 @@ Declare dependencies in `pyproject.toml` and commit the resolved `uv.lock`.
 after editing the manifest manually. `project.requires-python` in `pyproject.toml`
 is the Python version source for uv and CI; keep the Docker base aligned with it. CI/builds use `uv sync --locked`, which rejects stale
 lockfiles. Development tools are in the `dev` dependency group; production images
-install runtime dependencies with `--no-dev`. The test runner's fast password
-hasher applies only during tests; normal settings retain secure hashing.
+install runtime dependencies with `--no-dev`. Django uses its default test runner and secure password hashing; focused tests may
+override hashing within their own test scope.
 See [Docker dependency maintenance](../deploy/README.md#development-dependency-reproducibility).
 
 ## 📚 Domain contracts
@@ -440,8 +471,8 @@ claim or trust/research evidence remains an immutable version distinction.
 Existing version nutrients, provenance, confidence, source evidence and response
 metadata remain unchanged.
 A materially changed definition or verification coverage creates a new version.
-Personal definitions remain owner-specific and are never merged by the
-consolidation command.
+Personal definitions remain owner-specific and are never merged by shared-food
+consolidation services.
 
 Current version selection is deterministic: categorical verified parent coverage
 wins first (fully verified and source-backed with inferred components, then

@@ -348,68 +348,10 @@ Client registrations, grants and plugin installation are separate from deploymen
 Ordinary Notoli, Notoli MCP and MacroMapper REST/frontend checks remain acceptance
 requirements.
 
-## 🥗 Catalog audit and consolidation
+## 🥗 Catalog maintenance
 
-Use the SQLite capture/recovery prerequisites above before any authorized mutation.
-Do not infer production IDs from historical issue receipts.
-
-On an approved private database copy, run the default read-only audit:
-
-```powershell
-python backend/manage.py audit_catalog_nutrition
-```
-
-It examines effective recursive nutrition, including empty composite parents, and
-reports food/version IDs only. Review every candidate, references and sources.
-Do not infer nutrition or clear nulls to zero. After separate explicit production
-authorization and the app release guide's SQLite capture/recovery prerequisites,
-an operator may archive **only reviewed still-empty shared food IDs**:
-
-```powershell
-python backend/manage.py audit_catalog_nutrition --archive --food-id REVIEWED_ID
-```
-
-The command rechecks selected rows transactionally and rejects any changed, usable,
-personal, missing or already archived target. Archiving changes discovery metadata
-only: no versions, component references, source evidence, diary nutrition snapshots,
-or proposal revisions are rewritten/deleted. All affected empty containers should
-be reviewed with their leaves. Test on a disposable copy and compare historical
-version IDs, meal totals, component snapshots and revision JSON before/after.
-Rollback restores only the archived timestamps recorded in the approved plan;
-never rewrite historical nutrition to match a later correction.
-
-Re-research unsourced/incorrect legacy records separately using approved evidence;
-create new immutable versions or replacement shared publications. Preserve the old
-references and original model metadata. Do not run paid re-estimation, archive
-production records, execute migrations, or promote env-prod without separate operational authorization.
-
-
-### Conservative consolidation
-
-Catalog consolidation requires separate authorization. The owner must
-review actual shared-food IDs and source/market/SKU evidence, then run the
-following against a backed-up database under separately authorized operations:
-
-```powershell
-# Review only; this is the default and writes nothing.
-python backend/manage.py consolidate_foods <first-id> <second-id> <third-id>
-# Apply only after examining the proposed canonical ID and source definitions.
-python backend/manage.py consolidate_foods <first-id> <second-id> <third-id> --apply
-```
-
-The command rejects
-personal, already archived, missing or differently identified records. It
-selects the registered canonical food, otherwise the lowest ID. Equivalent
-versions merge evidence; distinct definitions are copied onto the canonical
-food with derivation pointing to the retained original version. Duplicate food
-records are archived with `merged_into` pointing to the canonical food.
-
-Original versions, source rows and their official/retrieval evidence, derivations,
-meal snapshots, component foreign
-keys, proposal JSON and revision JSON are not moved or rewritten. Active list
-and catalog resolution expose the canonical record. An old alias detail lookup
-remains traceable through `merged_into`; pending proposals and saved meals can
-still use their exact pinned historical shared versions. A failed cleanup rolls
-back atomically. Retained originals support investigation, but restoring active
-catalog visibility after a completed cleanup requires a separately reviewed
-procedure or backup recovery; do not delete the alias/history rows.
+The repository no longer includes catalog audit or consolidation management
+commands. Catalog corrections require a separately reviewed operational procedure
+with explicit food IDs, SQLite capture/recovery and source evidence. Preserve
+immutable versions, evidence, component references, diary snapshots and proposal
+history; do not infer missing nutrition or replace nulls with zero.

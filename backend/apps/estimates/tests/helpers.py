@@ -1,8 +1,19 @@
-from decimal import Decimal
+"""Synthetic food, provider and proposal fixtures shared by behavior tests."""
 
+from decimal import Decimal
+from types import SimpleNamespace
+
+from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
+
+from apps.foods.evidence import nutrition_evidence
 from apps.foods.models import FoodItem, FoodItemVersion
 from apps.foods.nutrients import NUTRIENT_FIELDS
 from apps.foods.services import create_food_item
+
+from ..provider import (
+    EstimatedFood,
+)
 
 
 def shared_food(
@@ -131,3 +142,88 @@ def simple_ai_estimate(*, name="Apple", calories="95"):
         }
     )
     return estimate
+
+
+URL = "https://www.costco.com/food-court-nutrition.pdf"
+
+
+def pizza(*, components=False):
+    item = simple_ai_estimate(name="Cheese Pizza Slice", calories="710")["items"][0]
+    item.update(
+        provider_name="Costco Food Court",
+        origin_type="restaurant",
+        region="US",
+        serving_label="1 slice",
+        serving_weight_grams="300",
+        confidence_score="0.98",
+    )
+    item["sources"] = [
+        {
+            "title": "Costco Food Court nutrition",
+            "provider": "Costco",
+            "url": URL,
+            "is_official": True,
+            "evidence": {
+                "retrieved": True,
+                "product_name": item["name"],
+                "brand": item["provider_name"],
+                "region": "US",
+                "serving_label": "1 slice",
+                "serving_quantity": "1",
+                "serving_unit": "item",
+                "serving_weight_grams": "300",
+                "nutrients": {"calories": "710"},
+            },
+        }
+    ]
+    if components:
+        child = simple_ai_estimate(name="Pizza crust", calories="400")["items"][0]
+        child["key"] = "crust"
+        child["sources"] = []
+        child["confidence_score"] = "0.5"
+        item["components"] = [child]
+    item["evidence"] = nutrition_evidence(item, research_status="found")
+    return item
+
+
+def estimate(item):
+    return {**simple_ai_estimate(), "items": [item]}
+
+
+def sdk_food(item):
+    return EstimatedFood(
+        **{
+            key: value
+            for key, value in item.items()
+            if key in EstimatedFood.model_fields
+            and key not in {"sources", "components"}
+        },
+        sources=[],
+        components=[],
+    )
+
+
+def web_response(parsed, *, urls=(), status="completed"):
+    return SimpleNamespace(
+        id="mock_response",
+        output_parsed=parsed,
+        output=[
+            {
+                "type": "web_search_call",
+                "status": status,
+                "action": {"type": "search", "sources": [{"url": url} for url in urls]},
+            }
+        ],
+    )
+
+
+class ProposalFixtures:
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="owner", email="owner@example.com", password="secret-pass"
+        )
+        self.other_user = get_user_model().objects.create_user(
+            username="other", email="other@example.com", password="secret-pass"
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)

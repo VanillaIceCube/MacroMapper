@@ -26,8 +26,8 @@ load_dotenv(BASE_DIR / ".env")
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
-if not SECRET_KEY:
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
+if not SECRET_KEY.strip():
     if not DEBUG:
         raise ImproperlyConfigured("DJANGO_SECRET_KEY is required in production.")
     SECRET_KEY = "macromapper-local-development-key-change-before-production-2026"
@@ -189,7 +189,6 @@ else:
 
 # Where collectstatic will put all static files in prod
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 
 # Default primary key field type
