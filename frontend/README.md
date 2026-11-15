@@ -5,11 +5,17 @@ authentication, and the application shell.
 
 ## 🧭 Structure
 
+- `docker/`: production/development Dockerfiles and Nginx configuration.
+  Docker builds keep `frontend/` as their context; `.dockerignore` stays at the
+  frontend root.
+- `src/index.css`: the single global stylesheet, loaded by `src/index.jsx`; keep
+  theme tokens, document defaults, shared controls and app-specific rules here.
 - `src/components/`: reusable interface components.
 - `src/pages/`: application pages and routes.
 - `src/services/`: API requests and session handling.
 - `src/domain/`: pure nutrition, portion, and meal calculations.
-- `src/__tests__/`, `e2e/`: component and isolated browser tests.
+- `src/test-helpers/`: shared test setup and reusable helpers.
+  App, startup and feature tests stay beside the files they exercise.
 
 ## 💻 Local development
 
@@ -31,10 +37,18 @@ Open `http://macromapper.localhost:3000`. For Docker hot reload, follow the
 requests; client-side settings must contain no secrets. The build output is
 `dist/`.
 
-An unset API origin defaults to localhost:8000 during development. Configure an
-explicit origin in the shell or ignored `.env.local`; leave it blank in production.
-Vite's `import.meta.env.BASE_URL` supplies the router/asset base. Development uses
-port 3000; production Nginx serves the static build and preserves SPA deep links.
+Development Compose supplies `VITE_API_BASE_URL` through its `environment`
+settings. Production Docker builds pass the matching build argument, which is
+compiled into the static assets; a blank value selects same-origin requests.
+Local `.env` files are excluded from Docker build contexts.
+
+For direct `npm` development, an unset API origin uses `http://localhost:8000`.
+An explicit shell value overrides that default; an explicit blank uses same-origin.
+Vite's `base` setting supplies `%BASE_URL%` for HTML asset URLs. The current
+`BrowserRouter` has no `basename` and uses domain-root routes. An asset prefix
+change alone does not configure subdirectory routing. The API origin is separate
+from both settings. Development uses port 3000; production Nginx serves the static
+build and preserves SPA deep links.
 
 ## 🗺️ Routes and behavior
 
@@ -42,7 +56,7 @@ port 3000; production Nginx serves the static build and preserves SPA deep links
 - `/register`: account creation with an optional username
 - `/forgot-password`: password-reset email request
 - `/reset-password?uid=...&token=...`: choose a new password
-- `/`: protected MacroMapper dashboard and product-status overview
+- `/`: protected dated meal diary with daily nutrition totals (also available at `/diary`)
 - `/diary`: protected dated meal diary with daily nutrition totals
 - Any unknown route resolves to the protected home page
 
@@ -88,6 +102,24 @@ relying on color alone. Initial AI definitions are reusable shared catalog
 foods; substantive review edits are saved as private versions derived from the
 shared base.
 
+## 🧭 Product intent
+
+MacroMapper is personal-use first: accounts, meals and custom foods remain private.
+Catalog-first text estimates expose components, quantities, sources and confidence
+for review before saving a pinned diary snapshot. A Food Item can be consumed
+directly or composed of other Food Items; personal meal edits never redefine the
+shared canonical food. Official/verified, reusable community/AI estimates and private
+personal records retain distinct trust states. Unknown nutrients are unavailable,
+never zero. Track calories, protein, carbohydrate, fat, fiber, sugar, sodium,
+cholesterol and available micronutrients without implying clinical guidance.
+
+Goals, calculated user-editable targets, activity logging and expanded trends remain
+planned. The planned baseline describes non-exercise life; only activities explicitly
+counted toward the budget add estimated calories. Avoid double-counting regular
+exercise. Activity estimates and targets are editable tracking information, never
+medical advice. Weight tracking, photos/barcodes and household/social/coaching
+features remain deferred.
+
 ## 🔐 Sessions and connections
 
 Authentication forms disable submission while pending. Tokens and profile data
@@ -107,6 +139,19 @@ consent and validated return paths. See the [backend MCP guide](../backend/READM
 The production Dockerfile enables this build argument by default; raw Vite
 development remains opt-in. Enabling the UI does not register a client or grant.
 
+### Connections response contract
+
+Successful consent, decision, list and revoke responses must be JSON objects.
+Unreadable, empty, null, scalar or array successes reject with `Request failed.`;
+a protocol failure must not follow a callback or claim revocation succeeded.
+HTTP failures use the first nonblank string in `error_description`, `detail`, then
+`error`, otherwise `HTTP <status>`. Never expose raw HTML/plaintext, parser errors,
+nested objects or unrelated JSON fields as fallback messages. Backend public error
+fields must be safe to display. Preserve JWT-only headers, omitted cookies, form
+encoding, signed consent tickets and validated callbacks. Invalid refresh credentials
+clear the session; transient proxy/refresh failures retain it for retry. Notoli
+retains its extra post-refresh 401 handling and legacy API-base compatibility.
+
 ## 🧮 Domain architecture
 
 Components and pages import meal-item operations from `src/domain/mealItem` and
@@ -121,12 +166,10 @@ may depend on other domain modules and pure utilities, but remains independent
 of React, Material UI, components, pages and presentation metadata. Keep labels
 and theme details in the existing presentation layer.
 
-Run `npm test -- src/__tests__/domainArchitecture.test.js` from `frontend` for
-public-boundary, export-collision, dependency-cycle and UI-independence checks.
 Add behavior tests beside domain implementations and run the full frontend suite
 and production build when changing entry points or their consumers.
 
-## 🥗 Nutrition evidence
+## 🔎 Nutrition evidence
 
 Meal review retains official parent nutrition while showing inferred component
 values separately. Details expose mixed/partial evidence, clickable sources,
@@ -146,7 +189,7 @@ measurement units alone preserves both consumed nutrition and composite evidence
 - Use Material UI components and responsive `sx` values before adding custom
   layout primitives.
 - Use the centralized Material UI theme in `src/theme.js` and the matching CSS
-  custom properties in `src/App.css`; do not introduce one-off brand colors.
+  custom properties in `src/index.css`; do not introduce one-off brand colors.
 - Follow the Field Atlas direction: warm paper surfaces, ink structure, restrained
   cartographic details, and factual rather than clinical language.
 - Use Bone `#F6F1E7` for the canvas, Midnight ink `#17324D` for text and
@@ -181,6 +224,7 @@ rather than crowding primary tabs. Charts describe patterns without praise, blam
 or medical interpretation.
 
 ### Authentication
+
 - Build public authentication pages with `AuthPageShell`.
 - Give every form a visible heading, native submit behavior, and browser
   autocomplete metadata.
@@ -227,6 +271,15 @@ or medical interpretation.
 
 ## 🧪 Checks
 
+`src/index.test.jsx` boots the real entry point, React root and application in
+jsdom, then checks the signed-out login route and usable form without private API
+requests or uncaught startup errors. It unmounts the real root and restores test
+state afterward. Existing Material UI test shims still apply; browser layout and
+built HTML are outside this test's scope.
+
+`npm run build` runs strict lint before Vite's production build. Use
+`npm run lint:fix` to apply available lint fixes.
+
 From `frontend/`:
 
 ```powershell
@@ -236,48 +289,14 @@ npm run format:check
 npm run build
 ```
 
-## 🌐 Browser tests
-
-`frontend/e2e/` owns the browser journeys and their helpers: `run_e2e.cjs` creates
-and cleans up disposable state, `e2e_backend.py` starts the isolated loopback
-backend, `e2e_settings.py` suppresses developer dotenv loading and selects temporary
-SQLite/file mail, and `collect_browser_artifacts.py` collects bounded failure
-evidence. `npm run test:e2e` invokes the runner from `frontend/`; CI collects reports
-with `python e2e/collect_browser_artifacts.py` from the same directory.
-
-Install backend requirements in an activated Python environment. From `frontend/`:
-
-```powershell
-npx playwright install chromium
-npm run test:e2e
-```
-
-Ports 8001 and 3001 must be free. The wrapper starts Django and Vite with fresh,
-marked temporary state and stops both before deleting that state. It uses synthetic
-users, temporary SQLite and file mail; it does not load developer `.env` files,
-reuse running servers, send external email, or make paid AI calls. The shared auth
-journeys cover registration, session isolation, logout, protected routing, invalid
-credentials, JWT expiry, and password reset. Product journeys belong under `e2e/`.
-
-The suite uses one Chromium worker, no retries, and a ten-minute global timeout.
-Linux CI installs Chromium with `--with-deps`. Failure artifacts are written to
-`test-results/` and `playwright-report/`; CI retains bounded evidence for seven
-days. Reports may include disposable tokens, so do not publish them in issues.
-
-Diary presentation also runs against a production build:
-
-```powershell
-npm run build
-npx playwright test --config playwright.diary.config.mjs
-```
-
-These cases use intercepted synthetic API fixtures and check mobile/desktop date,
-food and meal-review behavior. They do not prove live authenticated backend
-operations or OS-native calendar chrome. Keep `showPicker()` synchronous inside
-the user handler, with its existing click fallback. Preserve the nonempty-date
-guard, responsive navigation bounds and Today behavior.
-
 ## 🛠️ Maintenance
+
+The flat ESLint configuration uses Vitest globals, matching the configured test
+runner.
+
+Keep `showPicker()` synchronous inside the user handler, with its existing click
+fallback. Preserve the nonempty-date guard, responsive navigation bounds and
+Today behavior.
 
 The frontend temporarily overrides `minimatch@>=9 <11.0.1` to `^11.0.1` for
 [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249).
@@ -296,54 +315,14 @@ versions, regenerate the lockfile and repeat those checks.
 
 Keep Material UI and icons on compatible versions and regenerate the lockfile
 together. Prefer `sx` and `slotProps`; preserve accessible control labels. For
-jsdom CSS assertions, check computed transition/animation longhands and use real
-browser tests for responsive geometry. Follow the Node range in `package.json`,
+jsdom CSS assertions, check computed transition/animation longhands; inspect
+responsive geometry in a browser. Follow the Node range in `package.json`,
 and verify clean installs, strict lint, formatting, tests and production builds.
 See [Docker dependency maintenance](../deploy/README.md#development-dependency-reproducibility).
 
-## 📚 Related guides
+<a id="-related-guides"></a>
+
+## 📚 Reference
 
 - [Backend and MCP integration](../backend/README.md).
 - [Local Docker and production releases](../deploy/README.md).
-
-### Connections response contract
-
-Successful consent, decision, list and revoke responses must be JSON objects.
-Unreadable, empty, null, scalar or array successes reject with `Request failed.`;
-a protocol failure must not follow a callback or claim revocation succeeded.
-HTTP failures use the first nonblank string in `error_description`, `detail`, then
-`error`, otherwise `HTTP <status>`. Never expose raw HTML/plaintext, parser errors,
-nested objects or unrelated JSON fields as fallback messages. Backend public error
-fields must be safe to display. Preserve JWT-only headers, omitted cookies, form
-encoding, signed consent tickets and validated callbacks. Invalid refresh credentials
-clear the session; transient proxy/refresh failures retain it for retry. Notoli
-retains its extra post-refresh 401 handling and legacy API-base compatibility.
-
-## 🧭 Product intent
-
-MacroMapper is personal-use first: accounts, meals and custom foods remain private.
-Catalog-first text estimates expose components, quantities, sources and confidence
-for review before saving a pinned diary snapshot. A Food Item can be consumed
-directly or composed of other Food Items; personal meal edits never redefine the
-shared canonical food. Official/verified, reusable community/AI estimates and private
-personal records retain distinct trust states. Unknown nutrients are unavailable,
-never zero. Track calories, protein, carbohydrate, fat, fiber, sugar, sodium,
-cholesterol and available micronutrients without implying clinical guidance.
-
-Goals, calculated user-editable targets, activity logging and expanded trends remain
-planned. The planned baseline describes non-exercise life; only activities explicitly
-counted toward the budget add estimated calories. Avoid double-counting regular
-exercise. Activity estimates and targets are editable tracking information, never
-medical advice. Weight tracking, photos/barcodes and household/social/coaching
-features remain deferred.
-
-<details>
-<summary>A note from the author</summary>
-
-First and foremost, I created this application because I wanted a Calorie Counting App. I used to use MyFitnessPal, but I wanted something AI-Powered, and all options were like $20 bucks a month. I also didn't want to take pictures of my food? I mean I feel like that would just give you the worst estimate of all time.
-
-I had a vision where you'd write up a description then it would do it's best to fact check it against the internet. Like if I said I wanted a double double animal style with no lettuce (this is an example, I love lettuce) from inn-n-out, it would go to the internet and find the double double facts, find the animal style if it can, then break it down into components, and then remove the lettuce. And that info would be available for everyone in the application, with confidence level, the actual source, and a provenance marking.
-
-Outside of that, I mean my goal was to get a good personal use application that utilized generative AI in a manner that you could trust and audit it.
-
-</details>

@@ -368,10 +368,6 @@ Maintain the Python version in `environment.yml` and pip dependencies in
 hasher applies only during tests; normal settings retain secure hashing.
 See [Docker dependency maintenance](../deploy/README.md#development-dependency-reproducibility).
 
-The browser-test backend uses disposable SQLite, synthetic users, local file mail,
-and loopback binding. It does not load developer dotenv files or use the developer
-database. Install backend requirements before running the frontend browser suite.
-
 ## 📚 Domain contracts
 
 - [Catalog identity and duplicate cleanup](README.md#-canonical-food-identity).
@@ -450,7 +446,9 @@ servings. Direct fields with matching official source verification retain their
 verified parent values; inferred component totals do not replace those fields.
 Consumed nutrients multiply that result by the parent's servings once.
 
-## Recipes and corrections
+<a id="recipes-and-corrections"></a>
+
+## 🧮 Recipes and corrections
 
 Recipe descriptions are interpreted as a whole, including when some ingredients
 already exist in the catalog. Full recipe ingredient quantities remain children
@@ -489,7 +487,9 @@ retained; ambiguous natural language is not a guarantee of a clarification
 dialog. Unsupported operations fail visibly. No paid meal-model call is required
 for the synthetic regression suite.
 
-## Canonical names and food-specific portions
+<a id="canonical-names-and-food-specific-portions"></a>
+
+## 🧩 Canonical names and food-specific portions
 
 Generic leading size wording is removed from food identity; variety/color stays
 in the name. Branded product names and marketed size/SKU distinctions are kept.
@@ -516,7 +516,9 @@ and historical quantities/nutrients.
 
 ## 🔎 Nutrition evidence
 
-## Publication and research
+<a id="publication-and-research"></a>
+
+## 🔎 Publication and research
 
 `foods.evidence.usable_nutrition` accepts any finite nonnegative known nutrient,
 including zero. Nulls mean unknown. Empty leaves fail publication with a visible
@@ -553,7 +555,9 @@ Existing catalog hits remain reusable without new paid calls. Legacy unsourced
 records require separately reviewed re-research/replacement; reuse does not
 retroactively manufacture verification.
 
-## Compatible evidence contract
+<a id="compatible-evidence-contract"></a>
+
+## 🔎 Compatible evidence contract
 
 Existing `provenance` and `source_kind` enums remain unchanged. Additive `evidence`
 on versions, proposal items and diary responses has these canonical statuses:

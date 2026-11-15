@@ -9,12 +9,6 @@ export default [
     ignores: ['coverage/**', 'dist/**', 'node_modules/**'],
   },
   js.configs.recommended,
-  {
-    files: ['e2e/run_e2e.cjs'],
-    languageOptions: { sourceType: 'commonjs', globals: globals.node },
-    // The runner must refuse an unsafe cleanup even when Playwright has failed.
-    rules: { 'no-unsafe-finally': 'off' },
-  },
   eslintReact.configs.recommended,
   reactHooks.configs.flat['recommended-latest'],
   {
@@ -26,7 +20,7 @@ export default [
       globals: {
         ...globals.browser,
         ...globals.node,
-        ...globals.jest,
+        ...globals.vitest,
         vi: 'readonly',
       },
     },

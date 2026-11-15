@@ -6,10 +6,25 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Distinguish the frontend router basename, Vite asset base and API origin in configuration guidance; retain domain-root deployment behavior.
+- Correct the frontend route guide: `/` and `/diary` both show the protected meal diary.
+- Use Vitest globals in the flat ESLint configuration instead of allowing Jest-only globals.
+- Pin the production frontend builder to the existing multi-platform Node 26 digest used by frontend development.
 - Reject unsafe paths, symlinks and duplicate members in exported ChatGPT ZIPs, bound archive expansion, and cover hostile exports with offline regressions.
 
 ### Changed
 
+- Standardize README heading emojis, sentence case, reference labels and Markdown spacing while preserving substantive content, code examples and existing anchors.
+- Move the author's original note from the frontend guide to the project README, preserving its wording.
+- Move frontend connection contracts into session guidance and product intent beside route behavior; keep related guides as final navigation.
+- Align frontend npm commands: production builds run strict lint first and `lint:fix` applies available lint fixes.
+- Document frontend API configuration through development Compose and production build arguments, and exclude local frontend env files from Docker build contexts.
+- Rename shared frontend test support to `src/test-helpers/`, retain application and feature tests beside their implementation, and preserve application-specific helper behavior.
+- Consolidate shared frontend test setup, helpers and suites under `src/tests/`, update imports and discovery paths, and retain App, startup and feature tests beside their implementation.
+- Replace mocked frontend startup wiring checks with real React entry-point integration coverage for the signed-out login route, isolated state and blocked network access.
+- Consolidate global styles in `frontend/src/index.css`, remove the redundant app stylesheet, and preserve the Atlas theme, shared controls and reduced-motion rules.
+- Group frontend Dockerfiles and Nginx configuration in `frontend/docker/`; update Compose, build workflows and Docker dependency discovery while retaining the frontend build context.
+- Resolve favicon, Apple touch icon and web manifest URLs through the Vite base URL for consistent public asset paths.
 - Align the default ChatGPT listing with its read-only OAuth grant and document explicit configuration and new consent for broader variants.
 - Export ChatGPT artwork as a square binary PNG instead of embedding its raster data in SVG, preserving its appearance while keeping the complete PR within review limits.
 - Consolidate durable documentation into existing owning READMEs, move the active CI inventory beside workflow guidance, and repair links and architecture regressions.
@@ -20,6 +35,9 @@ All notable changes to this project are documented in this file.
 
 ### Removed
 
+- Remove centralized frontend lint-configuration, theme/MUI compatibility and domain-architecture suites and their unused direct `@babel/parser` dependency; preserve shared support and all colocated application, component and service tests.
+- Remove the custom frontend development entrypoint and automatic dependency reinstall; start Vite directly and install changed dependencies manually in the development container.
+- Remove frontend end-to-end suites, Playwright configuration and dependencies, browser-test helpers and CI jobs; retain component, backend, action-local and shared release checks.
 - Remove the root `scripts/` folder and retired production deployment/bundle compatibility stubs.
 - Remove duplicate documentation indexes, redirects, stale narratives and historical receipts after preserving useful contracts. Remove obsolete tour, design and visual-receipt screenshots; retain the author’s original note in the frontend guide.
 - Remove the root `tests/` directory and its CI invocations; retain backend, frontend/browser, action-local, and shared release suites.

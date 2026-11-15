@@ -28,7 +28,9 @@ leave a visible evidence gap. Required briefs need at least one valid HTTP(S)
 source URL. The publisher keeps independent body findings when it suppresses
 duplicate inline comments or sees an unchanged verdict.
 
-### ✅ Pull-Request CI
+<a id="-pull-request-ci"></a>
+
+### Pull-request CI
 
 `.github/workflows/ci-orchestrator.yml` coordinates:
 
@@ -77,7 +79,9 @@ The policy is implemented by `.github/actions/collect-codeql-evidence` and the
 corresponding `gate-codeql.yml`, `ci-orchestrator.yml`, `review-security.yml`,
 and `gate-test.yml` workflows.
 
-### 🔒 Main Branch Protection
+<a id="-main-branch-protection"></a>
+
+### Main branch protection
 
 The active `main` ruleset requires pull requests, resolved review threads, the
 lint/test/CodeQL scope and analyzer/dependency checks, the Automation Tests
@@ -89,16 +93,21 @@ intentionally not required because the scope-aware workflow does not emit that
 parent check for scope-empty pull requests. Validate exact check names after
 the first CI run when creating or recovering the ruleset.
 
-### 🔌 Shared MCP framework
+<a id="-shared-mcp-framework"></a>
+
+### Shared MCP framework
 
 The backend test gate checks the pinned MCP framework manifest, runs ordinary backend tests and separately runs `app_mcp macromapper_mcp` with MCP enabled and the application factory. Synthetic OAuth and mocked provider tests cover domain permissions without live credentials or paid requests. The shared deployment workflow stays unchanged: MacroMapper enables the connection UI through its app-owned Docker build default. See [the app MCP guide](../../backend/macromapper_mcp/README.md).
 
 ## 🔒 Merge and dependency controls
 
-### 📦 Dependabot
+<a id="-dependabot"></a>
+
+### Dependabot
 
 `.github/dependabot.yml` checks npm, pip, GitHub Actions, and Docker dependencies
-under `/backend` and `/frontend` daily. Patch and minor Dependabot updates can
+daily. Dockerfiles are under `/backend` and `/frontend/docker`; npm remains
+under `/frontend`. Patch and minor Dependabot updates can
 auto-merge only after the lint, test, CodeQL, vulnerability, and malware gates
 succeed.
 
@@ -131,7 +140,9 @@ including an unchanged repeat of an earlier blocking verdict, fails the
 reviewer's required check so the branch ruleset prevents merging. A later
 approval on a new head commit can restore a passing reviewer check.
 
-### 🔒 Protected Dependabot auto-merge
+<a id="-protected-dependabot-auto-merge"></a>
+
+### Protected Dependabot auto-merge
 
 FullStackTemplate (#240) owns the canonical application policy. After successful
 PR CI, `ci-auto-merge.yml` runs only reviewed main code, with no PR checkout,
@@ -193,7 +204,9 @@ GraphQL input fields without changing reviewer verdict requirements.
 
 ## 🛡️ Security and alerts
 
-### 🛡️ Security-Alert Aggregation
+<a id="-security-alert-aggregation"></a>
+
+### Security-alert aggregation
 
 The daily/manual `alert-codeql.yml`, `alert-vulnerability.yml`, and `alert-malware.yml` workflows group open alerts into managed MacroMapper issues and synchronize them with the MacroMapper Project.
 
@@ -222,7 +235,9 @@ verify its fields and views, and set `SECURITY_ALERTS_PROJECT_ID`. GitHub
 excludes auto-add workflows from Project copies, so configure the required
 auto-add workflows for the target repository in the GitHub UI.
 
-### 🛡️ Dependency evidence and alert lifecycle parity
+<a id="-dependency-evidence-and-alert-lifecycle-parity"></a>
+
+### Dependency evidence and alert lifecycle parity
 
 The reusable baseline is FullStackTemplate's `.github/actions/prepare-vulnerability-report`.
 MacroMapper, Notoli and Infrastructure carry the same report implementation and
@@ -255,7 +270,9 @@ the competing-close ordering; GitHub's internal validation cause is not exposed.
 Mocks reproduce that interleaving and reject unrelated errors. Empty scheduled
 feeds do not establish that a live close race occurred.
 
-### 📦 Compatible CodeQL updates
+<a id="-compatible-codeql-updates"></a>
+
+### Compatible CodeQL updates
 
 Dependabot groups all `github/codeql-action` entry points (including `init`,
 `analyze`, `autobuild` and `upload-sarif`) in `codeql` version-update PRs.
@@ -272,7 +289,9 @@ immutable v4.39.1 revision. Scanner scope, permissions and merge/deployment
 gates remain unchanged. Canonical rollout:
 [FullStackTemplate #271](https://github.com/VanillaIceCube/FullStackTemplate/issues/271).
 
-### 🧪 Atomic CodeQL regression guard
+<a id="-atomic-codeql-regression-guard"></a>
+
+### Atomic CodeQL regression guard
 
 Before required scope detection, all CodeQL action entry points in workflow and
 composite-action YAML must share one full immutable SHA. Structural safe parsing
@@ -427,7 +446,9 @@ See the [production guide](../../deploy/production/README.md) for current setup,
 readiness, migration and explicit recovery procedures. Local Compose examples
 are not production release inputs.
 
-### 🔄 Shared deployment action update
+<a id="-shared-deployment-action-update"></a>
+
+### Shared deployment action update
 
 Docker login v4.7.0 is rendered from Infrastructure commit
 `f3f049830fcd5e5869d1ae120c57d9ccb6c99200`. Keep `deploy/shared-source.json` and
@@ -452,7 +473,9 @@ wording. FullStackTemplate's inactive target is not created for symmetry.
 
 ## 🧪 Checks and diagnostics
 
-### 🧰 Local Automation Checks
+<a id="-local-automation-checks"></a>
+
+### Local automation checks
 
 ```powershell
 node --test .github/actions/collect-upstream-major-upgrade-evidence/collect-upstream-major-upgrade-evidence.test.js .github/actions/collect-codeql-evidence/collect-codeql-evidence.test.js .github/actions/publish-ai-review/publish-ai-review.test.js .github/actions/security-alerts/sync-security-alerts.test.js
@@ -481,10 +504,10 @@ existing trust, networks, environment requirements, workflow and runtime bytes.
 The same immutable source commit is proposed for all three consumers. These
 source-pin PRs do not authorize merging, promotion, or deployment.
 
-### Repository validation and browser diagnostics
+### Repository validation and failure diagnostics
 
-The path-aware test gate includes `.github/**`, `frontend/e2e/**`, `deploy/**`,
-and maintained docs in automation validation. It runs workflow and
+The path-aware test gate includes `.github/**`, `deploy/**`, and maintained docs
+in automation validation. It runs workflow and
 composite syntax, parser-only script checks and synthetic Compose configuration
 plus the existing Batch 1 suites and focused mocked composite regressions.
 [Coverage and external boundaries](README.md#-coverage-boundaries) are explicit.
@@ -495,18 +518,18 @@ logs have roughly 1 MiB capped artifacts retained seven days. Random delimiters
 protect multiline outputs and the original command status still determines the
 gate. An unavailable check cannot become success through log summarization.
 
-Relevant app/harness changes also require the isolated Chromium job; its failure
-or an applicable development-image failure fails Test Results. Browser traces
-and screenshots use a 20 MiB/file, 50 MiB/run cap and seven-day retention.
-See frontend/README.md for setup and local commands. No job uses real accounts,
-production data, live email or paid AI requests for these tests.
+Test Results fails when scope detection or an applicable development-image
+validation fails. Frontend and backend test failures remain independent gates.
+See frontend/README.md for setup and local commands.
 
 Validate syntax and relevant behavioral tests after automation changes. Preserve
 original check failures and bounded/redacted diagnostics. Update the existing
 architecture inventory with `python .github/tools/ci_architecture.py` after workflow
 changes and verify it with `--check`. Do not use production as a test fixture.
 
-## 📚 Related guides
+<a id="-related-guides"></a>
+
+## 📚 Reference
 
 - [Repository setup and credentials](../README.md).
 - [Local actions and reviewer contract](../actions/README.md).

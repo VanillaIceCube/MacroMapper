@@ -2,9 +2,3 @@ build/
 dist/
 node_modules/
 *.md
-
-playwright-report/
-
-test-results/
-
-browser-evidence/
