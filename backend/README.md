@@ -1,84 +1,65 @@
-# 🛠️ MacroMapper Backend (Django)
+# 🛠️ MacroMapper backend
 
-Production release ownership: use the [app-only release/recovery guide](../deploy/production/README.md).
-
-MacroMapper is a personal nutrition and activity tracker. Its backend will
-support individual meal/activity histories, reusable Food Items and composite
-ingredient breakdowns, source-aware GPT estimates, and factual nutrition
-reporting. It does not provide medical, clinical, or prescriptive dietary
-advice.
-
-The current Django REST Framework implementation supplies JWT authentication,
-a custom email-first user model, password-reset email delivery, and a
-recipient-scoped notification API. It also supplies a source-aware Food Item
-catalog with versioned definitions, components, nutrients, and private personal
-foods, plus an owner-scoped meal diary with durable food, component, and
-nutrient values. It also persists catalog-first, GPT-assisted meal proposals
-and materializes initial AI definitions as reusable shared catalog foods while
-keeping reviewed user adjustments private, version-linked, and durable in meal
-snapshots. See the [product vision](../docs/PRODUCT_VISION.md) for the
-remaining roadmap.
-
-## Food identity, recipes and portions
-
-See [canonical identities and safe duplicate cleanup](../docs/CANONICAL-FOODS.md)
-and [meal interpretation semantics](../docs/MEAL-INTERPRETATION.md). Shared food
-identity is independent of consumed quantity and nutritional definition. Recipes
-retain full-recipe ingredient quantities; their parent servings carry the eaten
-fraction. Natural size choices use food-specific weights and remain editable
-without creating personal food copies or rewriting older meal snapshots.
-
-## Estimates test organization
-
-`estimates/tests/` is a discoverable Python package. Keep its `__init__.py` and
-name new modules `test_*.py`; do not recreate a competing `estimates/tests.py`.
-Use `test_proposals.py` for proposal API behavior, `test_adjustments.py` for
-adjustment lifecycle/rollback, `test_admin.py` for admin immutability, and
-`test_provider.py` for provider requests and normalization. Shared data builders
-belong in `helpers.py`, which does not define discoverable test classes.
-
-Import helpers with `from .helpers import ...` and app modules with `from
-..models import ...` (or their absolute app paths). Patch dependencies where the
-code under test looks them up, such as `estimates.services.get_estimation_provider`,
-not where test helpers live. Keep provider calls mocked; no API key is needed.
-
-From the repository root, run `python backend/manage.py test estimates` for all
-estimate modules, or append a module/class/method such as
-`estimates.tests.test_provider.OpenAIProviderTests`. Also run
-`python backend/manage.py test backend` to verify full Django discovery. The
-explicit directory matters at the repository root: without a label, discovery
-starts in the current directory and can report zero tests. CI instead runs
-`python manage.py test` with `backend` as its working directory. Compare test
-inventories and assertions before/after moving tests, including class decorators,
-setup/teardown, helpers and subtests; a green reduced suite is insufficient.
-See the [PR #305 preservation audit](../docs/ESTIMATES-TEST-REFACTOR.md).
+The Django REST Framework backend owns application data, authentication,
+permissions, notifications, and application integrations.
 
 ## 🧭 Structure
-- `app/`: Django settings, URL routing, and the WSGI server entry point
-- `authentication/`: custom user, registration, login, refresh, password reset,
-  and email delivery
-- `foods/`: reusable Food Items, immutable versions, components, nullable
-  nutrient columns, source references, and authenticated catalog APIs
-- `estimates/`: owner-scoped draft meal proposals, catalog-first matching,
-  OpenAI Responses API integration, editable review persistence, and acceptance
-- `meals/`: private dated meal entries, historically stable saved
-  component/nutrient values, owner-scoped CRUD, and daily totals
-- `notifications/`: persisted notifications for the authenticated app
-  header
-- `environment.yml`: Conda environment definition
-- `requirements.txt`: pip dependencies used locally, in CI, and in Docker
-- `ruff.toml`: backend lint and formatting configuration
 
-Maintain the Python version in `environment.yml` and pip dependency versions in
-`requirements.txt` manually. Docker builds use both files; CI reads the Python
-version from `environment.yml` and installs dependencies from `requirements.txt`.
+- `app/`: settings and server entry points.
+- `foods/`, `estimates/`, `meals/`: catalog, proposals, and diary.
+- `authentication/`, `notifications/`: accounts and notifications.
+- `macromapper_mcp/`, `app_mcp/`: application tools and shared MCP.
 
-Goals and activity remain separate planned apps. The `estimates` app uses the
-`foods` catalog, publishes deduplicated base AI definitions without proposal or
-diary context, and creates private derived definitions for reviewed nutrient or
-component changes without taking ownership of diary history.
+## 💻 Local development
+
+Use Python 3.12 in an isolated environment. From the repository root:
+
+```powershell
+python -m pip install -r backend/requirements.txt
+python backend/manage.py migrate
+python backend/manage.py runserver 8000
+```
+
+Local settings can be supplied in ignored `backend/.env`.
+For Docker hot reload, follow the [deployment guide](../deploy/README.md).
+
+Catalog and manual diary work can run without an AI key. AI estimates use
+a separate application key; see [local estimation setup](../deploy/README.md#-local-estimation-key).
+
+## ⚙️ Configuration
+
+Local runs load ignored `backend/.env`. The database defaults to
+`backend/db.sqlite3`; set `DJANGO_SQLITE_PATH` to use another local database.
+Use `app/settings.py` for current defaults.
+
+| Setting | Purpose |
+| --- | --- |
+| `DJANGO_SECRET_KEY`, `DJANGO_DEBUG` | Stable local signing key and debug mode; use a private key and disable debug in production. |
+| `DJANGO_ALLOWED_HOSTS` | Comma-separated accepted hosts. |
+| `DJANGO_CORS_ALLOWED_ORIGINS`, `DJANGO_CSRF_TRUSTED_ORIGINS` | Explicit frontend origins, including the port during development. |
+| `DJANGO_FRONTEND_BASE_URL` | Browser redirects and password-reset links. |
+| `DJANGO_EMAIL_BACKEND`, `DJANGO_DEFAULT_FROM_EMAIL` | Delivery backend and sender. |
+| `DJANGO_EMAIL_HOST`, `DJANGO_EMAIL_PORT`, `DJANGO_EMAIL_USE_TLS` | SMTP configuration when using an SMTP backend. |
+| `DJANGO_EMAIL_HOST_USER`, `DJANGO_EMAIL_HOST_KEY`, `DJANGO_EMAIL_TIMEOUT` | Delivery credentials and timeout; keep credentials out of source control. |
+
+For Docker hot reload and dependency volumes, use the
+[deployment README](../deploy/README.md).
+
+Catalog and manual diary workflows need no AI key. Local estimates use a separate
+`MACROMAPPER_OPENAI_API_KEY` from the `MacroMapper Development` project; never
+reuse reviewer or production credentials. `OPENAI_MEAL_ESTIMATION_MODEL` selects
+the model. See [local estimation setup](../deploy/README.md#-local-estimation-key).
+
+`OPENAI_MEAL_ESTIMATION_TIMEOUT` is a shared wall-clock budget for intent
+extraction and estimation, default/max 110 seconds. SDK retries are disabled;
+two bounded worker slots prevent timed-out calls from creating an unbounded queue.
+Late results cannot publish records. Provider waits occur outside database
+transactions; publication, proposal and revision writes commit together afterward.
+A missing/unavailable provider returns a safe 503 while preserving the draft.
+Blank-name meal saves fall back to a sequential name if generation fails.
 
 ## 🔐 Authentication API
+
 - `POST /auth/register/`
   - Body: `email`, `password`, and optional `username`
   - Returns: `access`, `refresh`, `username`, `email`, and a success message
@@ -94,7 +75,8 @@ component changes without taking ownership of diary history.
 - `POST /auth/reset-password/`
   - Body: `uid`, `token`, `password`
 
-## Food Catalog API
+## 🥗 Food catalog API
+
 All food and nutrient endpoints require a JWT access token.
 
 - `GET /api/foods/`
@@ -151,7 +133,8 @@ Create and update requests supply a nested `definition` object:
 }
 ```
 
-## Meal Diary API
+## 🍽️ Meal diary API
+
 All meal endpoints require a JWT access token and expose only the authenticated
 user's entries.
 
@@ -189,7 +172,8 @@ nutrition, source, and nested-component edits consistently for manual meals,
 AI-reviewed meals, and existing diary entries. Existing archived food versions
 remain valid only when they were already pinned by the meal being updated.
 
-## GPT Meal Proposal API
+## 🤖 Meal proposal API
+
 All proposal endpoints require a JWT access token and expose only the current
 user's proposals.
 
@@ -259,7 +243,16 @@ only and explicitly exclude dietary, medical, clinical, and treatment advice.
 Follow-up requests use the same non-stored provider flow and retain the current
 draft when the provider is unavailable or cannot produce an applicable change.
 
-## 🧩 Snapshot and adjustment invariants
+## 🧩 Food identity and portions
+
+See [canonical identities and safe duplicate cleanup](README.md#-canonical-food-identity)
+and [meal interpretation semantics](README.md#-meal-interpretation-and-portions). Shared food
+identity is independent of consumed quantity and nutritional definition. Recipes
+retain full-recipe ingredient quantities; their parent servings carry the eaten
+fraction. Natural size choices use food-specific weights and remain editable
+without creating personal food copies or rewriting older meal snapshots.
+
+## 🗄️ Snapshot and adjustment invariants
 
 Food responses, catalog estimates and meal snapshots share the complete reachable
 component graph, loaded in batches by tree level. Reuse the graph and nutrient
@@ -271,8 +264,6 @@ recursive validation of required fields, identifiers, decimal values, portions,
 nutrients, sources and nested components. Missing or malformed legacy snapshots
 are rebuilt from the saved food-version graph, preserving pinned history rather
 than using the latest catalog definition. Source access dates are ISO strings.
-See [PR #153](https://github.com/VanillaIceCube/MacroMapper/pull/153) and
-`meals.tests.ComponentGraphTests` for structural and query-count coverage.
 
 Meal-entry and builder adjustment endpoints share `process_meal_adjustment`.
 Provider resolution, follow-up processing and response serialization stay inside
@@ -281,241 +272,329 @@ temporary meal-entry proposals are deleted after serialization. Missing/null
 optional follow-up fields retain existing confidence and provider metadata when
 no replacement is supplied. Views inject the response serializer and provider
 getter to avoid a service/serializer import cycle and keep provider calls patchable.
-See [PR #181](https://github.com/VanillaIceCube/MacroMapper/pull/181) and
-`estimates.tests.test_adjustments.MealAdjustmentLifecycleTests` for both endpoints' failure coverage.
-
-## 🔔 Notification API
-All `/api/` endpoints require a JWT access token. Notification querysets are
-always scoped to the authenticated recipient.
-
-- `GET /api/notifications/`
-- `PATCH /api/notifications/{id}/` with `{"is_read": true}` or
-  `{"is_read": false}`
-- `DELETE /api/notifications/{id}/`
-- `PATCH /api/notifications/mark-all-read/`
-- `DELETE /api/notifications/clear-all/`
-
-Notifications retain an event type, title, message, optional actor, and
-optional frontend `target_path`. MacroMapper's nutrition and activity apps can
-create them without coupling notification delivery to a specific domain model.
-
-## 💻 Local Setup
-From the repository root:
-
-```powershell
-python -m pip install -r backend/requirements.txt
-python backend/manage.py migrate
-python backend/manage.py runserver 8000
-```
-
-Optional `backend/.env` values are loaded automatically:
-
-```env
-DJANGO_SECRET_KEY=local-only-key
-DJANGO_DEBUG=1
-DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,macromapper.localhost
-DJANGO_CORS_ALLOWED_ORIGINS=http://macromapper.localhost:3000
-DJANGO_CSRF_TRUSTED_ORIGINS=http://macromapper.localhost:3000
-DJANGO_FRONTEND_BASE_URL=http://macromapper.localhost:3000
-MACROMAPPER_OPENAI_API_KEY=<openai-project-api-key>
-OPENAI_MEAL_ESTIMATION_MODEL=gpt-5.6-luna
-OPENAI_MEAL_ESTIMATION_TIMEOUT=110
-```
-
-Use only the `Local · Application · AI Estimate` key from the separate
-`MacroMapper Development` OpenAI project in this local env file. Never use a
-reviewer or production key locally. See the [credential migration guide](../.github/README-WORKFLOWS.md#-independent-estimation-credentials).
-
-The OpenAI key is optional for local catalog/manual workflows. An unmatched
-description returns `503 Service Unavailable` with a safe explanation when the
-key is absent or the provider cannot respond. Saving a meal with a blank name
-asks the configured model for a concise name based on its selected foods; if
-that request fails, the meal is saved with a sequential name such as `Meal-00`.
-
-`OPENAI_MEAL_ESTIMATION_TIMEOUT` is the total wall-clock AI budget, shared by
-intent extraction and nutrition estimation; default 110 seconds, allowed range
-greater than 0 through 110. SDK retries are disabled. SDK-only calls run in a
-bounded pool of two threads; if a timed-out call is still completing, its slot
-remains occupied and additional AI requests fail safely rather than queueing.
-Late results cannot publish database records. The existing JSON 503 response
-preserves the editable frontend draft. ORM work stays on the request thread.
-Initial catalog reads and AI waits happen outside a database transaction; the
-catalog publication, proposal and revision are committed together afterward.
-This avoids holding SQLite read locks while other request threads save data.
-Blank-name draft saves also generate the name before opening the write
-transaction, then revalidate catalog visibility and reviewed items before
-materializing and saving the meal together with its items.
-Production Gunicorn uses one worker with four request threads and a 120-second
-worker-liveness timeout; the AI budget bounds request wait time.
-
-The default database is `backend/db.sqlite3`. Override it with
-`DJANGO_SQLITE_PATH`. The `macromapper.localhost` host is accepted by
-default while `DJANGO_DEBUG=1`.
-
-With `DJANGO_DEBUG=0`, startup requires an explicit `DJANGO_SECRET_KEY` and
-`DJANGO_ALLOWED_HOSTS`; local host/origin defaults are omitted. Session and
-CSRF cookies require HTTPS. Django accepts the Host header rather than
-`X-Forwarded-Host`; production Nginx overwrites `X-Forwarded-Proto` with its
-trusted HTTPS value. Do not expose the backend directly to the internet.
-The shared production overlay supplies a private raw environment file,
-retains the SQLite bind mount and outbound provider access, and runs deployment
-checks/migrations before starting Gunicorn. See the
-[production configuration and recovery guide](../deploy/README.md).
-
-## Docker Hot Reload
-The development Compose workflow builds `backend/Dockerfile.dev`, mounts the
-backend source, and runs Django's autoreloading development server:
-
-```powershell
-docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml up --build -d backend
-docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml exec -T backend python manage.py migrate
-```
-
-The development backend listens on `http://macromapper.localhost:8000`.
-Use the production Dockerfile and Compose file when testing Gunicorn, Nginx,
-HTTPS, or deployment-shaped behavior.
 
 ## ✉️ Email
-Local development defaults to Django's console email backend. A local-only
-sender can be configured while messages remain in the console:
 
-```env
-DJANGO_EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
-DJANGO_DEFAULT_FROM_EMAIL=MacroMapper <no-reply@macromapper.localhost>
-```
-
-Production can use the included Resend HTTPS backend with a sender on the
-verified production sending domain:
+Local development uses Django's console email backend. The included
+Resend HTTPS backend is configured with:
 
 ```env
 DJANGO_EMAIL_BACKEND=authentication.email_backends.ResendApiEmailBackend
 DJANGO_EMAIL_HOST_KEY=<resend-api-key>
 DJANGO_EMAIL_TIMEOUT=10
-DJANGO_DEFAULT_FROM_EMAIL=MacroMapper <no-reply@updates.judeandrewalaba.com>
+DJANGO_DEFAULT_FROM_EMAIL=<sender-on-a-verified-domain>
 ```
 
-Resend requires `DJANGO_DEFAULT_FROM_EMAIL` to use a domain verified in the
-Resend account. The `.localhost` sender is only for console-email development
-and must not be used with `ResendApiEmailBackend`. See the
-[deployment guide](../deploy/production/README.md#ci-inputs-and-private-host-preparation) for the
-production credential setup. Sender-domain verification remains an operator
-prerequisite; app releases do not change DNS.
+Keep `.localhost` senders with console delivery. Live delivery uses an approved
+sender domain and private credentials configured through the production guide.
+Plain text, HTML, multipart alternatives, `cc`, `bcc`, and `reply_to` are supported.
 
-When diagnosing delivery issues with `ResendApiEmailBackend`, check the Django server logs under logger `authentication.email_backends`. Failed requests log structured `ERROR` messages containing HTTP status codes (e.g., HTTP 429 rate limit or 5xx provider error) or network/timeout exception categories without disclosing API keys, email body text, or password reset tokens.
+The socket-operation timeout defaults to 10 seconds and supports `0 < seconds <= 30`.
+The environment value is parsed as an integer. Invalid runtime timeout values fall
+back safely; malformed startup configuration fails visibly. A successful provider
+response means acceptance, not confirmed inbox delivery.
 
-SMTP-compatible backends can instead use the documented `DJANGO_EMAIL_HOST`,
-`DJANGO_EMAIL_PORT`, `DJANGO_EMAIL_USE_TLS`, and
-`DJANGO_EMAIL_HOST_USER` settings.
+Failures preserve `fail_silently`: false re-raises, while true skips failures and
+returns the number sent. Password reset returns a generic response for known and
+unknown accounts, including delivery failures. Logger `authentication.email_backends`
+records safe category/status fields: `configuration`, `request`, `rate_limit`,
+`provider`, `timeout`, `network`, or `unexpected`. Never log provider response
+bodies, recipient details, reset tokens, message contents, or credentials.
 
-## 🧰 Checks
+Diagnose failures using those categories and the existing provider dashboard.
+There is no automatic retry or resend: a timeout may occur after acceptance.
+Use mocked delivery tests; production email receipt requires separate verification.
+
+## 🔌 MCP integration
+
+The shared-framework checker lives at `backend/check_app_mcp.py`, beside the backend
+and outside the hash-verified package. Run `python backend/check_app_mcp.py` from
+the repository root; use `--source-root <canonical-checkout>` for local offline
+verification. See the [framework guide](app_mcp/README.md) for source ownership.
+
+The [MCP README](app_mcp/README.md) explains shared transport,
+OAuth, configuration, and verification.
+
+Application tools, scopes, consent, and client setup live in the
+[MacroMapper MCP README](macromapper_mcp/README.md).
+
+Connection manifests, artwork, and package builders live in
+[chatgpt/](app_mcp/chatgpt/README.md).
+
+## 🧪 Checks
+
+From the repository root:
+
 ```powershell
 python backend/manage.py test backend
 ruff check backend
 ruff format backend --check
+python backend/manage.py makemigrations --check --dry-run
 ```
 
+## 🧪 Estimates test organization
 
-## 🔌 Shared MCP framework
+`estimates/tests/` is a discoverable Python package. Keep its `__init__.py` and
+name new modules `test_*.py`; do not recreate a competing `estimates/tests.py`.
+Use `test_proposals.py` for proposal API behavior, `test_adjustments.py` for
+adjustment lifecycle/rollback, `test_admin.py` for admin immutability, and
+`test_provider.py` for provider requests and normalization. Shared data builders
+belong in `helpers.py`, which does not define discoverable test classes.
 
-Proposal reads use summary lists and bounded pages of current review items rather
-than repeating historical item snapshots. Follow `get_proposal` item offsets before
-editing/accepting; oversized single items require full review in the website.
-Sanitized error references support diagnosis without logging private meal payloads.
+Import helpers with `from .helpers import ...` and app modules with `from
+..models import ...` (or their absolute app paths). Patch dependencies where the
+code under test looks them up, such as `estimates.services.get_estimation_provider`,
+not where test helpers live. Keep provider calls mocked; no API key is needed.
 
-See [the app MCP guide](../docs/MCP.md) for the `macromapper_mcp` registry, read/write/estimate scopes, confirmation, ASGI startup and additive migrations. The canonical [MCP framework](../docs/MCP-FRAMEWORK.md) remains unchanged. Install the domain app in both profiles so its confirmation migration is stable; install OAuth Toolkit only when enabled. Run ordinary backend tests and the separately enabled framework/domain suite. REST JWT authentication is unchanged.
+From the repository root, run `python backend/manage.py test estimates` for all
+estimate modules, or append a module/class/method such as
+`estimates.tests.test_provider.OpenAIProviderTests`. Also run
+`python backend/manage.py test backend` to verify full Django discovery. The
+explicit directory matters at the repository root: without a label, discovery
+starts in the current directory and can report zero tests. CI instead runs
+`python manage.py test` with `backend` as its working directory. Compare test
+inventories and assertions before/after moving tests, including class decorators,
+setup/teardown, helpers and subtests; a green reduced suite is insufficient.
 
-## Authentication and notification parity
+## 🛠️ Maintenance
 
-Registration validates passwords with Django's configured validators against the
-candidate user's final username/email before account creation. Validation failures
-return HTTP 400 with a human-readable `error`; non-string passwords also return
-400. Password reset already validates against the existing user. Notification
-bulk mark-read/clear operations are transactional and remain recipient-scoped.
-See [the adoption audit](../docs/AUTH-PARITY.md) for evidence and boundaries.
+Keep registration and reset validation against the prospective/existing user,
+preserve password whitespace, and retain generic account-recovery responses.
+Notification operations remain recipient-scoped; bulk mutations are atomic.
+Preserve pending/error handling through response parsing in the frontend.
 
-## Development dependency reproducibility
+Maintain the Python version in `environment.yml` and pip dependencies in
+`requirements.txt` together with CI and Docker. The test runner's fast password
+hasher applies only during tests; normal settings retain secure hashing.
+See [Docker dependency maintenance](../deploy/README.md#development-dependency-reproducibility).
 
-Development images pin reviewed multi-platform Node 26 and Miniforge 26.9.4-0
-registry digests. Production Dockerfiles and the independent release engine are
-unchanged by this development-image policy. Refresh tags/digests together after
-registry verification and a disposable build/configuration check.
+The browser-test backend uses disposable SQLite, synthetic users, local file mail,
+and loopback binding. It does not load developer dotenv files or use the developer
+database. Install backend requirements before running the frontend browser suite.
 
-The frontend development entrypoint hashes both `package.json` and
-`package-lock.json` inside its persistent `node_modules` volume. Fresh volumes
-install with `npm ci`; unchanged restarts reuse dependencies; changing either
-manifest reinstalls. Missing manifests or a failed installation stop startup and
-retry on the next invocation. Use one volume per checkout and restart after edits.
-Run `node --test tests/dev-dependencies.test.cjs` from the repository root for the
-credential-free mocked lifecycle/exit-status regression. Compose configuration
-checks do not deploy or touch application data.
+## 📚 Domain contracts
 
-## Disposable browser-test backend
+- [Catalog identity and duplicate cleanup](README.md#-canonical-food-identity).
+- [Meal interpretation and portion semantics](README.md#-meal-interpretation-and-portions).
+- [Nutrition evidence and publication rules](README.md#-nutrition-evidence).
 
-The frontend `npm run test:e2e` wrapper runs `scripts/e2e_backend.py` with
-`scripts/e2e_settings.py`: synthetic secret, fresh temporary SQLite, local file
-email, test-only fast hashing, disabled MCP and loopback-only binding. It refuses
-state directories without the wrapper marker and prevents dotenv loading.
-Install `backend/requirements.txt` in your activated Python environment first.
-This harness never reads the developer database or production settings and does
-not change the normal server/test-runner hashing policy. See frontend/README.md.
+## 🚀 Production
+
+Use the [production release and recovery guide](../deploy/production/README.md)
+for private configuration, exact proxy trust, migrations, static files and readiness.
+Production sessions/CSRF cookies require HTTPS with debug disabled; backend ports
+remain private. Local Docker files are development tools, not production release inputs.
+
+## 🥗 Canonical food identity
+
+Shared food identity is separate from an estimate's serving, nutrients,
+confidence and meal quantity. `canonical_identity` hashes normalized food/provider
+names, market and product identifiers. Known food plurals and punctuation are
+normalized; provider foods do not split merely because their classification is
+`branded` rather than `restaurant`. Generic leading portion-size wording is
+removed, while branded size/SKU names remain distinct.
+
+An explicit product identifier is scoped to its provider and market. Otherwise
+an explicitly supplied identity URL, or a source whose hostname starts with the
+normalized provider name,
+also constrains identity. URL fragments and tracking parameters are ignored;
+country paths and meaningful query parameters are preserved. This hostname
+heuristic is an identity hint, not proof of domain ownership or official
+nutrition provenance. Unmatched third-party source URLs do not define identity.
+Unknown versus known identity URLs/markets are
+conservatively distinct: adding evidence must not silently merge potentially
+different regional products. Unrecognized synonyms and cross-domain provider
+aliases need explicit review rather than fuzzy automatic merging.
+
+Within a canonical food, `content_fingerprint` covers the serving definition,
+food-specific natural servings, all supported nutrients, pinned component
+content/identity/quantities, and research/verification coverage.
+Component identity uses the registered canonical key when available; legacy
+components derive their identity from the exact pinned version's source URLs,
+so a later current version or a same-named regional product cannot replace it.
+Source-level official flags and verification evidence are part of content
+integrity: a newly verified publication cannot be swallowed by an older unsourced version with the
+same nutrients. Meal servings and consumed recipe fractions are instance
+quantities and do not create versions. Evidence-equivalent definitions reuse a
+version, retain additional source URLs, and append distinct estimation metadata
+to `FoodVersionEvidence`. Confidence-only differences and retrieval response IDs
+do not split equivalent versions; their complete incoming evidence/source
+metadata is retained in that append-only record.
+Ordinary citations with `is_official=false` and empty evidence also merge into
+the same version rather than changing its content identity; adding a first-party
+claim or trust/research evidence remains an immutable version distinction.
+Existing version nutrients, provenance, confidence, source evidence and response
+metadata remain unchanged.
+A materially changed definition or verification coverage creates a new version.
+Personal definitions remain owner-specific and are never merged by the
+consolidation command.
+
+Current version selection is deterministic: categorical verified parent coverage
+wins first (fully verified and source-backed with inferred components, then
+partially verified, AI estimate, then legacy/unknown), followed by the count of
+verified nutrient fields. Provenance then ranks official, community estimate, AI
+estimate, user entered, then user modified; source count, confidence, earliest
+version number and primary key break later ties. A legacy official label cannot
+displace a newly verified definition. Recency alone cannot displace better
+evidence. Exact source/product/region/serving verification follows the nutrition evidence contract below; this selection policy
+does not independently validate an AI assertion that a source is official.
 
 
-## Transactional email failure handling
+## 🧮 Meal interpretation and portions
 
-`ResendApiEmailBackend` sends once per message. An HTTP 2xx means provider
-acceptance, not confirmed inbox delivery. `EMAIL_TIMEOUT` is a finite socket
-operation timeout: default 10 seconds, supported `0 < seconds <= 30`. Invalid, nonfinite,
-bool or larger runtime values produce a safe warning and use 10 seconds. The
-`DJANGO_EMAIL_TIMEOUT` environment setting is parsed as an integer at startup;
-malformed text fails configuration visibly rather than changing delivery policy.
+One draft tree is the calculation basis for AI estimates, manual review and saved
+meals. Each node has a unique stable key, immutable catalog identity/version
+references, a base serving definition and an instance `servings` multiplier.
+Composite nutrients ordinarily sum children multiplied by each child's local
+servings. Direct fields with matching official source verification retain their
+verified parent values; inferred component totals do not replace those fields.
+Consumed nutrients multiply that result by the parent's servings once.
 
-The backend preserves `fail_silently`: false re-raises the original exception;
-true logs the failure, continues the batch and returns only successful sends.
-Missing credentials log `configuration` and return 0 only in silent mode. The
-password-reset caller deliberately uses false, catches failures, emits a safe
-caller event and returns the same generic 200 response for known and unknown
-accounts. No recipient/user ID, exception text/traceback, reset URL/token, key or
-message content is included in these logs.
+## Recipes and corrections
 
-Logger `authentication.email_backends` emits ERROR records with
-`delivery_provider=resend`, `delivery_category` and numeric `delivery_status`
-(or unknown). Categories: `configuration`, `request` (HTTP 4xx except 429),
-`rate_limit` (429), `provider` (HTTP 5xx), `timeout`, `network`, `unexpected`.
-The text formatter includes category/status even when structured fields are not
-configured. Provider bodies and error strings are untrusted and never read for
-logging. Template's established HTML/reply-to support and app sender identities
-are preserved; generic failure behavior is equivalent across all three apps.
+Recipe descriptions are interpreted as a whole, including when some ingredients
+already exist in the catalog. Full recipe ingredient quantities remain children
+of the prepared food. The provider's optional `recipe_fraction` becomes the
+top-level recipe's servings; it requires a composite with one full recipe as its
+basis. For 75% of chilaquiles plus two chicken breasts and yogurt, the recipe is
+0.75, chicken is 2 and yogurt keeps its separately described quantity. The
+provider must not pre-scale recipe children. Nutrition normalization and rollup
+remain deterministic after interpretation.
 
-Operator recovery: check these safe categories and the existing Resend dashboard
-using the existing account. Missing key/401/403 calls for credential selection,
-permissions or sender-domain verification; fix deployment configuration through
-the documented release path without logging/rotating keys.400/422 means inspect
-payload rules using synthetic data. 429/5xx/network/timeouts indicate capacity or
-provider availability; check status/rate limits before asking for a fresh reset.
-Repeated configuration/auth failures or a sustained outage warrant operator
-attention through existing channels. This adds logs, not a monitoring service.
+Follow-ups support targeted operations on exact existing keys:
 
-There is no automatic retry, queue or resend: a timeout may occur after provider
-acceptance, so a blind retry could duplicate a reset email. Idempotency/backoff
-and durable delivery tracking would need their own bounded design. No production
-mail is sent by tests; mocks cover success, credentials, network/timeouts,
-400/401/403/422/429/500/503, both silent modes, partial batches, safe fallback and
-the real reset caller's generic response/redacted logs. Production public
-readiness cannot establish authenticated password-reset inbox delivery.
+- `reparentings`: move a node to an existing composite (`parent_key`) or meal
+  level (`null`). Local ingredient quantities, IDs and nutrition are retained.
+- `fraction_updates`: set an absolute recipe fraction, not a multiplier of its
+  previous fraction. `excluded_keys` protects separate foods from quantity and
+  size operations in that response. Excluded children must first be moved out.
+- `serving_updates`: change an existing node's absolute quantity.
+- `portion_updates`: select an existing portion option. Natural size changes
+  preserve count; measurement conversions preserve consumed weight/nutrition.
+- `remove_keys`: remove an existing subtree. New foods still require the
+  existing catalog/publication validation path.
 
-## Persistence regression guidance
+Moves do not recreate ingredients. Ingredient-tree changes invalidate parent
+verification before recalculation; consumed-fraction-only changes preserve
+per-serving evidence and official values. Cycles, unknown keys, duplicate node keys,
+leaf destinations, excessive depth/cardinality and conflicting fraction/child
+quantity edits fail atomically with actionable validation. Removing the final
+child clears the former composite's nutrition rather than retaining stale
+totals. A local recipe quantity stays local when moved beneath a partially
+consumed recipe; its consumed contribution then follows that recipe's fraction.
 
-Preserve recipient scoping and serializer saves on notification PATCH even when
-read state is unchanged or omitted; change `read_at` only on state transitions.
-Keep malformed reset-ID and duplicate-registration race coverage. Estimated
-portion weights must remain positive after rounding before division; retain
-tiny/zero/negative input and exact conversion tests. Snapshot and proposal
-cleanup requirements are described in the invariants section above.
+The AI remains responsible for resolving natural-language references and
+choosing the correct keys. The existing best-effort conversational policy is
+retained; ambiguous natural language is not a guarantee of a clarification
+dialog. Unsupported operations fail visibly. No paid meal-model call is required
+for the synthetic regression suite.
 
-## Nutrition catalog evidence
+## Canonical names and food-specific portions
 
-See [the Batch 3 integrity contract](../docs/NUTRITION-INTEGRITY.md) for publication
-validation, per-food research, additive source/nutrient evidence, immutable diary
-history, and the deferred read-only audit/explicit-ID quarantine procedure. The
-metadata migration does not repair production records; production execution needs
-separate authorization. All research regressions use mocked provider responses.
+Generic leading size wording is removed from food identity; variety/color stays
+in the name. Branded product names and marketed size/SKU distinctions are kept.
+`natural_servings` is an optional list of `{key, label, weight_grams}` definitions
+for that particular food version. Choices appear as `size:<key>` portion options
+with multipliers derived from each gram weight divided by the base serving's
+gram weight. No universal Small/Medium/Large gram weights are assumed. A requested size is
+reused from the catalog only when a food-specific choice or the declared base
+serving represents that size. Otherwise the request remains unmatched for
+estimation; an unsupported Large request cannot silently reuse a Small base.
+Serialized size choices survive follow-up catalog lookup without requiring size
+words in the canonical food name or base label.
+
+For two Small apples, selecting Large keeps the count at two and changes the
+base-serving multiplier. Selecting grams converts the displayed quantity while
+preserving consumed nutrition. When food-specific sizes are unavailable, the
+existing natural base serving and grams/ounces options remain the fallback.
+Natural portion definitions are estimated unless their source/provenance says
+otherwise; this change does not introduce a verified food-weight database.
+
+Serving changes affect draft instances, never shared catalog versions. New component
+snapshots retain selected portion keys; old snapshots keep their original display
+and historical quantities/nutrients.
+
+## 🔎 Nutrition evidence
+
+## Publication and research
+
+`foods.evidence.usable_nutrition` accepts any finite nonnegative known nutrient,
+including zero. Nulls mean unknown. Empty leaves fail publication with a visible
+unresolved error before any shared food is written. Usable partial records and
+containers with populated components remain valid. The shared creation service
+also guards non-provider publication. Failed provider validation does not replace
+the user's existing draft or diary.
+
+The existing Responses web tool is required for initial estimation. Each branded
+parent without matching retrieved evidence gets a separate focused research pass
+under the **same existing deadline and worker limit**. There is no new service,
+credential, or unbounded retry. These research passes add potential provider/tool
+cost to an already-authorized estimate; tests never make live paid requests.
+Follow-up additions use the same evidence processing. Quantity-only follow-ups
+do not force online research.
+
+Search telemetry supplies the actually consulted URLs. A structured source alone
+cannot claim retrieval. Evidence retains document title, publisher, URL, first-party
+status, publication date when available, retrieval response ID, product, brand,
+region, serving quantity/unit/label/weight, and explicitly published nutrients.
+The backend never directly fetches model-supplied URLs. Existing public URL,
+text/privacy, decimal, depth and size publication gates remain in force.
+
+Verification requires retrieved evidence matching the exact product, brand,
+region and serving, plus equality for each displayed nutrient. Unknown or mismatched
+context remains an estimate. Search/extraction is still provider-mediated; these
+checks are not an independent human audit of a nutrition document. Provider-mediated checks do not establish independent human verification.
+
+`research_status` distinguishes `found`, `no_source_found`, `failed`,
+`not_attempted`, and legacy `not_recorded`. An unrelated frozen pizza, different
+market, whole pizza or another serving cannot verify a food-court slice. A source
+is attached only to its own food; parents do not supply evidence for components.
+Existing catalog hits remain reusable without new paid calls. Legacy unsourced
+records require separately reviewed re-research/replacement; reuse does not
+retroactively manufacture verification.
+
+## Compatible evidence contract
+
+Existing `provenance` and `source_kind` enums remain unchanged. Additive `evidence`
+on versions, proposal items and diary responses has these canonical statuses:
+
+| Status | Meaning |
+| --- | --- |
+| `official_verified` | All populated parent fields directly supported |
+| `source_backed_ai_components` | Verified parent values with inferred components |
+| `partially_source_backed` | Only some displayed parent fields directly supported |
+| `ai_estimate` | No verified parent fields |
+| `user_modified_estimate` | Reviewed definition changed; original sources retained as lineage |
+| `legacy_unverified` | Historical coverage was not recorded |
+
+`evidence.nutrients[field]` supplies verification status and supporting source URLs.
+Partial calorie evidence does not verify sugar, fiber or any other inferred field.
+Parent and component evidence remain separate. Direct verified parent fields take
+precedence over component sums; ordinary composites continue using component totals.
+Changing components removes the parent's verification and recalculates the result.
+Changing only the parent's consumed count preserves its per-serving evidence.
+
+Confidence metadata explicitly separates `model`, `evidence`, and `combined`.
+No independent numeric source confidence is available, so `evidence` is null,
+never a fabricated score. `combined` is the minimum available model dependency
+score, or null if a dependency is unscored. Categorical verification is independent
+of every confidence score. The UI explains this and exposes source coverage and
+the mixed parent/component state.
+
+SourceReference stores its own nullable `is_official` and evidence JSON. Legacy
+null official flags serialize conservatively as false/unknown; they are never
+inferred from the parent's label. The additive migration does not rewrite old
+versions, proposals, revisions, snapshots or source claims. Legacy component
+snapshots may omit evidence and remain readable. Source URLs can remain as lineage
+on adjusted foods, while no adjusted value is presented as verified. Review input
+cannot override server-owned evidence, even when returned metadata is round-tripped.
+
+Canonical food identity is separate from version content fingerprints . Trust-bearing evidence and source classifications participate in version
+content identity, so old unsourced content cannot swallow a verified publication.
+Retrieval IDs and confidence remain additional estimate evidence rather than
+splitting otherwise equivalent content. Identity still preserves explicit market,
+product identifiers and product URLs. Canonical `market` and evidence `region`
+share the supplied regional context; contradictory nonblank values are rejected
+before publication. Both remain blank when no regional context is supplied.
+Nutrition or serving changes create versions under the same canonical food. See canonical food identity above.
+Additive schema changes do not repair historical production data.

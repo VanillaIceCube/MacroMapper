@@ -1,185 +1,38 @@
 # 🥗 MacroMapper
 
-**A Source-Aware Nutrition and Activity Tracker**
+**A source-aware nutrition and activity tracker**
 
-MacroMapper is a personal nutrition and activity tracker for people who want a
-fast diary without hiding how meal estimates were created. Users can log food
-manually or describe a meal in natural language, review an editable GPT
-estimate with its sources, and decide what enters their history.
+MacroMapper is a personal nutrition tracker inspired by MyFitnessPal's quick
+daily logging. Log food manually or describe a meal, review an editable AI
+estimate with sources, and decide what enters your private diary.
 
-It is inspired by MyFitnessPal's quick daily logging experience, with a
-transparent Food Item catalog that can break meals into reusable components.
-MacroMapper tracks nutrition and activity information without providing
-medical, clinical, or prescriptive dietary advice.
-
-The authentication, application, Food Item catalog, private meal diary, and
-GPT-assisted meal-estimation flows are implemented. Activity and goal features
-remain planned in the [product roadmap](docs/PRODUCT_VISION.md).
-
-## 👋 A Note from the Author
-
-First and foremost, I created this application because I wanted a Calorie Counting App. I used to use MyFitnessPal, but I wanted something AI-Powered, and all options were like $20 bucks a month. I also didn't want to take pictures of my food? I mean I feel like that would just give you the worst estimate of all time.
-
-I had a vision where you'd write up a description then it would do it's best to fact check it against the internet. Like if I said I wanted a double double animal style with no lettuce (this is an example, I love lettuce) from inn-n-out, it would go to the internet and find the double double facts, find the animal style if it can, then break it down into components, and then remove the lettuce. And that info would be available for everyone in the application, with confidence level, the actual source, and a provenance marking.
-
-Outside of that, I mean my goal was to get a good personal use application that utilized generative AI in a manner that you could trust and audit it.
+Food logging, the reusable catalog, and AI meal review are implemented;
+activity and goals remain planned. The application provides nutrition
+information rather than medical or prescriptive dietary advice.
 
 ## ✨ Features
-- **Account foundation:** email-first registration, JWT sessions, password
-  reset, protected routes, and recipient-scoped notifications
-- **Private meal diary:** dated meal entry creation, editing, deletion, durable
-  saved food/component details, and daily launch-nutrient totals
-- **GPT meal proposals:** fast deterministic catalog reuse followed by
-  structured AI food-intent extraction when a description remains unresolved;
-  each extracted food is searched independently and only missing foods receive
-  a sourced nutrition estimate. Conversational follow-up additions and
-  corrections stay within the editable, source-aware proposal with explicit
-  provenance, immutable review revisions, and confidence requiring review
-  before saving.
-- **Bounded AI requests:** meal estimation allows up to two minutes at the server
-  and proxy, with a 110-second total AI budget and safe errors that retain drafts.
-  Ordinary API requests can continue while the model checks sources.
-- **Reusable Food Items:** authenticated catalog APIs for standalone and
-  composite foods with portions, nutrients, provenance, sources, and confidence
-- **Catalog separation:** initial AI definitions become deduplicated shared
-  catalog records, while user-adjusted and fully personal records remain
-  attributable and private
-- **Goals and trends (planned):** nutrition targets, activity-adjusted budgets,
-  and factual daily, weekly, and monthly reporting
-- **Same-origin routing:** React at `/`, authentication at `/auth/`, application
-  APIs at `/api/`, and Django admin at `/admin/`
-- **Dockerized deployment:** local HTTP hot reload or standalone HTTPS;
-  production frontend/backend stay private behind the existing shared Nginx
 
-## 🚀 Tech Stack
-- **Backend:** Django + Django REST Framework
-- **Frontend:** React + Vite + Material UI
-- **Authentication:** Simple JWT
-- **Testing:** Django test runner + Vitest + Testing Library. From the repository root,
-  run `python backend/manage.py test backend` (the directory label prevents empty
-  discovery), or run `python manage.py test` from `backend`. See the
-  [backend test organization](backend/README.md#estimates-test-organization) and
-  [frontend domain conventions](frontend/README.md#domain-entry-points).
-- **Code quality:** Ruff + ESLint + Prettier
-- **Deployment:** Docker + Nginx
-- **Hosting:** DigitalOcean
-- **DNS/Proxy:** Cloudflare
-- **Email:** Resend
-- **CI/CD & Workflows:** GitHub Actions
-- **Security automation:** CodeQL, dependency and malware review, Dependabot,
-  blocking AI PR reviewer verdicts enforced through required checks, and
-  scheduled security-alert aggregation
+- A private meal diary with daily nutrient totals and editable saved meals.
+- AI meal proposals with sources, confidence, and a review step before saving.
+- Reusable foods, recipes, serving sizes, and ingredient breakdowns.
+- Accounts, password recovery, and recipient-scoped notifications.
+- An MCP integration for working with the application through connected clients.
 
-## 📸 Application Tour
+## 🚀 Tech stack
 
-### Daily Nutrition Page 01
-
-View your daily statistics.
-
-![MacroMapper daily nutrition summary with nutrient totals, macro balance, and calories by meal](frontend/docs/images/daily-nutrition-01.png)
-
-### Daily Nutrition Page 02
-
-View your meal-by-meal stats as well as their confidence and provenance.
-
-![MacroMapper meal log with food-level nutrition, confidence, provenance, and macro charts](frontend/docs/images/daily-nutrition-02.png)
-
-### Meal Estimation Page 01
-
-Estimate your meal with AI!
-
-![MacroMapper AI meal description dialog](frontend/docs/images/meal-estimation-01.png)
-
-### Meal Estimation Page 02
-
-The nutritional information for your meal!
-
-![MacroMapper estimated meal editor with nutrition totals and meal items](frontend/docs/images/meal-estimation-02.png)
-
-### Meal Estimation Page 03
-
-Break down meal items by component for easy adjustments—like, “Oh! I actually
-didn't have sour cream.” The app also displays the provenance, source, and
-confidence.
-
-![MacroMapper meal component editor with source, provenance, and confidence details](frontend/docs/images/meal-estimation-03.png)
-
-### Meal Estimation Page 04
-
-Manually add items from the catalog, or use AI to make adjustments!
-
-![MacroMapper catalog search and conversational AI adjustment controls](frontend/docs/images/meal-estimation-04.png)
+- **Frontend:** React, Vite, and Material UI.
+- **Backend:** Django REST Framework and JWT authentication.
+- **Development and hosting:** Docker, Nginx, and GitHub Actions.
 
 ## 📚 Documentation
 
-Production configuration, releases and recovery are documented in the
-[production guide](deploy/production/README.md). For local Docker hot reload
-and standalone HTTPS, use the [local guide](deploy/README.md).
-
-- Product vision and delivery roadmap: [`docs/PRODUCT_VISION.md`](docs/PRODUCT_VISION.md)
-- Setup, environment variables, and common commands: [`AGENTS.md`](AGENTS.md)
-- Backend (API, auth, configuration): [`backend/README.md`](backend/README.md)
-- Frontend (routing, sessions, API base URL): [`frontend/README.md`](frontend/README.md)
-- Deployment (Docker, Nginx, Cloudflare, DigitalOcean): [`deploy/README.md`](deploy/README.md)
-- Local HTTPS certificate helper: [`scripts/create-local-certificate.ps1`](scripts/create-local-certificate.ps1)
-- GitHub Apps, Project, and repository settings: [`.github/GITHUB_SETUP.md`](.github/GITHUB_SETUP.md)
-- CI/CD and automation: [`.github/README-WORKFLOWS.md`](.github/README-WORKFLOWS.md)
-- Changelog: [`CHANGELOG.md`](CHANGELOG.md)
+- [Backend](backend/README.md) — setup, APIs, authentication, email, and MCP.
+- [Frontend](frontend/README.md) — setup, pages, components, and browser tests.
+- [Deployment](deploy/README.md) — local Docker, configuration, and live-server guides.
+- [GitHub setup and workflows](.github/README.md) — first-PR setup and automation.
+- [Changelog](CHANGELOG.md) — project updates.
 
 ## 📜 License
-This project is licensed under a **Modified MIT License (Non-Commercial Use
-Only)**. See [`LICENSE.md`](LICENSE.md) for full details.
 
-## 🔑 AI reviewer credentials
-
-Obi-Wan, Lint Eastwood, and RoboCop use separate OpenAI keys scoped to this
-repository. See the [workflow setup and deferred migration](.github/README-WORKFLOWS.md#-separate-openai-reviewer-credentials)
-for exact secret names, project configuration, verification, and rollback.
-
-
-## 🔌 Shared MCP framework
-
-MacroMapper owns its [MCP tools, OAuth permissions and client setup](docs/MCP.md), using the unchanged [shared framework](docs/MCP-FRAMEWORK.md). Read access, confirmed writes and paid estimation have separate scopes. The production profile includes consent and Connected Apps; deployment does not install a client plugin.
-
-Security-alert maintenance validates complete source coverage and supports bounded,
-idempotent Project recovery; see [.github/README-WORKFLOWS.md](.github/README-WORKFLOWS.md#security-alert-recovery).
-
-## Development dependency reproducibility
-
-Development images pin reviewed multi-platform Node 26 and Miniforge 26.9.4-0
-registry digests. Production Dockerfiles and the independent release engine are
-unchanged by this development-image policy. Refresh tags/digests together after
-registry verification and a disposable build/configuration check.
-
-The frontend development entrypoint hashes both `package.json` and
-`package-lock.json` inside its persistent `node_modules` volume. Fresh volumes
-install with `npm ci`; unchanged restarts reuse dependencies; changing either
-manifest reinstalls. Missing manifests or a failed installation stop startup and
-retry on the next invocation. Use one volume per checkout and restart after edits.
-Run `node --test tests/dev-dependencies.test.cjs` from the repository root for the
-credential-free mocked lifecycle/exit-status regression. Compose configuration
-checks do not deploy or touch application data.
-
-## Isolated browser and automation checks
-
-The optional Chromium foundation exercises existing authentication/session and
-password-recovery behavior using a fresh disposable SQLite database and local
-file mail. Setup, commands and extension points are in [frontend/README.md](frontend/README.md).
-CI runs it only for relevant changes. No application credentials are required.
-See [automation coverage](docs/AUTOMATION-COVERAGE.md) and the
-[Batch 2 parity record](docs/BATCH2-PARITY.md) for cross-repository adoption and limits.
-
-
-Reviewer discussion, feedback ownership, safe usage evidence and recovery are
-documented in [.github/AI-REVIEWERS.md](.github/AI-REVIEWERS.md).
-
-
-CI/CD events, reviewer flow, credential boundaries and production-summary behavior
-are mapped in [the architecture reference](docs/CI-CD-ARCHITECTURE.md).
-Shared adoption and justified differences are recorded in [Batch 3 parity](docs/BATCH3-PARITY.md).
-
-Transactional mail failure categories, finite timeouts and password-reset recovery
-are documented in [backend/README.md](backend/README.md#transactional-email-failure-handling).
-
-Security-alert model overrides are resolved by the three caller workflows and passed
-through validated composite inputs; see the [configuration contract](.github/README-WORKFLOWS.md#security-alert-configuration-contract).
+[Modified MIT License (Non-Commercial Use Only)](LICENSE.md).
+Commercial use requires separate permission from the copyright holder.

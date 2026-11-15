@@ -32,6 +32,6 @@ urlpatterns = [
 ]
 
 
-from mcp_framework.routing import urlpatterns as mcp_urlpatterns  # noqa: E402
+from app_mcp.routing import urlpatterns as mcp_urlpatterns  # noqa: E402
 
 urlpatterns = mcp_urlpatterns() + urlpatterns

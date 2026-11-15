@@ -228,7 +228,7 @@ if not math.isfinite(OPENAI_MEAL_ESTIMATION_TIMEOUT) or not (
 
 
 # Optional MCP has no routes, OAuth tables or application tools unless explicitly enabled.
-from mcp_framework.config import oauth_settings, optional_settings  # noqa: E402
+from app_mcp.config import oauth_settings, optional_settings  # noqa: E402
 
 MCP_SETTINGS = optional_settings("MacroMapper", "macromapper", sample=False)
 MCP_SETTINGS.update(
@@ -246,7 +246,7 @@ MCP_SETTINGS.update(
     ),
 )
 globals().update(MCP_SETTINGS)
-INSTALLED_APPS += ["mcp_framework", "macromapper_mcp.apps.MacroMapperMCPConfig"]
+INSTALLED_APPS += ["app_mcp", "macromapper_mcp.apps.MacroMapperMCPConfig"]
 if MCP_SETTINGS["MCP_ENABLED"]:
     INSTALLED_APPS += ["oauth2_provider"]
     SECURE_PROXY_SSL_HEADER = None
