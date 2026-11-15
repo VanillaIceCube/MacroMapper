@@ -10,6 +10,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Resolve favicon, Apple touch icon and web manifest URLs through the Vite base URL for consistent public asset paths.
 - Align the default ChatGPT listing with its read-only OAuth grant and document explicit configuration and new consent for broader variants.
 - Export ChatGPT artwork as a square binary PNG instead of embedding its raster data in SVG, preserving its appearance while keeping the complete PR within review limits.
 - Consolidate durable documentation into existing owning READMEs, move the active CI inventory beside workflow guidance, and repair links and architecture regressions.
