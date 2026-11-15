@@ -1,4 +1,3 @@
-import './App.css';
 import ConnectedApps, { OAuthConsent } from './pages/connections/Connections';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import { useState } from 'react';

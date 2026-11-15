@@ -12,6 +12,11 @@ Infrastructure gateway with the same 120-second API read timeout.
 
 ## 💻 Local Docker with `macromapper.localhost`
 
+The development Compose `environment` sets the frontend API origin. Production
+uses the Docker build argument, which is compiled into the static assets; a blank
+value selects same-origin requests. Backend settings remain in `deploy/.env`,
+created from the committed `deploy/backend.env` example below.
+
 For source iteration, copy `backend.env` to `deploy/.env` only if you do not
 already have a local environment file, then initialize only a missing database:
 
@@ -33,7 +38,7 @@ then use:
 ```powershell
 ./deploy/create-local-certificate.ps1
 docker build -t ghcr.io/vanillaicecube/macromapper-backend:latest ./backend
-docker build -t ghcr.io/vanillaicecube/macromapper-frontend:latest ./frontend
+docker build --file frontend/docker/Dockerfile -t ghcr.io/vanillaicecube/macromapper-frontend:latest ./frontend
 Set-Location deploy
 docker compose up -d
 docker compose exec -T backend python manage.py migrate
@@ -80,7 +85,7 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml up -d --f
 
 Never add a real key to the tracked
 `deploy/backend.env` example. Production uses a separate key and the approved
-release procedure; see the [credential migration guide](../.github/README.md#-application-credentials).
+release procedure; see the [credential migration guide](../.github/README.md#application-credentials).
 
 
 ## 🔌 Shared MCP framework
@@ -92,26 +97,40 @@ The [app MCP guide](../backend/macromapper_mcp/README.md) defines app-owned OAut
 ## 📦 Development dependency reproducibility
 
 Development images pin reviewed multi-platform Node 26 and Miniforge 26.9.4-0
-registry digests. Production Dockerfiles and the independent release engine are
-unchanged by this development-image policy. Refresh tags/digests together after
-registry verification and a disposable build/configuration check.
+registry digests. Frontend production and development builders use the same
+immutable Node 26 digest. Refresh matching tags/digests together after registry
+verification and a disposable build/configuration check.
 
-The frontend development entrypoint hashes both `package.json` and
-`package-lock.json` inside its persistent `node_modules` volume. Fresh volumes
-install with `npm ci`; unchanged restarts reuse dependencies; changing either
-manifest reinstalls. Missing manifests or a failed installation stop startup and
-retry on the next invocation. Use one volume per checkout and restart after edits.
+Frontend production/development Dockerfiles and Nginx configuration live in
+`frontend/docker/`. The build context remains
+`frontend/`; Compose and CI select the Dockerfile explicitly.
+
+The frontend starts Vite directly with `npm start`. Source hot reload and the
+persistent `frontend_node_modules` volume remain. Dependency changes require a
+manual install in the running frontend container, followed by a restart:
+
+```powershell
+docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml exec -T frontend npm ci
+docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml restart frontend
+```
+
+If the frontend is stopped, use `run --rm --no-deps frontend npm ci` with the same
+Compose options, then start it again. Keep one dependency volume per checkout.
 Compose configuration
 checks do not deploy or touch application data.
 
 <a id="non-deploying-repository-validation"></a>
 
-## 🧪 Repository validation
+<a id="-repository-validation"></a>
+
+## 🧪 Checks
 
 See [workflow checks and validation](../.github/workflows/README.md#-checks-and-diagnostics).
 
 
-## 📚 Further reading
+<a id="-further-reading"></a>
+
+## 📚 Reference
 
 - [Live-server releases and recovery](production/README.md).
 - [Backend configuration](../backend/README.md).

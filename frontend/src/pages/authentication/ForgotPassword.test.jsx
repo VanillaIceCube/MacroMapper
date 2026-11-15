@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { forgotPassword } from '../../services/authApiClient';
-import { renderWithProviders } from '../../test-support/utils';
+import { renderWithProviders } from '../../test-helpers/utils';
 import ForgotPassword from './ForgotPassword';
 
 vi.mock('../../services/authApiClient', () => ({

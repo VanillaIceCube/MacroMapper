@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { renderWithProviders } from '../test-support/utils';
+import { renderWithProviders } from '../test-helpers/utils';
 import {
   changeMealItemNutrient,
   changeMealItemPortion,

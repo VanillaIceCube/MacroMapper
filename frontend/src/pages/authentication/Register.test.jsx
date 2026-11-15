@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { register } from '../../services/authApiClient';
-import { renderWithProviders } from '../../test-support/utils';
+import { renderWithProviders } from '../../test-helpers/utils';
 import Register from './Register';
 
 vi.mock('../../services/authApiClient', () => ({

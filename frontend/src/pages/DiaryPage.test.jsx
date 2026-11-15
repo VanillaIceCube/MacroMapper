@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DiaryPage from './DiaryPage';
-import { renderWithProviders } from '../test-support/utils';
+import { renderWithProviders } from '../test-helpers/utils';
 import {
   acceptMealProposal,
   adjustMeal,

@@ -22,7 +22,9 @@ for client registration, the exact callback, consent, tool coverage, and
 verification. Deployment does not register the client or install a plugin.
 No existing installed plugin or registered app identity is assumed here.
 
-## 🧭 Files
+<a id="-files"></a>
+
+## 🧭 Structure
 
 - `plugin.json`: MacroMapper listing metadata and presentation.
 - `mcp.json`: HTTPS endpoint, public OAuth settings, and least-privilege scopes.

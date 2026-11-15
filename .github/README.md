@@ -226,7 +226,9 @@ The complete deployment variables and secrets are in
 `env-prod` pushes or manual dispatch, so application CI can be proven before
 production credentials are ready.
 
-### 🔑 Deferred OpenAI migration
+<a id="-deferred-openai-migration"></a>
+
+### Deferred OpenAI migration
 
 Use the [reviewer key mapping and cutover sequence](README.md#-credential-ownership). Keep meal-estimation credentials separate from the reviewer project; production and local estimation use independent keys/projects.
 
@@ -284,7 +286,9 @@ stores as well (six review secrets total).
 
 See [OpenAI key security, expiration and usage guidance](https://developers.openai.com/api/docs/guides/production-best-practices#api-keys).
 
-### 🍽️ Application credentials
+<a id="-application-credentials"></a>
+
+### Application credentials
 
 Meal estimation keeps its existing `MACROMAPPER_OPENAI_API_KEY` name. Its keys
 must not come from the reviewer project or be shared between environments:
@@ -376,7 +380,9 @@ trusted same-repository branch before merging it.
 
 Do not require branches to be up to date before merging.
 
-## 🧪 Verification
+<a id="-verification"></a>
+
+## 🧪 Checks
 
 Repository CI helpers live in `.github/tools/`: `bounded_log.py` retains bounded
 reviewer diagnostics; `install_actionlint.sh` installs the pinned, checksum-verified
@@ -393,7 +399,9 @@ alert-workflow side effects before fresh manual dispatches. A successful human P
 does not prove access to the separate Dependabot secret store. Source review does
 not authorize merging, branch promotion, production deployment, or key rotation.
 
-## 📚 Related guides
+<a id="-related-guides"></a>
+
+## 📚 Reference
 
 - [Workflow behavior and maintenance](workflows/README.md).
 - [Shared action and reviewer contracts](actions/README.md).
