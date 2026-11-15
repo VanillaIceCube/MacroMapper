@@ -96,6 +96,13 @@ The [app MCP guide](../backend/apps/mcp/README.md#application-tools) defines app
 
 ## 📦 Development dependency reproducibility
 
+Both backend Dockerfiles install uv using isolated, binary-only pip with reviewed
+SHA-256 hashes from [PyPI's uv 0.13.8 release](https://pypi.org/pypi/uv/0.13.8/json).
+The allowlist covers every platform in the pinned Python image: Linux amd64,
+arm/v7, arm64/v8, 386 and ppc64le. Unlisted artifacts, altered wheels and source
+distributions fail installation. Requirements are passed through stdin; update
+the version and all compatible wheel hashes together after artifact verification.
+
 Backend production and development images use the same reviewed Python 3.12
 multi-platform image digest, bootstrap pinned uv 0.13.8, and install the committed
 `uv.lock` with `uv sync --locked`. Frontend builders use the same immutable Node 26 digest.
