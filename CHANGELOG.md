@@ -15,6 +15,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Clarify and regression-test MCP token scope resolution: omitted or blank scope continues to require the application's baseline scope, with identical framework coverage across applications.
 - Raise the complete source-diff limit for all three AI reviewers to 2 MB (2,000,000 bytes) across all four repositories; preserve fail-closed incomplete reviews and all other context, token and model settings.
 - Replace MCP preview/confirmation steps with direct scoped execution: 12 tools retain all 19 actions, automatic request UUIDs recover cached outcomes, and paid reservations prevent duplicate provider execution without another human approval.
 - Separate MCP permissions, action dispatch, authenticated services, actor-scoped queries and bounded results; replace obsolete Confirmation state with durable automatic execution receipts in a new migration.
