@@ -53,7 +53,7 @@ port 3000; production Nginx serves the static build and preserves SPA deep links
 - `/register`: account creation with an optional username
 - `/forgot-password`: password-reset email request
 - `/reset-password?uid=...&token=...`: choose a new password
-- `/`: protected MacroMapper dashboard and product-status overview
+- `/`: protected dated meal diary with daily nutrition totals (also available at `/diary`)
 - `/diary`: protected dated meal diary with daily nutrition totals
 - Any unknown route resolves to the protected home page
 

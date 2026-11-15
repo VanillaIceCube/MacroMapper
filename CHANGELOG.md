@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Correct the frontend route guide: `/` and `/diary` both show the protected meal diary.
 - Use Vitest globals in the flat ESLint configuration instead of allowing Jest-only globals.
 - Pin the production frontend builder to the existing multi-platform Node 26 digest used by frontend development.
 - Reject unsafe paths, symlinks and duplicate members in exported ChatGPT ZIPs, bound archive expansion, and cover hostile exports with offline regressions.
