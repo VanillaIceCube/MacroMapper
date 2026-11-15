@@ -15,7 +15,8 @@ authentication, and the application shell.
   and reduced-motion rules here, consuming the theme's custom properties.
 - `src/components/`: reusable interface components.
 - `src/pages/`: application pages and routes.
-- `src/services/`: API requests and session handling.
+- `src/services/`: API requests and centralized session storage.
+- `src/hooks/`: reactive session access and shared notification lifecycle behavior.
 - `src/domain/`: pure nutrition, portion, and meal calculations.
 - `src/test-helpers/`: shared test setup and reusable helpers.
   App, startup and feature tests stay beside the files they exercise.
@@ -54,6 +55,13 @@ from both settings. Development uses port 3000; production Nginx serves the stat
 build and preserves SPA deep links.
 
 ## 🗺️ Routes and behavior
+
+Route pages load through `React.lazy` and the shared `RouteContent` boundary.
+The application shell stays usable while a page loads. Authentication guards
+run before protected lazy pages render, and a failed import offers a full-page
+reload at the current URL, preserving its query and deployment base. Navigating
+to another route clears that route's error state. The build emits separate page
+chunks; shared vendor code remains part of the signed-out dependency graph.
 
 - `/login`: email and password login
 - `/register`: account creation with an optional username
@@ -128,6 +136,28 @@ keyboard activation and native new-tab behavior. Connected Apps is discoverable
 in the profile menu when the connector is enabled.
 
 ## 🔐 Sessions and connections
+
+`src/services/sessionState.js` is the sole owner of the compatible access/refresh
+and username/email storage keys. Its cached snapshots and subscriptions feed
+`useSession`; login/logout replace the account generation, while guarded refresh
+updates tokens without replacing that generation. Do not read or mutate auth
+storage in components or API adapters. Use the snapshot for request-time reads,
+the hook for rendering, and the store operations for writes. The unrelated
+`pendingSnackbar` key remains the login-message handoff.
+
+The application shell and protected content reset on account changes, including
+open menus, private drafts and Notoli's board drawer state. Async continuations
+use `useSessionGuard` before account-scoped navigation or global UI updates.
+Logout/expiry queue their login message before publishing the cleared session;
+root snackbar state preserves successful login/register feedback and excludes
+messages from an older generation.
+
+`useNotifications` owns loading, retries, unread state and synchronous item/bulk
+locks. Headers inject stable app-owned API adapters and keep presentation and
+target navigation local. Generation and unmount guards discard stale lists,
+mutations and errors; token rotation preserves pending work. An earlier list
+request cannot undo a newer mutation. MacroMapper retains its existing HTTP
+error-message adapter.
 
 Authentication forms disable submission while pending. Tokens and profile data
 live in `sessionStorage`; new sessions trim profile fields and clear absent values.
@@ -313,7 +343,8 @@ form submission, known versus unavailable nutrient values, editable inputs and
 composite calorie-only editing. Meal-item adapter and tree tests own their focused
 cases; `domain/mealItem/index.test.js` retains cross-module public API workflows.
 
-The small `sessionState.js` counter is covered by request-client race regressions.
+The session store and hooks have direct race/reactivity coverage, with request-client
+and real application tests covering refresh, account changes and auth feedback.
 Nutrient definitions, the nutrition re-export entry point and `theme.js` are
 exercised through calculation, presentation and real themed component tests;
 avoid duplicate suites that merely copy metadata, exports or style declarations.

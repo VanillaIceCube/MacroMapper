@@ -1,38 +1,44 @@
-import ConnectedApps, { OAuthConsent } from './pages/connections/Connections';
+import { getSessionVersion } from './services/sessionState';
+import useSession, { useSessionGuard } from './hooks/useSession';
+import RouteContent from './components/RouteContent';
 import { CssBaseline, ThemeProvider } from '@mui/material';
-import { useState } from 'react';
+import { lazy, useCallback, useState } from 'react';
 import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router';
 import AppHeader from './components/AppHeader';
 import AppNavigationDrawer from './components/AppNavigationDrawer';
 import AppSnackbar from './components/AppSnackbar';
 import AuthenticatedRoute from './components/AuthenticatedRoute';
 import NavigationBridge from './components/NavigationBridge';
-import DiaryPage from './pages/DiaryPage';
-import ForgotPassword from './pages/authentication/ForgotPassword';
-import Login from './pages/authentication/Login';
-import Register from './pages/authentication/Register';
-import ResetPassword from './pages/authentication/ResetPassword';
 import fieldAtlasTheme from './theme';
+
+const DiaryPage = lazy(() => import('./pages/DiaryPage'));
+const ForgotPassword = lazy(() => import('./pages/authentication/ForgotPassword'));
+const Login = lazy(() => import('./pages/authentication/Login'));
+const Register = lazy(() => import('./pages/authentication/Register'));
+const ResetPassword = lazy(() => import('./pages/authentication/ResetPassword'));
+const ConnectedApps = lazy(() => import('./pages/connections/Connections'));
+const OAuthConsent = lazy(() =>
+  import('./pages/connections/Connections').then((module) => ({ default: module.OAuthConsent })),
+);
 
 function Protected({ children }) {
   return <AuthenticatedRoute>{children}</AuthenticatedRoute>;
 }
 
-export default function App() {
+function ApplicationSession({ showSnackbar }) {
+  const isCurrentSession = useSessionGuard();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, severity: 'info', message: '' });
 
-  const showSnackbar = (severity, message) => {
-    setSnackbar({ open: true, severity, message });
+  const showSessionSnackbar = (severity, message) => {
+    if (isCurrentSession()) showSnackbar(severity, message);
   };
 
   return (
-    <ThemeProvider theme={fieldAtlasTheme}>
-      <CssBaseline />
-      <Router basename={import.meta.env.BASE_URL}>
-        <NavigationBridge />
-        <AppHeader title="MacroMapper" setDrawerOpen={setDrawerOpen} />
-        <AppNavigationDrawer open={drawerOpen} setOpen={setDrawerOpen} />
+    <>
+      <NavigationBridge />
+      <AppHeader title="MacroMapper" setDrawerOpen={setDrawerOpen} />
+      <AppNavigationDrawer open={drawerOpen} setOpen={setDrawerOpen} />
+      <RouteContent>
         <Routes>
           {import.meta.env.VITE_MCP_ENABLED === '1' && (
             <>
@@ -62,7 +68,7 @@ export default function App() {
             path="/"
             element={
               <Protected>
-                <DiaryPage showSnackbar={showSnackbar} />
+                <DiaryPage showSnackbar={showSessionSnackbar} />
               </Protected>
             }
           />
@@ -70,21 +76,35 @@ export default function App() {
             path="/diary"
             element={
               <Protected>
-                <DiaryPage showSnackbar={showSnackbar} />
+                <DiaryPage showSnackbar={showSessionSnackbar} />
               </Protected>
             }
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+      </RouteContent>
+    </>
+  );
+}
+
+export default function App() {
+  const { version } = useSession();
+  const [snackbar, setSnackbar] = useState({ open: false, severity: 'info', message: '', version });
+  const showSnackbar = useCallback((severity, message) => {
+    setSnackbar({ open: true, severity, message, version: getSessionVersion() });
+  }, []);
+  return (
+    <ThemeProvider theme={fieldAtlasTheme}>
+      <CssBaseline />
+      <Router basename={import.meta.env.BASE_URL}>
+        <ApplicationSession key={version} showSnackbar={showSnackbar} />
       </Router>
       <AppSnackbar
-        open={snackbar.open}
+        open={snackbar.open && snackbar.version === version}
         severity={snackbar.severity}
         message={snackbar.message}
         onClose={(_event, reason) => {
-          if (reason !== 'clickaway') {
-            setSnackbar((current) => ({ ...current, open: false }));
-          }
+          if (reason !== 'clickaway') setSnackbar((current) => ({ ...current, open: false }));
         }}
       />
     </ThemeProvider>

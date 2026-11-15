@@ -1,3 +1,4 @@
+import useSession from '../hooks/useSession';
 import AddIcon from '@mui/icons-material/Add';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
@@ -1864,7 +1865,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
   const [pendingDelete, setPendingDelete] = useState(null);
   const dateInputRef = useRef(null);
   const diaryRequestIdRef = useRef(0);
-  const token = sessionStorage.getItem('accessToken');
+  const { accessToken: token } = useSession();
 
   const loadDiary = useCallback(async () => {
     const requestId = ++diaryRequestIdRef.current;
