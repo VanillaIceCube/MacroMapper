@@ -1,8 +1,28 @@
+"""Catalog, versioning and actor-scoped food services shared by REST and MCP."""
+
 from collections import defaultdict
 
 from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-from django.db.models import Max
+from django.db.models import (
+    Case,
+    DateField,
+    IntegerField,
+    Max,
+    OuterRef,
+    Q,
+    Subquery,
+    Value,
+    When,
+)
+from django.utils import timezone
+from django.utils.text import smart_split, unescape_string_literal
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import ValidationError as APIValidationError
+from rest_framework.fields import CharField
+
+from apps.meals.models import MealItem
 
 from .evidence import usable_nutrition
 from .identity import (
@@ -416,3 +436,233 @@ def consolidate_shared_foods(food_ids, *, apply=False):
         )
     _select_shared_current(canonical)
     return canonical
+
+
+def foods_for(actor, query=None, *, retrieve=False):
+    query = query or {}
+    available = FoodItem.objects.active()
+    if retrieve:
+        available = FoodItem.objects.filter(
+            Q(archived_at__isnull=True)
+            | Q(
+                scope=FoodItem.Scope.SHARED,
+                merged_into__scope=FoodItem.Scope.SHARED,
+                merged_into__archived_at__isnull=True,
+                merged_into__isnull=False,
+            )
+        )
+    queryset = (
+        available.visible_to(actor)
+        .select_related("owner", "current_version")
+        .prefetch_related("current_version__sources")
+    )
+    latest_log = (
+        MealItem.objects.filter(
+            meal_entry__owner=actor,
+            food_version__food_item_id=OuterRef("pk"),
+        )
+        .order_by(
+            "-meal_entry__entry_date",
+            "-meal_entry__created_at",
+            "-id",
+        )
+        .values("meal_entry__entry_date")[:1]
+    )
+    queryset = queryset.annotate(
+        last_logged_on=Subquery(latest_log, output_field=DateField())
+    ).annotate(
+        has_logged=Case(
+            When(last_logged_on__isnull=False, then=Value(1)),
+            default=Value(0),
+            output_field=IntegerField(),
+        )
+    )
+    search_query = query.get("search", "").strip()
+    if search_query:
+        queryset = queryset.annotate(
+            relevance=Case(
+                When(name__iexact=search_query, then=Value(0)),
+                When(name__istartswith=search_query, then=Value(1)),
+                When(provider_name__iexact=search_query, then=Value(2)),
+                When(name__icontains=search_query, then=Value(3)),
+                When(provider_name__istartswith=search_query, then=Value(4)),
+                default=Value(5),
+                output_field=IntegerField(),
+            )
+        )
+    else:
+        queryset = queryset.annotate(relevance=Value(0, output_field=IntegerField()))
+    scope = query.get("scope", "").strip()
+    if scope:
+        if scope not in FoodItem.Scope.values:
+            raise APIValidationError({"scope": "Choose personal or shared."})
+        queryset = queryset.filter(scope=scope)
+
+    provider = query.get("provider", "").strip()
+    if provider:
+        queryset = queryset.filter(provider_name__icontains=provider)
+
+    provenance = query.get("provenance", "").strip()
+    if provenance:
+        requested = {value.strip() for value in provenance.split(",") if value.strip()}
+        invalid = requested - set(FoodItemVersion.Provenance.values)
+        if invalid:
+            raise APIValidationError({"provenance": "Choose a valid provenance."})
+        queryset = queryset.filter(current_version__provenance__in=requested)
+
+    origin_type = query.get("origin_type", "").strip()
+    if origin_type:
+        if origin_type not in FoodItem.OriginType.values:
+            raise APIValidationError({"origin_type": "Choose a valid food type."})
+        queryset = queryset.filter(origin_type=origin_type)
+    return filter_foods(queryset, query)
+
+
+def require_personal_owner(actor, food):
+    if food.scope != FoodItem.Scope.PERSONAL or food.owner_id != actor.pk:
+        raise PermissionDenied("You do not have permission to perform this action.")
+    if food.archived_at is not None:
+        raise PermissionDenied("This food is no longer available.")
+
+
+def _validation_details(error):
+    return (
+        error.message_dict
+        if hasattr(error, "message_dict")
+        else {"detail": error.messages}
+    )
+
+
+def create_personal_food(actor, data):
+    data = validate_food_data(actor, dict(data))
+    definition = data.pop("definition")
+    try:
+        return create_food_item(
+            scope=FoodItem.Scope.PERSONAL,
+            owner=actor,
+            created_by=actor,
+            definition=definition,
+            **data,
+        )
+    except DjangoValidationError as error:
+        raise APIValidationError(_validation_details(error)) from error
+
+
+@transaction.atomic
+def update_personal_food(actor, food, data):
+    food = FoodItem.objects.select_for_update().get(pk=food.pk)
+    require_personal_owner(actor, food)
+    data = validate_food_data(actor, dict(data), food)
+    definition = data.pop("definition", None)
+    try:
+        for field, value in data.items():
+            setattr(food, field, value)
+        food.full_clean()
+        food.save()
+        if definition is not None:
+            create_food_version(food_item=food, definition=definition, created_by=actor)
+        return food
+    except DjangoValidationError as error:
+        raise APIValidationError(_validation_details(error)) from error
+
+
+@transaction.atomic
+def archive_personal_food(actor, food):
+    food = FoodItem.objects.select_for_update().get(pk=food.pk)
+    require_personal_owner(actor, food)
+    food.archived_at = timezone.now()
+    food.save(update_fields=["archived_at", "updated_at"])
+
+
+def validate_food_data(actor, attrs, instance=None):
+    for component in (attrs.get("definition") or {}).get("components", []):
+        food = component["food_item"]
+        if (
+            not FoodItem.objects.active()
+            .visible_to(actor)
+            .filter(pk=food.pk, current_version__isnull=False)
+            .exists()
+        ):
+            raise APIValidationError(
+                {"definition": {"components": "This food is not available."}}
+            )
+    definition = attrs.get("definition")
+    if instance is None and definition is None:
+        raise APIValidationError({"definition": "A food definition is required."})
+    if instance is not None and definition:
+        if any(
+            item["food_item"].pk == instance.pk
+            for item in definition.get("components", [])
+        ):
+            raise APIValidationError(
+                {"definition": {"components": "A food cannot include itself."}}
+            )
+
+    name = attrs.get("name", getattr(instance, "name", "")).strip()
+    if not name:
+        raise APIValidationError({"name": "This field may not be blank."})
+    attrs["name"] = name
+
+    provider_name = attrs.get(
+        "provider_name",
+        getattr(instance, "provider_name", ""),
+    ).strip()
+    attrs["provider_name"] = provider_name
+    origin_type = attrs.get(
+        "origin_type",
+        getattr(instance, "origin_type", FoodItem.OriginType.GENERIC),
+    )
+    if (
+        origin_type
+        in {
+            FoodItem.OriginType.BRANDED,
+            FoodItem.OriginType.RESTAURANT,
+        }
+        and not provider_name
+    ):
+        raise APIValidationError(
+            {"provider_name": "Branded and restaurant foods require a provider."}
+        )
+    return attrs
+
+
+def filter_foods(rows, query):
+    """The catalog's existing token/quoted-phrase search and allowed ordering."""
+    terms = []
+    search = CharField(trim_whitespace=False, allow_blank=True).run_validation(
+        query.get("search", "")
+    )
+    for term in smart_split(search):
+        term = term.strip(",")
+        if term.startswith(('"', "'")) and term[0] == term[-1]:
+            terms.append(unescape_string_literal(term))
+        else:
+            terms.extend(part.strip() for part in term.split(",") if part)
+    if terms:
+        matched = rows
+        for term in terms:
+            matched = matched.filter(
+                Q(name__icontains=term)
+                | Q(provider_name__icontains=term)
+                | Q(current_version__sources__title__icontains=term)
+                | Q(current_version__sources__provider__icontains=term)
+            )
+        # Keep the same correlated existence policy as the REST search backend.
+        from django.db.models import Exists
+
+        rows = rows.filter(Exists(matched.filter(pk=OuterRef("pk"))))
+    allowed = {
+        "id",
+        "name",
+        "created_at",
+        "updated_at",
+        "relevance",
+        "has_logged",
+        "last_logged_on",
+    }
+    ordering = [
+        field.strip()
+        for field in query.get("ordering", "name,id").split(",")
+        if field.strip().lstrip("-") in allowed
+    ]
+    return rows.order_by(*(ordering or ["name", "id"]))

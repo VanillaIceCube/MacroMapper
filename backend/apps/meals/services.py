@@ -1,10 +1,16 @@
+"""Diary, nutrition and actor-scoped meal services shared by REST and MCP."""
+
 from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import Prefetch
+from django.utils.dateparse import parse_date
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import ValidationError as APIValidationError
 
 from apps.estimates.provider import EstimationProviderError, get_estimation_provider
 from apps.foods.evidence import source_data, version_evidence
-from apps.foods.models import FoodItemVersion
+from apps.foods.models import FoodItem, FoodItemVersion
 from apps.foods.nutrients import NUTRIENT_FIELDS, NUTRIENT_METADATA
 from apps.foods.portions import portion_options_for_serving
 from apps.foods.services import build_component_map
@@ -261,3 +267,139 @@ def daily_totals(meals):
         }
         for key, metadata in NUTRIENT_METADATA.items()
     ]
+
+
+def meals_for(actor, query=None):
+    query = query or {}
+    queryset = (
+        MealEntry.objects.filter(owner=actor)
+        .prefetch_related(
+            Prefetch(
+                "items",
+                queryset=MealItem.objects.select_related(
+                    "food_version",
+                    "food_version__food_item",
+                ).prefetch_related("food_version__sources"),
+            )
+        )
+        .select_related("owner", "accepted_proposal")
+    )
+    requested_date = query.get("date")
+    if requested_date is not None:
+        parsed_date = parse_date(requested_date)
+        if parsed_date is None:
+            raise APIValidationError(
+                {"date": "Supply a valid date in YYYY-MM-DD format."}
+            )
+        queryset = queryset.filter(entry_date=parsed_date)
+    return queryset
+
+
+def require_meal_owner(actor, meal):
+    if not MealEntry.objects.filter(pk=meal.pk, owner=actor).exists():
+        raise PermissionDenied("Meal unavailable.")
+
+
+def create_meal(actor, data):
+    data = validate_meal_data(actor, dict(data), partial=False)
+    item_inputs = data.pop("items")
+    if not data.get("name"):
+        data["name"] = generate_meal_name(
+            owner=actor, entry_date=data["entry_date"], item_inputs=item_inputs
+        )
+    # Automatic naming may use the provider. Acquire the write transaction only
+    # after it finishes, then recheck catalog access before persisting snapshots.
+    with transaction.atomic():
+        validate_meal_data(actor, {**data, "items": item_inputs}, partial=False)
+        meal = MealEntry.objects.create(owner=actor, **data)
+        replace_meal_items(meal_entry=meal, item_inputs=item_inputs)
+        return meal
+
+
+@transaction.atomic
+def update_meal(actor, meal, data):
+    meal = MealEntry.objects.select_for_update().get(pk=meal.pk)
+    require_meal_owner(actor, meal)
+    data = validate_meal_data(actor, dict(data), meal)
+    item_inputs = data.pop("items", None)
+    for field, value in data.items():
+        setattr(meal, field, value)
+    meal.save()
+    if item_inputs is not None:
+        replace_meal_items(meal_entry=meal, item_inputs=item_inputs)
+    return meal
+
+
+@transaction.atomic
+def delete_meal(actor, meal):
+    meal = MealEntry.objects.select_for_update().get(pk=meal.pk)
+    require_meal_owner(actor, meal)
+    meal.delete()
+
+
+def save_draft(actor, data, meal=None):
+    from apps.estimates.services import save_meal_draft
+
+    if meal is not None:
+        require_meal_owner(actor, meal)
+    return save_meal_draft(owner=actor, meal=meal, **data)
+
+
+def validate_meal_data(actor, attrs, instance=None, *, partial=True):
+    name = attrs.get("name", getattr(instance, "name", "")).strip()
+    if not name and instance is not None:
+        raise APIValidationError({"name": "This field may not be blank."})
+    attrs["name"] = name
+
+    item_inputs = attrs.get("items")
+    if item_inputs is None:
+        if instance is None or not partial:
+            raise APIValidationError({"item_inputs": "Meal items are required."})
+        return attrs
+    if not item_inputs:
+        raise APIValidationError({"item_inputs": "Add at least one food to the meal."})
+    existing_versions = set()
+    if instance is not None:
+        existing_versions = set(
+            instance.items.values_list("food_version__food_item_id", "food_version_id")
+        )
+
+    available_food_ids = set()
+    if actor:
+        available_food_ids = set(
+            FoodItem.objects.active()
+            .visible_to(actor)
+            .filter(
+                pk__in=[item["food_item"].pk for item in item_inputs],
+                current_version__isnull=False,
+            )
+            .values_list("pk", flat=True)
+        )
+    if any(
+        item["food_item"].pk not in available_food_ids
+        and (item["food_item"].pk, item.get("food_version")) not in existing_versions
+        for item in item_inputs
+    ):
+        raise APIValidationError({"item_inputs": "This food is not available."})
+    orders = [item["order"] for item in item_inputs]
+    if len(orders) != len(set(orders)):
+        raise APIValidationError(
+            {"item_inputs": "Each meal item order must be unique."}
+        )
+    supplied_versions = [
+        (item["food_item"].pk, item["food_version"])
+        for item in item_inputs
+        if "food_version" in item
+    ]
+    if instance is None and supplied_versions:
+        raise APIValidationError(
+            {"item_inputs": "New meals always use each food's current definition."}
+        )
+    if instance is not None:
+        if any(pair not in existing_versions for pair in supplied_versions):
+            raise APIValidationError(
+                {
+                    "item_inputs": "A saved food version must already belong to this meal."
+                }
+            )
+    return attrs

@@ -1,6 +1,7 @@
 """Synthetic local OAuth, catalog and meal fixtures for app-owned MCP tests."""
 
 from datetime import timedelta
+from uuid import uuid4
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -11,8 +12,8 @@ from apps.foods.nutrients import NUTRIENT_FIELDS
 from apps.foods.services import create_food_item
 from apps.meals.models import MealEntry
 
-from .. import services
-from ..auth import ESTIMATE, READ, WRITE
+from .. import operations, services
+from ..permissions import ESTIMATE, READ, WRITE
 
 
 def definition(calories="100"):
@@ -68,27 +69,37 @@ class MCPToolFixtures:
         return {
             "entry_date": "2026-10-30",
             "name": "Lunch",
-            "notes": "exact preview",
+            "notes": "exact requested change",
             "item_inputs": [{"food_item": self.food.pk, "servings": "1", "order": 0}],
         }
 
-    def preview(self, action="meal.create", target=None, payload=None):
-        return services.preview_change(
-            self.raw,
-            action,
-            target,
-            payload if payload is not None else self.meal_payload(),
-            services.OPERATIONS[action].paid,
+    def request(self, action="meal.create", target=None, payload=None, request_id=None):
+        return {
+            "request_id": request_id or str(uuid4()),
+            "action": action,
+            "target_id": target,
+            "payload": payload if payload is not None else self.meal_payload(),
+            "authorized_paid": operations.OPERATIONS[action].paid,
+        }
+
+    def arguments(self, request):
+        return tuple(
+            request[key]
+            for key in (
+                "request_id",
+                "action",
+                "target_id",
+                "payload",
+                "authorized_paid",
+            )
         )
 
-    def confirm(self, pending):
-        return services.confirm_change(
-            self.raw, pending["confirmation_id"], True, pending["paid"]
-        )
+    def execute(self, request, raw=None):
+        return services.execute_change(raw or self.raw, *self.arguments(request))
 
     def make_meal(self):
         return MealEntry.objects.get(
-            pk=self.confirm(self.preview())["result"]["data"]["id"]
+            pk=self.execute(self.request())["result"]["data"]["id"]
         )
 
 

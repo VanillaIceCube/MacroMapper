@@ -1,7 +1,6 @@
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
-from django.db import transaction
 from rest_framework import serializers
 
 from apps.foods.evidence import source_data, version_evidence
@@ -10,7 +9,7 @@ from apps.foods.nutrients import NUTRIENT_METADATA
 from apps.foods.portions import portion_options_for_serving
 
 from .models import MealEntry, MealItem
-from .services import _component_tree, replace_meal_items
+from .services import _component_tree, create_meal, update_meal, validate_meal_data
 
 REQUIRED_SNAPSHOT_FIELDS = {
     "food_item_id",
@@ -133,6 +132,10 @@ def _is_valid_component_snapshot(components):
         if not _is_valid_component_snapshot(component["components"]):
             return False
     return True
+
+
+def _actor(context):
+    return context.get("actor") or getattr(context.get("request"), "user", None)
 
 
 class MealItemSerializer(serializers.ModelSerializer):
@@ -268,89 +271,12 @@ class MealEntrySerializer(serializers.ModelSerializer):
         extra_kwargs = {"name": {"allow_blank": True, "required": False}}
 
     def validate(self, attrs):
-        name = attrs.get("name", getattr(self.instance, "name", "")).strip()
-        if not name and self.instance is not None:
-            raise serializers.ValidationError({"name": "This field may not be blank."})
-        attrs["name"] = name
-
-        item_inputs = attrs.get("items")
-        if item_inputs is None:
-            if self.instance is None or not self.partial:
-                raise serializers.ValidationError(
-                    {"item_inputs": "Meal items are required."}
-                )
-            return attrs
-        if not item_inputs:
-            raise serializers.ValidationError(
-                {"item_inputs": "Add at least one food to the meal."}
-            )
-        existing_versions = set()
-        if self.instance is not None:
-            existing_versions = set(
-                self.instance.items.values_list(
-                    "food_version__food_item_id", "food_version_id"
-                )
-            )
-        request = self.context.get("request")
-        available_food_ids = set()
-        if request:
-            available_food_ids = set(
-                FoodItem.objects.active()
-                .visible_to(request.user)
-                .filter(
-                    pk__in=[item["food_item"].pk for item in item_inputs],
-                    current_version__isnull=False,
-                )
-                .values_list("pk", flat=True)
-            )
-        if any(
-            item["food_item"].pk not in available_food_ids
-            and (item["food_item"].pk, item.get("food_version"))
-            not in existing_versions
-            for item in item_inputs
-        ):
-            raise serializers.ValidationError(
-                {"item_inputs": "This food is not available."}
-            )
-        orders = [item["order"] for item in item_inputs]
-        if len(orders) != len(set(orders)):
-            raise serializers.ValidationError(
-                {"item_inputs": "Each meal item order must be unique."}
-            )
-        supplied_versions = [
-            (item["food_item"].pk, item["food_version"])
-            for item in item_inputs
-            if "food_version" in item
-        ]
-        if self.instance is None and supplied_versions:
-            raise serializers.ValidationError(
-                {"item_inputs": "New meals always use each food's current definition."}
-            )
-        if self.instance is not None:
-            if any(pair not in existing_versions for pair in supplied_versions):
-                raise serializers.ValidationError(
-                    {
-                        "item_inputs": "A saved food version must already belong to this meal."
-                    }
-                )
-        return attrs
-
-    @transaction.atomic
-    def create(self, validated_data):
-        item_inputs = validated_data.pop("items")
-        meal_entry = MealEntry.objects.create(
-            owner=self.context["request"].user,
-            **validated_data,
+        return validate_meal_data(
+            _actor(self.context), attrs, self.instance, partial=self.partial
         )
-        replace_meal_items(meal_entry=meal_entry, item_inputs=item_inputs)
-        return meal_entry
 
-    @transaction.atomic
+    def create(self, validated_data):
+        return create_meal(_actor(self.context), validated_data)
+
     def update(self, instance, validated_data):
-        item_inputs = validated_data.pop("items", None)
-        for field, value in validated_data.items():
-            setattr(instance, field, value)
-        instance.save()
-        if item_inputs is not None:
-            replace_meal_items(meal_entry=instance, item_inputs=item_inputs)
-        return instance
+        return update_meal(_actor(self.context), instance, validated_data)

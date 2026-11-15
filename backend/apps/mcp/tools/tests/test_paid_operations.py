@@ -1,4 +1,4 @@
-"""One-use paid approvals, bounded provider waits and post-wait revalidation."""
+"""Paid duplicate protection, bounded provider waits and guarded atomic receipts."""
 
 import asyncio
 import json
@@ -25,9 +25,9 @@ from apps.estimates.tests.helpers import ai_estimate
 from apps.foods.models import FoodItem
 from apps.meals.models import MealEntry
 
-from .. import services
-from ..auth import ESTIMATE, READ, WRITE
-from ..models import Confirmation
+from .. import queries, services
+from ..models import Execution
+from ..permissions import ESTIMATE, READ, WRITE
 from .helpers import MCPToolFixtures
 
 
@@ -47,8 +47,8 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
         with patch(
             "apps.estimates.services.get_estimation_provider", return_value=provider
         ):
-            result = self.confirm(
-                self.preview(
+            result = self.execute(
+                self.request(
                     "proposal.estimate",
                     payload={
                         "description": "A varied unknown buffet",
@@ -67,9 +67,9 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
         self.assertFalse(MealEntry.objects.exists())
         # A successful paid receipt must remain recoverable without another
         # provider call, even when its full revision snapshots exceed the budget.
-        listing = services.list_records(self.raw, "proposals", {}, 10, 0)
+        listing = queries.list_records(self.raw, "proposals", {}, 10, 0)
         self.assertEqual(listing["data"][0]["id"], proposal.pk)
-        detail = services.get_record(self.raw, "proposals", proposal.pk)
+        detail = queries.get_record(self.raw, "proposals", proposal.pk)
         self.assertEqual(detail["data"]["id"], proposal.pk)
         reviewed = []
         while True:
@@ -79,16 +79,16 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
             self.assertLess(len(json.dumps(detail).encode()), 65536)
             if not detail["has_more"]:
                 break
-            detail = services.get_proposal(
+            detail = queries.get_proposal(
                 self.raw, proposal.pk, 20, detail["next_offset"]
             )
         self.assertEqual(reviewed, proposal.items)
         self.assertEqual(provider.estimate.call_count, 1)
         with self.assertRaises(Http404):
-            services.get_proposal(self.raw, proposal.pk + 1000)
+            queries.get_proposal(self.raw, proposal.pk + 1000)
         for limit, offset in [(True, 0), (1, -1), (21, 0), (1, True)]:
             with self.assertRaises(ValidationError):
-                services.get_proposal(self.raw, proposal.pk, limit, offset)
+                queries.get_proposal(self.raw, proposal.pk, limit, offset)
         # A single large component tree must produce an honest summary, not
         # partial editable items or a new opaque failure.
         item = deepcopy(proposal.items[0])
@@ -97,7 +97,7 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
         item["components"] = [deepcopy(child) for _ in range(20)]
         proposal.items = [item]
         proposal.save(update_fields=["items"])
-        oversized = services.get_proposal(self.raw, proposal.pk, 1, 0)
+        oversized = queries.get_proposal(self.raw, proposal.pk, 1, 0)
         self.assertTrue(oversized["truncated"])
         self.assertEqual(oversized["data"]["id"], proposal.pk)
         self.assertNotIn("items", oversized["data"])
@@ -113,7 +113,7 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
         ]:
             proposal.items = [partial_item]
             proposal.save(update_fields=["items"])
-            partial = services.get_proposal(self.raw, proposal.pk)
+            partial = queries.get_proposal(self.raw, proposal.pk)
             self.assertTrue(partial["truncated"])
             self.assertNotIn("items", partial["data"])
             self.assertIn("review/edit/accept", partial["data"]["detail"])
@@ -126,7 +126,7 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
             items=[],
         )
         with self.assertRaises(Http404):
-            services.get_proposal(self.raw, other_proposal.pk)
+            queries.get_proposal(self.raw, other_proposal.pk)
         self.assertEqual(provider.estimate.call_count, 1)
 
     def test_paid_estimate_review_portion_accept_and_replay_log_exactly_once(self):
@@ -137,7 +137,7 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
         provider = self.provider()
         provider.estimate.side_effect = None
         provider.estimate.return_value = estimate
-        pending = self.preview(
+        pending = self.request(
             "proposal.estimate",
             payload={
                 "description": "Unknown recipe plus dessert",
@@ -147,29 +147,27 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
         with patch(
             "apps.estimates.services.get_estimation_provider", return_value=provider
         ):
-            created = self.confirm(pending)
-            with self.assertRaises(ValidationError):
-                self.confirm(pending)
+            created = self.execute(pending)
+            self.assertTrue(self.execute(pending)["replayed"])
         proposal_id = created["result"]["data"]["id"]
         self.assertEqual(provider.estimate.call_count, 1)
         self.assertFalse(MealEntry.objects.exists())
-        review = services.get_proposal(self.raw, proposal_id)["data"]
+        review = queries.get_proposal(self.raw, proposal_id)["data"]
         self.assertFalse(
-            services.list_records(self.raw, "proposals", {}, 10, 0)["has_more"]
+            queries.list_records(self.raw, "proposals", {}, 10, 0)["has_more"]
         )
         review["items"][0]["servings"] = "0.7"
         review["items"][1]["servings"] = "1"
-        self.confirm(
-            self.preview(
+        self.execute(
+            self.request(
                 "proposal.update",
                 proposal_id,
                 {"name": "Reviewed breakfast", "items": review["items"]},
             )
         )
-        acceptance = self.preview("proposal.accept", proposal_id, {})
-        saved = self.confirm(acceptance)
-        with self.assertRaises(ValidationError):
-            self.confirm(acceptance)
+        acceptance = self.request("proposal.accept", proposal_id, {})
+        saved = self.execute(acceptance)
+        self.assertTrue(self.execute(acceptance)["replayed"])
         meal = MealEntry.objects.get(pk=saved["result"]["data"]["id"])
         self.assertEqual(MealEntry.objects.count(), 1)
         self.assertEqual(
@@ -184,7 +182,7 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
     def test_oversized_temporary_adjustment_returns_honest_bounded_summary(self):
 
         meal = self.make_meal()
-        pending = self.preview(
+        pending = self.request(
             "meal.adjustment",
             meal.pk,
             {
@@ -219,7 +217,7 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
                 MealProposalSerializer, "to_representation", large_representation
             ),
         ):
-            result = self.confirm(pending)
+            result = self.execute(pending)
         self.assertTrue(result["result"]["truncated"])
         receipt = result["result"]["data"]
         self.assertEqual(receipt["source_meal_id"], meal.pk)
@@ -251,14 +249,14 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
             resource=[settings.MCP_RESOURCE_URL],
             expires=timezone.now() + timedelta(hours=1),
         )
-        pending = self.preview(
+        pending = self.request(
             "proposal.estimate",
             payload={
                 "description": "An unknown restaurant dish",
                 "entry_date": "2026-10-30",
             },
         )
-        unstarted = self.preview()
+        unstarted = self.request()
         started, release, finished = Event(), Event(), Event()
         invoke = server.invocation
 
@@ -266,7 +264,7 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
             try:
                 return invoke(*args)
             finally:
-                if args[0] is services.confirm_change:
+                if args[0] is services.execute_change:
                     finished.set()
 
         def provider_wait():
@@ -286,7 +284,8 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
             ):
                 paid = asyncio.create_task(
                     server.call(
-                        services.confirm_change, pending["confirmation_id"], True, True
+                        services.execute_change,
+                        *self.arguments(pending),
                     )
                 )
                 try:
@@ -304,17 +303,15 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
                         self.assertFalse(server._SLOTS.acquire(blocking=False))
                         with self.assertRaises(server.ToolError):
                             await server.call(
-                                services.confirm_change,
-                                unstarted["confirmation_id"],
-                                True,
-                                False,
+                                services.execute_change,
+                                *self.arguments(unstarted),
                             )
                     finally:
                         for _ in range(acquired):
                             server._SLOTS.release()
                     read, verified = await asyncio.wait_for(
                         asyncio.gather(
-                            server.call(services.list_records, "foods", {}, 10, 0),
+                            server.call(queries.list_records, "foods", {}, 10, 0),
                             DjangoTokenVerifier().verify_token(other_raw),
                         ),
                         timeout=2,
@@ -334,12 +331,11 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
         ):
             async_to_sync(exercise)()
         self.assertEqual(MealProposal.objects.filter(owner=self.user).count(), 1)
-        self.assertFalse(
-            Confirmation.objects.filter(pk=pending["confirmation_id"]).exists()
+        self.assertEqual(
+            Execution.objects.get(pk=pending["request_id"]).state,
+            Execution.State.COMPLETED,
         )
-        self.assertTrue(
-            Confirmation.objects.filter(pk=unstarted["confirmation_id"]).exists()
-        )
+        self.assertFalse(Execution.objects.filter(pk=unstarted["request_id"]).exists())
 
     def test_catalog_only_optional_hook_is_atomic_and_default_unchanged(self):
         def denied():
@@ -380,7 +376,7 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
         provider.estimate.side_effect = estimate
         return provider
 
-    def test_paid_estimate_is_confirmed_one_use_and_default_rest_still_works(self):
+    def test_paid_estimate_executes_once_and_default_rest_still_works(self):
         payload = {
             "description": "A completely unknown restaurant dish",
             "entry_date": "2026-10-30",
@@ -389,12 +385,11 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
         with patch(
             "apps.estimates.services.get_estimation_provider", return_value=provider
         ):
-            pending = self.preview("proposal.estimate", payload=payload)
+            pending = self.request("proposal.estimate", payload=payload)
             provider.estimate.assert_not_called()
-            self.confirm(pending)
+            self.execute(pending)
             self.assertEqual(MealProposal.objects.filter(owner=self.user).count(), 1)
-            with self.assertRaises(ValidationError):
-                self.confirm(pending)
+            self.assertTrue(self.execute(pending)["replayed"])
             self.assertEqual(provider.estimate.call_count, 1)
             # Existing caller omits the new optional hook and retains its behavior.
             create_proposal(
@@ -423,7 +418,7 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
                 self.token.save()
                 self.user.is_active = True
                 self.user.save()
-                pending = self.preview(
+                pending = self.request(
                     "proposal.estimate",
                     payload={
                         "description": "An unknown dish",
@@ -462,11 +457,12 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
                     return_value=self.provider(revoke),
                 ):
                     with self.assertRaises(PermissionDenied):
-                        self.confirm(pending)
+                        self.execute(pending)
                 self.assertFalse(MealProposal.objects.exists())
                 self.assertEqual(FoodItem.objects.count(), initial_foods)
-                self.assertFalse(
-                    Confirmation.objects.filter(pk=pending["confirmation_id"]).exists()
+                self.assertEqual(
+                    Execution.objects.get(pk=pending["request_id"]).state,
+                    Execution.State.UNCERTAIN,
                 )
                 self.application.client_id = "mcp-fixture"
                 self.application.save()
@@ -482,7 +478,7 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
             "adjustment": "Less apple",
         }
         for stale in [False, True]:
-            pending = self.preview("meal.adjustment", meal.pk, payload)
+            pending = self.request("meal.adjustment", meal.pk, payload)
             initial_foods = FoodItem.objects.count()
 
             def follow_up(**kwargs):
@@ -501,14 +497,17 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
             ):
                 if stale:
                     with self.assertRaises(ValidationError):
-                        self.confirm(pending)
+                        self.execute(pending)
                 else:
-                    outcome = self.confirm(pending)
+                    outcome = self.execute(pending)
                     self.assertFalse(outcome["result"]["data"]["applied"])
+                    self.assertFalse(outcome["applied"])
+                    self.assertEqual(outcome["status"], "completed")
             self.assertFalse(MealProposal.objects.exists())
             self.assertEqual(FoodItem.objects.count(), initial_foods)
-            self.assertFalse(
-                Confirmation.objects.filter(pk=pending["confirmation_id"]).exists()
+            self.assertEqual(
+                Execution.objects.get(pk=pending["request_id"]).state,
+                Execution.State.UNCERTAIN if stale else Execution.State.COMPLETED,
             )
 
     def test_proposal_follow_up_rechecks_state_and_scope_after_provider(self):
@@ -527,7 +526,7 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
             "follow_up": "A smaller serving",
         }
         for mutation in ["stale", "scope"]:
-            pending = self.preview("proposal.follow_up", proposal.pk, payload)
+            pending = self.request("proposal.follow_up", proposal.pk, payload)
             revisions = proposal.revisions.count()
 
             def follow_up(**kwargs):
@@ -545,13 +544,13 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
                 return_value=Mock(follow_up=Mock(side_effect=follow_up)),
             ):
                 with self.assertRaises((PermissionDenied, ValidationError)):
-                    self.confirm(pending)
+                    self.execute(pending)
             self.assertEqual(proposal.revisions.count(), revisions)
             self.assertFalse(MealEntry.objects.exists())
 
     def test_new_adjustment_revocation_prevents_even_temporary_proposal_writes(self):
 
-        pending = self.preview(
+        pending = self.request(
             "proposal.adjustment",
             payload={
                 "entry_date": "2026-10-30",
@@ -573,6 +572,114 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
             return_value=Mock(follow_up=Mock(side_effect=follow_up)),
         ):
             with self.assertRaises(PermissionDenied):
-                self.confirm(pending)
+                self.execute(pending)
         self.assertFalse(MealProposal.objects.exists())
         self.assertEqual(FoodItem.objects.count(), 1)
+
+    def test_receipt_failure_rolls_back_catalog_and_provider_publication_without_retry(
+        self,
+    ):
+        from django.db import DatabaseError
+
+        for description in ["Apple", "Completely unknown receipt failure dish"]:
+            with self.subTest(description=description):
+                request = self.request(
+                    "proposal.estimate",
+                    payload={"description": description, "entry_date": "2026-10-30"},
+                )
+                provider = self.provider()
+                before = FoodItem.objects.count()
+                with patch(
+                    "apps.estimates.services.get_estimation_provider",
+                    return_value=provider,
+                ):
+                    with patch.object(
+                        services,
+                        "_complete",
+                        side_effect=DatabaseError("receipt write failed"),
+                    ):
+                        with self.assertRaises(DatabaseError):
+                            self.execute(request)
+                    recovered = self.execute(request)
+                self.assertEqual(recovered["status"], "uncertain")
+                self.assertIsNone(recovered["applied"])
+                self.assertTrue(recovered["replayed"])
+                self.assertFalse(MealProposal.objects.exists())
+                self.assertEqual(FoodItem.objects.count(), before)
+                self.assertEqual(
+                    provider.estimate.call_count, 0 if description == "Apple" else 1
+                )
+
+    def test_ambiguous_provider_failure_is_durable_and_never_retried(self):
+        request = self.request(
+            "proposal.estimate",
+            payload={
+                "description": "Unknown ambiguous dish",
+                "entry_date": "2026-10-30",
+            },
+        )
+        provider = self.provider()
+        provider.estimate.side_effect = TimeoutError("private provider body")
+        with patch(
+            "apps.estimates.services.get_estimation_provider", return_value=provider
+        ):
+            with self.assertRaises(TimeoutError):
+                self.execute(request)
+            recovered = self.execute(request)
+        self.assertEqual(recovered["status"], "uncertain")
+        self.assertIsNone(recovered["applied"])
+        self.assertNotIn("private provider body", str(recovered))
+        self.assertEqual(provider.estimate.call_count, 1)
+        self.assertFalse(MealProposal.objects.exists())
+
+    def test_concurrent_duplicate_observes_reservation_then_cached_success(self):
+        from .. import server
+
+        request = self.request(
+            "proposal.estimate",
+            payload={
+                "description": "Concurrent unknown dish",
+                "entry_date": "2026-10-30",
+            },
+        )
+        started, release = Event(), Event()
+
+        def wait_for_release():
+            started.set()
+            if not release.wait(5):
+                raise AssertionError("Provider test was not released")
+
+        provider = self.provider(wait_for_release)
+
+        async def exercise():
+            first = asyncio.create_task(
+                server.call(services.execute_change, *self.arguments(request))
+            )
+            try:
+                self.assertTrue(await asyncio.to_thread(started.wait, 3))
+                duplicate = await server.call(
+                    services.execute_change, *self.arguments(request)
+                )
+                self.assertEqual(duplicate["status"], "in_progress")
+                self.assertIsNone(duplicate["applied"])
+            finally:
+                release.set()
+            completed = await first
+            replay = await server.call(
+                services.execute_change, *self.arguments(request)
+            )
+            self.assertEqual(completed["status"], "completed")
+            self.assertTrue(replay["replayed"])
+            self.assertEqual(replay["result"], completed["result"])
+
+        with (
+            patch.object(
+                server, "get_access_token", return_value=SimpleNamespace(token=self.raw)
+            ),
+            patch(
+                "apps.estimates.services.get_estimation_provider", return_value=provider
+            ),
+        ):
+            async_to_sync(exercise)()
+        self.assertEqual(provider.estimate.call_count, 1)
+        self.assertEqual(MealProposal.objects.count(), 1)

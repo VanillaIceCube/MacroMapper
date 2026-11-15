@@ -1,5 +1,4 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db.models import Prefetch
 from django.utils.dateparse import parse_date
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -13,11 +12,10 @@ from apps.estimates.serializers import (
     MapYourMealDraftSerializer,
     MealProposalSerializer,
 )
-from apps.estimates.services import process_meal_adjustment, save_meal_draft
+from apps.estimates.services import process_meal_adjustment
 
-from .models import MealEntry, MealItem
 from .serializers import MealEntrySerializer
-from .services import daily_totals, generate_meal_name
+from .services import daily_totals, delete_meal, meals_for, save_draft
 
 PROVIDER_UNAVAILABLE_DETAIL = (
     "The meal estimation service is temporarily unavailable. "
@@ -31,40 +29,13 @@ class MealEntryViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "put", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
-        queryset = (
-            MealEntry.objects.filter(owner=self.request.user)
-            .prefetch_related(
-                Prefetch(
-                    "items",
-                    queryset=MealItem.objects.select_related(
-                        "food_version",
-                        "food_version__food_item",
-                    ).prefetch_related("food_version__sources"),
-                )
-            )
-            .select_related("owner", "accepted_proposal")
-        )
-        requested_date = self.request.query_params.get("date")
-        if requested_date is not None:
-            parsed_date = parse_date(requested_date)
-            if parsed_date is None:
-                raise ValidationError(
-                    {"date": "Supply a valid date in YYYY-MM-DD format."}
-                )
-            queryset = queryset.filter(entry_date=parsed_date)
-        return queryset
+        return meals_for(self.request.user, self.request.query_params)
 
     def perform_create(self, serializer):
-        if serializer.validated_data.get("name"):
-            serializer.save()
-            return
-        serializer.save(
-            name=generate_meal_name(
-                owner=self.request.user,
-                entry_date=serializer.validated_data["entry_date"],
-                item_inputs=serializer.validated_data["items"],
-            )
-        )
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        delete_meal(self.request.user, instance)
 
     @action(detail=False, methods=["get"], url_path="daily")
     def daily(self, request):
@@ -94,7 +65,8 @@ class MealEntryViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         try:
             response_data = process_meal_adjustment(
-                serializer=serializer,
+                data=serializer.validated_data,
+                meal=meal,
                 owner=request.user,
                 proposal_serializer=MealProposalSerializer,
                 request=request,
@@ -112,16 +84,11 @@ class MealEntryViewSet(viewsets.ModelViewSet):
 
     def _save_draft(self, request, meal=None):
         serializer = MapYourMealDraftSerializer(
-            data=request.data,
-            context={"request": request, "meal": meal},
+            data=request.data, context={"request": request, "meal": meal}
         )
         serializer.is_valid(raise_exception=True)
         try:
-            saved_meal = save_meal_draft(
-                owner=request.user,
-                meal=meal,
-                **serializer.validated_data,
-            )
+            saved_meal = save_draft(request.user, serializer.validated_data, meal)
         except DjangoValidationError as error:
             raise ValidationError(error.messages) from error
         return Response(

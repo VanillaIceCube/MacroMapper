@@ -1,19 +1,20 @@
 """Actual app-owned MCP HTTP discovery, tool calls and revocation."""
 
 from unittest import skipUnless
+from uuid import uuid4
 
 from asgiref.sync import async_to_sync, sync_to_async
 from django.conf import settings
 from django.test import TransactionTestCase
 
-from .. import services
-from ..auth import ESTIMATE, READ, WRITE
+from .. import operations
+from ..permissions import ESTIMATE, READ, WRITE
 from .helpers import MCPToolFixtures
 
 
 @skipUnless(settings.MCP_ENABLED, "Run the enabled app-owned OAuth profile")
 class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
-    def test_actual_factory_discovery_read_confirmation_and_revocation(self):
+    def test_actual_factory_discovery_direct_execution_replay_and_revocation(self):
         import httpx2
         from django.core.asgi import get_asgi_application
 
@@ -70,26 +71,28 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
                     )
                     listing = (await rpc("tools/list")).json()["result"]["tools"]
                     tools = {tool["name"]: tool for tool in listing}
-                    self.assertEqual(len(tools), 18)
+                    self.assertEqual(len(tools), 12)
+                    self.assertNotIn("preview_change", tools)
+                    self.assertNotIn("confirm_change", tools)
                     self.assertNotIn("connection_status", tools)
                     self.assertTrue(
                         tools["search_foods"]["annotations"]["readOnlyHint"]
                     )
                     self.assertTrue(
-                        tools["confirm_change"]["annotations"]["destructiveHint"]
+                        tools["execute_change"]["annotations"]["destructiveHint"]
                     )
                     self.assertFalse(
-                        tools["confirm_change"]["annotations"]["openWorldHint"]
+                        tools["execute_change"]["annotations"]["openWorldHint"]
                     )
                     self.assertTrue(
-                        tools["confirm_paid_change"]["annotations"]["openWorldHint"]
+                        tools["execute_paid_change"]["annotations"]["openWorldHint"]
                     )
-                    for name in ["preview_change", "confirm_change"]:
+                    for name in ["execute_change"]:
                         self.assertEqual(
                             tools[name]["_meta"]["securitySchemes"],
                             [{"type": "oauth2", "scopes": [READ, WRITE]}],
                         )
-                    for name in ["preview_paid_change", "confirm_paid_change"]:
+                    for name in ["execute_paid_change"]:
                         self.assertEqual(
                             tools[name]["_meta"]["securitySchemes"],
                             [{"type": "oauth2", "scopes": [READ, WRITE, ESTIMATE]}],
@@ -99,12 +102,12 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
                         [{"type": "oauth2", "scopes": [READ]}],
                     )
                     nonpaid_actions = set(
-                        tools["preview_change"]["inputSchema"]["properties"]["action"][
+                        tools["execute_change"]["inputSchema"]["properties"]["action"][
                             "enum"
                         ]
                     )
                     paid_actions = set(
-                        tools["preview_paid_change"]["inputSchema"]["properties"][
+                        tools["execute_paid_change"]["inputSchema"]["properties"][
                             "action"
                         ]["enum"]
                     )
@@ -119,11 +122,11 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
                     )
                     self.assertFalse(nonpaid_actions & paid_actions)
                     self.assertEqual(
-                        nonpaid_actions | paid_actions, set(services.OPERATIONS)
+                        nonpaid_actions | paid_actions, set(operations.OPERATIONS)
                     )
                     self.assertIn(
                         "meal.delete",
-                        tools["preview_change"]["inputSchema"]["properties"]["action"][
+                        tools["execute_change"]["inputSchema"]["properties"]["action"][
                             "enum"
                         ],
                     )
@@ -139,74 +142,67 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
                     self.assertEqual(
                         foods["structuredContent"]["data"][0]["id"], self.food.pk
                     )
-                    pending = await tool(
-                        "preview_change",
-                        {"action": "meal.create", "changes": self.meal_payload()},
-                    )
-                    confirmation = pending["structuredContent"]["confirmation_id"]
-                    applied = await tool(
-                        "confirm_change",
-                        {"confirmation_id": confirmation, "confirmed": True},
-                    )
+                    changes = {
+                        "request_id": str(uuid4()),
+                        "action": "meal.create",
+                        "changes": self.meal_payload(),
+                    }
+                    applied = await tool("execute_change", changes)
                     self.assertTrue(applied["structuredContent"]["applied"])
+                    self.assertEqual(
+                        applied["structuredContent"]["status"], "completed"
+                    )
+                    self.assertTrue(
+                        (await tool("execute_change", changes))["structuredContent"][
+                            "replayed"
+                        ]
+                    )
+                    schema = tools["execute_change"]["inputSchema"]
+                    self.assertIn("request_id", schema["required"])
+                    self.assertNotIn("confirmed", schema["properties"])
+                    self.assertNotIn("confirmation_id", schema["properties"])
+                    self.assertTrue(
+                        tools["execute_change"]["annotations"]["idempotentHint"]
+                    )
                     paid_arguments = {
+                        "request_id": str(uuid4()),
                         "action": "proposal.estimate",
                         "changes": {"description": "Apple", "entry_date": "2026-10-30"},
                     }
                     self.assertTrue(
-                        (await tool("preview_change", paid_arguments))["isError"]
+                        (await tool("execute_change", paid_arguments))["isError"]
                     )
-                    paid_preview = (await tool("preview_paid_change", paid_arguments))[
-                        "structuredContent"
-                    ]
-                    paid_confirmation = {
-                        "confirmation_id": paid_preview["confirmation_id"],
-                        "confirmed": True,
-                    }
-                    self.assertIn("confirm_paid_change", paid_preview["instruction"])
                     self.assertTrue(
-                        (await tool("confirm_change", paid_confirmation))["isError"]
-                    )
-                    nonpaid_preview = (
-                        await tool(
-                            "preview_change",
-                            {"action": "meal.create", "changes": self.meal_payload()},
-                        )
-                    )["structuredContent"]
-                    nonpaid_confirmation = {
-                        "confirmation_id": nonpaid_preview["confirmation_id"],
-                        "confirmed": True,
-                    }
-                    self.assertTrue(
-                        (await tool("confirm_paid_change", nonpaid_confirmation))[
-                            "isError"
-                        ]
+                        (await tool("execute_paid_change", changes))["isError"]
                     )
                     await sync_to_async(
                         type(self.token).objects.filter(pk=self.token.pk).update
                     )(scope=" ".join([READ, WRITE]))
-                    self.assertTrue(
-                        (await tool("preview_paid_change", paid_arguments))["isError"]
+                    denied = await tool("execute_paid_change", paid_arguments)
+                    self.assertTrue(denied["isError"])
+                    challenge = denied["_meta"]["mcp/www_authenticate"][0]
+                    self.assertIn('error="insufficient_scope"', challenge)
+                    self.assertIn(
+                        'scope="macromapper:read macromapper:write macromapper:estimate"',
+                        challenge,
                     )
                     self.assertTrue(
-                        (await tool("confirm_paid_change", paid_confirmation))[
-                            "isError"
+                        (await tool("execute_change", changes))["structuredContent"][
+                            "replayed"
                         ]
                     )
-                    self.assertTrue(
-                        (await tool("confirm_change", nonpaid_confirmation))[
-                            "structuredContent"
-                        ]["applied"]
-                    )
-                    # Regrant the separate paid permission: the earlier mismatches
-                    # and insufficient-scope calls must not have consumed approval.
                     await sync_to_async(
                         type(self.token).objects.filter(pk=self.token.pk).update
                     )(scope=" ".join([READ, WRITE, ESTIMATE]))
                     self.assertTrue(
-                        (await tool("confirm_paid_change", paid_confirmation))[
+                        (await tool("execute_paid_change", paid_arguments))[
                             "structuredContent"
                         ]["applied"]
+                    )
+                    self.assertTrue(
+                        (await tool("execute_paid_change", paid_arguments))[
+                            "structuredContent"
+                        ]["replayed"]
                     )
                     proposals = (await tool("list_proposals", {}))["structuredContent"]
                     proposal_id = proposals["data"][0]["id"]
@@ -227,37 +223,28 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
                     self.assertTrue(
                         (
                             await tool(
-                                "confirm_change",
-                                {"confirmation_id": confirmation, "confirmed": True},
+                                "execute_change",
+                                changes
+                                | {
+                                    "changes": self.meal_payload()
+                                    | {"name": "Different request"}
+                                },
                             )
                         )["isError"]
                     )
                     self.assertTrue(
                         (
                             await tool(
-                                "preview_change",
-                                {
-                                    "action": "meal.create",
-                                    "changes": self.meal_payload(),
-                                    "target_id": True,
-                                },
+                                "execute_change",
+                                changes
+                                | {"request_id": str(uuid4()), "target_id": True},
                             )
                         )["isError"]
                     )
                     await sync_to_async(
                         type(self.token).objects.filter(pk=self.token.pk).update
                     )(scope=READ)
-                    self.assertTrue(
-                        (
-                            await tool(
-                                "preview_change",
-                                {
-                                    "action": "meal.create",
-                                    "changes": self.meal_payload(),
-                                },
-                            )
-                        )["isError"]
-                    )
+                    self.assertTrue((await tool("execute_change", changes))["isError"])
                     await sync_to_async(self.token.delete)()
                     self.assertEqual((await rpc("tools/list")).status_code, 401)
 

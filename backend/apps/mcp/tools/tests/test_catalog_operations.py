@@ -13,7 +13,7 @@ from apps.estimates.services import _catalog_food
 from apps.foods.models import FoodItem
 from apps.meals.models import MealEntry
 
-from .. import services
+from .. import operations, queries
 from .helpers import MCPToolFixtures, definition
 
 
@@ -26,24 +26,24 @@ class MCPCatalogOperationTests(MCPToolFixtures, TestCase):
             "provider_name": "",
             "definition": definition(),
         }
-        food_id = self.confirm(self.preview("food.create", payload=payload))["result"][
+        food_id = self.execute(self.request("food.create", payload=payload))["result"][
             "data"
         ]["id"]
         food = FoodItem.objects.get(pk=food_id)
         self.assertEqual(food.owner_id, self.user.pk)
-        self.confirm(self.preview("food.update", food_id, {"name": "Renamed"}))
-        self.confirm(self.preview("food.archive", food_id, {}))
+        self.execute(self.request("food.update", food_id, {"name": "Renamed"}))
+        self.execute(self.request("food.archive", food_id, {}))
         food.refresh_from_db()
         self.assertIsNotNone(food.archived_at)
 
     def test_schema_exposes_typed_writable_fields_and_no_querysets(self):
-        schema = services.operation_schema(self.raw, "food.create")["data"]
+        schema = operations.operation_schema(self.raw, "food.create")["data"]
         self.assertIn("definition", schema["fields"])
         self.assertTrue(schema["fields"]["definition"]["required"])
         self.assertNotIn("scope", schema["fields"])
         self.assertIn("nutrients", schema["fields"]["definition"]["fields"])
         self.assertNotIn("owner", schema["fields"])
-        paid = services.operation_schema(self.raw, "proposal.estimate")["data"]
+        paid = operations.operation_schema(self.raw, "proposal.estimate")["data"]
         self.assertEqual(set(paid["fields"]), {"description", "entry_date"})
         self.assertTrue(paid["paid"])
 
@@ -59,9 +59,9 @@ class MCPCatalogOperationTests(MCPToolFixtures, TestCase):
             "proposal.follow_up",
             "proposal.adjustment",
         ):
-            descriptor = services.operation_schema(self.raw, action)["data"]["fields"][
-                "items"
-            ]["items"]["fields"]
+            descriptor = operations.operation_schema(self.raw, action)["data"][
+                "fields"
+            ]["items"]["items"]["fields"]
             for identity_field in ("market", "product_identifier", "identity_url"):
                 self.assertEqual(descriptor[identity_field]["type"], "string")
             self.assertEqual(descriptor["natural_servings"]["type"], "array")
@@ -71,7 +71,7 @@ class MCPCatalogOperationTests(MCPToolFixtures, TestCase):
                 {"key", "label", "weight_grams"},
             )
             self.assertEqual(descriptor["portion_options"]["max_length"], 20)
-        definition_descriptor = services.operation_schema(self.raw, "food.create")[
+        definition_descriptor = operations.operation_schema(self.raw, "food.create")[
             "data"
         ]["fields"]["definition"]["fields"]["natural_servings"]
         self.assertEqual(definition_descriptor["type"], "array")
@@ -139,17 +139,19 @@ class MCPCatalogOperationTests(MCPToolFixtures, TestCase):
         self.assertFalse(MealProposal.objects.exists())
         proposal = create_builder_proposal(**fields)
         self.assertEqual(proposal.name, prepared["name"])
-        updated = self.confirm(
-            self.preview("proposal.update", proposal.pk, {"name": "Reviewed"})
+        updated = self.execute(
+            self.request("proposal.update", proposal.pk, {"name": "Reviewed"})
         )
         self.assertEqual(updated["result"]["data"]["name"], "Reviewed")
         with self.assertRaises(ValidationError):
-            self.preview(
-                "proposal.update", proposal.pk, {"description": "ignored by REST"}
+            self.execute(
+                self.request(
+                    "proposal.update", proposal.pk, {"description": "ignored by REST"}
+                )
             )
-        self.confirm(self.preview("proposal.delete", proposal.pk, {}))
-        draft = self.confirm(
-            self.preview(
+        self.execute(self.request("proposal.delete", proposal.pk, {}))
+        draft = self.execute(
+            self.request(
                 "meal.draft_create",
                 payload={
                     "entry_date": "2026-10-30",
@@ -161,18 +163,20 @@ class MCPCatalogOperationTests(MCPToolFixtures, TestCase):
         )
         meal_id = draft["result"]["data"]["id"]
         with self.assertRaises(ValidationError):
-            self.preview(
-                "meal.draft_update",
-                meal_id,
-                {"entry_date": "2026-10-30", "notes": "", "items": fields["items"]},
+            self.execute(
+                self.request(
+                    "meal.draft_update",
+                    meal_id,
+                    {"entry_date": "2026-10-30", "notes": "", "items": fields["items"]},
+                )
             )
         self.assertTrue(
-            services.operation_schema(self.raw, "meal.draft_update")["data"]["fields"][
-                "name"
-            ]["required"]
+            operations.operation_schema(self.raw, "meal.draft_update")["data"][
+                "fields"
+            ]["name"]["required"]
         )
-        self.confirm(
-            self.preview(
+        self.execute(
+            self.request(
                 "meal.draft_update",
                 meal_id,
                 {
@@ -183,32 +187,34 @@ class MCPCatalogOperationTests(MCPToolFixtures, TestCase):
                 },
             )
         )
-        listing = services.list_records(self.raw, "meals", {"date": "2026-10-30"}, 1, 0)
+        listing = queries.list_records(self.raw, "meals", {"date": "2026-10-30"}, 1, 0)
         self.assertEqual(listing["data"][0]["name"], "Renamed")
         self.assertEqual(
-            services.nutrition_totals(self.raw, date(2026, 10, 30), date(2026, 10, 30))[
+            queries.nutrition_totals(self.raw, date(2026, 10, 30), date(2026, 10, 30))[
                 "data"
             ]["meal_count"],
             1,
         )
         with self.assertRaises(ValidationError):
-            services.nutrition_totals(self.raw, date(2026, 1, 1), date(2026, 2, 1))
+            queries.nutrition_totals(self.raw, date(2026, 1, 1), date(2026, 2, 1))
         self.assertEqual(
-            services.list_records(self.raw, "foods", {"search": "Apple"}, 10, 0)[
-                "data"
-            ][0]["id"],
+            queries.list_records(self.raw, "foods", {"search": "Apple"}, 10, 0)["data"][
+                0
+            ]["id"],
             self.food.pk,
         )
-        # Build through the existing catalog service, then separately confirm
+        # Build through the existing catalog service, then separately request
         # acceptance into the diary rather than treating estimates as meals.
         proposal = create_builder_proposal(
             **(fields | {"items": [_catalog_food(self.food.current_version)]})
         )
-        accepted = self.confirm(self.preview("proposal.accept", proposal.pk, {}))
+        accepted = self.execute(self.request("proposal.accept", proposal.pk, {}))
         self.assertTrue(
             MealEntry.objects.filter(
                 pk=accepted["result"]["data"]["id"], owner=self.user
             ).exists()
         )
         with self.assertRaises(ValidationError):
-            self.preview("proposal.update", proposal.pk, {"name": "Too late"})
+            self.execute(
+                self.request("proposal.update", proposal.pk, {"name": "Too late"})
+            )

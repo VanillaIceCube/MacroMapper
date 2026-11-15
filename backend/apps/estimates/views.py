@@ -7,7 +7,6 @@ from rest_framework.response import Response
 
 from apps.meals.serializers import MealEntrySerializer
 
-from .models import MealProposal
 from .provider import EstimationProviderError, get_estimation_provider
 from .serializers import (
     MapYourMealAdjustmentSerializer,
@@ -15,8 +14,11 @@ from .serializers import (
     MealProposalSerializer,
 )
 from .services import (
-    accept_proposal,
+    accept_reviewed_proposal,
+    delete_proposal,
+    follow_up_proposal,
     process_meal_adjustment,
+    proposals_for,
 )
 
 PROVIDER_UNAVAILABLE_DETAIL = (
@@ -31,11 +33,7 @@ class MealProposalViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
-        return (
-            MealProposal.objects.filter(owner=self.request.user)
-            .select_related("accepted_meal")
-            .prefetch_related("revisions")
-        )
+        return proposals_for(self.request.user)
 
     def create(self, request, *args, **kwargs):
         try:
@@ -47,15 +45,13 @@ class MealProposalViewSet(viewsets.ModelViewSet):
             )
 
     def perform_destroy(self, instance):
-        if instance.status != MealProposal.Status.DRAFT:
-            raise ValidationError("Accepted proposals cannot be deleted.")
-        instance.delete()
+        delete_proposal(self.request.user, instance)
 
     @action(detail=True, methods=["post"])
     def accept(self, request, pk=None):
         proposal = self.get_object()
         try:
-            meal = accept_proposal(proposal=proposal)
+            meal = accept_reviewed_proposal(request.user, proposal)
         except DjangoValidationError as error:
             raise ValidationError(error.messages) from error
         return Response(
@@ -72,13 +68,12 @@ class MealProposalViewSet(viewsets.ModelViewSet):
         )
         serializer.is_valid(raise_exception=True)
         try:
-            result = get_estimation_provider().follow_up(
-                original_description=proposal.description,
-                meal_name=serializer.validated_data["name"],
-                items=serializer.validated_data["items"],
-                follow_up=serializer.validated_data["follow_up"],
+            outcome = follow_up_proposal(
+                request.user,
+                proposal,
+                serializer.validated_data,
+                get_provider=get_estimation_provider,
             )
-            outcome = serializer.apply(result)
         except EstimationProviderError:
             return Response(
                 {"detail": PROVIDER_UNAVAILABLE_DETAIL},
@@ -109,7 +104,7 @@ class MealProposalViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         try:
             response_data = process_meal_adjustment(
-                serializer=serializer,
+                data=serializer.validated_data,
                 owner=request.user,
                 proposal_serializer=MealProposalSerializer,
                 request=request,

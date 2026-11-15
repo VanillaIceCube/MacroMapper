@@ -1,12 +1,16 @@
-from django.db import transaction
-from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Notification
 from .serializers import NotificationSerializer
+from .services import (
+    clear_all,
+    delete_notification,
+    mark_all_read,
+    notifications_for,
+    update_notification,
+)
 
 
 class NotificationViewSet(viewsets.ModelViewSet):
@@ -15,37 +19,22 @@ class NotificationViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
-        return (
-            Notification.objects.filter(recipient=self.request.user)
-            .select_related("actor")
-            .order_by("-created_at", "-id")
-        )
+        return notifications_for(self.request.user)
 
     def perform_update(self, serializer):
-        if "is_read" in serializer.validated_data:
-            is_read = serializer.validated_data["is_read"]
-            notification = serializer.instance
-            if is_read is True and not notification.read_at:
-                serializer.save(read_at=timezone.now())
-            elif is_read is False:
-                serializer.save(read_at=None)
-            else:
-                serializer.save()
-        else:
-            serializer.save()
+        serializer.instance = update_notification(
+            self.request.user, serializer.instance, serializer.validated_data
+        )
+
+    def perform_destroy(self, instance):
+        delete_notification(self.request.user, instance)
 
     @action(detail=False, methods=["patch"], url_path="mark-all-read")
     def mark_all_read(self, request):
-        with transaction.atomic():
-            updated = (
-                self.get_queryset()
-                .filter(is_read=False)
-                .update(is_read=True, read_at=timezone.now())
-            )
-        return Response({"updated": updated}, status=status.HTTP_200_OK)
+        return Response(
+            {"updated": mark_all_read(request.user)}, status=status.HTTP_200_OK
+        )
 
     @action(detail=False, methods=["delete"], url_path="clear-all")
     def clear_all(self, request):
-        with transaction.atomic():
-            deleted, _ = self.get_queryset().delete()
-        return Response({"deleted": deleted}, status=status.HTTP_200_OK)
+        return Response({"deleted": clear_all(request.user)}, status=status.HTTP_200_OK)

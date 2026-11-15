@@ -2,7 +2,6 @@ from decimal import Decimal, InvalidOperation
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.validators import URLValidator
-from django.db import transaction
 from rest_framework import serializers
 
 from apps.foods.models import FoodItem, FoodItemVersion
@@ -11,12 +10,12 @@ from apps.foods.portions import clean_natural_servings, portion_options_for_serv
 
 from .models import MealProposal, MealProposalRevision
 from .services import (
-    apply_proposal_follow_up,
-    create_builder_proposal,
-    create_proposal,
-    create_proposal_revision,
-    saved_meal_version_ids,
+    apply_follow_up,
+    build_adjustment_proposal,
+    estimate_proposal,
     secure_review_items,
+    update_proposal,
+    validate_proposal_data,
 )
 
 SOURCE_KINDS = {
@@ -298,6 +297,10 @@ def _validate_item(item, *, depth=0, seen_keys=None):
     }
 
 
+def _actor(context):
+    return context.get("actor") or getattr(context.get("request"), "user", None)
+
+
 class ProposalItemsField(serializers.JSONField):
     def to_internal_value(self, data):
         if not isinstance(data, list) or not data:
@@ -367,7 +370,7 @@ class MealProposalFollowUpSerializer(serializers.Serializer):
         try:
             attrs["items"] = secure_review_items(
                 proposal=proposal,
-                owner=self.context["request"].user,
+                owner=_actor(self.context),
                 items=attrs["items"],
             )
         except DjangoValidationError:
@@ -377,16 +380,8 @@ class MealProposalFollowUpSerializer(serializers.Serializer):
         return attrs
 
     def apply(self, result):
-        return apply_proposal_follow_up(
-            proposal=self.context["proposal"],
-            owner=self.context["request"].user,
-            follow_up=self.validated_data["follow_up"],
-            notes=self.validated_data.get("notes", self.context["proposal"].notes),
-            entry_date=self.validated_data.get(
-                "entry_date", self.context["proposal"].entry_date
-            ),
-            items=self.validated_data["items"],
-            result=result,
+        return apply_follow_up(
+            _actor(self.context), self.context["proposal"], self.validated_data, result
         )
 
 
@@ -408,14 +403,8 @@ class MapYourMealAdjustmentSerializer(serializers.Serializer):
         return value
 
     def create_proposal(self):
-        meal = self.context.get("meal")
-        return create_builder_proposal(
-            owner=self.context["request"].user,
-            entry_date=self.validated_data["entry_date"],
-            name=self.validated_data.get("name", ""),
-            notes=self.validated_data.get("notes", ""),
-            items=self.validated_data["items"],
-            allowed_version_ids=(saved_meal_version_ids(meal) if meal else ()),
+        return build_adjustment_proposal(
+            _actor(self.context), self.validated_data, self.context.get("meal")
         )
 
 
@@ -497,38 +486,10 @@ class MealProposalSerializer(serializers.ModelSerializer):
         return value.strip()
 
     def validate(self, attrs):
-        if self.instance is not None:
-            if self.instance.status != MealProposal.Status.DRAFT:
-                raise serializers.ValidationError(
-                    "Accepted proposals cannot be edited."
-                )
-            attrs.pop("description", None)
-            if "items" in attrs:
-                try:
-                    attrs["items"] = secure_review_items(
-                        proposal=self.instance,
-                        owner=self.context["request"].user,
-                        items=attrs["items"],
-                    )
-                except DjangoValidationError:
-                    raise serializers.ValidationError(
-                        "Proposal edits could not be validated."
-                    ) from None
-        return attrs
+        return validate_proposal_data(_actor(self.context), attrs, self.instance)
 
-    @transaction.atomic
     def update(self, instance, validated_data):
-        instance = super().update(instance, validated_data)
-        create_proposal_revision(
-            proposal=instance,
-            kind=MealProposalRevision.Kind.USER_REVIEWED,
-            created_by=self.context["request"].user,
-        )
-        return instance
+        return update_proposal(_actor(self.context), instance, validated_data)
 
     def create(self, validated_data):
-        return create_proposal(
-            owner=self.context["request"].user,
-            description=validated_data["description"],
-            entry_date=validated_data["entry_date"],
-        )
+        return estimate_proposal(_actor(self.context), validated_data)

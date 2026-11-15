@@ -44,8 +44,20 @@ Client setup and branding live in [chatgpt/](#chatgpt).
 
 - `server.py`, `asgi.py`, `routing.py`: server factory, transport, and ASGI lifecycle.
 - `oauth.py`, `views.py`, `urls.py`: OAuth consent and connection management.
+- `errors.py`: reconnectable connection failures and sanitized MCP auth challenges.
+- `apps.py`: the canonical origin, HTTPS and registry configuration checks.
 - `config.py`, `proxy.py`: application settings and exact proxy trust.
 - `tests/`: profile, OAuth consent, and transport regressions grouped by behavior.
+
+
+Connection failures discovered during a tool invocation return a sanitized MCP
+error with `_meta["mcp/www_authenticate"]`, the local protected-resource metadata
+URL, `invalid_token` or `insufficient_scope`, and the operation's required scopes.
+Expired/revoked connections can reconnect; object ownership or membership denials
+do not request a new grant. HTTP authentication still rejects invalid credentials
+before tool dispatch. Exception bodies, tokens and record identifiers never enter
+these challenges. App-owned `permissions.py` defines scopes and live principal
+checks; `framework/oauth.py` retains the OAuth lifecycle.
 
 ### ⚙️ Enabling a derived application
 
@@ -109,7 +121,7 @@ read/write/destructive/idempotent annotations and OAuth scope metadata. Resolve
 the current OAuth token's user and check scope, ownership and current membership
 for every operation. Never trust a user ID supplied by a caller. Transport
 authentication alone does not establish object permissions. Validate consequential
-writes and confirmation in the application service; keep REST behavior aligned.
+writes and application-specific mutation controls in the application service; keep REST behavior aligned.
 
 ### 🔐 Browser consent and credentials
 
@@ -187,7 +199,9 @@ DJANGO_MCP_ENABLED=1 DJANGO_MCP_SERVER_FACTORY=apps.mcp.tools.server.create_serv
 The framework tests cover discovery/initialization/sample calls, absent/invalid
 credentials, REST-JWT rejection, token expiry/resource/scope/revocation, S256 code
 exchange and refresh rotation, account-bound consent, foreign-account revocation,
-pending grants and exact client registration. Frontend tests cover displayed
+pending grants, exact client registration and sanitized reconnect challenges.
+Keep all framework runtime files and test-package files identical across the three
+applications (line-ending normalization is allowed). Frontend tests cover displayed
 permissions, login return paths, Allow/Cancel, expired consent and revocation.
 Run frontend tests/lint/build in both default and enabled builds. Notoli also runs
 its application tool/permission/transport/proxy regressions. Live ChatGPT writes
@@ -204,6 +218,28 @@ PKCE, consent and revocation unchanged. Infrastructure routes the application's
 own endpoints; no shared issuer, new service, network or YNAB dependency is needed.
 Website login, REST JWTs and existing AI estimation remain independent.
 
+The REST API and these tools call the same actor-scoped catalog, diary, proposal
+and notification operations directly. The MCP boundary validates serializer
+inputs with an actor context, keeps OAuth, automatic duplicate protection and live state checks, and formats
+bounded results; it does not construct REST requests or invoke viewsets.
+
+### 🧭 Tool files
+
+- `server.py`: a fresh registry, typed tool signatures, execution workers and sanitized transport errors.
+- `permissions.py`: local scopes, live OAuth principal checks and actor locking.
+- `operations.py`: closed mutation catalog, strict validation, writable-field discovery and domain dispatch.
+- `queries.py`: actor-scoped reads, catalog snapshots and adaptive detail pages.
+- `services.py`: authenticated read/mutation boundary, automatic request reservation, duplicate recovery and atomic outcome persistence.
+- `results.py`: bounded JSON formatting and truthful success receipts.
+- `schemas.py`, `models.py`, `migrations/`: typed wire contracts and MacroMapper-only execution receipts and actor locks.
+- `tests/`: domain access, discovery/errors, direct execution/replay, paid operations, result limits and HTTP contracts.
+
+The domain APIs live consistently in `foods/services.py`, `meals/services.py`,
+`estimates/services.py` and `notifications/services.py`; proposal recipe-tree
+helpers live in `estimates/recipe_edits.py`. MCP `operations.py` owns tool validation
+and metadata, while those domain services own business changes for both transports.
+The services boundary performs real invocation work; no compatibility dispatch modules or re-export facade are retained.
+
 ### 🔐 Access and permissions
 
 The resource is `https://macromapper.judeandrewalaba.com/mcp`; the issuer is the
@@ -214,21 +250,22 @@ user IDs cannot select another account. REST JWTs cannot call MCP.
 
 - `macromapper:read` is required and the only default grant. It reads accessible
   foods and the account's meals, totals, proposals and notifications.
-- `macromapper:write` permits explicitly confirmed business mutations, with the
+- `macromapper:write` permits user-requested business mutations, with the
   same validation and ownership rules as the application.
 - `macromapper:estimate` separately permits paid AI estimates. It also requires
-  read/write access and explicit confirmation; read access alone cannot spend
+  read/write access and a user-requested paid action; read access alone cannot spend
   provider credits. Tests mock providers and do not make paid requests.
 
-Writes use an app-owned preview/confirmation record. Review the exact operation
-and payload before confirmation; do not automatically confirm or retry an
-uncertain result. Catalog access follows existing visibility and creator rules;
+A requested mutation runs directly with the required OAuth permissions. There is
+no application preview/confirmation round-trip, including for paid actions.
+The client may still display its own permission UI; this backend does not control
+those prompts. Catalog access follows existing visibility and ownership rules;
 MCP is not administrative access. Planned goals/activity and account credential
 management are outside the registry.
 
 ### 🧰 Available capabilities
 
-The registry exposes 18 tools covering 19 closed mutation actions. Call
+The registry exposes 12 tools covering 19 closed mutation actions. Call
 `operation_schema(action)` before preparing a change: it returns the allowed
 fields, required values, bounds and scopes for that action.
 Meal-item descriptors separate string product identity metadata from the bounded
@@ -236,49 +273,68 @@ Meal-item descriptors separate string product identity metadata from the bounded
 `portion_options` array (at most 20 selectable conversions), matching the
 application's writable serializers.
 
-| Area | Read tools | Confirmed actions |
+| Area | Read tools | Direct actions |
 | --- | --- | --- |
 | Food catalog | `search_foods`, `get_food` | Create or update your personal foods; archive them. Shared catalog visibility follows the existing app policy. |
 | Diary and nutrition | `meal_diary`, `get_meal`, `nutrition_totals` | Create, edit or delete meals; save or update reviewed drafts. Drafts require explicit name and notes, with an empty notes string allowed. |
 | Proposals | `list_proposals` returns summaries/IDs; `get_proposal` pages current review items | Review/edit, delete draft proposals, or separately accept a proposal into the diary. |
 | Paid estimation | Read proposals before accepting them | Estimate a new proposal, request a proposal follow-up, or adjust a proposal/meal draft. These four actions additionally require `macromapper:estimate`; they do not directly accept a diary meal. |
-| Notifications | `list_notifications`, `get_notification` | Mark one read/unread, delete one, mark all current notifications read, or clear the current set. Later arrivals are excluded from an existing preview. |
+| Notifications | `list_notifications`, `get_notification` | Mark one read/unread, delete one, mark all current notifications read, or clear the current set. Arrivals after the invocation selects its bounded set are excluded. |
 
-`preview_change` and `confirm_change` handle the 15 nonpaid actions and advertise
-read/write access. `preview_paid_change` and `confirm_paid_change` handle the four
-paid actions and advertise read/write/estimate access. Their action enums are
-disjoint; using the wrong confirmation pair rejects the request without consuming
-the approval. Four additional
-typed notification preview tools cover update, delete, mark-all-read and clear-all.
-Every preview expires after five minutes, is bound to the same OAuth token/client/
-user, and becomes unusable after confirmation. Refreshing or revoking the token,
-changing the target or its catalog definitions, or changing ownership requires a
-new preview. Paid approval is consumed before the provider wait, even if that
-request fails; inspect the outcome and never retry it automatically. At most ten
-pending previews are kept per account.
+`execute_change(request_id, action, changes, target_id?)` handles the 15 nonpaid
+actions with read/write access. `execute_paid_change` handles the four paid actions
+with read/write/estimate access. Their action enums are disjoint. Both advertise
+mutating/destructive behavior; the paid tool also advertises external interaction.
+Exact repeats are idempotent because the automatic request receipt prevents
+executing the same request twice.
 
-Meal draft previews validate the same catalog authorization and component rules as
-saving. Every draft item must reference a visible catalog food/version pair. To
-enter a manual food, first separately preview and confirm `food.create`, then use
-the returned food ID and its current version ID in a fresh meal draft preview.
-This preserves personal-food ownership and provenance; a source URL or
-`user_entered` label alone does not create a catalog food. `meal.draft_create`
-saves a diary meal directly; it does not create an estimation proposal.
-Invalid draft references now fail before an approval is stored, with fixed
-guidance. Invalid, expired, used, wrong-connection and stale confirmations also
-return actionable guidance without exposing private validation details.
+The tool caller generates a UUID automatically for each intended operation. It
+must not ask the user for an ID or an extra approval. Preserve that UUID and the
+exact arguments if a response is interrupted: the same call retrieves the stored
+outcome instead of repeating the action. JSON-RPC IDs are not idempotency keys;
+they can reset between sessions. A reused UUID with changed arguments is rejected.
+Receipts belong to the original account and OAuth client. Every replay rechecks
+current token validity/resource/scopes; refreshed credentials for that same
+account/client can recover an outcome. A completed deletion remains recoverable
+after its target is gone.
+
+The response carries `request_id`, `action`, `status`, `applied`, `replayed` and
+the bounded `result`. `status: completed` means execution finished; paid no-op
+outcomes explicitly have `applied: false`. `in_progress` or `uncertain` has
+`applied: null` and must not be interpreted as successful application. Inspect
+existing records and reuse the same UUID to recover status. Never automatically
+submit paid work under a new UUID to bypass an uncertain outcome.
+
+Paid requests persist their reservation before calling a provider. No database
+writer lock spans that wait. Fresh token, owner and catalog/target checks run
+before publication; business changes and the successful receipt commit together.
+A provider/guard/receipt failure leaves a durable uncertain reservation, and any
+publication transaction rolls back. A process interrupted without a recorded
+outcome may leave an in-progress reservation; it is never restarted automatically.
+Receipts are retained without automatic expiry so old UUIDs cannot silently run
+again. They store bounded outcomes/digests, not raw tokens or request payloads;
+account deletion removes its receipts. Nonpaid business failures roll back both
+the change and reservation.
+
+Meal drafts validate the same catalog authorization and component rules as
+saving. Every draft item must reference a visible catalog food/version pair. For
+a manual food, first execute `food.create`, then use its returned food/version
+IDs in `meal.draft_create` or `meal.draft_update`. This preserves personal-food
+ownership and provenance; a source URL or `user_entered` label alone does not
+create a catalog food. Draft creation saves the diary directly without an AI call.
+Invalid drafts fail before a request receipt or business change is stored.
 
 Pages contain at most 20 records. Nutrition totals cover at most 31 days, 500 meals
-and 2,000 meal items; bulk notification previews cover at most 200 existing entries.
+and 2,000 meal items; bulk notification operations cover at most 200 existing entries.
 Large or deeply nested data is rejected or explicitly marked truncated. Narrow the
 request rather than treating truncated output or missing nutrients as complete.
 
 Successful nonpaid mutations return the ordinary result when it fits. An expanded
 result exceeding the existing 2,000-node/64-KiB budget, or requiring trimming,
 returns an explicitly truncated success receipt with the saved record ID and
-readback guidance. The mutation and one-use approval commit together; business
-failures still roll back both. Do not replay a successful mutation to recover its
-expanded output.
+readback guidance. The mutation and automatic execution receipt commit together; business
+failures still roll back both. Reusing the same request UUID recovers the cached
+receipt; use the read tools or website for expanded details.
 
 `meal_diary` can reduce the requested page size to fit the output budget; follow
 the returned `next_offset`, rather than adding the requested limit. An oversized
@@ -307,8 +363,8 @@ Sanitized tool failures include a reference correlated with the operation name a
 exception category in server logs; meal text, tokens and provider errors are omitted.
 
 Four bounded application tool workers keep paid provider waits separate from
-OAuth verification. Requests beyond that capacity fail before consuming an
-approval; cancellation retains a worker slot until the operation finishes.
+OAuth verification. Requests beyond that capacity fail before reserving an
+execution; cancellation retains a worker slot until the operation finishes.
 An oversized paid result returns a successful, explicitly truncated receipt
 with retained proposal IDs or a bounded temporary-adjustment summary. Temporary
 adjustments do not modify the diary. Never repeat a paid call to recover detail.
@@ -354,8 +410,13 @@ The ordinary frontend/API probes remain, with exact issuer/resource JSON and an
 unauthenticated MCP 401 resource-metadata challenge added to release readiness.
 
 Coordinate the existing Infrastructure vhost before enabling the app. Run normal
-private SQLite capture/integrity checks before the additive OAuth and confirmation
-migrations. Retain the prior disabled release directory, its checksummed policy,
+private SQLite capture/integrity checks before application migrations.
+Migration `0002_direct_execution_receipts` creates the automatic receipt model and
+removes obsolete pending Confirmation records; historical `0001_initial` remains
+unchanged. Old preview/confirm tool calls are intentionally unsupported. Refresh
+client tool discovery to use the 12-tool registry and automatically generated
+request UUIDs. Existing OAuth grants remain valid; reconnect only when a broader
+scope grant is needed. Retain the prior disabled release directory, its checksummed policy,
 controller, images and recovery evidence. First activation cannot require the
 old disabled backend to already have the new trust environment; `app.json` instead
 pins the gateway address and fixes trust in the new bundle. Verify the resulting
@@ -403,8 +464,8 @@ and S256 PKCE. This package requests `macromapper:read` only and advertises read
 access. It cannot perform writes or paid estimates with that grant.
 
 To intentionally build a broader variant, add `macromapper:write` to
-`baseScopes` in `mcp.json` for confirmed ordinary mutations. Paid estimates also
-require `macromapper:estimate` and separate explicit confirmation. Review and
+`baseScopes` in `mcp.json` for requested ordinary mutations. Paid estimates also
+require `macromapper:estimate`; neither path adds an app-level confirmation. Review and
 update the listing capabilities and descriptions to match that variant before
 building, then obtain a new consent grant for its requested scopes. Existing
 grants cannot silently gain new scopes.

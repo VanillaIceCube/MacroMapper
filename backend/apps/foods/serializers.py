@@ -1,7 +1,6 @@
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db import transaction
 from rest_framework import serializers
 
 from .evidence import version_evidence
@@ -13,7 +12,11 @@ from .models import (
 )
 from .nutrients import NUTRIENT_METADATA
 from .portions import clean_natural_servings, portion_options_for_serving
-from .services import create_food_item, create_food_version
+from .services import create_personal_food, update_personal_food, validate_food_data
+
+
+def _actor(context):
+    return context.get("actor") or getattr(context.get("request"), "user", None)
 
 
 class SourceReferenceSerializer(serializers.ModelSerializer):
@@ -265,11 +268,11 @@ class FoodComponentInputSerializer(serializers.Serializer):
     order = serializers.IntegerField(min_value=0, max_value=32767, default=0)
 
     def validate_food_item(self, food_item):
-        request = self.context.get("request")
+        actor = _actor(self.context)
         if (
-            not request
+            not actor
             or not FoodItem.objects.active()
-            .visible_to(request.user)
+            .visible_to(actor)
             .filter(pk=food_item.pk)
             .exists()
         ):
@@ -385,80 +388,10 @@ class FoodItemSerializer(serializers.ModelSerializer):
         )
 
     def validate(self, attrs):
-        definition = attrs.get("definition")
-        if self.instance is None and definition is None:
-            raise serializers.ValidationError(
-                {"definition": "A food definition is required."}
-            )
-        if self.instance is not None and definition:
-            if any(
-                item["food_item"].pk == self.instance.pk
-                for item in definition.get("components", [])
-            ):
-                raise serializers.ValidationError(
-                    {"definition": {"components": "A food cannot include itself."}}
-                )
-
-        name = attrs.get("name", getattr(self.instance, "name", "")).strip()
-        if not name:
-            raise serializers.ValidationError({"name": "This field may not be blank."})
-        attrs["name"] = name
-
-        provider_name = attrs.get(
-            "provider_name",
-            getattr(self.instance, "provider_name", ""),
-        ).strip()
-        attrs["provider_name"] = provider_name
-        origin_type = attrs.get(
-            "origin_type",
-            getattr(self.instance, "origin_type", FoodItem.OriginType.GENERIC),
-        )
-        if (
-            origin_type
-            in {
-                FoodItem.OriginType.BRANDED,
-                FoodItem.OriginType.RESTAURANT,
-            }
-            and not provider_name
-        ):
-            raise serializers.ValidationError(
-                {"provider_name": "Branded and restaurant foods require a provider."}
-            )
-        return attrs
+        return validate_food_data(_actor(self.context), attrs, self.instance)
 
     def create(self, validated_data):
-        definition = validated_data.pop("definition")
-        request = self.context["request"]
-        try:
-            return create_food_item(
-                scope=FoodItem.Scope.PERSONAL,
-                owner=request.user,
-                created_by=request.user,
-                definition=definition,
-                **validated_data,
-            )
-        except DjangoValidationError as error:
-            raise serializers.ValidationError(
-                _django_validation_details(error)
-            ) from error
+        return create_personal_food(_actor(self.context), validated_data)
 
     def update(self, instance, validated_data):
-        definition = validated_data.pop("definition", None)
-        request = self.context["request"]
-        try:
-            with transaction.atomic():
-                for field, value in validated_data.items():
-                    setattr(instance, field, value)
-                instance.full_clean()
-                instance.save()
-                if definition is not None:
-                    create_food_version(
-                        food_item=instance,
-                        definition=definition,
-                        created_by=request.user,
-                    )
-                return instance
-        except DjangoValidationError as error:
-            raise serializers.ValidationError(
-                _django_validation_details(error)
-            ) from error
+        return update_personal_food(_actor(self.context), instance, validated_data)

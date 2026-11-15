@@ -1,31 +1,16 @@
-from django.db.models import (
-    Case,
-    DateField,
-    IntegerField,
-    OuterRef,
-    Q,
-    Subquery,
-    Value,
-    When,
-)
-from django.utils import timezone
-from rest_framework import filters, status, viewsets
-from rest_framework.exceptions import ValidationError
+from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.meals.models import MealItem
-
-from .models import FoodItem, FoodItemVersion
 from .permissions import IsPersonalFoodOwnerOrReadOnly
 from .serializers import FoodItemSerializer
-from .services import build_component_map
+from .services import archive_personal_food, build_component_map, foods_for
 
 
 class FoodItemViewSet(viewsets.ModelViewSet):
     serializer_class = FoodItemSerializer
     permission_classes = [IsAuthenticated, IsPersonalFoodOwnerOrReadOnly]
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = []
     search_fields = [
         "name",
         "provider_name",
@@ -45,86 +30,11 @@ class FoodItemViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
-        available = FoodItem.objects.active()
-        if self.action == "retrieve":
-            available = FoodItem.objects.filter(
-                Q(archived_at__isnull=True)
-                | Q(
-                    scope=FoodItem.Scope.SHARED,
-                    merged_into__scope=FoodItem.Scope.SHARED,
-                    merged_into__archived_at__isnull=True,
-                    merged_into__isnull=False,
-                )
-            )
-        queryset = (
-            available.visible_to(self.request.user)
-            .select_related("owner", "current_version")
-            .prefetch_related("current_version__sources")
+        return foods_for(
+            self.request.user,
+            self.request.query_params,
+            retrieve=self.action == "retrieve",
         )
-        latest_log = (
-            MealItem.objects.filter(
-                meal_entry__owner=self.request.user,
-                food_version__food_item_id=OuterRef("pk"),
-            )
-            .order_by(
-                "-meal_entry__entry_date",
-                "-meal_entry__created_at",
-                "-id",
-            )
-            .values("meal_entry__entry_date")[:1]
-        )
-        queryset = queryset.annotate(
-            last_logged_on=Subquery(latest_log, output_field=DateField())
-        ).annotate(
-            has_logged=Case(
-                When(last_logged_on__isnull=False, then=Value(1)),
-                default=Value(0),
-                output_field=IntegerField(),
-            )
-        )
-        search_query = self.request.query_params.get("search", "").strip()
-        if search_query:
-            queryset = queryset.annotate(
-                relevance=Case(
-                    When(name__iexact=search_query, then=Value(0)),
-                    When(name__istartswith=search_query, then=Value(1)),
-                    When(provider_name__iexact=search_query, then=Value(2)),
-                    When(name__icontains=search_query, then=Value(3)),
-                    When(provider_name__istartswith=search_query, then=Value(4)),
-                    default=Value(5),
-                    output_field=IntegerField(),
-                )
-            )
-        else:
-            queryset = queryset.annotate(
-                relevance=Value(0, output_field=IntegerField())
-            )
-        scope = self.request.query_params.get("scope", "").strip()
-        if scope:
-            if scope not in FoodItem.Scope.values:
-                raise ValidationError({"scope": "Choose personal or shared."})
-            queryset = queryset.filter(scope=scope)
-
-        provider = self.request.query_params.get("provider", "").strip()
-        if provider:
-            queryset = queryset.filter(provider_name__icontains=provider)
-
-        provenance = self.request.query_params.get("provenance", "").strip()
-        if provenance:
-            requested = {
-                value.strip() for value in provenance.split(",") if value.strip()
-            }
-            invalid = requested - set(FoodItemVersion.Provenance.values)
-            if invalid:
-                raise ValidationError({"provenance": "Choose a valid provenance."})
-            queryset = queryset.filter(current_version__provenance__in=requested)
-
-        origin_type = self.request.query_params.get("origin_type", "").strip()
-        if origin_type:
-            if origin_type not in FoodItem.OriginType.values:
-                raise ValidationError({"origin_type": "Choose a valid food type."})
-            queryset = queryset.filter(origin_type=origin_type)
-        return queryset
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
@@ -190,6 +100,7 @@ class FoodItemViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
+        instance = serializer.instance
         if getattr(instance, "_prefetched_objects_cache", None):
             instance._prefetched_objects_cache = {}
         version_ids = (
@@ -203,5 +114,4 @@ class FoodItemViewSet(viewsets.ModelViewSet):
         return Response(output_serializer.data)
 
     def perform_destroy(self, instance):
-        instance.archived_at = timezone.now()
-        instance.save(update_fields=["archived_at", "updated_at"])
+        archive_personal_food(self.request.user, instance)

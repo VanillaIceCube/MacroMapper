@@ -1,4 +1,6 @@
-"""Bounded structured results, with private token/confirmation state excluded."""
+"""Bounded results and automatic execution status; no human approval state."""
+
+from typing import Literal
 
 from pydantic import BaseModel, JsonValue
 
@@ -10,18 +12,10 @@ class Result(BaseModel):
     next_offset: int | None = None
 
 
-class PreviewResult(BaseModel):
-    confirmation_id: str
-    expires_at: str
+class ExecutionResult(BaseModel):
+    request_id: str
     action: str
-    target_id: int | None
-    changes: dict[str, JsonValue]
-    current: JsonValue
-    paid: bool
-    instruction: str
-
-
-class ConfirmResult(BaseModel):
-    applied: bool
-    action: str
+    status: Literal["completed", "in_progress", "uncertain"]
+    applied: bool | None
+    replayed: bool = False
     result: Result

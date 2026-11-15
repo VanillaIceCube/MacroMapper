@@ -1,3 +1,5 @@
+"""Catalog interpretation, proposal lifecycle and actor-scoped estimation services."""
+
 from __future__ import annotations
 
 import ipaddress
@@ -10,9 +12,12 @@ from types import SimpleNamespace
 from urllib.parse import urlsplit
 
 from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import ValidationError as APIValidationError
 
 from apps.foods.evidence import (
     nutrition_evidence,
@@ -33,11 +38,12 @@ from apps.meals.services import (
     _effective_nutrients,
     generate_meal_name,
     replace_meal_items,
+    require_meal_owner,
 )
 
 from .models import MealProposal, MealProposalRevision
-from .operations import apply_tree_operations, index_tree
 from .provider import EstimationProviderError, get_estimation_provider
+from .recipe_edits import apply_tree_operations, index_tree
 
 STOP_WORDS = {
     "a",
@@ -1415,7 +1421,9 @@ def _select_described_size(item, description):
         return
 
 
-def create_proposal(*, owner, description, entry_date, before_apply=None):
+def create_proposal(
+    *, owner, description, entry_date, before_apply=None, after_apply=None
+):
     description = description.strip()
     resolution = resolve_catalog_matches(description=description, user=owner)
     holistic = bool(
@@ -1496,6 +1504,8 @@ def create_proposal(*, owner, description, entry_date, before_apply=None):
                 kind=MealProposalRevision.Kind.GENERATED,
                 created_by=None,
             )
+            if after_apply is not None:
+                after_apply(proposal)
             return proposal
 
     provider = provider or get_estimation_provider()
@@ -1540,6 +1550,8 @@ def create_proposal(*, owner, description, entry_date, before_apply=None):
             kind=MealProposalRevision.Kind.GENERATED,
             created_by=None,
         )
+        if after_apply is not None:
+            after_apply(proposal)
         return proposal
 
 
@@ -2620,7 +2632,8 @@ def accept_proposal(*, proposal):
 
 def process_meal_adjustment(
     *,
-    serializer,
+    data,
+    meal=None,
     owner,
     proposal_serializer,
     request=None,
@@ -2636,17 +2649,17 @@ def process_meal_adjustment(
     get_provider = get_provider or get_estimation_provider
     proposal = None
     try:
-        proposal = serializer.create_proposal()
+        proposal = build_adjustment_proposal(owner, data, meal)
         result = get_provider().follow_up(
             original_description="",
             meal_name=proposal.name,
             items=proposal.items,
-            follow_up=serializer.validated_data["adjustment"],
+            follow_up=data["adjustment"],
         )
         outcome = apply_proposal_follow_up(
             proposal=proposal,
             owner=owner,
-            follow_up=serializer.validated_data["adjustment"],
+            follow_up=data["adjustment"],
             items=proposal.items,
             result=result,
         )
@@ -2669,3 +2682,121 @@ def process_meal_adjustment(
     finally:
         if temporary and proposal is not None:
             proposal.delete()
+
+
+def proposals_for(actor):
+    return (
+        MealProposal.objects.filter(owner=actor)
+        .select_related("accepted_meal")
+        .prefetch_related("revisions")
+    )
+
+
+def require_proposal_owner(actor, proposal):
+    if not proposals_for(actor).filter(pk=proposal.pk).exists():
+        raise PermissionDenied("Proposal unavailable.")
+
+
+def estimate_proposal(actor, data, *, before_apply=None, after_apply=None):
+    return create_proposal(
+        owner=actor,
+        description=data["description"],
+        entry_date=data["entry_date"],
+        before_apply=before_apply,
+        after_apply=after_apply,
+    )
+
+
+@transaction.atomic
+def update_proposal(actor, proposal, data):
+    proposal = MealProposal.objects.select_for_update().get(pk=proposal.pk)
+    require_proposal_owner(actor, proposal)
+    if proposal.status != MealProposal.Status.DRAFT:
+        raise APIValidationError("Accepted proposals cannot be edited.")
+    data = validate_proposal_data(actor, dict(data), proposal)
+    for field, value in data.items():
+        if field != "description":
+            setattr(proposal, field, value)
+    proposal.save()
+    create_proposal_revision(
+        proposal=proposal,
+        kind=MealProposalRevision.Kind.USER_REVIEWED,
+        created_by=actor,
+    )
+    return proposal
+
+
+@transaction.atomic
+def delete_proposal(actor, proposal):
+    proposal = MealProposal.objects.select_for_update().get(pk=proposal.pk)
+    require_proposal_owner(actor, proposal)
+    if proposal.status != MealProposal.Status.DRAFT:
+        raise APIValidationError("Accepted proposals cannot be deleted.")
+    proposal.delete()
+
+
+@transaction.atomic
+def accept_reviewed_proposal(actor, proposal):
+    proposal = MealProposal.objects.select_for_update().get(pk=proposal.pk)
+    require_proposal_owner(actor, proposal)
+    return accept_proposal(proposal=proposal)
+
+
+def apply_follow_up(actor, proposal, data, result):
+    require_proposal_owner(actor, proposal)
+    return apply_proposal_follow_up(
+        proposal=proposal,
+        owner=actor,
+        follow_up=data["follow_up"],
+        notes=data.get("notes", proposal.notes),
+        entry_date=data.get("entry_date", proposal.entry_date),
+        items=data["items"],
+        result=result,
+    )
+
+
+def follow_up_proposal(actor, proposal, data, *, get_provider=None):
+    require_proposal_owner(actor, proposal)
+    result = (get_provider or get_estimation_provider)().follow_up(
+        original_description=proposal.description,
+        meal_name=data["name"],
+        items=data["items"],
+        follow_up=data["follow_up"],
+    )
+    return apply_follow_up(actor, proposal, data, result)
+
+
+@transaction.atomic
+def build_adjustment_proposal(actor, data, meal=None):
+    if meal is not None:
+        from apps.meals.models import MealEntry
+
+        meal = MealEntry.objects.select_for_update().get(pk=meal.pk)
+        require_meal_owner(actor, meal)
+    return create_builder_proposal(
+        owner=actor,
+        entry_date=data["entry_date"],
+        name=data.get("name", ""),
+        notes=data.get("notes", ""),
+        items=data["items"],
+        allowed_version_ids=saved_meal_version_ids(meal) if meal else (),
+    )
+
+
+def validate_proposal_data(actor, attrs, instance=None):
+    if instance is not None:
+        if instance.status != MealProposal.Status.DRAFT:
+            raise APIValidationError("Accepted proposals cannot be edited.")
+        attrs.pop("description", None)
+        if "items" in attrs:
+            try:
+                attrs["items"] = secure_review_items(
+                    proposal=instance,
+                    owner=actor,
+                    items=attrs["items"],
+                )
+            except DjangoValidationError:
+                raise APIValidationError(
+                    "Proposal edits could not be validated."
+                ) from None
+    return attrs

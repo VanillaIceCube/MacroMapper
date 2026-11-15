@@ -6,12 +6,17 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Return structured reconnect guidance for expired or under-scoped MCP connections while keeping object denials separate and sanitizing unexpected failures.
 - Align authentication request validation, duplicate-registration handling and exact password preservation across applications; reject malformed reset credentials with HTTP 400 and roll back failed signup onboarding.
 - Require a nonblank production signing key consistently.
 
 ### Changed
 
-- Organize backend tests into owning `tests/` packages with descriptive behavior names and fixture-only helpers; group estimates by recipe, catalog, proposal and natural-serving behavior, and separate MCP catalog operations from confirmation checks while preserving discovery/coverage.
+- Replace MCP preview/confirmation steps with direct scoped execution: 12 tools retain all 19 actions, automatic request UUIDs recover cached outcomes, and paid reservations prevent duplicate provider execution without another human approval.
+- Separate MCP permissions, action dispatch, authenticated services, actor-scoped queries and bounded results; replace obsolete Confirmation state with durable automatic execution receipts in a new migration.
+- Use `services.py` consistently for actor-scoped domain business operations and name proposal recipe-tree helpers `recipe_edits.py`; REST and MCP share those services.
+- Share actor-scoped catalog, diary, proposal and notification operations directly between REST and MCP; remove synthetic REST requests/viewset calls while retaining ownership, paid-provider guards and bounded-result behavior.
+- Organize backend tests into owning `tests/` packages with descriptive behavior names and fixture-only helpers; group estimates by recipe, catalog, proposal and natural-serving behavior, and separate MCP catalog operations from direct execution and replay checks while preserving discovery/coverage.
 - Use Django OAuth Toolkit's built-in MCP client registration, remove custom management commands and document explicit public-client onboarding and validation behavior (#428).
 
 ### Removed

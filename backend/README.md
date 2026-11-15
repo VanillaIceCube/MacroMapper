@@ -90,6 +90,17 @@ responses remain generic for valid email-shaped input.
 - `POST /auth/reset-password/`
   - Body: `uid`, `token`, `password`
 
+REST views and MCP tools use the same actor-scoped operations: catalog queries
+and personal writes in `apps/foods/services.py`, diary queries/writes/drafts in
+`apps/meals/services.py`, proposal operations in
+`apps/estimates/services.py`, and recipient activity operations in
+`apps/notifications/services.py`. These entrypoints recheck ownership and own
+transactions; serializers validate boundary fields and delegate their writes.
+Shared business behavior uses the owning app's `services` module. Specialized
+ingredient-tree editing helpers live in `apps/estimates/recipe_edits.py`.
+MCP executes requested changes directly with OAuth, automatic request-UUID
+duplicate protection, provider-wait state guards and bounded receipts without constructing REST requests or invoking viewsets.
+
 ## 🥗 Food catalog API
 
 All food and nutrient endpoints require a JWT access token.
@@ -361,7 +372,7 @@ and transport test modules in all three applications; app tools remain app-owned
 
 Foods own catalog queries, mutations, identity, serving options, publication and
 migration tests; meals own diary entries, drafts and component graphs. MCP tool
-tests separate catalog operations, confirmations, paid operations, drafts, response
+tests separate catalog operations, direct execution/replay, paid operations, drafts, response
 limits and transport. Run both the default and enabled MCP profiles.
 
 From the repository root:

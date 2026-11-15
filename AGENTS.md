@@ -280,9 +280,13 @@ Follow the [app MCP contract](backend/apps/mcp/README.md#application-tools) and
 [MacroMapper #284](https://github.com/VanillaIceCube/MacroMapper/issues/284).
 MacroMapper owns OAuth, existing-account consent, its registry and scopes;
 shared framework files remain unchanged. Preserve REST JWT/login behavior and
-exact trusted peer `172.20.0.3`. Read is the default scope; writes need explicit
-confirmation and paid estimates also need their separate scope. Recheck token,
-user and ownership on every operation.
+exact trusted peer `172.20.0.3`. Read is the default scope; requested mutations run
+directly with write permission, and paid estimates additionally require estimate
+permission. Do not add an application-level human approval round-trip. Generate
+request UUIDs automatically, retain duplicate-execution receipts, and never retry
+uncertain paid calls under a new UUID automatically. Recheck token, resource,
+scopes and ownership for execution/replay; keep provider waits outside database
+writer transactions and commit publication with its receipt atomically.
 
 Production policy and frontend Docker builds enable the reviewed app connector;
 local backend defaults remain off. Run both backend profiles and frontend tests,

@@ -13,7 +13,7 @@ from apps.meals.models import MealEntry, MealItem
 from apps.meals.serializers import MealEntrySerializer
 from apps.meals.services import replace_meal_items
 
-from .. import services
+from .. import queries, results
 from .helpers import MealToolFixtures
 
 
@@ -29,17 +29,17 @@ class MCPResponseLimitTests(MealToolFixtures, TestCase):
                 for index in range(3)
             ]
             meals.append(
-                self.confirm(self.preview(payload=payload))["result"]["data"]["id"]
+                self.execute(self.request(payload=payload))["result"]["data"]["id"]
             )
-        page = services.list_records(self.raw, "meals", {"date": "2026-10-30"}, 20, 0)
+        page = queries.list_records(self.raw, "meals", {"date": "2026-10-30"}, 20, 0)
         self.assertTrue(page["has_more"])
         self.assertLess(len(page["data"]), 3)
         found, offset = [], 0
         while True:
-            page = services.list_records(
+            page = queries.list_records(
                 self.raw, "meals", {"date": "2026-10-30"}, 20, offset
             )
-            services.json_value(page, maximum=65536)
+            results.json_value(page, maximum=65536)
             found.extend(record["id"] for record in page["data"])
             if not page["has_more"]:
                 break
@@ -54,14 +54,14 @@ class MCPResponseLimitTests(MealToolFixtures, TestCase):
                 for index in range(25)
             ],
         )
-        listing = services.list_records(self.raw, "meals", {"date": "2026-10-30"}, 1, 0)
+        listing = queries.list_records(self.raw, "meals", {"date": "2026-10-30"}, 1, 0)
         self.assertTrue(listing["truncated"])
         self.assertNotIn("items", listing["data"][0])
         self.assertEqual(listing["data"][0]["item_count"], 25)
         item_ids, offset = [], 0
         while True:
-            page = services.get_meal(self.raw, meal.pk, 20, offset)
-            services.json_value(page, maximum=65536)
+            page = queries.get_meal(self.raw, meal.pk, 20, offset)
+            results.json_value(page, maximum=65536)
             self.assertFalse(page["truncated"])
             self.assertEqual(page["data"]["item_count"], 25)
             item_ids.extend(item["id"] for item in page["data"]["items"])
@@ -74,9 +74,9 @@ class MCPResponseLimitTests(MealToolFixtures, TestCase):
             foreign = MealEntry.objects.create(
                 owner=self.other, entry_date=meal.entry_date, name="Private"
             )
-            services.get_meal(self.raw, foreign.pk)
+            queries.get_meal(self.raw, foreign.pk)
         self.assertEqual(
-            services.list_records(self.raw, "meals", {"date": "2026-10-30"}, 1, 999)[
+            queries.list_records(self.raw, "meals", {"date": "2026-10-30"}, 1, 999)[
                 "data"
             ],
             [],
@@ -84,7 +84,7 @@ class MCPResponseLimitTests(MealToolFixtures, TestCase):
 
     def test_single_oversized_or_trimmed_item_returns_only_honest_summary(self):
         meal = self.make_meal()
-        original = services.MealItemSerializer.to_representation
+        original = queries.MealItemSerializer.to_representation
         for expansion in (
             ["é" * 1900] * 10,
             list(range(21)),
@@ -93,18 +93,18 @@ class MCPResponseLimitTests(MealToolFixtures, TestCase):
         ):
             with self.subTest(size=len(expansion)):
                 with patch.object(
-                    services.MealItemSerializer,
+                    queries.MealItemSerializer,
                     "to_representation",
                     lambda serializer, item: (
                         original(serializer, item) | {"synthetic_expansion": expansion}
                     ),
                 ):
-                    page = services.get_meal(self.raw, meal.pk)
+                    page = queries.get_meal(self.raw, meal.pk)
                 self.assertTrue(page["truncated"])
                 self.assertNotIn("items", page["data"])
                 self.assertIn("MacroMapper", page["data"]["detail"])
                 self.assertIsNone(page["next_offset"])
-                services.json_value(page, maximum=65536)
+                results.json_value(page, maximum=65536)
 
     def test_diary_byte_budget_reduces_page_without_omitting_records(self):
         ids = [self.make_meal().pk for _ in range(3)]
@@ -116,7 +116,7 @@ class MCPResponseLimitTests(MealToolFixtures, TestCase):
             }
 
         with patch.object(MealEntrySerializer, "to_representation", expanded):
-            page = services.list_records(
+            page = queries.list_records(
                 self.raw, "meals", {"date": "2026-10-30"}, 20, 0
             )
             self.assertFalse(page["truncated"])
@@ -124,10 +124,10 @@ class MCPResponseLimitTests(MealToolFixtures, TestCase):
             self.assertEqual(page["next_offset"], 1)
             found = [page["data"][0]["id"]]
             for offset in (1, 2):
-                page = services.list_records(
+                page = queries.list_records(
                     self.raw, "meals", {"date": "2026-10-30"}, 20, offset
                 )
-                services.json_value(page, maximum=65536)
+                results.json_value(page, maximum=65536)
                 found.extend(item["id"] for item in page["data"])
             self.assertEqual(found, ids)
             self.assertFalse(page["has_more"])
@@ -142,7 +142,7 @@ class MCPResponseLimitTests(MealToolFixtures, TestCase):
             ],
         )
         first, second = list(meal.items.all())
-        original = services.MealItemSerializer.to_representation
+        original = queries.MealItemSerializer.to_representation
 
         def expanded(serializer, item):
             output = original(serializer, item)
@@ -152,14 +152,14 @@ class MCPResponseLimitTests(MealToolFixtures, TestCase):
                 else output
             )
 
-        with patch.object(services.MealItemSerializer, "to_representation", expanded):
-            page = services.get_meal(self.raw, meal.pk)
+        with patch.object(queries.MealItemSerializer, "to_representation", expanded):
+            page = queries.get_meal(self.raw, meal.pk)
             self.assertTrue(page["truncated"])
             self.assertTrue(page["has_more"])
             self.assertEqual(page["next_offset"], 1)
             self.assertEqual(page["data"]["item_id"], first.pk)
             self.assertNotIn("items", page["data"])
-            remaining = services.get_meal(self.raw, meal.pk, 20, page["next_offset"])
+            remaining = queries.get_meal(self.raw, meal.pk, 20, page["next_offset"])
             self.assertFalse(remaining["truncated"])
             self.assertFalse(remaining["has_more"])
             self.assertEqual(
@@ -182,7 +182,7 @@ class MCPResponseLimitTests(MealToolFixtures, TestCase):
                 for index in range(1, 1003)
             ]
         )
-        page = services.get_meal(self.raw, meal.pk, 1, 1000)
+        page = queries.get_meal(self.raw, meal.pk, 1, 1000)
         self.assertTrue(page["truncated"])
         self.assertFalse(page["has_more"])
         self.assertIsNone(page["next_offset"])
@@ -198,7 +198,7 @@ class MCPResponseLimitTests(MealToolFixtures, TestCase):
                 for _ in range(1002)
             ]
         )
-        listing = services.list_records(
+        listing = queries.list_records(
             self.raw, "meals", {"date": meal.entry_date.isoformat()}, 1, 1000
         )
         self.assertTrue(listing["truncated"])
@@ -208,12 +208,12 @@ class MCPResponseLimitTests(MealToolFixtures, TestCase):
 
     def test_json_node_and_byte_limits_remain_unchanged_at_boundaries(self):
         under = [[0] * 99 for _ in range(19)] + [[0] * 98]
-        self.assertEqual(services.json_value(under, maximum=65536), under)
+        self.assertEqual(results.json_value(under, maximum=65536), under)
         over = under + [0]
         with self.assertRaises(ValidationError):
-            services.json_value(over, maximum=65536)
+            results.json_value(over, maximum=65536)
         under_bytes = ["x" * 2000] * 32
         encoded = len(json.dumps(under_bytes).encode())
-        self.assertEqual(services.json_value(under_bytes, maximum=encoded), under_bytes)
+        self.assertEqual(results.json_value(under_bytes, maximum=encoded), under_bytes)
         with self.assertRaises(ValidationError):
-            services.json_value(under_bytes, maximum=encoded - 1)
+            results.json_value(under_bytes, maximum=encoded - 1)
