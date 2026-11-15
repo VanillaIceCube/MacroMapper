@@ -116,4 +116,3 @@ See [workflow checks and validation](../.github/workflows/README.md#-checks-and-
 - [Live-server releases and recovery](production/README.md).
 - [Backend configuration](../backend/README.md).
 - [Frontend development](../frontend/README.md).
-- [Repository scripts](../scripts/README.md).

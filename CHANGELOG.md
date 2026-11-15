@@ -14,6 +14,7 @@ All notable changes to this project are documented in this file.
 
 ### Removed
 
+- Remove the root `scripts/` folder and retired production deployment/bundle compatibility stubs.
 - Remove duplicate documentation indexes, redirects, stale narratives and historical receipts after preserving useful contracts. Remove obsolete tour, design and visual-receipt screenshots; retain the author’s original note in the frontend guide.
 - Remove the root `tests/` directory and its CI invocations; retain backend, frontend/browser, action-local, and shared release suites.
 

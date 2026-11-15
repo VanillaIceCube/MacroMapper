@@ -53,15 +53,9 @@ MacroMapper no longer supplies a Notoli override or shared vhost. The retired
 bridge remains in Git history; preserve installed live copies until approved
 transfer/recovery is verified.
 
-The retired `scripts/deploy-production.sh` and
-`scripts/prepare-production-bundle.py` remain fail-closed compatibility stubs.
-No workflow on this implementation branch invokes them. Legacy `env-prod`
-workflow history still invokes the bundle builder and deployment script;
-external automation or operator commands may also do so. Remove them only after the
-host operator inventories those callers, disables or migrates every legacy
-caller, verifies the new release and recovery path, and confirms retained
-rollback procedures do not invoke them. Record that evidence in the deployment
-issue before removal; never restore the old shared-proxy behavior.
+The retired shared-proxy deployment and bundle entry points have been removed.
+Use the reviewed app-only release and recovery pipeline below; never restore the
+old shared-proxy behavior.
 
 ## CI inputs and private host preparation
 

@@ -483,7 +483,7 @@ source-pin PRs do not authorize merging, promotion, or deployment.
 
 ### Repository validation and browser diagnostics
 
-The path-aware test gate includes `.github/**`, `frontend/e2e/**`, `scripts/**`, `deploy/**`,
+The path-aware test gate includes `.github/**`, `frontend/e2e/**`, `deploy/**`,
 and maintained docs in automation validation. It runs workflow and
 composite syntax, parser-only script checks and synthetic Compose configuration
 plus the existing Batch 1 suites and focused mocked composite regressions.

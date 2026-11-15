@@ -80,7 +80,6 @@ jobs:
               - '.github/workflows/gate-test.yml'
             automation:
               - 'frontend/e2e/**'
-              - 'scripts/**'
               - 'docs/**'
               - 'README.md'
               - 'CHANGELOG.md'
@@ -93,8 +92,6 @@ jobs:
               - '.github/workflows/ci-auto-merge.yml'
               - '.github/actions/prepare-vulnerability-report/**'
               - 'deploy/**'
-              - 'scripts/prepare-production-bundle.py'
-              - 'scripts/deploy-production.sh'
               - '.github/workflows/ci-deploy.yml'
               - '.github/actions/collect-codeql-evidence/**'
               - '.github/actions/collect-prior-ai-reviews/**'
