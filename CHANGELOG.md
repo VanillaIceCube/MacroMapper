@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file.
 
 ## 2026-11-14
 
+### Fixed
+
+- Reject unsafe paths, symlinks and duplicate members in exported ChatGPT ZIPs, bound archive expansion, and cover hostile exports with offline regressions.
+
 ### Changed
 
 - Align the default ChatGPT listing with its read-only OAuth grant and document explicit configuration and new consent for broader variants.
