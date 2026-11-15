@@ -269,10 +269,24 @@ cannot be added by token refresh. The client must follow its own consent and
 safety controls; this backend does not control those prompts. OAuth scopes and
 execution receipts do not independently verify intent for each action: a
 compromised or prompt-injected client holding write/estimate access can act within
-that grant. Grant only the needed scopes to a trusted client and revoke unwanted
-access from Connected Apps. Catalog access follows existing visibility and
+that grant. The owner explicitly approved keeping direct execution after reviewing
+this risk, accepting delegated client authority without independent per-action
+human verification. Grant only the needed scopes to a trusted client and revoke
+unwanted access from Connected Apps. Catalog access follows existing visibility and
 ownership rules; MCP is not administrative access. Planned goals/activity and account credential
 management are outside the registry.
+
+The retired confirmation handshake was also client-asserted: the same OAuth client
+received a [preview ID](https://github.com/VanillaIceCube/MacroMapper/blob/3a2e93fe58d119f06a18a7a789f76e5ea85a2fc7/backend/apps/mcp/tools/services.py#L495)
+and supplied [`confirmed=True`](https://github.com/VanillaIceCube/MacroMapper/blob/3a2e93fe58d119f06a18a7a789f76e5ea85a2fc7/backend/apps/mcp/tools/services.py#L613)
+through the [same bearer-authenticated tools](https://github.com/VanillaIceCube/MacroMapper/blob/3a2e93fe58d119f06a18a7a789f76e5ea85a2fc7/backend/apps/mcp/tools/server.py#L273).
+Its expiring, one-use preview bound the payload and rejected stale state, providing
+useful safeguards for cooperating clients. Restoring that handshake alone would
+not prove human intent against a compromised client. Current live authorization,
+ownership checks, duplicate-execution receipts and paid-publication state checks
+remain mandatory; they address access, replay and consistency rather than proving
+human approval. This accepted product risk does not waive required CI/reviews or
+other security findings.
 
 ### 🧰 Available capabilities
 

@@ -288,6 +288,14 @@ uncertain paid calls under a new UUID automatically. Recheck token, resource,
 scopes and ownership for execution/replay; keep provider waits outside database
 writer transactions and commit publication with its receipt atomically.
 
+The owner explicitly approved direct delegation after reviewing the risk that a
+compromised or prompt-injected client can act within its granted write/estimate
+scopes. This accepts that client authority; OAuth grants and request receipts do
+not prove human intent for each action. Preserve host consent/safety controls and
+all authorization, validation, bounded-result and concurrency safeguards. See
+the [documented threat model](backend/apps/mcp/README.md#-access-and-permissions).
+This product decision does not waive required CI or independent review gates.
+
 Production policy and frontend Docker builds enable the reviewed app connector;
 local backend defaults remain off. Run both backend profiles and frontend tests,
 plus disposable app release tests and parity checks. Preserve SQLite capture and
