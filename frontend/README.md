@@ -14,7 +14,7 @@ authentication, and the application shell.
 - `src/pages/`: application pages and routes.
 - `src/services/`: API requests and session handling.
 - `src/domain/`: pure nutrition, portion, and meal calculations.
-- `src/tests/`: test setup, reusable helpers and shared suites.
+- `src/test-helpers/`: shared test setup and reusable helpers.
   App, startup and feature tests stay beside the files they exercise.
 
 ## 💻 Local development
@@ -127,8 +127,6 @@ may depend on other domain modules and pure utilities, but remains independent
 of React, Material UI, components, pages and presentation metadata. Keep labels
 and theme details in the existing presentation layer.
 
-Run `npm test -- src/tests/domainArchitecture.test.js` from `frontend` for
-public-boundary, export-collision, dependency-cycle and UI-independence checks.
 Add behavior tests beside domain implementations and run the full frontend suite
 and production build when changing entry points or their consumers.
 

@@ -13,7 +13,7 @@ export default defineConfig({
     clearMocks: true,
     environment: 'jsdom',
     globals: true,
-    setupFiles: './src/tests/setup.js',
+    setupFiles: './src/test-helpers/setup.js',
     testTimeout: 15_000,
   },
 });

@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { renderWithProviders } from '../../tests/utils';
+import { renderWithProviders } from '../../test-helpers/utils';
 import CalorieContributionChart from './CalorieContributionChart';
 import MacroCalorieSplit from './MacroCalorieSplit';
 import MealNutritionSummary from './MealNutritionSummary';
