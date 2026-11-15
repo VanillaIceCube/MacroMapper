@@ -156,7 +156,10 @@ class MCPMealDraftTests(MealToolFixtures, TestCase):
         meal.refresh_from_db()
         self.assertEqual(meal.name, "Lunch")
         self.assertEqual(list(meal.items.values_list("pk", flat=True)), before_items)
-        self.assertFalse(Execution.objects.filter(pk=pending["request_id"]).exists())
+        self.assertEqual(
+            Execution.objects.get(pk=pending["request_id"]).state,
+            Execution.State.APPROVED,
+        )
 
     def test_draft_business_failure_rolls_back_new_personal_food_and_receipt(self):
         payload = self.draft_payload([self.food])
@@ -172,7 +175,10 @@ class MCPMealDraftTests(MealToolFixtures, TestCase):
         self.assertEqual(FoodItem.objects.count(), before)
         self.assertFalse(MealEntry.objects.exists())
         self.assertFalse(MealItem.objects.exists())
-        self.assertFalse(Execution.objects.filter(pk=pending["request_id"]).exists())
+        self.assertEqual(
+            Execution.objects.get(pk=pending["request_id"]).state,
+            Execution.State.APPROVED,
+        )
 
     def test_manual_draft_is_validated_before_receipt_or_business_writes(self):
         payload = self.draft_payload([self.food])

@@ -138,6 +138,17 @@ configured `MCP_REQUIRED_SCOPES` entry; it never skips scope authorization. An
 explicit scope must be present in the live grant. The transport also requires
 every configured baseline scope before accepting an MCP request.
 
+Applications may configure `MCP_ACTION_APPROVAL_HANDLER` with an app-owned callable
+`(user, reference, decision=None)` in an existing service module. It must return a
+complete JSON preview and lock/check actor, preparation, live grant and exact state
+inside the framework transaction before applying `allow`/`cancel`.
+`GET/POST /auth/mcp/action-approval/` accepts only the app user's JWT. Signed tickets
+bind user, opaque reference and exact preview digest for five minutes; POST
+rechecks under the same transaction. Unconfigured applications return 404.
+MacroMapper configures this hook; FullStackTemplate and Notoli do not, preserving
+their domain policies. The existing React action mode renders complete safe-text
+previews and explicit decisions; credentials/tickets never enter URLs.
+
 OAuth tokens are distinct from REST JWTs. The provider requires the exact `/mcp`
 resource, S256 PKCE and state; authorization codes expire in 120 seconds, access
 tokens in one hour, and refresh tokens in 30 days. Refresh rotates with reuse
@@ -218,7 +229,7 @@ rollout verification must not alter the owner's connection or business records.
 
 MacroMapper owns its MCP tools and OAuth in [#284](https://github.com/VanillaIceCube/MacroMapper/issues/284).
 The existing [canonical framework](#framework) supplies transport, discovery,
-PKCE, consent and revocation unchanged. Infrastructure routes the application's
+PKCE, consent, revocation and the optional trusted app-approval endpoint. Infrastructure routes the application's
 own endpoints; no shared issuer, new service, network or YNAB dependency is needed.
 Website login, REST JWTs and existing AI estimation remain independent.
 
@@ -235,8 +246,8 @@ bounded results; it does not construct REST requests or invoke viewsets.
 - `queries.py`: actor-scoped reads, catalog snapshots and adaptive detail pages.
 - `services.py`: authenticated read/mutation boundary, automatic request reservation, duplicate recovery and atomic outcome persistence.
 - `results.py`: bounded JSON formatting and truthful success receipts.
-- `schemas.py`, `models.py`, `migrations/`: typed wire contracts and MacroMapper-only execution receipts and actor locks.
-- `tests/`: domain access, discovery/errors, direct execution/replay, paid operations, result limits and HTTP contracts.
+- `schemas.py`, `models.py`, `migrations/`: typed wire contracts and MacroMapper-only preparations, execution receipts and actor locks.
+- `tests/`: domain access, discovery/errors, app approval/execution/replay, paid operations, result limits and HTTP contracts.
 
 The domain APIs live consistently in `foods/services.py`, `meals/services.py`,
 `estimates/services.py` and `notifications/services.py`; proposal recipe-tree
@@ -260,60 +271,66 @@ user IDs cannot select another account. REST JWTs cannot call MCP.
   read/write access and a user-requested paid action; read access alone cannot spend
   provider credits. Tests mock providers and do not make paid requests.
 
-A requested mutation runs directly with the required OAuth permissions. There is
-no application preview/confirmation round-trip, including for paid actions.
-The consent screen discloses direct changes/deletions for write access and credit
-spending/shared food publication for estimate access. Read remains the only
-default scope; broader access requires an explicitly requested OAuth grant and
-cannot be added by token refresh. The client must follow its own consent and
-safety controls; this backend does not control those prompts. OAuth scopes and
-execution receipts do not independently verify intent for each action: a
-compromised or prompt-injected client holding write/estimate access can act within
-that grant. The owner explicitly approved keeping direct execution after reviewing
-this risk, accepting delegated client authority without independent per-action
-human verification. Grant only the needed scopes to a trusted client and revoke
-unwanted access from Connected Apps. Catalog access follows existing visibility and
-ownership rules; MCP is not administrative access. Planned goals/activity and account credential
-management are outside the registry.
+Every consequential write, deletion and paid action must be prepared, reviewed
+in the trusted MacroMapper app, and then confirmed. The approval page requires
+the matching account's REST JWT; MCP bearers and session cookies cannot approve,
+even if they possess a preview ticket. The user explicitly approves the exact
+server-bound action, target, changes, current records/catalog, client and expiry.
+The signed five-minute ticket binds that complete preview to the verified app
+user. A compromised MCP client with write/estimate scopes cannot set approval.
+The old same-bearer `confirmed=True` handshake did not provide this trust
+separation. This verifies a separate app-user decision; it does not prove physical
+human presence or defend against compromised app credentials. Host consent/safety
+controls still apply. Read remains the only default scope; refresh cannot escalate
+grants. Revoke unwanted clients from Connected Apps.
 
-The retired confirmation handshake was also client-asserted: the same OAuth client
-received a [preview ID](https://github.com/VanillaIceCube/MacroMapper/blob/3a2e93fe58d119f06a18a7a789f76e5ea85a2fc7/backend/apps/mcp/tools/services.py#L495)
-and supplied [`confirmed=True`](https://github.com/VanillaIceCube/MacroMapper/blob/3a2e93fe58d119f06a18a7a789f76e5ea85a2fc7/backend/apps/mcp/tools/services.py#L613)
-through the [same bearer-authenticated tools](https://github.com/VanillaIceCube/MacroMapper/blob/3a2e93fe58d119f06a18a7a789f76e5ea85a2fc7/backend/apps/mcp/tools/server.py#L273).
-Its expiring, one-use preview bound the payload and rejected stale state, providing
-useful safeguards for cooperating clients. Restoring that handshake alone would
-not prove human intent against a compromised client. Current live authorization,
-ownership checks, duplicate-execution receipts and paid-publication state checks
-remain mandatory; they address access, replay and consistency rather than proving
-human approval. This accepted product risk does not waive required CI/reviews or
-other security findings.
+Preparations bind the exact token checksum, account, client, action, target,
+payload and catalog/target snapshot for five minutes, with at most ten pending
+actions per account. Approval and consumption each recheck live authorization,
+ownership and state under actor/record locks. Cancellation, expiry or changed
+state prevents execution. Private payloads are removed on consumption/cancellation,
+expiry checks and subsequent preparation cleanup; durable terminal UUIDs and
+receipts remain. Paid calls reserve once before provider I/O without database
+writer locks across the wait. Publication and receipt commit atomically after
+another live authorization/state check. These safeguards remain mandatory;
+approval does not waive CI or independent security findings. Catalog access
+retains existing visibility/ownership rules. Goals/activity and account credential
+management remain outside the registry.
 
 ### 🧰 Available capabilities
 
-The registry exposes 12 tools covering 19 closed mutation actions. Call
+The registry exposes 14 tools covering 19 closed mutation actions. Call
 `operation_schema(action)` before preparing a change: it returns the allowed
 fields, required values, bounds and scopes for that action.
-Its `requires_confirmation: false` describes the absence of an app confirmation
-round-trip; it does not override the host client's consent or safety controls.
+Its `requires_confirmation: true` requires trusted app approval before confirmation
+can execute; host consent and safety controls still apply.
 Meal-item descriptors separate string product identity metadata from the bounded
 `natural_servings` array (at most 12 food-specific gram definitions) and
 `portion_options` array (at most 20 selectable conversions), matching the
 application's writable serializers.
 
-| Area | Read tools | Direct actions |
+| Area | Read tools | Actions requiring approval |
 | --- | --- | --- |
 | Food catalog | `search_foods`, `get_food` | Create or update your personal foods; archive them. Shared catalog visibility follows the existing app policy. |
 | Diary and nutrition | `meal_diary`, `get_meal`, `nutrition_totals` | Create, edit or delete meals; save or update reviewed drafts. Drafts require explicit name and notes, with an empty notes string allowed. |
 | Proposals | `list_proposals` returns summaries/IDs; `get_proposal` pages current review items | Review/edit, delete draft proposals, or separately accept a proposal into the diary. |
 | Paid estimation | Read proposals before accepting them | Estimate a new proposal, request a proposal follow-up, or adjust a proposal/meal draft. These four actions additionally require `macromapper:estimate`; they do not directly accept a diary meal. |
-| Notifications | `list_notifications`, `get_notification` | Mark one read/unread, delete one, mark all current notifications read, or clear the current set. Arrivals after the invocation selects its bounded set are excluded. |
+| Notifications | `list_notifications`, `get_notification` | Mark one read/unread, delete one, mark all current notifications read, or clear the current set. Arrivals after preparation selects its bounded set are excluded. |
 
-`execute_change(request_id, action, changes, target_id?)` handles the 15 nonpaid
-actions with read/write access. `execute_paid_change` handles the four paid actions
-with read/write/estimate access. Their action enums are disjoint. Both advertise
-mutating/destructive behavior; the paid tool also advertises external interaction.
-Exact repeats are idempotent because the automatic request receipt prevents
-executing the same request twice.
+`prepare_change(request_id, action, changes, target_id?)` handles the 15 nonpaid
+actions with read/write access. `prepare_paid_change` handles the four paid actions
+with read/write/estimate access. Their action enums are disjoint. Preparation
+creates private state without business changes or provider calls, returning an
+opaque `confirmation_id` and approval URL containing only that reference. Open
+it in MacroMapper and explicitly Approve or Cancel.
+
+`confirm_change(request_id, confirmation_id)` and `confirm_paid_change` consume
+only the matching, unexpired app-approved preparation. They accept no changed
+payload or caller approval boolean. Confirmation advertises destructive behavior;
+paid confirmation also advertises external interaction. Preparation advertises
+a private write, not a destructive action/provider call. Direct `execute_change`
+and `execute_paid_change` are absent. Exact repeats recover the existing action or
+receipt without executing the request twice.
 
 The tool caller generates a UUID automatically for each intended operation. It
 must not ask the user for an ID. Host consent and safety controls still apply.
@@ -327,7 +344,9 @@ account/client can recover an outcome. A completed deletion remains recoverable
 after its target is gone.
 
 The response carries `request_id`, `action`, `status`, `applied`, `replayed` and
-the bounded `result`. `status: completed` means execution finished; paid no-op
+the bounded `result`. `prepared` and `approved` have `applied: false`; the latter
+awaits MCP confirmation. `cancelled` and `expired` cannot execute.
+`status: completed` means execution finished; paid no-op
 outcomes explicitly have `applied: false`. `in_progress` or `uncertain` has
 `applied: null` and must not be interpreted as successful application. Inspect
 existing records and reuse the same UUID to recover status. Never automatically
@@ -439,12 +458,14 @@ unauthenticated MCP 401 resource-metadata challenge added to release readiness.
 
 Coordinate the existing Infrastructure vhost before enabling the app. Run normal
 private SQLite capture/integrity checks before application migrations.
-Migration `0002_direct_execution_receipts` creates the automatic receipt model and
-removes obsolete pending Confirmation records; historical `0001_initial` remains
-unchanged. Old preview/confirm tool calls are intentionally unsupported. Refresh
-client tool discovery to use the 12-tool registry and automatically generated
-request UUIDs. Existing OAuth grants remain valid; reconnect only when a broader
-scope grant is needed. Retain the prior disabled release directory, its checksummed policy,
+The existing unreleased migration `0002_direct_execution_receipts` adds durable
+Execution receipts and opaque approval references while retaining Confirmation;
+`0001_initial` remains unchanged. Apply it through the reviewed release process,
+never to a live database as a test. Pending legacy confirmations lack an Execution
+record and cannot execute; they expire under the existing five-minute lifetime
+and subsequent cleanup. Refresh discovery for the 14-tool prepare/app-approve/
+confirm workflow. Existing grants remain valid but cannot replace action approval;
+reconnect only when a broader scope grant is needed. Retain the prior disabled release directory, its checksummed policy,
 controller, images and recovery evidence. First activation cannot require the
 old disabled backend to already have the new trust environment; `app.json` instead
 pins the gateway address and fixes trust in the new bundle. Verify the resulting
@@ -493,7 +514,7 @@ access. It cannot perform writes or paid estimates with that grant.
 
 To intentionally build a broader variant, add `macromapper:write` to
 `baseScopes` in `mcp.json` for requested ordinary mutations. Paid estimates also
-require `macromapper:estimate`; neither path adds an app-level confirmation. Review and
+require `macromapper:estimate`; both paths require per-action app approval. Review and
 update the listing capabilities and descriptions to match that variant before
 building, then obtain a new consent grant for its requested scopes. Existing
 grants cannot silently gain new scopes.

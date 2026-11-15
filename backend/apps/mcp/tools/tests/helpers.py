@@ -5,7 +5,9 @@ from uuid import uuid4
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.test import Client
 from django.utils import timezone
+from rest_framework_simplejwt.tokens import AccessToken as JWTToken
 
 from apps.estimates.services import _catalog_food
 from apps.foods.nutrients import NUTRIENT_FIELDS
@@ -94,8 +96,43 @@ class MCPToolFixtures:
             )
         )
 
+    def prepare(self, request, raw=None):
+        return services.prepare_change(raw or self.raw, *self.arguments(request))
+
+    def approval_client(self, user=None):
+        return Client(
+            HTTP_AUTHORIZATION=f"Bearer {JWTToken.for_user(user or self.user)}"
+        )
+
+    def approve(self, reference, decision="allow"):
+        client = self.approval_client()
+        preview = client.get("/auth/mcp/action-approval/", {"approval_id": reference})
+        self.assertEqual(preview.status_code, 200, preview.content)
+        decided = client.post(
+            "/auth/mcp/action-approval/",
+            {"ticket": preview.json()["ticket"], "decision": decision},
+        )
+        self.assertEqual(decided.status_code, 200, decided.content)
+        return decided.json()
+
+    def prepare_approved(self, request):
+        prepared = self.prepare(request)
+        reference = prepared["result"]["data"]["confirmation_id"]
+        self.approve(reference)
+        return (request["request_id"], reference, request["authorized_paid"])
+
     def execute(self, request, raw=None):
-        return services.execute_change(raw or self.raw, *self.arguments(request))
+        prepared = self.prepare(request, raw=raw)
+        if prepared["status"] not in {"prepared", "approved"}:
+            return prepared
+        reference = prepared["result"]["data"]["confirmation_id"]
+        self.approve(reference)
+        return services.confirm_change(
+            raw or self.raw,
+            request["request_id"],
+            reference,
+            request["authorized_paid"],
+        )
 
     def make_meal(self):
         return MealEntry.objects.get(

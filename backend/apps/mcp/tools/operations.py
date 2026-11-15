@@ -520,9 +520,9 @@ def operation_schema(raw, action):
             "action": action,
             "target_id_required": operation.detail,
             "fields": fields,
-            "requires_confirmation": False,
+            "requires_confirmation": True,
             "request_id_required": True,
-            "request_id_policy": "Generate a UUID automatically for each intended action; reuse the same UUID and exact arguments to recover its outcome. Never ask the user for an ID. Follow the host client's consent and safety controls; MacroMapper adds no application-level confirmation step.",
+            "request_id_policy": "Generate a UUID automatically for each intended action; reuse the same UUID and exact arguments to recover its outcome. Never ask the user for an ID. Follow the host client's consent and safety controls; The user must approve the exact prepared action in MacroMapper before MCP confirmation can execute it; an MCP bearer cannot approve.",
             "paid": operation.paid,
             "scope": ["macromapper:read", "macromapper:write"]
             + (["macromapper:estimate"] if operation.paid else []),

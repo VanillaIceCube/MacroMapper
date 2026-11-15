@@ -1,4 +1,4 @@
-"""Bounded results and automatic execution status; no human approval state."""
+"""Bounded preparation, trusted approval and durable execution outcomes."""
 
 from typing import Literal
 
@@ -15,7 +15,15 @@ class Result(BaseModel):
 class ExecutionResult(BaseModel):
     request_id: str
     action: str
-    status: Literal["completed", "in_progress", "uncertain"]
+    status: Literal[
+        "prepared",
+        "approved",
+        "cancelled",
+        "expired",
+        "completed",
+        "in_progress",
+        "uncertain",
+    ]
     applied: bool | None
     replayed: bool = False
     result: Result

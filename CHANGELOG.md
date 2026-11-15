@@ -7,7 +7,7 @@ All notable changes to this project are documented in this file.
 ### Fixed
 
 - Verify the backend production/development uv bootstrap against reviewed binary wheel hashes for every platform in the pinned Python base; reject altered artifacts and source distributions across all three applications.
-- Disclose delegated MCP changes, permanent deletions and paid AI access accurately on OAuth consent; preserve host consent/safety controls while retaining direct application execution and read-only default grants.
+- Disclose delegated MCP changes, permanent deletions and paid AI access accurately on OAuth consent; preserve host consent/safety controls while requiring separate app approval and retaining read-only default grants.
 - Remove the meal/estimate service import cycle by keeping actor-scoped reviewed draft saving with proposal orchestration; REST and MCP share the same authorization and transaction boundaries.
 - Verify the CI uv bootstrap against a reviewed wheel SHA-256 before installation across all four repositories; reject unsupported runner targets and source distributions.
 - Return structured reconnect guidance for expired or under-scoped MCP connections while keeping object denials separate and sanitizing unexpected failures.
@@ -16,14 +16,14 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
-- Record the owner's approval of direct MCP delegation and its granted-client compromise risk; distinguish the retired client-asserted confirmation handshake from independent human verification while retaining host controls, authorization safeguards and required review gates.
+- Require separate signed-in app approval for every MCP mutation/deletion/paid action: exact signed previews, five-minute expiry, token/owner/client binding, cancellation, stale-state rejection and durable one-use execution. MCP bearers and caller booleans cannot approve.
 - Clarify and regression-test MCP token scope resolution: omitted or blank scope continues to require the application's baseline scope, with identical framework coverage across applications.
 - Raise the complete source-diff limit for all three AI reviewers to 2 MB (2,000,000 bytes) across all four repositories; preserve fail-closed incomplete reviews and all other context, token and model settings.
-- Replace MCP preview/confirmation steps with direct scoped execution: 12 tools retain all 19 actions, automatic request UUIDs recover cached outcomes, and paid reservations prevent duplicate provider execution without another human approval.
-- Separate MCP permissions, action dispatch, authenticated services, actor-scoped queries and bounded results; replace obsolete Confirmation state with durable automatic execution receipts in a new migration.
+- Expose 14 read/prepare/confirm tools retaining all 19 actions; automatic UUIDs recover saved outcomes and paid reservations prevent duplicate provider calls. The existing Connections screen hosts trusted approval with framing protection.
+- Separate MCP permissions, action dispatch, authenticated services, actor-scoped queries and bounded results; retain private Confirmation state and add durable receipts through the existing unreleased migration.
 - Use `services.py` consistently for actor-scoped domain business operations and name proposal recipe-tree helpers `recipe_edits.py`; REST and MCP share those services.
 - Share actor-scoped catalog, diary, proposal and notification operations directly between REST and MCP; remove synthetic REST requests/viewset calls while retaining ownership, paid-provider guards and bounded-result behavior.
-- Organize backend tests into owning `tests/` packages with descriptive behavior names and fixture-only helpers; group estimates by recipe, catalog, proposal and natural-serving behavior, and separate MCP catalog operations from direct execution and replay checks while preserving discovery/coverage.
+- Organize backend tests into owning `tests/` packages with descriptive behavior names and fixture-only helpers; group estimates by recipe, catalog, proposal and natural-serving behavior, and separate MCP catalog operations from approval, execution and replay checks while preserving discovery/coverage.
 - Use Django OAuth Toolkit's built-in MCP client registration, remove custom management commands and document explicit public-client onboarding and validation behavior (#428).
 
 ### Removed

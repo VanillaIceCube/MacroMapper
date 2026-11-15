@@ -41,11 +41,11 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
             item["scope"]: item["description"] for item in scoped.json()["permissions"]
         }
         self.assertEqual(set(permissions), {READ, WRITE, ESTIMATE})
-        self.assertIn("permanently delete", permissions[WRITE])
-        self.assertIn("spend AI credits", permissions[ESTIMATE])
+        self.assertIn("permanent deletions", permissions[WRITE])
+        self.assertIn("spend credits", permissions[ESTIMATE])
         self.assertIn("publish shared food definitions", permissions[ESTIMATE])
         for scope in [WRITE, ESTIMATE]:
-            self.assertIn("without per-action app confirmation", permissions[scope])
+            self.assertIn("requires your approval in MacroMapper", permissions[scope])
 
         default = self.client.get("/auth/mcp/authorize/", query)
         self.assertEqual(default.status_code, 200, default.content)
@@ -95,7 +95,7 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
         self.assertEqual(refreshed.status_code, 200, refreshed.content)
         self.assertEqual(refreshed.json()["scope"], READ)
 
-    def test_actual_factory_discovery_direct_execution_replay_and_revocation(self):
+    def test_actual_factory_discovery_approved_execution_replay_and_revocation(self):
         import httpx2
         from django.core.asgi import get_asgi_application
 
@@ -149,11 +149,12 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
                     )
                     listing = (await rpc("tools/list")).json()["result"]["tools"]
                     tools = {tool["name"]: tool for tool in listing}
-                    self.assertEqual(len(tools), 12)
+                    self.assertEqual(len(tools), 14)
                     self.assertNotIn("preview_change", tools)
-                    self.assertNotIn("confirm_change", tools)
+                    self.assertNotIn("execute_change", tools)
+                    self.assertNotIn("execute_paid_change", tools)
                     self.assertNotIn("connection_status", tools)
-                    for name in ["execute_change", "execute_paid_change"]:
+                    for name in ["confirm_change", "confirm_paid_change"]:
                         self.assertFalse(tools[name]["annotations"]["readOnlyHint"])
                         self.assertTrue(tools[name]["annotations"]["destructiveHint"])
                         self.assertIn(
@@ -164,20 +165,20 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
                         tools["search_foods"]["annotations"]["readOnlyHint"]
                     )
                     self.assertTrue(
-                        tools["execute_change"]["annotations"]["destructiveHint"]
+                        tools["confirm_change"]["annotations"]["destructiveHint"]
                     )
                     self.assertFalse(
-                        tools["execute_change"]["annotations"]["openWorldHint"]
+                        tools["confirm_change"]["annotations"]["openWorldHint"]
                     )
                     self.assertTrue(
-                        tools["execute_paid_change"]["annotations"]["openWorldHint"]
+                        tools["confirm_paid_change"]["annotations"]["openWorldHint"]
                     )
-                    for name in ["execute_change"]:
+                    for name in ["prepare_change", "confirm_change"]:
                         self.assertEqual(
                             tools[name]["_meta"]["securitySchemes"],
                             [{"type": "oauth2", "scopes": [READ, WRITE]}],
                         )
-                    for name in ["execute_paid_change"]:
+                    for name in ["prepare_paid_change", "confirm_paid_change"]:
                         self.assertEqual(
                             tools[name]["_meta"]["securitySchemes"],
                             [{"type": "oauth2", "scopes": [READ, WRITE, ESTIMATE]}],
@@ -187,12 +188,12 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
                         [{"type": "oauth2", "scopes": [READ]}],
                     )
                     nonpaid_actions = set(
-                        tools["execute_change"]["inputSchema"]["properties"]["action"][
+                        tools["prepare_change"]["inputSchema"]["properties"]["action"][
                             "enum"
                         ]
                     )
                     paid_actions = set(
-                        tools["execute_paid_change"]["inputSchema"]["properties"][
+                        tools["prepare_paid_change"]["inputSchema"]["properties"][
                             "action"
                         ]["enum"]
                     )
@@ -211,7 +212,7 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
                     )
                     self.assertIn(
                         "meal.delete",
-                        tools["execute_change"]["inputSchema"]["properties"]["action"][
+                        tools["prepare_change"]["inputSchema"]["properties"]["action"][
                             "enum"
                         ],
                     )
@@ -232,22 +233,38 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
                         "action": "meal.create",
                         "changes": self.meal_payload(),
                     }
-                    applied = await tool("execute_change", changes)
+                    prepared = (await tool("prepare_change", changes))[
+                        "structuredContent"
+                    ]
+                    confirm = {
+                        "request_id": changes["request_id"],
+                        "confirmation_id": prepared["result"]["data"][
+                            "confirmation_id"
+                        ],
+                    }
+                    unapproved = (await tool("confirm_change", confirm))[
+                        "structuredContent"
+                    ]
+                    self.assertEqual(unapproved["status"], "prepared")
+                    self.assertFalse(unapproved["applied"])
+                    self.assertTrue((await tool("execute_change", changes))["isError"])
+                    await sync_to_async(self.approve)(confirm["confirmation_id"])
+                    applied = await tool("confirm_change", confirm)
                     self.assertTrue(applied["structuredContent"]["applied"])
                     self.assertEqual(
                         applied["structuredContent"]["status"], "completed"
                     )
                     self.assertTrue(
-                        (await tool("execute_change", changes))["structuredContent"][
+                        (await tool("prepare_change", changes))["structuredContent"][
                             "replayed"
                         ]
                     )
-                    schema = tools["execute_change"]["inputSchema"]
+                    schema = tools["prepare_change"]["inputSchema"]
                     self.assertIn("request_id", schema["required"])
                     self.assertNotIn("confirmed", schema["properties"])
                     self.assertNotIn("confirmation_id", schema["properties"])
                     self.assertTrue(
-                        tools["execute_change"]["annotations"]["idempotentHint"]
+                        tools["prepare_change"]["annotations"]["idempotentHint"]
                     )
                     paid_arguments = {
                         "request_id": str(uuid4()),
@@ -255,15 +272,15 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
                         "changes": {"description": "Apple", "entry_date": "2026-10-30"},
                     }
                     self.assertTrue(
-                        (await tool("execute_change", paid_arguments))["isError"]
+                        (await tool("prepare_change", paid_arguments))["isError"]
                     )
                     self.assertTrue(
-                        (await tool("execute_paid_change", changes))["isError"]
+                        (await tool("prepare_paid_change", changes))["isError"]
                     )
                     await sync_to_async(
                         type(self.token).objects.filter(pk=self.token.pk).update
                     )(scope=" ".join([READ, WRITE]))
-                    denied = await tool("execute_paid_change", paid_arguments)
+                    denied = await tool("prepare_paid_change", paid_arguments)
                     self.assertTrue(denied["isError"])
                     challenge = denied["_meta"]["mcp/www_authenticate"][0]
                     self.assertIn('error="insufficient_scope"', challenge)
@@ -272,20 +289,31 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
                         challenge,
                     )
                     self.assertTrue(
-                        (await tool("execute_change", changes))["structuredContent"][
+                        (await tool("prepare_change", changes))["structuredContent"][
                             "replayed"
                         ]
                     )
                     await sync_to_async(
                         type(self.token).objects.filter(pk=self.token.pk).update
                     )(scope=" ".join([READ, WRITE, ESTIMATE]))
+                    paid_prepared = (await tool("prepare_paid_change", paid_arguments))[
+                        "structuredContent"
+                    ]
+                    self.assertFalse(paid_prepared["applied"])
+                    paid_confirm = {
+                        "request_id": paid_arguments["request_id"],
+                        "confirmation_id": paid_prepared["result"]["data"][
+                            "confirmation_id"
+                        ],
+                    }
+                    await sync_to_async(self.approve)(paid_confirm["confirmation_id"])
                     self.assertTrue(
-                        (await tool("execute_paid_change", paid_arguments))[
+                        (await tool("confirm_paid_change", paid_confirm))[
                             "structuredContent"
                         ]["applied"]
                     )
                     self.assertTrue(
-                        (await tool("execute_paid_change", paid_arguments))[
+                        (await tool("prepare_paid_change", paid_arguments))[
                             "structuredContent"
                         ]["replayed"]
                     )
@@ -308,7 +336,7 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
                     self.assertTrue(
                         (
                             await tool(
-                                "execute_change",
+                                "prepare_change",
                                 changes
                                 | {
                                     "changes": self.meal_payload()
@@ -320,7 +348,7 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
                     self.assertTrue(
                         (
                             await tool(
-                                "execute_change",
+                                "prepare_change",
                                 changes
                                 | {"request_id": str(uuid4()), "target_id": True},
                             )
@@ -329,7 +357,7 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
                     await sync_to_async(
                         type(self.token).objects.filter(pk=self.token.pk).update
                     )(scope=READ)
-                    self.assertTrue((await tool("execute_change", changes))["isError"])
+                    self.assertTrue((await tool("prepare_change", changes))["isError"])
                     await sync_to_async(self.token.delete)()
                     self.assertEqual((await rpc("tools/list")).status_code, 401)
 

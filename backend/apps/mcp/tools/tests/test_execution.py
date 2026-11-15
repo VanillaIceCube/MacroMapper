@@ -1,8 +1,9 @@
-"""Direct execution, live authorization and automatic duplicate protection."""
+"""Trusted app approvals, live authorization and durable duplicate protection."""
 
 from datetime import date, timedelta
 from unittest import skipUnless
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlsplit
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
@@ -16,8 +17,8 @@ from apps.foods.services import create_food_version
 from apps.meals.models import MealEntry
 from apps.notifications.models import Notification
 
-from .. import queries, results
-from ..models import Execution
+from .. import queries, results, services
+from ..models import Confirmation, Execution
 from ..permissions import ESTIMATE, READ, WRITE
 from .helpers import MCPToolFixtures, definition
 
@@ -311,3 +312,267 @@ class MCPExecutionTests(MCPToolFixtures, TestCase):
         with self.assertRaisesMessage(ValidationError, "different arguments"):
             self.execute(request | {"payload": {"unexpected": "changed"}})
         self.assertEqual(Execution.objects.count(), 1)
+
+    def test_bearer_and_session_cannot_approve_even_with_stolen_ticket(self):
+        from uuid import uuid4
+
+        from django.test import Client
+
+        request = self.request()
+        prepared = self.prepare(request)
+        reference = prepared["result"]["data"]["confirmation_id"]
+        link = urlsplit(prepared["result"]["data"]["approval_url"])
+        self.assertEqual(parse_qs(link.query), {"approval_id": [reference]})
+        self.assertNotIn(self.raw, link.geturl())
+        client = self.approval_client()
+        preview = client.get("/auth/mcp/action-approval/", {"approval_id": reference})
+        self.assertEqual(preview.status_code, 200)
+        ticket = preview.json()["ticket"]
+        self.assertEqual(preview.json()["approval"]["changes"], request["payload"])
+        self.assertEqual(
+            preview.json()["approval"]["application"]["client_id"],
+            self.application.client_id,
+        )
+        self.assertIn("no-store", preview["Cache-Control"])
+        cookie = Client()
+        cookie.force_login(self.user)
+        for attacker in (
+            Client(),
+            Client(HTTP_AUTHORIZATION=f"Bearer {self.raw}"),
+            cookie,
+        ):
+            self.assertEqual(
+                attacker.get(
+                    "/auth/mcp/action-approval/", {"approval_id": reference}
+                ).status_code,
+                401,
+            )
+            self.assertEqual(
+                attacker.post(
+                    "/auth/mcp/action-approval/",
+                    {"ticket": ticket, "decision": "allow", "confirmed": True},
+                ).status_code,
+                401,
+            )
+        foreign = self.approval_client(self.other)
+        self.assertEqual(
+            foreign.get(
+                "/auth/mcp/action-approval/", {"approval_id": reference}
+            ).status_code,
+            404,
+        )
+        self.assertEqual(
+            foreign.post(
+                "/auth/mcp/action-approval/", {"ticket": ticket, "decision": "allow"}
+            ).status_code,
+            400,
+        )
+        waiting = services.confirm_change(self.raw, request["request_id"], reference)
+        self.assertEqual(waiting["status"], "prepared")
+        self.assertFalse(MealEntry.objects.exists())
+        with self.assertRaises(ValidationError):
+            services.confirm_change(self.raw, request["request_id"], str(uuid4()))
+        self.assertEqual(
+            client.post(
+                "/auth/mcp/action-approval/", {"ticket": ticket, "decision": "allow"}
+            ).status_code,
+            200,
+        )
+        applied = services.confirm_change(self.raw, request["request_id"], reference)
+        self.assertTrue(applied["applied"])
+        self.assertFalse(Confirmation.objects.filter(pk=reference).exists())
+        self.assertTrue(
+            services.confirm_change(self.raw, request["request_id"], reference)[
+                "replayed"
+            ]
+        )
+        self.assertEqual(MealEntry.objects.count(), 1)
+
+    def test_ticket_tampering_expiry_and_state_change_cannot_approve(self):
+        import time
+        from unittest.mock import patch
+
+        client = self.approval_client()
+        request = self.request()
+        reference = self.prepare(request)["result"]["data"]["confirmation_id"]
+        preview = client.get(
+            "/auth/mcp/action-approval/", {"approval_id": reference}
+        ).json()
+        for ticket, decision in [
+            (preview["ticket"] + "tampered", "allow"),
+            (preview["ticket"], "yes"),
+        ]:
+            self.assertEqual(
+                client.post(
+                    "/auth/mcp/action-approval/",
+                    {"ticket": ticket, "decision": decision},
+                ).status_code,
+                400,
+            )
+        with patch("django.core.signing.time.time", return_value=time.time() + 301):
+            self.assertEqual(
+                client.post(
+                    "/auth/mcp/action-approval/",
+                    {"ticket": preview["ticket"], "decision": "allow"},
+                ).status_code,
+                400,
+            )
+        Confirmation.objects.filter(pk=reference).update(
+            payload=self.meal_payload() | {"name": "Changed"}
+        )
+        self.assertEqual(
+            client.post(
+                "/auth/mcp/action-approval/",
+                {"ticket": preview["ticket"], "decision": "allow"},
+            ).status_code,
+            409,
+        )
+        self.assertEqual(
+            Execution.objects.get(pk=request["request_id"]).state,
+            Execution.State.CANCELLED,
+        )
+        self.assertFalse(MealEntry.objects.exists())
+
+    def test_live_grant_required_at_app_approval_and_consumption(self):
+        from oauth2_provider.models import AccessToken
+
+        client = self.approval_client()
+        request = self.request()
+        reference = self.prepare(request)["result"]["data"]["confirmation_id"]
+        ticket = client.get(
+            "/auth/mcp/action-approval/", {"approval_id": reference}
+        ).json()["ticket"]
+        for updates in (
+            {"scope": READ},
+            {"resource": ["https://foreign.example/mcp"]},
+            {"expires": timezone.now() - timedelta(seconds=1)},
+        ):
+            old = {key: getattr(self.token, key) for key in updates}
+            AccessToken.objects.filter(pk=self.token.pk).update(**updates)
+            self.assertEqual(
+                client.post(
+                    "/auth/mcp/action-approval/",
+                    {"ticket": ticket, "decision": "allow"},
+                ).status_code,
+                403,
+            )
+            AccessToken.objects.filter(pk=self.token.pk).update(**old)
+        self.approve(reference)
+        replacement = AccessToken.objects.create(
+            user=self.user,
+            application=self.application,
+            token="same-client-new-token",
+            scope=self.token.scope,
+            expires=self.token.expires,
+            resource=self.token.resource,
+        )
+        with self.assertRaises(PermissionDenied):
+            services.confirm_change(replacement.token, request["request_id"], reference)
+        self.token.delete()
+        self.assertEqual(
+            client.get(
+                "/auth/mcp/action-approval/", {"approval_id": reference}
+            ).status_code,
+            403,
+        )
+        with self.assertRaises(PermissionDenied):
+            services.confirm_change(self.raw, request["request_id"], reference)
+        self.assertFalse(MealEntry.objects.exists())
+
+    def test_approved_target_and_catalog_changes_cancel_without_mutation(self):
+        meal = self.make_meal()
+        request = self.request("meal.delete", meal.pk, {})
+        arguments = self.prepare_approved(request)
+        MealEntry.objects.filter(pk=meal.pk).update(name="Changed after approval")
+        self.assertEqual(
+            services.confirm_change(self.raw, *arguments)["status"], "cancelled"
+        )
+        self.assertTrue(MealEntry.objects.filter(pk=meal.pk).exists())
+        request = self.request()
+        arguments = self.prepare_approved(request)
+        create_food_version(
+            food_item=self.food, definition=definition("200"), created_by=self.user
+        )
+        self.assertEqual(
+            services.confirm_change(self.raw, *arguments)["status"], "cancelled"
+        )
+        self.assertEqual(MealEntry.objects.count(), 1)
+
+    def test_cancel_expiry_and_pending_limit_preserve_terminal_request_ids(self):
+        request = self.request()
+        reference = self.prepare(request)["result"]["data"]["confirmation_id"]
+        self.approve(reference, "cancel")
+        self.assertEqual(
+            services.confirm_change(self.raw, request["request_id"], reference)[
+                "status"
+            ],
+            "cancelled",
+        )
+        self.assertEqual(self.prepare(request)["status"], "cancelled")
+        expired = self.request()
+        reference = self.prepare(expired)["result"]["data"]["confirmation_id"]
+        Confirmation.objects.filter(pk=reference).update(
+            expires_at=timezone.now() - timedelta(seconds=1)
+        )
+        self.assertEqual(
+            services.confirm_change(self.raw, expired["request_id"], reference)[
+                "status"
+            ],
+            "expired",
+        )
+        self.assertFalse(Confirmation.objects.exists())
+        for _ in range(10):
+            self.prepare(self.request())
+        with self.assertRaises(ValidationError):
+            self.prepare(self.request())
+        self.assertEqual(Confirmation.objects.count(), 10)
+        Confirmation.objects.update(expires_at=timezone.now() - timedelta(seconds=1))
+        self.prepare(self.request())
+        self.assertEqual(Confirmation.objects.count(), 1)
+        self.assertEqual(
+            Execution.objects.filter(state=Execution.State.EXPIRED).count(), 11
+        )
+        self.assertFalse(MealEntry.objects.exists())
+
+    def test_paid_preparation_and_unapproved_confirmation_never_call_provider(self):
+        request = self.request(
+            "proposal.estimate",
+            payload={"description": "Unknown meal", "entry_date": "2026-10-30"},
+        )
+        with patch("apps.mcp.tools.operations.invoke_paid") as provider:
+            prepared = self.prepare(request)
+            reference = prepared["result"]["data"]["confirmation_id"]
+            self.assertFalse(prepared["applied"])
+            self.assertEqual(
+                services.confirm_change(
+                    self.raw, request["request_id"], reference, True
+                )["status"],
+                "prepared",
+            )
+            preview = (
+                self.approval_client()
+                .get("/auth/mcp/action-approval/", {"approval_id": reference})
+                .json()["approval"]
+            )
+            self.assertTrue(preview["paid"])
+            self.assertEqual(preview["changes"], request["payload"])
+            provider.assert_not_called()
+        self.assertFalse(MealProposal.objects.exists())
+
+    def test_complete_approval_preview_does_not_trim_long_data_or_batch_members(self):
+        notice = Notification.objects.create(
+            recipient=self.user, title="Notice", message="A" * 5000
+        )
+        reference = self.prepare(self.request("notification.clear_all", payload={}))[
+            "result"
+        ]["data"]["confirmation_id"]
+        preview = (
+            self.approval_client()
+            .get("/auth/mcp/action-approval/", {"approval_id": reference})
+            .json()["approval"]
+        )
+        self.assertTrue(preview["destructive"])
+        selected = preview["current"]["notifications"]
+        self.assertEqual([row["id"] for row in selected], [notice.pk])
+        self.assertEqual(selected[0]["message"], "A" * 5000)
+        self.assertFalse(preview.get("truncated", False))

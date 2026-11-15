@@ -248,12 +248,13 @@ MCP_SETTINGS.update(
     MCP_SERVER_FACTORY=os.getenv("DJANGO_MCP_SERVER_FACTORY")
     or "apps.mcp.tools.server.create_server",
     MCP_REQUIRED_SCOPES=["macromapper:read"],
+    MCP_ACTION_APPROVAL_HANDLER="apps.mcp.tools.services.action_approval",
     OAUTH2_PROVIDER=oauth_settings(
         MCP_SETTINGS["MCP_BASE_URL"],
         {
             "macromapper:read": "Read your meals, proposals, notifications and accessible foods",
-            "macromapper:write": "Allow this client to create, change and permanently delete your MacroMapper data without per-action app confirmation",
-            "macromapper:estimate": "Allow this client to spend AI credits and publish shared food definitions without per-action app confirmation (also requires read/write access)",
+            "macromapper:write": "Prepare changes and permanent deletions; each action requires your approval in MacroMapper before this client can execute it",
+            "macromapper:estimate": "Prepare paid AI work that can spend credits and publish shared food definitions; each action requires your approval in MacroMapper (also requires read/write access)",
         },
         ["macromapper:read"],
     ),

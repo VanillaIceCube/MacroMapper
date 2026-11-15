@@ -433,7 +433,7 @@ def nutrition_totals(raw, start, end):
     )
 
 
-def snapshot(action, target, user, payload, selected_ids):
+def snapshot(action, target, user, payload, selected_ids, *, details=False):
     state, food_ids, versions = {}, set(), set()
     if target is not None:
         state["target"] = type(target).objects.filter(pk=target.pk).values().get()
@@ -476,9 +476,7 @@ def snapshot(action, target, user, payload, selected_ids):
     if isinstance(target, MealProposal):
         collect(target.items)
     state["catalog"] = catalog_state(food_ids, versions, user)
-    return hashlib.sha256(
-        json.dumps(
-            json_value(state, maximum=262144, max_nodes=10000, max_collection=200),
-            sort_keys=True,
-        ).encode()
-    ).hexdigest()
+    state = json_value(state, maximum=262144, max_nodes=10000, max_collection=200)
+    if details:
+        return state
+    return hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()

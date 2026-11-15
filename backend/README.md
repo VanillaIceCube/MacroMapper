@@ -98,8 +98,10 @@ and personal writes in `apps/foods/services.py`, diary queries/writes in
 transactions; serializers validate boundary fields and delegate their writes.
 Shared business behavior uses the owning app's `services` module. Specialized
 ingredient-tree editing helpers live in `apps/estimates/recipe_edits.py`.
-MCP executes requested changes directly with OAuth, automatic request-UUID
-duplicate protection, provider-wait state guards and bounded receipts without constructing REST requests or invoking viewsets.
+MCP prepares changes, requires separate JWT-authenticated app approval, and
+consumes the exact approved action with current OAuth authorization. Automatic
+request-UUID protection, provider-wait guards and bounded receipts remain; MCP
+does not construct REST requests or invoke viewsets.
 
 ## 🥗 Food catalog API
 
@@ -372,7 +374,7 @@ and transport test modules in all three applications; app tools remain app-owned
 
 Foods own catalog queries, mutations, identity, serving options, publication and
 migration tests; meals own diary entries, drafts and component graphs. MCP tool
-tests separate catalog operations, direct execution/replay, paid operations, drafts, response
+tests separate catalog operations, app approval/execution/replay, paid operations, drafts, response
 limits and transport. Run both the default and enabled MCP profiles.
 
 From the repository root:

@@ -279,22 +279,24 @@ authorize activation, client registration, owner consent or plugin installation.
 Follow the [app MCP contract](backend/apps/mcp/README.md#application-tools) and
 [MacroMapper #284](https://github.com/VanillaIceCube/MacroMapper/issues/284).
 MacroMapper owns OAuth, existing-account consent, its registry and scopes;
-shared framework files remain unchanged. Preserve REST JWT/login behavior and
-exact trusted peer `172.20.0.3`. Read is the default scope; requested mutations run
-directly with write permission, and paid estimates additionally require estimate
-permission. Do not add an application-level human approval round-trip. Generate
-request UUIDs automatically, retain duplicate-execution receipts, and never retry
-uncertain paid calls under a new UUID automatically. Recheck token, resource,
-scopes and ownership for execution/replay; keep provider waits outside database
-writer transactions and commit publication with its receipt atomically.
+shared framework changes stay canonical and identical across consumers. Preserve REST JWT/login behavior and
+exact trusted peer `172.20.0.3`. Read is the default scope. Every consequential
+MCP write, deletion and paid action requires preparation and separate, explicit
+approval by the matching signed-in app user before confirmation can execute it.
+The app JWT-only approval channel is independent of the MCP bearer; a client
+boolean or OAuth grant cannot set approval. Keep exact payload/target/catalog,
+client/token/owner/scope binding, five-minute expiry, cancellation and one-use
+consumption. Generate request UUIDs automatically, retain durable receipts and
+never retry uncertain paid calls under a new UUID automatically. Recheck grants
+and ownership, keep provider waits outside writer transactions, and commit
+publication with its receipt atomically. Preserve host consent/safety controls.
 
-The owner explicitly approved direct delegation after reviewing the risk that a
-compromised or prompt-injected client can act within its granted write/estimate
-scopes. This accepts that client authority; OAuth grants and request receipts do
-not prove human intent for each action. Preserve host consent/safety controls and
-all authorization, validation, bounded-result and concurrency safeguards. See
-the [documented threat model](backend/apps/mcp/README.md#-access-and-permissions).
-This product decision does not waive required CI or independent review gates.
+Use the existing optional shared framework approval hook and Connections screen;
+FullStackTemplate and Notoli leave the hook unavailable and retain their own domain
+policies. Approval verifies an explicit decision using the matching app user's
+credentials, not physical human presence or protection against compromise of those
+credentials. See the [threat model](backend/apps/mcp/README.md#-access-and-permissions).
+Preserve required CI and independent review gates.
 
 Production policy and frontend Docker builds enable the reviewed app connector;
 local backend defaults remain off. Run both backend profiles and frontend tests,

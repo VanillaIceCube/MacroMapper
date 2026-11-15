@@ -9,6 +9,15 @@ WRITE = "macromapper:write"
 ESTIMATE = "macromapper:estimate"
 
 
+def lock_actor(user):
+    from .models import ActorLock
+
+    actor, _ = ActorLock.objects.get_or_create(owner=user)
+    ActorLock.objects.filter(pk=actor.pk).update(revision=F("revision"))
+    ActorLock.objects.select_for_update().get(pk=actor.pk)
+    type(user).objects.select_for_update().get(pk=user.pk)
+
+
 def principal(raw, *, write=False, paid=False, lock=False):
     # Lazy import keeps the normal MCP-disabled Django profile discoverable.
     from apps.mcp.framework.oauth import resolve_token
@@ -31,12 +40,7 @@ def principal(raw, *, write=False, paid=False, lock=False):
 
     token = resolve()
     if lock:
-        from .models import ActorLock
-
-        actor, _ = ActorLock.objects.get_or_create(owner=token.user)
-        ActorLock.objects.filter(pk=actor.pk).update(revision=F("revision"))
-        ActorLock.objects.select_for_update().get(pk=actor.pk)
-        type(token.user).objects.select_for_update().get(pk=token.user_id)
+        lock_actor(token.user)
         type(token).objects.select_for_update().get(pk=token.pk)
         token = resolve()
     return token

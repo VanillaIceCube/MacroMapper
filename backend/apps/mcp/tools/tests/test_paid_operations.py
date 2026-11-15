@@ -257,6 +257,8 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
             },
         )
         unstarted = self.request()
+        pending_arguments = self.prepare_approved(pending)
+        unstarted_arguments = self.prepare_approved(unstarted)
         started, release, finished = Event(), Event(), Event()
         invoke = server.invocation
 
@@ -264,7 +266,7 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
             try:
                 return invoke(*args)
             finally:
-                if args[0] is services.execute_change:
+                if args[0] is services.confirm_change:
                     finished.set()
 
         def provider_wait():
@@ -284,8 +286,8 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
             ):
                 paid = asyncio.create_task(
                     server.call(
-                        services.execute_change,
-                        *self.arguments(pending),
+                        services.confirm_change,
+                        *pending_arguments,
                     )
                 )
                 try:
@@ -303,8 +305,8 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
                         self.assertFalse(server._SLOTS.acquire(blocking=False))
                         with self.assertRaises(server.ToolError):
                             await server.call(
-                                services.execute_change,
-                                *self.arguments(unstarted),
+                                services.confirm_change,
+                                *unstarted_arguments,
                             )
                     finally:
                         for _ in range(acquired):
@@ -335,7 +337,10 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
             Execution.objects.get(pk=pending["request_id"]).state,
             Execution.State.COMPLETED,
         )
-        self.assertFalse(Execution.objects.filter(pk=unstarted["request_id"]).exists())
+        self.assertEqual(
+            Execution.objects.get(pk=unstarted["request_id"]).state,
+            Execution.State.APPROVED,
+        )
 
     def test_catalog_only_optional_hook_is_atomic_and_default_unchanged(self):
         def denied():
@@ -650,24 +655,23 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
                 raise AssertionError("Provider test was not released")
 
         provider = self.provider(wait_for_release)
+        confirmation_arguments = self.prepare_approved(request)
 
         async def exercise():
             first = asyncio.create_task(
-                server.call(services.execute_change, *self.arguments(request))
+                server.call(services.confirm_change, *confirmation_arguments)
             )
             try:
                 self.assertTrue(await asyncio.to_thread(started.wait, 3))
                 duplicate = await server.call(
-                    services.execute_change, *self.arguments(request)
+                    services.confirm_change, *confirmation_arguments
                 )
                 self.assertEqual(duplicate["status"], "in_progress")
                 self.assertIsNone(duplicate["applied"])
             finally:
                 release.set()
             completed = await first
-            replay = await server.call(
-                services.execute_change, *self.arguments(request)
-            )
+            replay = await server.call(services.confirm_change, *confirmation_arguments)
             self.assertEqual(completed["status"], "completed")
             self.assertTrue(replay["replayed"])
             self.assertEqual(replay["result"], completed["result"])
