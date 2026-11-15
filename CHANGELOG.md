@@ -14,6 +14,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Move the author's original note from the frontend guide to the project README, preserving its wording.
 - Move frontend connection contracts into session guidance and product intent beside route behavior; keep related guides as final navigation.
 - Align frontend npm commands: production builds run strict lint first and `lint:fix` applies available lint fixes.
 - Document frontend API configuration through development Compose and production build arguments, and exclude local frontend env files from Docker build contexts.
