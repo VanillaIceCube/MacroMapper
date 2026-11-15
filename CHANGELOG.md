@@ -14,6 +14,8 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Separate provider email delivery into `apps/email/`, keeping password-reset behavior and privacy coverage in authentication.
+- Group Django application packages under `backend/apps/`, group shared MCP `framework/`, application `tools/` and `chatgpt/` packaging under `apps.mcp` and project configuration to `backend/config/`, preserving existing app labels, database tables and migration identities.
 - Move backend/frontend Docker exclusions beside each production/development Dockerfile using Dockerfile-specific ignore files while preserving build contexts and frontend configuration inputs.
 - Replace Conda and requirements-file setup with uv-managed environments, Python 3.12 declared in `pyproject.toml`, committed dependency locks, and synchronized CI/Docker tooling (#426).
 - Group backend Dockerfiles in `backend/docker/`; update Compose, build workflows and Docker dependency discovery while retaining the backend build context (FullStackTemplate #337).

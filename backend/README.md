@@ -5,13 +5,14 @@ permissions, notifications, and application integrations.
 
 ## 🧭 Structure
 
-- `app/`: settings and server entry points.
+- `config/`: Django settings, root URLs and ASGI/WSGI entry points.
 - `docker/`: production/development Dockerfiles and matching
   `Dockerfile.dockerignore` / `Dockerfile.dev.dockerignore`; keep `backend/` as the
   build context and write exclusion patterns relative to that context root.
-- `foods/`, `estimates/`, `meals/`: catalog, proposals, and diary.
-- `authentication/`, `notifications/`: accounts and notifications.
-- `macromapper_mcp/`, `app_mcp/`: application tools and shared MCP.
+- `apps/foods/`, `apps/estimates/`, `apps/meals/`: catalog, proposals, and diary.
+- `apps/authentication/`, `apps/notifications/`: accounts and notifications.
+- `apps/email/`: provider delivery backend and its tests; this is a plain Python package without models or a Django app label.
+- `apps/mcp/`: shared `framework/`, application `tools/` and `chatgpt/` packaging.
 
 ## 💻 Local development
 
@@ -35,7 +36,7 @@ a separate application key; see [local estimation setup](../deploy/README.md#-lo
 
 Local runs load ignored `backend/.env`. The database defaults to
 `backend/db.sqlite3`; set `DJANGO_SQLITE_PATH` to use another local database.
-Use `app/settings.py` for current defaults.
+Use `config/settings.py` for current defaults.
 
 | Setting | Purpose |
 | --- | --- |
@@ -284,7 +285,7 @@ Local development uses Django's console email backend. The included
 Resend HTTPS backend is configured with:
 
 ```env
-DJANGO_EMAIL_BACKEND=authentication.email_backends.ResendApiEmailBackend
+DJANGO_EMAIL_BACKEND=apps.email.backends.ResendApiEmailBackend
 DJANGO_EMAIL_HOST_KEY=<resend-api-key>
 DJANGO_EMAIL_TIMEOUT=10
 DJANGO_DEFAULT_FROM_EMAIL=<sender-on-a-verified-domain>
@@ -301,7 +302,7 @@ response means acceptance, not confirmed inbox delivery.
 
 Failures preserve `fail_silently`: false re-raises, while true skips failures and
 returns the number sent. Password reset returns a generic response for known and
-unknown accounts, including delivery failures. Logger `authentication.email_backends`
+unknown accounts, including delivery failures. Logger `apps.email.backends`
 records safe category/status fields: `configuration`, `request`, `rate_limit`,
 `provider`, `timeout`, `network`, or `unexpected`. Never log provider response
 bodies, recipient details, reset tokens, message contents, or credentials.
@@ -314,16 +315,16 @@ Use mocked delivery tests; production email receipt requires separate verificati
 
 The shared MCP framework remains owned by FullStackTemplate. Preserve its source
 pin and manifest when adopting canonical changes; see the
-[framework guide](app_mcp/README.md) for source ownership and the retained tests.
+[framework guide](apps/mcp/framework/README.md) for source ownership and the retained tests.
 
-The [MCP README](app_mcp/README.md) explains shared transport,
+The [MCP README](apps/mcp/framework/README.md) explains shared transport,
 OAuth, configuration, and verification.
 
 Application tools, scopes, consent, and client setup live in the
-[MacroMapper MCP README](macromapper_mcp/README.md).
+[MacroMapper MCP README](apps/mcp/tools/README.md).
 
 Connection manifests, artwork, and package builders live in
-[chatgpt/](app_mcp/chatgpt/README.md).
+[chatgpt/](apps/mcp/chatgpt/README.md).
 
 ## 🧪 Checks
 
@@ -338,8 +339,8 @@ uv run --locked --project backend python backend/manage.py makemigrations --chec
 
 ## 🧪 Estimates test organization
 
-`estimates/tests/` is a discoverable Python package. Keep its `__init__.py` and
-name new modules `test_*.py`; do not recreate a competing `estimates/tests.py`.
+`apps/estimates/tests/` is a discoverable Python package. Keep its `__init__.py` and
+name new modules `test_*.py`; do not recreate a competing `apps/estimates/tests.py`.
 Use `test_proposals.py` for proposal API behavior, `test_adjustments.py` for
 adjustment lifecycle/rollback, `test_admin.py` for admin immutability, and
 `test_provider.py` for provider requests and normalization. Shared data builders
@@ -347,12 +348,12 @@ belong in `helpers.py`, which does not define discoverable test classes.
 
 Import helpers with `from .helpers import ...` and app modules with `from
 ..models import ...` (or their absolute app paths). Patch dependencies where the
-code under test looks them up, such as `estimates.services.get_estimation_provider`,
+code under test looks them up, such as `apps.estimates.services.get_estimation_provider`,
 not where test helpers live. Keep provider calls mocked; no API key is needed.
 
-From the repository root, run `uv run --locked --project backend python backend/manage.py test estimates` for all
+From the repository root, run `uv run --locked --project backend python backend/manage.py test apps.estimates` for all
 estimate modules, or append a module/class/method such as
-`estimates.tests.test_provider.OpenAIProviderTests`. Also run
+`apps.estimates.tests.test_provider.OpenAIProviderTests`. Also run
 `uv run --locked --project backend python backend/manage.py test backend` to verify full Django discovery. The
 explicit directory matters at the repository root: without a label, discovery
 starts in the current directory and can report zero tests. CI instead runs
@@ -528,7 +529,7 @@ and historical quantities/nutrients.
 
 ## 🔎 Publication and research
 
-`foods.evidence.usable_nutrition` accepts any finite nonnegative known nutrient,
+`apps.foods.evidence.usable_nutrition` accepts any finite nonnegative known nutrient,
 including zero. Nulls mean unknown. Empty leaves fail publication with a visible
 unresolved error before any shared food is written. Usable partial records and
 containers with populated components remain valid. The shared creation service

@@ -257,7 +257,7 @@ issuer is not a deployment prerequisite. Advertise an app service only after its
 own registry, OAuth and readiness checks pass; framework adoption alone does not
 authorize activation, client registration, owner consent or plugin installation.
 
-Follow the [app MCP contract](backend/macromapper_mcp/README.md) and
+Follow the [app MCP contract](backend/apps/mcp/tools/README.md) and
 [MacroMapper #284](https://github.com/VanillaIceCube/MacroMapper/issues/284).
 MacroMapper owns OAuth, existing-account consent, its registry and scopes;
 shared framework files remain unchanged. Preserve REST JWT/login behavior and
@@ -288,5 +288,5 @@ modules independent of React/presentation and use their public entry points.
 Frontend uses Vite, Vitest/jsdom, ESLint 10 and `frontend/dist/`; production API
 requests remain same-origin with blank `VITE_API_BASE_URL`. Keep compatible
 Material UI/icon versions and dependency overrides documented in the frontend
-README. The estimates suite remains a discoverable `estimates/tests/` package;
+README. The estimates suite remains a discoverable `apps/estimates/tests/` package;
 root-level full backend discovery requires `uv run --locked --project backend python backend/manage.py test backend`.

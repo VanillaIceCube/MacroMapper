@@ -1,0 +1,356 @@
+from datetime import date
+from decimal import Decimal, InvalidOperation
+
+from django.db import transaction
+from rest_framework import serializers
+
+from apps.foods.evidence import source_data, version_evidence
+from apps.foods.models import FoodItem, FoodItemVersion
+from apps.foods.nutrients import NUTRIENT_METADATA
+from apps.foods.portions import portion_options_for_serving
+
+from .models import MealEntry, MealItem
+from .services import _component_tree, replace_meal_items
+
+REQUIRED_SNAPSHOT_FIELDS = {
+    "food_item_id",
+    "food_version_id",
+    "food_name",
+    "provider_name",
+    "origin_type",
+    "servings",
+    "serving_quantity",
+    "serving_unit",
+    "serving_label",
+    "serving_weight_grams",
+    "serving_volume_ml",
+    "portion_options",
+    "provenance",
+    "confidence_score",
+    "nutrients",
+    "sources",
+    "components",
+}
+
+
+def _is_decimal_string(value, *, strict=False):
+    if not isinstance(value, str):
+        return False
+    try:
+        parsed = Decimal(value)
+    except InvalidOperation:
+        return False
+    return parsed.is_finite() and (parsed > 0 if strict else parsed >= 0)
+
+
+def _has_string_fields(value, fields):
+    return isinstance(value, dict) and all(
+        isinstance(value.get(field), str) for field in fields
+    )
+
+
+def _is_valid_source(source):
+    if not _has_string_fields(source, ("title", "provider", "url")):
+        return False
+    if "accessed_on" not in source or type(source.get("is_official")) is not bool:
+        return False
+    accessed_on = source["accessed_on"]
+    if accessed_on is None:
+        return True
+    if not isinstance(accessed_on, str):
+        return False
+    try:
+        date.fromisoformat(accessed_on)
+    except ValueError:
+        return False
+    return True
+
+
+def _is_valid_component_snapshot(components):
+    if not isinstance(components, list):
+        return False
+    for component in components:
+        if not isinstance(component, dict):
+            return False
+        if not REQUIRED_SNAPSHOT_FIELDS.issubset(component.keys()):
+            return False
+        if any(
+            type(component[field]) is not int or component[field] <= 0
+            for field in ("food_item_id", "food_version_id")
+        ):
+            return False
+        if not _has_string_fields(
+            component, ("food_name", "provider_name", "serving_label")
+        ):
+            return False
+        for field, choices in (
+            ("origin_type", FoodItem.OriginType.values),
+            ("serving_unit", FoodItemVersion.ServingUnit.values),
+            ("provenance", FoodItemVersion.Provenance.values),
+        ):
+            if not isinstance(component[field], str) or component[field] not in choices:
+                return False
+        if any(
+            not _is_decimal_string(component[field], strict=True)
+            for field in ("servings", "serving_quantity")
+        ):
+            return False
+        if any(
+            component[field] is not None
+            and not _is_decimal_string(component[field], strict=True)
+            for field in ("serving_weight_grams", "serving_volume_ml")
+        ):
+            return False
+        confidence = component["confidence_score"]
+        if confidence is not None and (
+            not _is_decimal_string(confidence) or Decimal(confidence) > 1
+        ):
+            return False
+        options = component["portion_options"]
+        if (
+            not isinstance(options, list)
+            or not options
+            or any(
+                not _has_string_fields(option, ("key", "label", "unit_label"))
+                or not _is_decimal_string(option.get("serving_multiplier"), strict=True)
+                for option in options
+            )
+        ):
+            return False
+        nutrients = component["nutrients"]
+        if not isinstance(nutrients, list) or any(
+            not _has_string_fields(nutrient, ("key", "name", "unit"))
+            or nutrient["key"] not in NUTRIENT_METADATA
+            or not _is_decimal_string(nutrient.get("amount"))
+            for nutrient in nutrients
+        ):
+            return False
+        sources = component["sources"]
+        if not isinstance(sources, list) or any(
+            not _is_valid_source(source) for source in sources
+        ):
+            return False
+        if not _is_valid_component_snapshot(component["components"]):
+            return False
+    return True
+
+
+class MealItemSerializer(serializers.ModelSerializer):
+    evidence = serializers.SerializerMethodField()
+
+    def get_evidence(self, instance):
+        return version_evidence(instance.food_version)
+
+    food_item_id = serializers.IntegerField(source="food_version.food_item_id")
+    food_version_id = serializers.IntegerField(read_only=True)
+    provenance = serializers.CharField(source="food_version.provenance", read_only=True)
+    confidence_score = serializers.DecimalField(
+        source="food_version.confidence_score",
+        max_digits=4,
+        decimal_places=3,
+        read_only=True,
+    )
+    nutrients = serializers.SerializerMethodField()
+    component_snapshot = serializers.SerializerMethodField()
+    portion_options = serializers.SerializerMethodField()
+    origin_type = serializers.CharField(source="food_version.food_item.origin_type")
+    serving_weight_grams = serializers.DecimalField(
+        source="food_version.serving_weight_grams",
+        max_digits=10,
+        decimal_places=3,
+        allow_null=True,
+    )
+    serving_volume_ml = serializers.DecimalField(
+        source="food_version.serving_volume_ml",
+        max_digits=10,
+        decimal_places=3,
+        allow_null=True,
+    )
+    sources = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MealItem
+        fields = (
+            "id",
+            "food_item_id",
+            "food_version_id",
+            "food_name",
+            "provider_name",
+            "origin_type",
+            "servings",
+            "order",
+            "serving_quantity",
+            "serving_unit",
+            "serving_label",
+            "selected_portion_key",
+            "serving_weight_grams",
+            "serving_volume_ml",
+            "portion_options",
+            "provenance",
+            "evidence",
+            "confidence_score",
+            "component_snapshot",
+            "nutrients",
+            "sources",
+        )
+
+    def get_nutrients(self, instance):
+        return [
+            {
+                "key": key,
+                "name": metadata["name"],
+                "unit": metadata["unit"],
+                "amount": f"{value:.4f}",
+            }
+            for key, metadata in NUTRIENT_METADATA.items()
+            if (value := getattr(instance, key)) is not None
+        ]
+
+    def get_component_snapshot(self, instance):
+        if instance.component_snapshot and _is_valid_component_snapshot(
+            instance.component_snapshot
+        ):
+            return instance.component_snapshot
+        return _component_tree(instance.food_version)
+
+    def get_sources(self, instance):
+        return [source_data(source) for source in instance.food_version.sources.all()]
+
+    def get_portion_options(self, instance):
+        version = instance.food_version
+        return portion_options_for_serving(
+            quantity=version.serving_quantity,
+            unit=version.serving_unit,
+            label=version.serving_label,
+            weight_grams=version.serving_weight_grams,
+            volume_milliliters=version.serving_volume_ml,
+            natural_servings=version.natural_servings,
+        )
+
+
+class MealItemInputSerializer(serializers.Serializer):
+    food_item = serializers.PrimaryKeyRelatedField(queryset=FoodItem.objects.all())
+    food_version = serializers.IntegerField(required=False, min_value=1)
+    servings = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=4,
+        min_value=Decimal("0.0001"),
+    )
+    order = serializers.IntegerField(min_value=0, max_value=32767)
+
+
+class MealEntrySerializer(serializers.ModelSerializer):
+    confidence_score = serializers.DecimalField(
+        source="accepted_proposal.confidence_score",
+        max_digits=4,
+        decimal_places=3,
+        read_only=True,
+        allow_null=True,
+        default=None,
+    )
+    items = MealItemSerializer(many=True, read_only=True)
+    item_inputs = MealItemInputSerializer(many=True, write_only=True, source="items")
+
+    class Meta:
+        model = MealEntry
+        fields = (
+            "id",
+            "entry_date",
+            "name",
+            "notes",
+            "confidence_score",
+            "items",
+            "item_inputs",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = ("id", "created_at", "updated_at")
+        extra_kwargs = {"name": {"allow_blank": True, "required": False}}
+
+    def validate(self, attrs):
+        name = attrs.get("name", getattr(self.instance, "name", "")).strip()
+        if not name and self.instance is not None:
+            raise serializers.ValidationError({"name": "This field may not be blank."})
+        attrs["name"] = name
+
+        item_inputs = attrs.get("items")
+        if item_inputs is None:
+            if self.instance is None or not self.partial:
+                raise serializers.ValidationError(
+                    {"item_inputs": "Meal items are required."}
+                )
+            return attrs
+        if not item_inputs:
+            raise serializers.ValidationError(
+                {"item_inputs": "Add at least one food to the meal."}
+            )
+        existing_versions = set()
+        if self.instance is not None:
+            existing_versions = set(
+                self.instance.items.values_list(
+                    "food_version__food_item_id", "food_version_id"
+                )
+            )
+        request = self.context.get("request")
+        available_food_ids = set()
+        if request:
+            available_food_ids = set(
+                FoodItem.objects.active()
+                .visible_to(request.user)
+                .filter(
+                    pk__in=[item["food_item"].pk for item in item_inputs],
+                    current_version__isnull=False,
+                )
+                .values_list("pk", flat=True)
+            )
+        if any(
+            item["food_item"].pk not in available_food_ids
+            and (item["food_item"].pk, item.get("food_version"))
+            not in existing_versions
+            for item in item_inputs
+        ):
+            raise serializers.ValidationError(
+                {"item_inputs": "This food is not available."}
+            )
+        orders = [item["order"] for item in item_inputs]
+        if len(orders) != len(set(orders)):
+            raise serializers.ValidationError(
+                {"item_inputs": "Each meal item order must be unique."}
+            )
+        supplied_versions = [
+            (item["food_item"].pk, item["food_version"])
+            for item in item_inputs
+            if "food_version" in item
+        ]
+        if self.instance is None and supplied_versions:
+            raise serializers.ValidationError(
+                {"item_inputs": "New meals always use each food's current definition."}
+            )
+        if self.instance is not None:
+            if any(pair not in existing_versions for pair in supplied_versions):
+                raise serializers.ValidationError(
+                    {
+                        "item_inputs": "A saved food version must already belong to this meal."
+                    }
+                )
+        return attrs
+
+    @transaction.atomic
+    def create(self, validated_data):
+        item_inputs = validated_data.pop("items")
+        meal_entry = MealEntry.objects.create(
+            owner=self.context["request"].user,
+            **validated_data,
+        )
+        replace_meal_items(meal_entry=meal_entry, item_inputs=item_inputs)
+        return meal_entry
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        item_inputs = validated_data.pop("items", None)
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+        instance.save()
+        if item_inputs is not None:
+            replace_meal_items(meal_entry=instance, item_inputs=item_inputs)
+        return instance
