@@ -21,7 +21,7 @@ No existing installed plugin or registered app identity is assumed here.
 
 - `plugin.json`: MacroMapper listing metadata and presentation.
 - `mcp.json`: HTTPS endpoint, public OAuth settings, and least-privilege scopes.
-- `assets/`: the existing frontend MacroMapper mark, embedded unchanged in a square SVG canvas.
+- `assets/`: a square PNG export of the existing frontend MacroMapper mark.
 - `build_package.py`, `build_listing.py`: portable and existing-listing builders.
 
 

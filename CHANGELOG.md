@@ -6,11 +6,12 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Export ChatGPT artwork as a square binary PNG instead of embedding its raster data in SVG, preserving its appearance while keeping the complete PR within review limits.
 - Consolidate durable documentation into existing owning READMEs, move the active CI inventory beside workflow guidance, and repair links and architecture regressions.
 - Restore consistent changelog titles, chronological dates, ordered categories, and spacing while preserving historical entries.
 - Align shared agent instructions across the repository family while preserving application-specific contracts and Infrastructure authorization controls.
 - Move active CI helpers into `.github/tools/`, browser helpers beside `frontend/e2e/` journeys, and the MCP checker into `backend/`; update callers, path filters, regressions, and owning guides while preserving existing checks and isolation.
-- Move the local certificate helper into `deploy/`; retain the retired fail-closed production compatibility stubs in `scripts/` until their documented caller-retirement prerequisites are met.
+- Move the local certificate helper into `deploy/`.
 
 ### Removed
 

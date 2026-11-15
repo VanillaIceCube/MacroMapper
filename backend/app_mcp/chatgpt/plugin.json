@@ -28,8 +28,8 @@
         ],
         "websiteURL": "https://macromapper.judeandrewalaba.com",
         "supportURL": "https://github.com/VanillaIceCube/MacroMapper/issues",
-        "composerIcon": "./assets/logo.svg",
-        "logo": "./assets/logo.svg",
+        "composerIcon": "./assets/logo.png",
+        "logo": "./assets/logo.png",
         "defaultPrompt": [
           "Show my meals for today.",
           "Find foods in my MacroMapper catalog.",
