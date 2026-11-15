@@ -5,11 +5,14 @@ authentication, and the application shell.
 
 ## 🧭 Structure
 
+- `docker/`: production/development Dockerfiles and Nginx configuration.
+  Docker builds keep `frontend/` as their context; `.dockerignore` stays at the
+  frontend root.
 - `src/components/`: reusable interface components.
 - `src/pages/`: application pages and routes.
 - `src/services/`: API requests and session handling.
 - `src/domain/`: pure nutrition, portion, and meal calculations.
-- `src/__tests__/`, `e2e/`: component and isolated browser tests.
+- `src/__tests__/`: component tests.
 
 ## 💻 Local development
 
@@ -236,48 +239,11 @@ npm run format:check
 npm run build
 ```
 
-## 🌐 Browser tests
-
-`frontend/e2e/` owns the browser journeys and their helpers: `run_e2e.cjs` creates
-and cleans up disposable state, `e2e_backend.py` starts the isolated loopback
-backend, `e2e_settings.py` suppresses developer dotenv loading and selects temporary
-SQLite/file mail, and `collect_browser_artifacts.py` collects bounded failure
-evidence. `npm run test:e2e` invokes the runner from `frontend/`; CI collects reports
-with `python e2e/collect_browser_artifacts.py` from the same directory.
-
-Install backend requirements in an activated Python environment. From `frontend/`:
-
-```powershell
-npx playwright install chromium
-npm run test:e2e
-```
-
-Ports 8001 and 3001 must be free. The wrapper starts Django and Vite with fresh,
-marked temporary state and stops both before deleting that state. It uses synthetic
-users, temporary SQLite and file mail; it does not load developer `.env` files,
-reuse running servers, send external email, or make paid AI calls. The shared auth
-journeys cover registration, session isolation, logout, protected routing, invalid
-credentials, JWT expiry, and password reset. Product journeys belong under `e2e/`.
-
-The suite uses one Chromium worker, no retries, and a ten-minute global timeout.
-Linux CI installs Chromium with `--with-deps`. Failure artifacts are written to
-`test-results/` and `playwright-report/`; CI retains bounded evidence for seven
-days. Reports may include disposable tokens, so do not publish them in issues.
-
-Diary presentation also runs against a production build:
-
-```powershell
-npm run build
-npx playwright test --config playwright.diary.config.mjs
-```
-
-These cases use intercepted synthetic API fixtures and check mobile/desktop date,
-food and meal-review behavior. They do not prove live authenticated backend
-operations or OS-native calendar chrome. Keep `showPicker()` synchronous inside
-the user handler, with its existing click fallback. Preserve the nonempty-date
-guard, responsive navigation bounds and Today behavior.
-
 ## 🛠️ Maintenance
+
+Keep `showPicker()` synchronous inside the user handler, with its existing click
+fallback. Preserve the nonempty-date guard, responsive navigation bounds and
+Today behavior.
 
 The frontend temporarily overrides `minimatch@>=9 <11.0.1` to `^11.0.1` for
 [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249).
@@ -296,8 +262,8 @@ versions, regenerate the lockfile and repeat those checks.
 
 Keep Material UI and icons on compatible versions and regenerate the lockfile
 together. Prefer `sx` and `slotProps`; preserve accessible control labels. For
-jsdom CSS assertions, check computed transition/animation longhands and use real
-browser tests for responsive geometry. Follow the Node range in `package.json`,
+jsdom CSS assertions, check computed transition/animation longhands; inspect
+responsive geometry in a browser. Follow the Node range in `package.json`,
 and verify clean installs, strict lint, formatting, tests and production builds.
 See [Docker dependency maintenance](../deploy/README.md#development-dependency-reproducibility).
 

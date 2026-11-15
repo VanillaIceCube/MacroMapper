@@ -98,7 +98,8 @@ The backend test gate checks the pinned MCP framework manifest, runs ordinary ba
 ### 📦 Dependabot
 
 `.github/dependabot.yml` checks npm, pip, GitHub Actions, and Docker dependencies
-under `/backend` and `/frontend` daily. Patch and minor Dependabot updates can
+daily. Dockerfiles are under `/backend` and `/frontend/docker`; npm remains
+under `/frontend`. Patch and minor Dependabot updates can
 auto-merge only after the lint, test, CodeQL, vulnerability, and malware gates
 succeed.
 
@@ -481,10 +482,10 @@ existing trust, networks, environment requirements, workflow and runtime bytes.
 The same immutable source commit is proposed for all three consumers. These
 source-pin PRs do not authorize merging, promotion, or deployment.
 
-### Repository validation and browser diagnostics
+### Repository validation and failure diagnostics
 
-The path-aware test gate includes `.github/**`, `frontend/e2e/**`, `deploy/**`,
-and maintained docs in automation validation. It runs workflow and
+The path-aware test gate includes `.github/**`, `deploy/**`, and maintained docs
+in automation validation. It runs workflow and
 composite syntax, parser-only script checks and synthetic Compose configuration
 plus the existing Batch 1 suites and focused mocked composite regressions.
 [Coverage and external boundaries](README.md#-coverage-boundaries) are explicit.
@@ -495,11 +496,9 @@ logs have roughly 1 MiB capped artifacts retained seven days. Random delimiters
 protect multiline outputs and the original command status still determines the
 gate. An unavailable check cannot become success through log summarization.
 
-Relevant app/harness changes also require the isolated Chromium job; its failure
-or an applicable development-image failure fails Test Results. Browser traces
-and screenshots use a 20 MiB/file, 50 MiB/run cap and seven-day retention.
-See frontend/README.md for setup and local commands. No job uses real accounts,
-production data, live email or paid AI requests for these tests.
+Test Results fails when scope detection or an applicable development-image
+validation fails. Frontend and backend test failures remain independent gates.
+See frontend/README.md for setup and local commands.
 
 Validate syntax and relevant behavioral tests after automation changes. Preserve
 original check failures and bounded/redacted diagnostics. Update the existing

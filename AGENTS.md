@@ -69,6 +69,9 @@ npm ci
 npm start
 ```
 
+Frontend image definitions and Nginx configuration live in `frontend/docker/`;
+keep `frontend/` as the Docker build context.
+
 For local Docker hot reload and optional standalone HTTPS, follow
 [deploy/README.md](deploy/README.md). Initialize only missing local environment
 and database files; never truncate an existing SQLite file. Local Compose/proxy
@@ -124,13 +127,6 @@ npm run lint:strict
 npm run format:check
 npm run build
 ```
-
-For browser checks, install backend requirements in an isolated Python environment,
-then run `npx playwright install chromium` and `npm run test:e2e` from `frontend/`.
-Ports 8001/3001 must be free. Preserve disposable SQLite/file mail, synthetic
-accounts and isolation from developer dotenv files and databases; do not use real
-accounts, external email or paid AI calls. Follow `frontend/README.md` for the
-configured test pools and browser evidence limits.
 
 For shared release changes, run `python deploy/check_parity.py` and
 `python -m unittest discover -s deploy/tests -v` with a disposable local/CI Docker

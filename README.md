@@ -27,7 +27,7 @@ information rather than medical or prescriptive dietary advice.
 ## 📚 Documentation
 
 - [Backend](backend/README.md) — setup, APIs, authentication, email, and MCP.
-- [Frontend](frontend/README.md) — setup, pages, components, and browser tests.
+- [Frontend](frontend/README.md) — setup, pages, components, and tests.
 - [Deployment](deploy/README.md) — local Docker, configuration, and live-server guides.
 - [GitHub setup and workflows](.github/README.md) — first-PR setup and automation.
 - [Changelog](CHANGELOG.md) — project updates.

@@ -10,6 +10,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Group frontend Dockerfiles and Nginx configuration in `frontend/docker/`; update Compose, build workflows and Docker dependency discovery while retaining the frontend build context.
 - Resolve favicon, Apple touch icon and web manifest URLs through the Vite base URL for consistent public asset paths.
 - Align the default ChatGPT listing with its read-only OAuth grant and document explicit configuration and new consent for broader variants.
 - Export ChatGPT artwork as a square binary PNG instead of embedding its raster data in SVG, preserving its appearance while keeping the complete PR within review limits.
@@ -21,6 +22,8 @@ All notable changes to this project are documented in this file.
 
 ### Removed
 
+- Remove the custom frontend development entrypoint and automatic dependency reinstall; start Vite directly and install changed dependencies manually in the development container.
+- Remove frontend end-to-end suites, Playwright configuration and dependencies, browser-test helpers and CI jobs; retain component, backend, action-local and shared release checks.
 - Remove the root `scripts/` folder and retired production deployment/bundle compatibility stubs.
 - Remove duplicate documentation indexes, redirects, stale narratives and historical receipts after preserving useful contracts. Remove obsolete tour, design and visual-receipt screenshots; retain the author’s original note in the frontend guide.
 - Remove the root `tests/` directory and its CI invocations; retain backend, frontend/browser, action-local, and shared release suites.

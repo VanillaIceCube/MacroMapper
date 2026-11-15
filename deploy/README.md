@@ -33,7 +33,7 @@ then use:
 ```powershell
 ./deploy/create-local-certificate.ps1
 docker build -t ghcr.io/vanillaicecube/macromapper-backend:latest ./backend
-docker build -t ghcr.io/vanillaicecube/macromapper-frontend:latest ./frontend
+docker build --file frontend/docker/Dockerfile -t ghcr.io/vanillaicecube/macromapper-frontend:latest ./frontend
 Set-Location deploy
 docker compose up -d
 docker compose exec -T backend python manage.py migrate
@@ -96,11 +96,21 @@ registry digests. Production Dockerfiles and the independent release engine are
 unchanged by this development-image policy. Refresh tags/digests together after
 registry verification and a disposable build/configuration check.
 
-The frontend development entrypoint hashes both `package.json` and
-`package-lock.json` inside its persistent `node_modules` volume. Fresh volumes
-install with `npm ci`; unchanged restarts reuse dependencies; changing either
-manifest reinstalls. Missing manifests or a failed installation stop startup and
-retry on the next invocation. Use one volume per checkout and restart after edits.
+Frontend production/development Dockerfiles and Nginx configuration live in
+`frontend/docker/`. The build context remains
+`frontend/`; Compose and CI select the Dockerfile explicitly.
+
+The frontend starts Vite directly with `npm start`. Source hot reload and the
+persistent `frontend_node_modules` volume remain. Dependency changes require a
+manual install in the running frontend container, followed by a restart:
+
+```powershell
+docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml exec -T frontend npm ci
+docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml restart frontend
+```
+
+If the frontend is stopped, use `run --rm --no-deps frontend npm ci` with the same
+Compose options, then start it again. Keep one dependency volume per checkout.
 Compose configuration
 checks do not deploy or touch application data.
 
