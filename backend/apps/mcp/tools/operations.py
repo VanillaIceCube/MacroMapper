@@ -557,7 +557,7 @@ def invoke(action, operation, actor, target, serializer, target_id, selected_ids
             output = None
         elif action in {"meal.draft_create", "meal.draft_update"}:
             output = serialize(
-                "meals", actor, meal_services.save_draft(actor, data, target)
+                "meals", actor, proposal_services.save_draft(actor, data, target)
             )
         elif action == "proposal.update":
             output = serialize(

@@ -6,12 +6,15 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Remove the meal/estimate service import cycle by keeping actor-scoped reviewed draft saving with proposal orchestration; REST and MCP share the same authorization and transaction boundaries.
+- Verify the CI uv bootstrap against a reviewed wheel SHA-256 before installation across all four repositories; reject unsupported runner targets and source distributions.
 - Return structured reconnect guidance for expired or under-scoped MCP connections while keeping object denials separate and sanitizing unexpected failures.
 - Align authentication request validation, duplicate-registration handling and exact password preservation across applications; reject malformed reset credentials with HTTP 400 and roll back failed signup onboarding.
 - Require a nonblank production signing key consistently.
 
 ### Changed
 
+- Raise the complete source-diff limit for all three AI reviewers to 2 MB (2,000,000 bytes) across all four repositories; preserve fail-closed incomplete reviews and all other context, token and model settings.
 - Replace MCP preview/confirmation steps with direct scoped execution: 12 tools retain all 19 actions, automatic request UUIDs recover cached outcomes, and paid reservations prevent duplicate provider execution without another human approval.
 - Separate MCP permissions, action dispatch, authenticated services, actor-scoped queries and bounded results; replace obsolete Confirmation state with durable automatic execution receipts in a new migration.
 - Use `services.py` consistently for actor-scoped domain business operations and name proposal recipe-tree helpers `recipe_edits.py`; REST and MCP share those services.

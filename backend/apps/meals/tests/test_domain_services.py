@@ -1,11 +1,13 @@
 """Direct diary services preserve ownership and catalog authorization."""
 
+import ast
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 from unittest.mock import patch
 
 from django.db import connection
-from django.test import TestCase, TransactionTestCase
+from django.test import SimpleTestCase, TestCase, TransactionTestCase
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from .. import services
@@ -60,3 +62,31 @@ class MealNamingTransactionTests(MealEntryFixtures, TransactionTestCase):
             )
         self.assertEqual(meal.name, "Provider name")
         self.assertEqual(meal.items.count(), 1)
+
+
+class DomainServiceDependencyTests(SimpleTestCase):
+    def test_domain_service_imports_are_acyclic_including_lazy_imports(self):
+        apps = Path(services.__file__).resolve().parents[1]
+        graph = {}
+        for source in apps.glob("*/services.py"):
+            module = f"apps.{source.parent.name}.services"
+            dependencies = set()
+            for node in ast.walk(ast.parse(source.read_text(encoding="utf-8"))):
+                if isinstance(node, ast.ImportFrom) and node.module:
+                    dependencies.add(node.module)
+                    dependencies.update(
+                        f"{node.module}.{name.name}" for name in node.names
+                    )
+                elif isinstance(node, ast.Import):
+                    dependencies.update(name.name for name in node.names)
+            graph[module] = dependencies
+
+        def visit(module, ancestors):
+            self.assertNotIn(
+                module, ancestors, f"Cyclic services: {ancestors} -> {module}"
+            )
+            for dependency in graph[module] & graph.keys():
+                visit(dependency, (*ancestors, module))
+
+        for module in graph:
+            visit(module, ())

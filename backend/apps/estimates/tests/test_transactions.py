@@ -9,13 +9,14 @@ from django.core.exceptions import ValidationError
 from django.db import connections
 from django.test import TransactionTestCase
 from django.utils import timezone
+from rest_framework.exceptions import PermissionDenied
 
 from apps.foods.models import FoodItem, FoodItemVersion
 from apps.foods.services import create_food_item
 
 from ..models import MealProposal
 from ..provider import EstimationProviderError
-from ..services import _catalog_food, create_proposal, save_meal_draft
+from ..services import _catalog_food, create_proposal, save_draft, save_meal_draft
 
 
 class EstimationTransactionTests(TransactionTestCase):
@@ -55,7 +56,10 @@ class EstimationTransactionTests(TransactionTestCase):
         )
 
     def test_blank_name_wait_allows_a_concurrent_database_write(self):
-        _, _, draft = self._draft()
+        owner, _, draft = self._draft()
+        data = {
+            key: value for key, value in draft.items() if key not in {"owner", "meal"}
+        }
 
         def ordinary_write():
             try:
@@ -77,7 +81,7 @@ class EstimationTransactionTests(TransactionTestCase):
         with patch(
             "apps.meals.services.get_estimation_provider", return_value=provider
         ):
-            meal = save_meal_draft(**draft)
+            meal = save_draft(owner, data)
         self.assertEqual(meal.name, "Named toast")
         self.assertEqual(meal.items.count(), 1)
         self.assertTrue(
@@ -97,8 +101,37 @@ class EstimationTransactionTests(TransactionTestCase):
             "apps.meals.services.get_estimation_provider", return_value=provider
         ):
             with self.assertRaises(ValidationError):
-                save_meal_draft(**draft)
+                save_draft(
+                    draft["owner"],
+                    {
+                        key: value
+                        for key, value in draft.items()
+                        if key not in {"owner", "meal"}
+                    },
+                )
         self.assertFalse(draft["owner"].meal_entries.exists())
+
+    def test_actor_draft_save_rechecks_live_owner_before_mutating(self):
+        owner, _, draft = self._draft()
+        draft["name"] = "Reviewed toast"
+        meal = save_meal_draft(**draft)
+        other = get_user_model().objects.create_user(username="other-draft-owner")
+        data = {
+            key: value for key, value in draft.items() if key not in {"owner", "meal"}
+        }
+        data["name"] = "Changed toast"
+        with self.assertRaises(PermissionDenied):
+            save_draft(other, data, meal)
+        # The caller's stale instance must not authorize a former owner either.
+        type(meal).objects.filter(pk=meal.pk).update(owner=other)
+        with self.assertRaises(PermissionDenied):
+            save_draft(owner, data, meal)
+        meal.refresh_from_db()
+        self.assertEqual(meal.name, "Reviewed toast")
+        self.assertEqual(meal.items.count(), 1)
+        saved = save_draft(other, data, meal)
+        self.assertEqual(saved.name, "Changed toast")
+        self.assertEqual(saved.items.count(), 1)
 
     def test_publication_and_proposal_roll_back_if_revision_fails(self):
         owner = get_user_model().objects.create_user(

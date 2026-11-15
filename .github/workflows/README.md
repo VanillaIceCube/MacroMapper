@@ -124,7 +124,7 @@ Credential-handling GitHub Actions are pinned the same way. When a complete
 pull-request diff exceeds an AI reviewer's configured budget, that reviewer's
 GitHub App posts an explicit incomplete-review comment under its own identity
 and then fails the check without publishing a verdict.
-All three reviewers inherit the same 512 KiB source-diff budget from
+All three reviewers inherit the same 2 MB (2,000,000-byte) source-diff budget from
 `.github/actions/get-pr-diff/action.yml`; reviewer workflows do not override it.
 Raw generated dependency lockfile payloads are omitted from AI prompts because
 the dependency and malware gates review those files directly. Reviewers still

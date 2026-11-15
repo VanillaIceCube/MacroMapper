@@ -337,14 +337,6 @@ def delete_meal(actor, meal):
     meal.delete()
 
 
-def save_draft(actor, data, meal=None):
-    from apps.estimates.services import save_meal_draft
-
-    if meal is not None:
-        require_meal_owner(actor, meal)
-    return save_meal_draft(owner=actor, meal=meal, **data)
-
-
 def validate_meal_data(actor, attrs, instance=None, *, partial=True):
     name = attrs.get("name", getattr(instance, "name", "")).strip()
     if not name and instance is not None:

@@ -2482,6 +2482,13 @@ def saved_meal_version_ids(meal):
     return version_ids
 
 
+def save_draft(actor, data, meal=None):
+    """Save a reviewed draft for its actor without a reverse service dependency."""
+    if meal is not None:
+        require_meal_owner(actor, meal)
+    return save_meal_draft(owner=actor, meal=meal, **data)
+
+
 def save_meal_draft(*, owner, meal, entry_date, name, notes, items):
     if meal is None and not name:
         catalog_versions_map = _visible_catalog_versions_map(

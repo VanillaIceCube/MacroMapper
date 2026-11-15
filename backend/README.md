@@ -91,8 +91,8 @@ responses remain generic for valid email-shaped input.
   - Body: `uid`, `token`, `password`
 
 REST views and MCP tools use the same actor-scoped operations: catalog queries
-and personal writes in `apps/foods/services.py`, diary queries/writes/drafts in
-`apps/meals/services.py`, proposal operations in
+and personal writes in `apps/foods/services.py`, diary queries/writes in
+`apps/meals/services.py`, proposal operations and reviewed draft saving in
 `apps/estimates/services.py`, and recipient activity operations in
 `apps/notifications/services.py`. These entrypoints recheck ownership and own
 transactions; serializers validate boundary fields and delegate their writes.
