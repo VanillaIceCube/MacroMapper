@@ -6,10 +6,18 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Distinguish the frontend router basename, Vite asset base and API origin in configuration guidance; retain domain-root deployment behavior.
+- Correct the frontend route guide: `/` and `/diary` both show the protected meal diary.
+- Use Vitest globals in the flat ESLint configuration instead of allowing Jest-only globals.
+- Pin the production frontend builder to the existing multi-platform Node 26 digest used by frontend development.
 - Reject unsafe paths, symlinks and duplicate members in exported ChatGPT ZIPs, bound archive expansion, and cover hostile exports with offline regressions.
 
 ### Changed
 
+- Move the author's original note from the frontend guide to the project README, preserving its wording.
+- Move frontend connection contracts into session guidance and product intent beside route behavior; keep related guides as final navigation.
+- Align frontend npm commands: production builds run strict lint first and `lint:fix` applies available lint fixes.
+- Document frontend API configuration through development Compose and production build arguments, and exclude local frontend env files from Docker build contexts.
 - Rename shared frontend test support to `src/test-helpers/`, retain application and feature tests beside their implementation, and preserve application-specific helper behavior.
 - Consolidate shared frontend test setup, helpers and suites under `src/tests/`, update imports and discovery paths, and retain App, startup and feature tests beside their implementation.
 - Replace mocked frontend startup wiring checks with real React entry-point integration coverage for the signed-out login route, isolated state and blocked network access.

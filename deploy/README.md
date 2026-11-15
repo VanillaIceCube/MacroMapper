@@ -12,6 +12,11 @@ Infrastructure gateway with the same 120-second API read timeout.
 
 ## 💻 Local Docker with `macromapper.localhost`
 
+The development Compose `environment` sets the frontend API origin. Production
+uses the Docker build argument, which is compiled into the static assets; a blank
+value selects same-origin requests. Backend settings remain in `deploy/.env`,
+created from the committed `deploy/backend.env` example below.
+
 For source iteration, copy `backend.env` to `deploy/.env` only if you do not
 already have a local environment file, then initialize only a missing database:
 
@@ -92,9 +97,9 @@ The [app MCP guide](../backend/macromapper_mcp/README.md) defines app-owned OAut
 ## 📦 Development dependency reproducibility
 
 Development images pin reviewed multi-platform Node 26 and Miniforge 26.9.4-0
-registry digests. Production Dockerfiles and the independent release engine are
-unchanged by this development-image policy. Refresh tags/digests together after
-registry verification and a disposable build/configuration check.
+registry digests. Frontend production and development builders use the same
+immutable Node 26 digest. Refresh matching tags/digests together after registry
+verification and a disposable build/configuration check.
 
 Frontend production/development Dockerfiles and Nginx configuration live in
 `frontend/docker/`. The build context remains
