@@ -26,6 +26,7 @@ All notable changes to this project are documented in this file.
 
 ### Removed
 
+- Remove the unused shared AI-review publisher error binding and synchronize the release builder without its unused origin constant to Infrastructure source `15b9bdfaf7530de4979dce0ee3cef6baffa814ac`.
 - Remove unused exports from internal meal conversion, nutrient calculation, authentication, and theme helpers, plus the unused activity color token.
 - Remove the obsolete `STATICFILES_STORAGE` declaration ignored by Django 6; preserve the existing active static-file storage behavior.
 - Remove the unreferenced primary-color CSS alias; retain the Field Atlas tokens used by the application.
