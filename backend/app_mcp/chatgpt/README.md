@@ -7,10 +7,15 @@ accounts, a predefined public OAuth client, and explicit consent.
 ## 🔗 Connect and choose permissions
 
 The client ID is `macromapper-chatgpt`, with token authentication method `none`
-and S256 PKCE. The default package requests `macromapper:read` only. Choose
-`macromapper:write` for confirmed ordinary mutations and `macromapper:estimate`
-for explicitly confirmed paid estimates when those capabilities are wanted.
-Existing grants cannot silently gain new scopes.
+and S256 PKCE. This package requests `macromapper:read` only and advertises read
+access. It cannot perform writes or paid estimates with that grant.
+
+To intentionally build a broader variant, add `macromapper:write` to
+`baseScopes` in `mcp.json` for confirmed ordinary mutations. Paid estimates also
+require `macromapper:estimate` and separate explicit confirmation. Review and
+update the listing capabilities and descriptions to match that variant before
+building, then obtain a new consent grant for its requested scopes. Existing
+grants cannot silently gain new scopes.
 
 Follow the [app MCP guide](../../macromapper_mcp/README.md#-consent-and-client-setup)
 for client registration, the exact callback, consent, tool coverage, and

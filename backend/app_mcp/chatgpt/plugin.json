@@ -2,7 +2,7 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "macromapper",
   "version": "0.1.0",
-  "description": "Read and manage MacroMapper meals, foods, proposals, and notifications with explicit write confirmations.",
+  "description": "Read MacroMapper meals, foods, proposals, and notifications using your existing account.",
   "author": {
     "name": "Jude Andrew Alaba",
     "url": "https://github.com/VanillaIceCube"
@@ -19,12 +19,11 @@
       "interface": {
         "displayName": "MacroMapper",
         "shortDescription": "Review meals and nutrition",
-        "longDescription": "Read your MacroMapper meals, food catalog, proposals, and notifications. Review explicit previews before confirmed changes. Paid AI estimates require their separate permission and explicit confirmation. Uses your existing MacroMapper account and the OAuth permissions you select. Nutrition information is not medical or prescriptive dietary advice.",
+        "longDescription": "Read your MacroMapper meals, food catalog, proposals, and notifications. This package requests read-only access using your existing MacroMapper account and explicit OAuth consent. Nutrition information is not medical or prescriptive dietary advice.",
         "developerName": "Jude Andrew Alaba",
         "category": "Productivity",
         "capabilities": [
-          "Read",
-          "Write"
+          "Read"
         ],
         "websiteURL": "https://macromapper.judeandrewalaba.com",
         "supportURL": "https://github.com/VanillaIceCube/MacroMapper/issues",
@@ -33,7 +32,7 @@
         "defaultPrompt": [
           "Show my meals for today.",
           "Find foods in my MacroMapper catalog.",
-          "Help me review a meal before saving it."
+          "Review my nutrition for today."
         ]
       }
     }
