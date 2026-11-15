@@ -402,7 +402,7 @@ coverage; never rerun an old failed revision as proof of the new source.
 #### CodeQL maintenance
 
 CodeQL init/analyze entry points use the same immutable v4.39.3 revision. After
-reviewed workflow dependency updates, run `python scripts/ci_architecture.py`
+reviewed workflow dependency updates, run `python .github/tools/ci_architecture.py`
 and commit the regenerated source inventory; `--check` remains a blocking drift gate.
 
 Upstream [v4.39.3 release notes](https://github.com/github/codeql-action/releases/tag/v4.39.3)
@@ -483,13 +483,13 @@ source-pin PRs do not authorize merging, promotion, or deployment.
 
 ### Repository validation and browser diagnostics
 
-The path-aware test gate includes `.github/**`, `scripts/**`, `deploy/**`,
-`tests/**` and maintained docs in automation validation. It runs workflow and
+The path-aware test gate includes `.github/**`, `frontend/e2e/**`, `scripts/**`, `deploy/**`,
+and maintained docs in automation validation. It runs workflow and
 composite syntax, parser-only script checks and synthetic Compose configuration
 plus the existing Batch 1 suites and focused mocked composite regressions.
 [Coverage and external boundaries](../../docs/AUTOMATION-COVERAGE.md) are explicit.
 
-`scripts/bounded_log.py` retains early, sampled failing and late context within
+`.github/tools/bounded_log.py` retains early, sampled failing and late context within
 16,000 characters for reviewers. Full output is streamed with `tee`; failed
 logs have roughly 1 MiB capped artifacts retained seven days. Random delimiters
 protect multiline outputs and the original command status still determines the
@@ -503,7 +503,7 @@ production data, live email or paid AI requests for these tests.
 
 Validate syntax and relevant behavioral tests after automation changes. Preserve
 original check failures and bounded/redacted diagnostics. Update the existing
-architecture inventory with `python scripts/ci_architecture.py` after workflow
+architecture inventory with `python .github/tools/ci_architecture.py` after workflow
 changes and verify it with `--check`. Do not use production as a test fixture.
 
 ## 📚 Related guides

@@ -11,7 +11,6 @@ integration contracts, maintenance, and recorded verification.
 - [GitHub setup and workflows](../.github/README.md).
 - [MCP integration and ChatGPT connection](../backend/app_mcp/README.md).
 - [Scripts](../scripts/README.md).
-- [Tests](../tests/README.md).
 - [Application tour](../frontend/docs/APPLICATION-TOUR.md).
 
 ## 🧱 Product and architecture

@@ -1,33 +1,19 @@
-# 🧰 MacroMapper scripts
+# 🧰 MacroMapper compatibility scripts
 
-Repository maintenance helpers live here. Run documented commands from the
-repository root with the dependencies required by the relevant guide.
+This folder retains two retired entry points solely as fail-closed compatibility
+stubs. Neither performs deployment or prepares a production bundle.
 
-## 🧭 Script index
-
-| Script | Purpose |
+| Stub | Purpose |
 | --- | --- |
-| [bounded_log.py](bounded_log.py) | Bound reviewer logs while retaining early, failing, and late evidence. |
-| [check_app_mcp.py](check_app_mcp.py) | Verify shared Python framework hashes against the canonical source pin. |
-| [ci_architecture.py](ci_architecture.py) | Validate documented CI contracts and regenerate the source inventory. |
-| [collect_browser_artifacts.py](collect_browser_artifacts.py) | Collect a bounded set of generated browser failure artifacts. |
-| [create-local-certificate.ps1](create-local-certificate.ps1) | Create workstation HTTPS certificates for local development. |
-| [deploy-production.sh](deploy-production.sh) | Retired entry point that fails closed; use the production guide. |
-| [e2e_backend.py](e2e_backend.py) | Start only the isolated loopback backend used by browser tests. |
-| [e2e_settings.py](e2e_settings.py) | Disposable test settings; excludes developer and production environment files. |
-| [install_actionlint.sh](install_actionlint.sh) | Install the pinned, checksum-verified Linux Actionlint release. |
-| [prepare-production-bundle.py](prepare-production-bundle.py) | Retired bridge helper that fails closed; use the production guide. |
-| [run_e2e.cjs](run_e2e.cjs) | Run isolated frontend/backend browser journeys and remove their generated state. |
-| [test_dev_container.py](test_dev_container.py) | Verify dependency startup with a disposable Docker volume. |
-| [validate_repository.py](validate_repository.py) | Validate workflow/script syntax and synthetic Compose configuration. |
+| [deploy-production.sh](deploy-production.sh) | Reject the retired production deployment path. |
+| [prepare-production-bundle.py](prepare-production-bundle.py) | Reject the retired production bundle bridge. |
 
-## 🔌 MCP maintenance
+Legacy `env-prod` history and external/operator callers may still invoke them.
+Remove these stubs only after the host operator inventories callers, migrates or
+disables every legacy caller, verifies release and recovery, confirms retained
+rollback procedures do not invoke them, and records the evidence in the deployment
+issue. Follow the [production guide](../deploy/production/README.md#boundary-and-activation-order).
 
-See the [framework README](../backend/app_mcp/README.md) for canonical
-source ownership, manifests, and the local `--source-root` verification option.
-
-## 📚 Further reading
-
-- [Tests and validation](../tests/README.md).
-- [GitHub setup and workflows](../.github/README.md).
-- [Documentation index](../docs/README.md).
+Active tooling lives with its owners: [CI tools](../.github/README.md#-verification),
+[browser helpers](../frontend/README.md#-browser-tests), [MCP verification](../backend/app_mcp/README.md#-verification),
+[local certificates](../deploy/README.md).
