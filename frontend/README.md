@@ -169,7 +169,7 @@ and theme details in the existing presentation layer.
 Add behavior tests beside domain implementations and run the full frontend suite
 and production build when changing entry points or their consumers.
 
-## 🥗 Nutrition evidence
+## 🔎 Nutrition evidence
 
 Meal review retains official parent nutrition while showing inferred component
 values separately. Details expose mixed/partial evidence, clickable sources,
@@ -224,6 +224,7 @@ rather than crowding primary tabs. Charts describe patterns without praise, blam
 or medical interpretation.
 
 ### Authentication
+
 - Build public authentication pages with `AuthPageShell`.
 - Give every form a visible heading, native submit behavior, and browser
   autocomplete metadata.
@@ -319,7 +320,9 @@ responsive geometry in a browser. Follow the Node range in `package.json`,
 and verify clean installs, strict lint, formatting, tests and production builds.
 See [Docker dependency maintenance](../deploy/README.md#development-dependency-reproducibility).
 
-## 📚 Related guides
+<a id="-related-guides"></a>
+
+## 📚 Reference
 
 - [Backend and MCP integration](../backend/README.md).
 - [Local Docker and production releases](../deploy/README.md).

@@ -85,7 +85,7 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml up -d --f
 
 Never add a real key to the tracked
 `deploy/backend.env` example. Production uses a separate key and the approved
-release procedure; see the [credential migration guide](../.github/README.md#-application-credentials).
+release procedure; see the [credential migration guide](../.github/README.md#application-credentials).
 
 
 ## 🔌 Shared MCP framework
@@ -121,12 +121,16 @@ checks do not deploy or touch application data.
 
 <a id="non-deploying-repository-validation"></a>
 
-## 🧪 Repository validation
+<a id="-repository-validation"></a>
+
+## 🧪 Checks
 
 See [workflow checks and validation](../.github/workflows/README.md#-checks-and-diagnostics).
 
 
-## 📚 Further reading
+<a id="-further-reading"></a>
+
+## 📚 Reference
 
 - [Live-server releases and recovery](production/README.md).
 - [Backend configuration](../backend/README.md).
