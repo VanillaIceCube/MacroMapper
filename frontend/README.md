@@ -248,6 +248,9 @@ npm run build
 
 ## 🛠️ Maintenance
 
+The flat ESLint configuration uses Vitest globals, matching the configured test
+runner.
+
 Keep `showPicker()` synchronous inside the user handler, with its existing click
 fallback. Preserve the nonempty-date guard, responsive navigation bounds and
 Today behavior.
