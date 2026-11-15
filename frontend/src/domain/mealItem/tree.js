@@ -20,7 +20,7 @@ const adjusted = (item) => ({
   },
 });
 
-export function updateMealItemTree(items, key, update, affectsNutrition = true) {
+function updateMealItemTree(items, key, update, affectsNutrition = true) {
   return items.map((item) => {
     if (item.key === key) return update(item);
     const components = updateMealItemTree(item.components || [], key, update, affectsNutrition);

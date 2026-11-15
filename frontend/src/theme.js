@@ -1,6 +1,6 @@
 import { alpha, createTheme } from '@mui/material/styles';
 
-export const fieldAtlasTokens = {
+const fieldAtlasTokens = {
   bone: '#F6F1E7',
   paper: '#FFFDF8',
   ink: '#17324D',

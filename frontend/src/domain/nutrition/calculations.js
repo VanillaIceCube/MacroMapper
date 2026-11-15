@@ -23,7 +23,7 @@ export const servingsValue = (item) => {
   return Number.isFinite(servings) && servings > 0 ? servings : 0;
 };
 
-export function perServingNutrient(item, key) {
+function perServingNutrient(item, key) {
   if (!item || typeof item !== 'object') return null;
   const components = Array.isArray(item.components) ? item.components : [];
   const coverage = item.evidence?.nutrients?.[key];

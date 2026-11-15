@@ -26,6 +26,8 @@ All notable changes to this project are documented in this file.
 
 ### Removed
 
+- Remove unused exports from internal meal conversion, nutrient calculation, authentication, and theme helpers, plus the unused activity color token.
+- Remove the obsolete `STATICFILES_STORAGE` declaration ignored by Django 6; preserve the existing active static-file storage behavior.
 - Remove the unreferenced primary-color CSS alias; retain the Field Atlas tokens used by the application.
 - Remove centralized frontend lint-configuration, theme/MUI compatibility and domain-architecture suites and their unused direct `@babel/parser` dependency; preserve shared support and all colocated application, component and service tests.
 - Remove the custom frontend development entrypoint and automatic dependency reinstall; start Vite directly and install changed dependencies manually in the development container.
