@@ -8,7 +8,7 @@ versioned application release engine. Each application owns its domain behavior,
 credentials, OAuth issuer, consent, permissions and MCP tools; do not introduce a
 shared authorization service, cross-application account mapping or YNAB dependency.
 
-Follow the [shared rollout policy](https://github.com/VanillaIceCube/FullStackTemplate/blob/main/docs/SHARED-ROLLOUT-POLICY.md)
+Follow the [shared rollout policy](https://github.com/VanillaIceCube/FullStackTemplate/blob/main/.github/README.md#-shared-engineering-ownership-and-rollout)
 for reusable framework, automation, test or security changes. One canonical
 FullStackTemplate parent must inventory all four repositories as required,
 not applicable, already satisfied or explicitly deferred with reasons and evidence.
@@ -26,7 +26,7 @@ The main README introduces the repository. Keep setup, commands, configuration,
 and maintenance details in the owning folder README and its linked references.
 Use consistent headings: 🧭 Structure, 💻 Local development, ⚙️ Configuration,
 🧪 Checks, 🔌 MCP integration, and 📚 Reference where applicable.
-See the [documentation index](docs/README.md) for scripts, tests, and other guides.
+Use the owning folder READMEs linked below for setup and maintenance.
 Keep this file current when its commands or constraints change, and update the
 owning README/reference when setup, routing, environment, deployment or CI changes.
 Record user-visible or operational changes in `CHANGELOG.md`.
@@ -146,7 +146,7 @@ review before the next ordinary promotion. Preserve both histories and newer mai
 work; never reset or force-push to manufacture parity. Intentional release lag is
 allowed while prerequisites or acceptance remain unfinished. History reconciliation
 does not authorize deployment, and an absent production branch is not a reason
-to create one. Follow the [main-first release policy](https://github.com/VanillaIceCube/FullStackTemplate/blob/main/docs/SHARED-ROLLOUT-POLICY.md#main-first-releases).
+to create one. Follow the [main-first release policy](https://github.com/VanillaIceCube/FullStackTemplate/blob/main/.github/README.md#main-first-releases).
 
 Common release code, tests, checker and workflow are owned by Infrastructure.
 Change `app-release/v1` at the source, regenerate its manifest, then synchronize
@@ -209,7 +209,7 @@ and token inputs. Run `.github/actions/custom-regressions/security-alert-contrac
 after changes; actual loading acceptance requires fresh controlled dispatches on
 corrected main. Preserve applicable bounded malware review and documented
 coverage decisions. Maintain CI architecture diagrams and regenerate
-`docs/CI-CD-SOURCE-INVENTORY.json` with `python .github/tools/ci_architecture.py` after
+`.github/workflows/ci-source-inventory.json` with `python .github/tools/ci_architecture.py` after
 workflow edits. Promotion summaries are informational.
 
 Main requires `AI Code Review / Obi-Wan Code-nobi code review`,
@@ -272,9 +272,9 @@ registration, owner consent and plugin installation remain separate actions.
 
 Preserve MacroMapper's AI/data and domain contracts in the
 [backend README](backend/README.md), [frontend README](frontend/README.md),
-[catalog identity guide](docs/CANONICAL-FOODS.md),
-[meal interpretation guide](docs/MEAL-INTERPRETATION.md) and
-[nutrition integrity guide](docs/NUTRITION-INTEGRITY.md). Catalog/manual diary
+[catalog identity guide](backend/README.md#-canonical-food-identity),
+[meal interpretation guide](backend/README.md#-meal-interpretation-and-portions) and
+[nutrition integrity guide](backend/README.md#-nutrition-evidence). Catalog/manual diary
 work needs no AI key. Keep provider calls mocked in tests, bounded estimation
 budgets, draft preservation and atomic publication; do not publish late results.
 Preserve source/confidence/provenance, historical nutrition snapshots, food

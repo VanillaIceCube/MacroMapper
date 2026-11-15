@@ -12,7 +12,7 @@ the historical ingress migration, not as a permanent operator identity. Shared d
 
 ## Shared implementation and app configuration
 
-Both apps use [release contract v1](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/blob/a82888c83975de486b27ec0d0dc787fb5b167301/docs/app-release-standard.md).
+Both apps use [release contract v1](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/blob/a82888c83975de486b27ec0d0dc787fb5b167301/app-release/README.md).
 `app.json` contains this app's service/container/domain/environment/network/DB
 and readiness policy; `compose.yml` defines its services. Common release and
 bundle code has no application-name branches. `deploy/shared-source.json` pins
@@ -74,7 +74,7 @@ for every pull/migration/startup; no `latest` selector is used.
 
 Land reviewed source on `main`, then promote only an authorized, deployable
 revision to `env-prod` through the normal review and CI gates. These are source
-requirements from the [shared main-first policy](https://github.com/VanillaIceCube/FullStackTemplate/blob/main/docs/SHARED-ROLLOUT-POLICY.md#main-first-releases):
+requirements from the [shared main-first policy](https://github.com/VanillaIceCube/FullStackTemplate/blob/main/.github/README.md#main-first-releases):
 the promotion's entire source tree must match its exact reviewed main commit.
 These are source
 and operator rules; the workflow's branch check does not enforce main ancestry.
@@ -85,7 +85,7 @@ history; do not reset or force-push either branch to manufacture parity.
 Production may deliberately remain on an earlier reviewed release. MacroMapper's
 current policy enables its own MCP/OAuth under #284; the retired shared issuer
 remains removed. The application owns user permissions, confirmation and client
-setup; Infrastructure owns ordinary Nginx routing only. See [the MCP contract](../../docs/MCP.md).
+setup; Infrastructure owns ordinary Nginx routing only. See [the MCP contract](../../backend/macromapper_mcp/README.md).
 Branch reconciliation does not authorize a deployment, require matching production
 trees or authorize unrelated newer main changes for production.
 
@@ -300,8 +300,8 @@ accounted for. See the [migration and validation steps](../../.github/README.md#
 
 ## 🔌 Shared MCP framework
 
-MacroMapper uses the unchanged [canonical framework](../../docs/MCP-FRAMEWORK.md)
-and its own [domain/OAuth contract](../../docs/MCP.md). Its fixed production
+MacroMapper uses the unchanged [canonical framework](../../backend/app_mcp/README.md)
+and its own [domain/OAuth contract](../../backend/macromapper_mcp/README.md). Its fixed production
 settings enable MCP at the app origin and trust only gateway peer `172.20.0.3`.
 The release checks that exact gateway address while preserving all existing
 networks and Notoli's `.2` trust. The frontend Docker build enables connection
@@ -337,3 +337,69 @@ remain pointed at the disabled app (no connector is advertised by that backend).
 Client registrations, grants and plugin installation are separate from deployment.
 Ordinary Notoli, Notoli MCP and MacroMapper REST/frontend checks remain acceptance
 requirements.
+
+## 🥗 Catalog audit and consolidation
+
+Use the SQLite capture/recovery prerequisites above before any authorized mutation.
+Do not infer production IDs from historical issue receipts.
+
+On an approved private database copy, run the default read-only audit:
+
+```powershell
+python backend/manage.py audit_catalog_nutrition
+```
+
+It examines effective recursive nutrition, including empty composite parents, and
+reports food/version IDs only. Review every candidate, references and sources.
+Do not infer nutrition or clear nulls to zero. After separate explicit production
+authorization and the app release guide's SQLite capture/recovery prerequisites,
+an operator may archive **only reviewed still-empty shared food IDs**:
+
+```powershell
+python backend/manage.py audit_catalog_nutrition --archive --food-id REVIEWED_ID
+```
+
+The command rechecks selected rows transactionally and rejects any changed, usable,
+personal, missing or already archived target. Archiving changes discovery metadata
+only: no versions, component references, source evidence, diary nutrition snapshots,
+or proposal revisions are rewritten/deleted. All affected empty containers should
+be reviewed with their leaves. Test on a disposable copy and compare historical
+version IDs, meal totals, component snapshots and revision JSON before/after.
+Rollback restores only the archived timestamps recorded in the approved plan;
+never rewrite historical nutrition to match a later correction.
+
+Re-research unsourced/incorrect legacy records separately using approved evidence;
+create new immutable versions or replacement shared publications. Preserve the old
+references and original model metadata. Do not run paid re-estimation, archive
+production records, execute migrations, or promote env-prod without separate operational authorization.
+
+
+### Conservative consolidation
+
+Catalog consolidation requires separate authorization. The owner must
+review actual shared-food IDs and source/market/SKU evidence, then run the
+following against a backed-up database under separately authorized operations:
+
+```powershell
+# Review only; this is the default and writes nothing.
+python backend/manage.py consolidate_foods <first-id> <second-id> <third-id>
+# Apply only after examining the proposed canonical ID and source definitions.
+python backend/manage.py consolidate_foods <first-id> <second-id> <third-id> --apply
+```
+
+The command rejects
+personal, already archived, missing or differently identified records. It
+selects the registered canonical food, otherwise the lowest ID. Equivalent
+versions merge evidence; distinct definitions are copied onto the canonical
+food with derivation pointing to the retained original version. Duplicate food
+records are archived with `merged_into` pointing to the canonical food.
+
+Original versions, source rows and their official/retrieval evidence, derivations,
+meal snapshots, component foreign
+keys, proposal JSON and revision JSON are not moved or rewritten. Active list
+and catalog resolution expose the canonical record. An old alias detail lookup
+remains traceable through `merged_into`; pending proposals and saved meals can
+still use their exact pinned historical shared versions. A failed cleanup rolls
+back atomically. Retained originals support investigation, but restoring active
+catalog visibility after a completed cleanup requires a separately reviewed
+procedure or backup recovery; do not delete the alias/history rows.

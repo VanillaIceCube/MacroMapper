@@ -133,7 +133,7 @@ values separately. Details expose mixed/partial evidence, clickable sources,
 per-nutrient coverage, model confidence and failed/unavailable research warnings.
 User changes clear verification for the changed definition; consumed count changes
 preserve per-serving evidence. Legacy records remain readable. See the
-[backend evidence contract](../docs/NUTRITION-INTEGRITY.md).
+[backend evidence contract](../backend/README.md#-nutrition-evidence).
 Natural-size changes also preserve the food's per-serving evidence. Changing an
 ingredient's size changes its recipe contribution, so verification and confidence
 on enclosing composites are cleared and their totals are recalculated. Switching
@@ -147,8 +147,7 @@ measurement units alone preserves both consumed nutrition and composite evidence
   layout primitives.
 - Use the centralized Material UI theme in `src/theme.js` and the matching CSS
   custom properties in `src/App.css`; do not introduce one-off brand colors.
-- Follow the Field Atlas direction documented in
-  [`docs/design/FIELD_ATLAS.md`](docs/design/FIELD_ATLAS.md): warm paper surfaces, ink structure, restrained
+- Follow the Field Atlas direction: warm paper surfaces, ink structure, restrained
   cartographic details, and factual rather than clinical language.
 - Use Bone `#F6F1E7` for the canvas, Midnight ink `#17324D` for text and
   structure, Forest `#2E6B4F` for confirmed states and primary actions,
@@ -168,6 +167,18 @@ measurement units alone preserves both consumed nutrition and composite evidence
   motion behavior, and WCAG 2.2 AA contrast.
 - Keep authenticated and public routes visually consistent with the shared
   application shell.
+
+### Product language and layout
+
+Use sentence case and factual `within target`, `above target`, and `below target`
+labels. Source badges combine icon and text; unknown values display `Unavailable`.
+Keep editorial mapping language around Describe → Review components → Save to diary;
+use ordinary language for settings. Compass/route/pin motifs orient and explain
+provenance; decorative coordinates must never imply a user's real location.
+Desktop rails and optional detail inspectors retain list context. Mobile actions
+remain visible above fixed navigation, and secondary destinations use overflow
+rather than crowding primary tabs. Charts describe patterns without praise, blame
+or medical interpretation.
 
 ### Authentication
 - Build public authentication pages with `AuthPageShell`.
@@ -294,4 +305,45 @@ See [Docker dependency maintenance](../deploy/README.md#development-dependency-r
 
 - [Backend and MCP integration](../backend/README.md).
 - [Local Docker and production releases](../deploy/README.md).
-- [Application tour](docs/APPLICATION-TOUR.md).
+
+### Connections response contract
+
+Successful consent, decision, list and revoke responses must be JSON objects.
+Unreadable, empty, null, scalar or array successes reject with `Request failed.`;
+a protocol failure must not follow a callback or claim revocation succeeded.
+HTTP failures use the first nonblank string in `error_description`, `detail`, then
+`error`, otherwise `HTTP <status>`. Never expose raw HTML/plaintext, parser errors,
+nested objects or unrelated JSON fields as fallback messages. Backend public error
+fields must be safe to display. Preserve JWT-only headers, omitted cookies, form
+encoding, signed consent tickets and validated callbacks. Invalid refresh credentials
+clear the session; transient proxy/refresh failures retain it for retry. Notoli
+retains its extra post-refresh 401 handling and legacy API-base compatibility.
+
+## 🧭 Product intent
+
+MacroMapper is personal-use first: accounts, meals and custom foods remain private.
+Catalog-first text estimates expose components, quantities, sources and confidence
+for review before saving a pinned diary snapshot. A Food Item can be consumed
+directly or composed of other Food Items; personal meal edits never redefine the
+shared canonical food. Official/verified, reusable community/AI estimates and private
+personal records retain distinct trust states. Unknown nutrients are unavailable,
+never zero. Track calories, protein, carbohydrate, fat, fiber, sugar, sodium,
+cholesterol and available micronutrients without implying clinical guidance.
+
+Goals, calculated user-editable targets, activity logging and expanded trends remain
+planned. The planned baseline describes non-exercise life; only activities explicitly
+counted toward the budget add estimated calories. Avoid double-counting regular
+exercise. Activity estimates and targets are editable tracking information, never
+medical advice. Weight tracking, photos/barcodes and household/social/coaching
+features remain deferred.
+
+<details>
+<summary>A note from the author</summary>
+
+First and foremost, I created this application because I wanted a Calorie Counting App. I used to use MyFitnessPal, but I wanted something AI-Powered, and all options were like $20 bucks a month. I also didn't want to take pictures of my food? I mean I feel like that would just give you the worst estimate of all time.
+
+I had a vision where you'd write up a description then it would do it's best to fact check it against the internet. Like if I said I wanted a double double animal style with no lettuce (this is an example, I love lettuce) from inn-n-out, it would go to the internet and find the double double facts, find the animal style if it can, then break it down into components, and then remove the lettuce. And that info would be available for everyone in the application, with confidence level, the actual source, and a provenance marking.
+
+Outside of that, I mean my goal was to get a good personal use application that utilized generative AI in a manner that you could trust and audit it.
+
+</details>

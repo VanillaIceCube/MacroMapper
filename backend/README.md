@@ -245,8 +245,8 @@ draft when the provider is unavailable or cannot produce an applicable change.
 
 ## 🧩 Food identity and portions
 
-See [canonical identities and safe duplicate cleanup](../docs/CANONICAL-FOODS.md)
-and [meal interpretation semantics](../docs/MEAL-INTERPRETATION.md). Shared food
+See [canonical identities and safe duplicate cleanup](README.md#-canonical-food-identity)
+and [meal interpretation semantics](README.md#-meal-interpretation-and-portions). Shared food
 identity is independent of consumed quantity and nutritional definition. Recipes
 retain full-recipe ingredient quantities; their parent servings carry the eaten
 fraction. Natural size choices use food-specific weights and remain editable
@@ -374,9 +374,9 @@ database. Install backend requirements before running the frontend browser suite
 
 ## 📚 Domain contracts
 
-- [Catalog identity and duplicate cleanup](../docs/CANONICAL-FOODS.md).
-- [Meal interpretation and portion semantics](../docs/MEAL-INTERPRETATION.md).
-- [Nutrition evidence and publication rules](../docs/NUTRITION-INTEGRITY.md).
+- [Catalog identity and duplicate cleanup](README.md#-canonical-food-identity).
+- [Meal interpretation and portion semantics](README.md#-meal-interpretation-and-portions).
+- [Nutrition evidence and publication rules](README.md#-nutrition-evidence).
 
 ## 🚀 Production
 
@@ -384,3 +384,217 @@ Use the [production release and recovery guide](../deploy/production/README.md)
 for private configuration, exact proxy trust, migrations, static files and readiness.
 Production sessions/CSRF cookies require HTTPS with debug disabled; backend ports
 remain private. Local Docker files are development tools, not production release inputs.
+
+## 🥗 Canonical food identity
+
+Shared food identity is separate from an estimate's serving, nutrients,
+confidence and meal quantity. `canonical_identity` hashes normalized food/provider
+names, market and product identifiers. Known food plurals and punctuation are
+normalized; provider foods do not split merely because their classification is
+`branded` rather than `restaurant`. Generic leading portion-size wording is
+removed, while branded size/SKU names remain distinct.
+
+An explicit product identifier is scoped to its provider and market. Otherwise
+an explicitly supplied identity URL, or a source whose hostname starts with the
+normalized provider name,
+also constrains identity. URL fragments and tracking parameters are ignored;
+country paths and meaningful query parameters are preserved. This hostname
+heuristic is an identity hint, not proof of domain ownership or official
+nutrition provenance. Unmatched third-party source URLs do not define identity.
+Unknown versus known identity URLs/markets are
+conservatively distinct: adding evidence must not silently merge potentially
+different regional products. Unrecognized synonyms and cross-domain provider
+aliases need explicit review rather than fuzzy automatic merging.
+
+Within a canonical food, `content_fingerprint` covers the serving definition,
+food-specific natural servings, all supported nutrients, pinned component
+content/identity/quantities, and research/verification coverage.
+Component identity uses the registered canonical key when available; legacy
+components derive their identity from the exact pinned version's source URLs,
+so a later current version or a same-named regional product cannot replace it.
+Source-level official flags and verification evidence are part of content
+integrity: a newly verified publication cannot be swallowed by an older unsourced version with the
+same nutrients. Meal servings and consumed recipe fractions are instance
+quantities and do not create versions. Evidence-equivalent definitions reuse a
+version, retain additional source URLs, and append distinct estimation metadata
+to `FoodVersionEvidence`. Confidence-only differences and retrieval response IDs
+do not split equivalent versions; their complete incoming evidence/source
+metadata is retained in that append-only record.
+Ordinary citations with `is_official=false` and empty evidence also merge into
+the same version rather than changing its content identity; adding a first-party
+claim or trust/research evidence remains an immutable version distinction.
+Existing version nutrients, provenance, confidence, source evidence and response
+metadata remain unchanged.
+A materially changed definition or verification coverage creates a new version.
+Personal definitions remain owner-specific and are never merged by the
+consolidation command.
+
+Current version selection is deterministic: categorical verified parent coverage
+wins first (fully verified and source-backed with inferred components, then
+partially verified, AI estimate, then legacy/unknown), followed by the count of
+verified nutrient fields. Provenance then ranks official, community estimate, AI
+estimate, user entered, then user modified; source count, confidence, earliest
+version number and primary key break later ties. A legacy official label cannot
+displace a newly verified definition. Recency alone cannot displace better
+evidence. Exact source/product/region/serving verification follows the nutrition evidence contract below; this selection policy
+does not independently validate an AI assertion that a source is official.
+
+
+## 🧮 Meal interpretation and portions
+
+One draft tree is the calculation basis for AI estimates, manual review and saved
+meals. Each node has a unique stable key, immutable catalog identity/version
+references, a base serving definition and an instance `servings` multiplier.
+Composite nutrients ordinarily sum children multiplied by each child's local
+servings. Direct fields with matching official source verification retain their
+verified parent values; inferred component totals do not replace those fields.
+Consumed nutrients multiply that result by the parent's servings once.
+
+## Recipes and corrections
+
+Recipe descriptions are interpreted as a whole, including when some ingredients
+already exist in the catalog. Full recipe ingredient quantities remain children
+of the prepared food. The provider's optional `recipe_fraction` becomes the
+top-level recipe's servings; it requires a composite with one full recipe as its
+basis. For 75% of chilaquiles plus two chicken breasts and yogurt, the recipe is
+0.75, chicken is 2 and yogurt keeps its separately described quantity. The
+provider must not pre-scale recipe children. Nutrition normalization and rollup
+remain deterministic after interpretation.
+
+Follow-ups support targeted operations on exact existing keys:
+
+- `reparentings`: move a node to an existing composite (`parent_key`) or meal
+  level (`null`). Local ingredient quantities, IDs and nutrition are retained.
+- `fraction_updates`: set an absolute recipe fraction, not a multiplier of its
+  previous fraction. `excluded_keys` protects separate foods from quantity and
+  size operations in that response. Excluded children must first be moved out.
+- `serving_updates`: change an existing node's absolute quantity.
+- `portion_updates`: select an existing portion option. Natural size changes
+  preserve count; measurement conversions preserve consumed weight/nutrition.
+- `remove_keys`: remove an existing subtree. New foods still require the
+  existing catalog/publication validation path.
+
+Moves do not recreate ingredients. Ingredient-tree changes invalidate parent
+verification before recalculation; consumed-fraction-only changes preserve
+per-serving evidence and official values. Cycles, unknown keys, duplicate node keys,
+leaf destinations, excessive depth/cardinality and conflicting fraction/child
+quantity edits fail atomically with actionable validation. Removing the final
+child clears the former composite's nutrition rather than retaining stale
+totals. A local recipe quantity stays local when moved beneath a partially
+consumed recipe; its consumed contribution then follows that recipe's fraction.
+
+The AI remains responsible for resolving natural-language references and
+choosing the correct keys. The existing best-effort conversational policy is
+retained; ambiguous natural language is not a guarantee of a clarification
+dialog. Unsupported operations fail visibly. No paid meal-model call is required
+for the synthetic regression suite.
+
+## Canonical names and food-specific portions
+
+Generic leading size wording is removed from food identity; variety/color stays
+in the name. Branded product names and marketed size/SKU distinctions are kept.
+`natural_servings` is an optional list of `{key, label, weight_grams}` definitions
+for that particular food version. Choices appear as `size:<key>` portion options
+with multipliers derived from each gram weight divided by the base serving's
+gram weight. No universal Small/Medium/Large gram weights are assumed. A requested size is
+reused from the catalog only when a food-specific choice or the declared base
+serving represents that size. Otherwise the request remains unmatched for
+estimation; an unsupported Large request cannot silently reuse a Small base.
+Serialized size choices survive follow-up catalog lookup without requiring size
+words in the canonical food name or base label.
+
+For two Small apples, selecting Large keeps the count at two and changes the
+base-serving multiplier. Selecting grams converts the displayed quantity while
+preserving consumed nutrition. When food-specific sizes are unavailable, the
+existing natural base serving and grams/ounces options remain the fallback.
+Natural portion definitions are estimated unless their source/provenance says
+otherwise; this change does not introduce a verified food-weight database.
+
+Serving changes affect draft instances, never shared catalog versions. New component
+snapshots retain selected portion keys; old snapshots keep their original display
+and historical quantities/nutrients.
+
+## 🔎 Nutrition evidence
+
+## Publication and research
+
+`foods.evidence.usable_nutrition` accepts any finite nonnegative known nutrient,
+including zero. Nulls mean unknown. Empty leaves fail publication with a visible
+unresolved error before any shared food is written. Usable partial records and
+containers with populated components remain valid. The shared creation service
+also guards non-provider publication. Failed provider validation does not replace
+the user's existing draft or diary.
+
+The existing Responses web tool is required for initial estimation. Each branded
+parent without matching retrieved evidence gets a separate focused research pass
+under the **same existing deadline and worker limit**. There is no new service,
+credential, or unbounded retry. These research passes add potential provider/tool
+cost to an already-authorized estimate; tests never make live paid requests.
+Follow-up additions use the same evidence processing. Quantity-only follow-ups
+do not force online research.
+
+Search telemetry supplies the actually consulted URLs. A structured source alone
+cannot claim retrieval. Evidence retains document title, publisher, URL, first-party
+status, publication date when available, retrieval response ID, product, brand,
+region, serving quantity/unit/label/weight, and explicitly published nutrients.
+The backend never directly fetches model-supplied URLs. Existing public URL,
+text/privacy, decimal, depth and size publication gates remain in force.
+
+Verification requires retrieved evidence matching the exact product, brand,
+region and serving, plus equality for each displayed nutrient. Unknown or mismatched
+context remains an estimate. Search/extraction is still provider-mediated; these
+checks are not an independent human audit of a nutrition document. Provider-mediated checks do not establish independent human verification.
+
+`research_status` distinguishes `found`, `no_source_found`, `failed`,
+`not_attempted`, and legacy `not_recorded`. An unrelated frozen pizza, different
+market, whole pizza or another serving cannot verify a food-court slice. A source
+is attached only to its own food; parents do not supply evidence for components.
+Existing catalog hits remain reusable without new paid calls. Legacy unsourced
+records require separately reviewed re-research/replacement; reuse does not
+retroactively manufacture verification.
+
+## Compatible evidence contract
+
+Existing `provenance` and `source_kind` enums remain unchanged. Additive `evidence`
+on versions, proposal items and diary responses has these canonical statuses:
+
+| Status | Meaning |
+| --- | --- |
+| `official_verified` | All populated parent fields directly supported |
+| `source_backed_ai_components` | Verified parent values with inferred components |
+| `partially_source_backed` | Only some displayed parent fields directly supported |
+| `ai_estimate` | No verified parent fields |
+| `user_modified_estimate` | Reviewed definition changed; original sources retained as lineage |
+| `legacy_unverified` | Historical coverage was not recorded |
+
+`evidence.nutrients[field]` supplies verification status and supporting source URLs.
+Partial calorie evidence does not verify sugar, fiber or any other inferred field.
+Parent and component evidence remain separate. Direct verified parent fields take
+precedence over component sums; ordinary composites continue using component totals.
+Changing components removes the parent's verification and recalculates the result.
+Changing only the parent's consumed count preserves its per-serving evidence.
+
+Confidence metadata explicitly separates `model`, `evidence`, and `combined`.
+No independent numeric source confidence is available, so `evidence` is null,
+never a fabricated score. `combined` is the minimum available model dependency
+score, or null if a dependency is unscored. Categorical verification is independent
+of every confidence score. The UI explains this and exposes source coverage and
+the mixed parent/component state.
+
+SourceReference stores its own nullable `is_official` and evidence JSON. Legacy
+null official flags serialize conservatively as false/unknown; they are never
+inferred from the parent's label. The additive migration does not rewrite old
+versions, proposals, revisions, snapshots or source claims. Legacy component
+snapshots may omit evidence and remain readable. Source URLs can remain as lineage
+on adjusted foods, while no adjusted value is presented as verified. Review input
+cannot override server-owned evidence, even when returned metadata is round-tripped.
+
+Canonical food identity is separate from version content fingerprints . Trust-bearing evidence and source classifications participate in version
+content identity, so old unsourced content cannot swallow a verified publication.
+Retrieval IDs and confidence remain additional estimate evidence rather than
+splitting otherwise equivalent content. Identity still preserves explicit market,
+product identifiers and product URLs. Canonical `market` and evidence `region`
+share the supplied regional context; contradictory nonblank values are rejected
+before publication. Both remain blank when no regional context is supplied.
+Nutrition or serving changes create versions under the same canonical food. See canonical food identity above.
+Additive schema changes do not repair historical production data.
