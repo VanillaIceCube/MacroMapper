@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Disclose delegated MCP changes, permanent deletions and paid AI access accurately on OAuth consent; preserve host consent/safety controls while retaining direct application execution and read-only default grants.
 - Remove the meal/estimate service import cycle by keeping actor-scoped reviewed draft saving with proposal orchestration; REST and MCP share the same authorization and transaction boundaries.
 - Verify the CI uv bootstrap against a reviewed wheel SHA-256 before installation across all four repositories; reject unsupported runner targets and source distributions.
 - Return structured reconnect guidance for expired or under-scoped MCP connections while keeping object denials separate and sanitizing unexpected failures.

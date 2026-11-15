@@ -252,8 +252,8 @@ MCP_SETTINGS.update(
         MCP_SETTINGS["MCP_BASE_URL"],
         {
             "macromapper:read": "Read your meals, proposals, notifications and accessible foods",
-            "macromapper:write": "Make explicitly confirmed changes to your MacroMapper data",
-            "macromapper:estimate": "Run paid AI meal estimates after explicit confirmation",
+            "macromapper:write": "Allow this client to create, change and permanently delete your MacroMapper data without per-action app confirmation",
+            "macromapper:estimate": "Allow this client to spend AI credits and publish shared food definitions without per-action app confirmation (also requires read/write access)",
         },
         ["macromapper:read"],
     ),

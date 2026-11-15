@@ -1,6 +1,7 @@
 """Actual app-owned MCP HTTP discovery, tool calls and revocation."""
 
 from unittest import skipUnless
+from urllib.parse import parse_qs, urlencode, urlsplit
 from uuid import uuid4
 
 from asgiref.sync import async_to_sync, sync_to_async
@@ -14,6 +15,86 @@ from .helpers import MCPToolFixtures
 
 @skipUnless(settings.MCP_ENABLED, "Run the enabled app-owned OAuth profile")
 class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
+    def test_consent_discloses_delegated_access_and_refresh_cannot_escalate_it(self):
+        from rest_framework_simplejwt.tokens import RefreshToken
+
+        from apps.mcp.framework.tests.helpers import CHALLENGE, VERIFIER
+
+        self.client.defaults.update(
+            HTTP_AUTHORIZATION=f"Bearer {RefreshToken.for_user(self.user).access_token}",
+            HTTP_ACCEPT="application/json",
+        )
+        query = {
+            "client_id": self.application.client_id,
+            "response_type": "code",
+            "redirect_uri": self.application.redirect_uris,
+            "state": "client-state",
+            "resource": settings.MCP_RESOURCE_URL,
+            "code_challenge": CHALLENGE,
+            "code_challenge_method": "S256",
+        }
+        scoped = self.client.get(
+            "/auth/mcp/authorize/", query | {"scope": " ".join([READ, WRITE, ESTIMATE])}
+        )
+        self.assertEqual(scoped.status_code, 200, scoped.content)
+        permissions = {
+            item["scope"]: item["description"] for item in scoped.json()["permissions"]
+        }
+        self.assertEqual(set(permissions), {READ, WRITE, ESTIMATE})
+        self.assertIn("permanently delete", permissions[WRITE])
+        self.assertIn("spend AI credits", permissions[ESTIMATE])
+        self.assertIn("publish shared food definitions", permissions[ESTIMATE])
+        for scope in [WRITE, ESTIMATE]:
+            self.assertIn("without per-action app confirmation", permissions[scope])
+
+        default = self.client.get("/auth/mcp/authorize/", query)
+        self.assertEqual(default.status_code, 200, default.content)
+        self.assertEqual(
+            [item["scope"] for item in default.json()["permissions"]], [READ]
+        )
+        allowed = self.client.post(
+            "/auth/mcp/authorize/",
+            {"ticket": default.json()["ticket"], "decision": "allow"},
+        )
+        self.assertEqual(allowed.status_code, 200, allowed.content)
+        code = parse_qs(urlsplit(allowed.json()["redirect_url"]).query)["code"][0]
+        issued = self.client.post(
+            "/auth/mcp/token/",
+            urlencode(
+                {
+                    "grant_type": "authorization_code",
+                    "client_id": self.application.client_id,
+                    "code": code,
+                    "redirect_uri": self.application.redirect_uris,
+                    "code_verifier": VERIFIER,
+                    "resource": settings.MCP_RESOURCE_URL,
+                }
+            ),
+            content_type="application/x-www-form-urlencoded",
+        )
+        self.assertEqual(issued.status_code, 200, issued.content)
+        self.assertEqual(issued.json()["scope"], READ)
+        refresh = {
+            "grant_type": "refresh_token",
+            "client_id": self.application.client_id,
+            "refresh_token": issued.json()["refresh_token"],
+            "resource": settings.MCP_RESOURCE_URL,
+        }
+        escalated = self.client.post(
+            "/auth/mcp/token/",
+            urlencode(refresh | {"scope": " ".join([READ, WRITE, ESTIMATE])}),
+            content_type="application/x-www-form-urlencoded",
+        )
+        self.assertEqual(escalated.status_code, 400, escalated.content)
+        self.assertEqual(escalated.json()["error"], "invalid_scope")
+        refreshed = self.client.post(
+            "/auth/mcp/token/",
+            urlencode(refresh),
+            content_type="application/x-www-form-urlencoded",
+        )
+        self.assertEqual(refreshed.status_code, 200, refreshed.content)
+        self.assertEqual(refreshed.json()["scope"], READ)
+
     def test_actual_factory_discovery_direct_execution_replay_and_revocation(self):
         import httpx2
         from django.core.asgi import get_asgi_application
@@ -53,21 +134,18 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
                         metadata.json()["resource"], settings.MCP_RESOURCE_URL
                     )
                     headers["Authorization"] = f"Bearer {self.raw}"
-                    self.assertEqual(
-                        (
-                            await rpc(
-                                "initialize",
-                                {
-                                    "protocolVersion": "2025-11-25",
-                                    "capabilities": {},
-                                    "clientInfo": {
-                                        "name": "domain-test",
-                                        "version": "1",
-                                    },
-                                },
-                            )
-                        ).status_code,
-                        200,
+                    initialized = await rpc(
+                        "initialize",
+                        {
+                            "protocolVersion": "2025-11-25",
+                            "capabilities": {},
+                            "clientInfo": {"name": "domain-test", "version": "1"},
+                        },
+                    )
+                    self.assertEqual(initialized.status_code, 200)
+                    self.assertIn(
+                        "Follow the host client's consent and safety controls",
+                        initialized.json()["result"]["instructions"],
                     )
                     listing = (await rpc("tools/list")).json()["result"]["tools"]
                     tools = {tool["name"]: tool for tool in listing}
@@ -75,6 +153,13 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
                     self.assertNotIn("preview_change", tools)
                     self.assertNotIn("confirm_change", tools)
                     self.assertNotIn("connection_status", tools)
+                    for name in ["execute_change", "execute_paid_change"]:
+                        self.assertFalse(tools[name]["annotations"]["readOnlyHint"])
+                        self.assertTrue(tools[name]["annotations"]["destructiveHint"])
+                        self.assertIn(
+                            "host client's consent and safety controls",
+                            tools[name]["description"],
+                        )
                     self.assertTrue(
                         tools["search_foods"]["annotations"]["readOnlyHint"]
                     )

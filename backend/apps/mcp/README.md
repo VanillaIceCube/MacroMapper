@@ -250,17 +250,24 @@ user IDs cannot select another account. REST JWTs cannot call MCP.
 
 - `macromapper:read` is required and the only default grant. It reads accessible
   foods and the account's meals, totals, proposals and notifications.
-- `macromapper:write` permits user-requested business mutations, with the
-  same validation and ownership rules as the application.
+- `macromapper:write` delegates creation, edits and permanent deletion to the
+  client, with the same validation and ownership rules as the application.
 - `macromapper:estimate` separately permits paid AI estimates. It also requires
   read/write access and a user-requested paid action; read access alone cannot spend
   provider credits. Tests mock providers and do not make paid requests.
 
 A requested mutation runs directly with the required OAuth permissions. There is
 no application preview/confirmation round-trip, including for paid actions.
-The client may still display its own permission UI; this backend does not control
-those prompts. Catalog access follows existing visibility and ownership rules;
-MCP is not administrative access. Planned goals/activity and account credential
+The consent screen discloses direct changes/deletions for write access and credit
+spending/shared food publication for estimate access. Read remains the only
+default scope; broader access requires an explicitly requested OAuth grant and
+cannot be added by token refresh. The client must follow its own consent and
+safety controls; this backend does not control those prompts. OAuth scopes and
+execution receipts do not independently verify intent for each action: a
+compromised or prompt-injected client holding write/estimate access can act within
+that grant. Grant only the needed scopes to a trusted client and revoke unwanted
+access from Connected Apps. Catalog access follows existing visibility and
+ownership rules; MCP is not administrative access. Planned goals/activity and account credential
 management are outside the registry.
 
 ### 🧰 Available capabilities
@@ -268,6 +275,8 @@ management are outside the registry.
 The registry exposes 12 tools covering 19 closed mutation actions. Call
 `operation_schema(action)` before preparing a change: it returns the allowed
 fields, required values, bounds and scopes for that action.
+Its `requires_confirmation: false` describes the absence of an app confirmation
+round-trip; it does not override the host client's consent or safety controls.
 Meal-item descriptors separate string product identity metadata from the bounded
 `natural_servings` array (at most 12 food-specific gram definitions) and
 `portion_options` array (at most 20 selectable conversions), matching the
@@ -289,9 +298,10 @@ Exact repeats are idempotent because the automatic request receipt prevents
 executing the same request twice.
 
 The tool caller generates a UUID automatically for each intended operation. It
-must not ask the user for an ID or an extra approval. Preserve that UUID and the
-exact arguments if a response is interrupted: the same call retrieves the stored
-outcome instead of repeating the action. JSON-RPC IDs are not idempotency keys;
+must not ask the user for an ID. Host consent and safety controls still apply.
+Preserve that UUID and the exact arguments if a response is interrupted: the same
+call retrieves the stored outcome instead of repeating the action. JSON-RPC IDs
+are not idempotency keys;
 they can reset between sessions. A reused UUID with changed arguments is rejected.
 Receipts belong to the original account and OAuth client. Every replay rechecks
 current token validity/resource/scopes; refreshed credentials for that same

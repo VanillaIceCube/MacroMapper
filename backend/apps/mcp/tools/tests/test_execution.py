@@ -18,7 +18,7 @@ from apps.notifications.models import Notification
 
 from .. import queries, results
 from ..models import Execution
-from ..permissions import READ, WRITE
+from ..permissions import ESTIMATE, READ, WRITE
 from .helpers import MCPToolFixtures, definition
 
 
@@ -127,6 +127,34 @@ class MCPExecutionTests(MCPToolFixtures, TestCase):
         self.assertFalse(Execution.objects.filter(pk=paid["request_id"]).exists())
         self.assertTrue(self.execute(nonpaid)["applied"])
         self.assertFalse(MealProposal.objects.exists())
+
+    def test_scopes_independently_gate_delete_and_paid_work_before_reservation(self):
+        meal = self.make_meal()
+        delete = self.request("meal.delete", meal.pk, {})
+        paid = self.request(
+            "proposal.estimate",
+            payload={"description": "An unknown meal", "entry_date": "2026-10-30"},
+        )
+        with patch("apps.mcp.tools.operations.invoke_paid") as provider:
+            for scopes in ([READ], [READ, ESTIMATE], [WRITE, ESTIMATE]):
+                with self.subTest(scopes=scopes):
+                    self.token.scope = " ".join(scopes)
+                    self.token.save()
+                    for request in (delete, paid):
+                        with self.assertRaises(PermissionDenied):
+                            self.execute(request)
+                        self.assertFalse(
+                            Execution.objects.filter(pk=request["request_id"]).exists()
+                        )
+                    self.assertTrue(MealEntry.objects.filter(pk=meal.pk).exists())
+            self.token.scope = " ".join([READ, WRITE])
+            self.token.save()
+            with self.assertRaises(PermissionDenied):
+                self.execute(paid)
+            self.assertFalse(Execution.objects.filter(pk=paid["request_id"]).exists())
+            self.assertTrue(self.execute(delete)["applied"])
+            provider.assert_not_called()
+        self.assertFalse(MealEntry.objects.filter(pk=meal.pk).exists())
 
     def test_receipts_bind_owner_client_and_require_current_token_authorization(self):
         from oauth2_provider.models import AccessToken, Application
