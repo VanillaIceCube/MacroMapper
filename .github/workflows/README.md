@@ -97,7 +97,7 @@ the first CI run when creating or recovering the ruleset.
 
 ### Shared MCP framework
 
-The backend test gate checks the pinned MCP framework manifest, runs ordinary backend tests and separately runs `app_mcp macromapper_mcp` with MCP enabled and the application factory. Synthetic OAuth and mocked provider tests cover domain permissions without live credentials or paid requests. The shared deployment workflow stays unchanged: MacroMapper enables the connection UI through its app-owned Docker build default. See [the app MCP guide](../../backend/macromapper_mcp/README.md).
+The backend test gate runs ordinary backend tests and separately runs `app_mcp macromapper_mcp` with MCP enabled and the application factory. Synthetic OAuth and mocked provider tests cover domain permissions without live credentials or paid requests. The shared deployment workflow stays unchanged: MacroMapper enables the connection UI through its app-owned Docker build default. See [the app MCP guide](../../backend/macromapper_mcp/README.md).
 
 ## 🔒 Merge and dependency controls
 
@@ -105,8 +105,8 @@ The backend test gate checks the pinned MCP framework manifest, runs ordinary ba
 
 ### Dependabot
 
-`.github/dependabot.yml` checks npm, pip, GitHub Actions, and Docker dependencies
-daily. Dockerfiles are under `/backend` and `/frontend/docker`; npm remains
+`.github/dependabot.yml` checks npm, uv, GitHub Actions, and Docker dependencies
+daily. Dockerfiles are under `/backend/docker` and `/frontend/docker`; npm remains
 under `/frontend`. Patch and minor Dependabot updates can
 auto-merge only after the lint, test, CodeQL, vulnerability, and malware gates
 succeed.
@@ -302,8 +302,8 @@ remain unchanged. Infrastructure adopts this guard and reviewer eligibility,
 retaining weekly updates, independent Required CI and owner merge.
 
 ```sh
-python -m pip install PyYAML==6.0.3
-node --test .github/actions/check-codeql-pins/*.test.js .github/actions/dependabot-auto-merge/*.test.js
+uv sync --locked --project backend --only-group dev
+uv run --locked --only-group dev --project backend node --test .github/actions/check-codeql-pins/*.test.js .github/actions/dependabot-auto-merge/*.test.js
 ```
 
 The local actionlint 1.7.12 schema predates GitHub's documented

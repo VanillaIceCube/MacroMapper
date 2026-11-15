@@ -6,18 +6,23 @@ permissions, notifications, and application integrations.
 ## 🧭 Structure
 
 - `app/`: settings and server entry points.
+- `docker/`: production/development Dockerfiles and matching
+  `Dockerfile.dockerignore` / `Dockerfile.dev.dockerignore`; keep `backend/` as the
+  build context and write exclusion patterns relative to that context root.
 - `foods/`, `estimates/`, `meals/`: catalog, proposals, and diary.
 - `authentication/`, `notifications/`: accounts and notifications.
 - `macromapper_mcp/`, `app_mcp/`: application tools and shared MCP.
 
 ## 💻 Local development
 
-Use Python 3.12 in an isolated environment. From the repository root:
+Install [uv 0.13.8](https://docs.astral.sh/uv/getting-started/installation/). It manages
+Python 3.12 and the local `backend/.venv/`; Conda is no longer required. From the
+repository root:
 
 ```powershell
-python -m pip install -r backend/requirements.txt
-python backend/manage.py migrate
-python backend/manage.py runserver 8000
+uv sync --locked --project backend
+uv run --locked --project backend python backend/manage.py migrate
+uv run --locked --project backend python backend/manage.py runserver 8000
 ```
 
 Local settings can be supplied in ignored `backend/.env`.
@@ -307,10 +312,9 @@ Use mocked delivery tests; production email receipt requires separate verificati
 
 ## 🔌 MCP integration
 
-The shared-framework checker lives at `backend/check_app_mcp.py`, beside the backend
-and outside the hash-verified package. Run `python backend/check_app_mcp.py` from
-the repository root; use `--source-root <canonical-checkout>` for local offline
-verification. See the [framework guide](app_mcp/README.md) for source ownership.
+The shared MCP framework remains owned by FullStackTemplate. Preserve its source
+pin and manifest when adopting canonical changes; see the
+[framework guide](app_mcp/README.md) for source ownership and the retained tests.
 
 The [MCP README](app_mcp/README.md) explains shared transport,
 OAuth, configuration, and verification.
@@ -326,10 +330,10 @@ Connection manifests, artwork, and package builders live in
 From the repository root:
 
 ```powershell
-python backend/manage.py test backend
-ruff check backend
-ruff format backend --check
-python backend/manage.py makemigrations --check --dry-run
+uv run --locked --project backend python backend/manage.py test backend
+uv run --locked --project backend ruff check backend
+uv run --locked --project backend ruff format backend --check
+uv run --locked --project backend python backend/manage.py makemigrations --check --dry-run
 ```
 
 ## 🧪 Estimates test organization
@@ -346,13 +350,13 @@ Import helpers with `from .helpers import ...` and app modules with `from
 code under test looks them up, such as `estimates.services.get_estimation_provider`,
 not where test helpers live. Keep provider calls mocked; no API key is needed.
 
-From the repository root, run `python backend/manage.py test estimates` for all
+From the repository root, run `uv run --locked --project backend python backend/manage.py test estimates` for all
 estimate modules, or append a module/class/method such as
 `estimates.tests.test_provider.OpenAIProviderTests`. Also run
-`python backend/manage.py test backend` to verify full Django discovery. The
+`uv run --locked --project backend python backend/manage.py test backend` to verify full Django discovery. The
 explicit directory matters at the repository root: without a label, discovery
 starts in the current directory and can report zero tests. CI instead runs
-`python manage.py test` with `backend` as its working directory. Compare test
+`uv run --locked python manage.py test` with `backend` as its working directory. Compare test
 inventories and assertions before/after moving tests, including class decorators,
 setup/teardown, helpers and subtests; a green reduced suite is insufficient.
 
@@ -363,8 +367,12 @@ preserve password whitespace, and retain generic account-recovery responses.
 Notification operations remain recipient-scoped; bulk mutations are atomic.
 Preserve pending/error handling through response parsing in the frontend.
 
-Maintain the Python version in `environment.yml` and pip dependencies in
-`requirements.txt` together with CI and Docker. The test runner's fast password
+Declare dependencies in `pyproject.toml` and commit the resolved `uv.lock`.
+`uv add --project backend <package>` updates both; use `uv lock --project backend`
+after editing the manifest manually. `project.requires-python` in `pyproject.toml`
+is the Python version source for uv and CI; keep the Docker base aligned with it. CI/builds use `uv sync --locked`, which rejects stale
+lockfiles. Development tools are in the `dev` dependency group; production images
+install runtime dependencies with `--no-dev`. The test runner's fast password
 hasher applies only during tests; normal settings retain secure hashing.
 See [Docker dependency maintenance](../deploy/README.md#development-dependency-reproducibility).
 

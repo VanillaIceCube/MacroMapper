@@ -5,9 +5,10 @@ authentication, and the application shell.
 
 ## 🧭 Structure
 
-- `docker/`: production/development Dockerfiles and Nginx configuration.
-  Docker builds keep `frontend/` as their context; `.dockerignore` stays at the
-  frontend root.
+- `docker/`: production/development Dockerfiles, their matching
+  `Dockerfile.dockerignore` / `Dockerfile.dev.dockerignore`, and Nginx configuration.
+  Docker builds keep `frontend/` as their context; ignore patterns are relative
+  to that context root. Nginx and development startup files remain build inputs.
 - `src/index.css`: the single global stylesheet, loaded by `src/index.jsx`; keep
   theme tokens, document defaults, shared controls and app-specific rules here.
 - `src/components/`: reusable interface components.

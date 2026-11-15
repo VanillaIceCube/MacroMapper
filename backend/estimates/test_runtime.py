@@ -2,6 +2,7 @@
 
 import json
 import os
+import shlex
 import socket
 import subprocess
 import sys
@@ -12,9 +13,6 @@ import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from unittest.mock import patch
-
-from serve import command as runtime_command
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = """
@@ -58,25 +56,26 @@ class GunicornDeadlineTests(unittest.TestCase):
                 port = sock.getsockname()[1]
             entrypoint = next(
                 json.loads(line.removeprefix("CMD "))
-                for line in (ROOT / "Dockerfile").read_text().splitlines()
+                for line in (ROOT / "docker" / "Dockerfile").read_text().splitlines()
                 if line.startswith("CMD ")
             )
-            self.assertEqual(entrypoint, ["python", "serve.py"])
-            # Follow the production selector rather than assuming the Docker
-            # CMD contains Gunicorn flags directly. Exercise its disabled MCP
-            # branch with the same real worker/deadline/health checks as before.
-            with patch.dict(os.environ, {"DJANGO_MCP_ENABLED": "0"}):
-                command = runtime_command()
-            command[0:2] = [
-                sys.executable,
-                "-m",
-                "gunicorn",
-                "timeout_fixture:application",
-            ]
-            command[command.index("--bind") + 1] = f"127.0.0.1:{port}"
-            command += ["--pythonpath", str(target)]
+            self.assertEqual(entrypoint[:2], ["sh", "-c"])
+            # Execute the production selector itself, replacing only the app
+            # with synthetic SDK I/O and the listener with an ephemeral port.
+            command = entrypoint.copy()
+            self.assertIn("exec gunicorn app.wsgi:application", command[2])
+            command[2] = (
+                command[2]
+                .replace(
+                    "exec gunicorn app.wsgi:application",
+                    f"exec {shlex.quote(sys.executable)} -m gunicorn "
+                    f"timeout_fixture:application --pythonpath {shlex.quote(str(target))}",
+                )
+                .replace("0.0.0.0:8000", f"127.0.0.1:{port}")
+            )
             env = {
                 **os.environ,
+                "DJANGO_MCP_ENABLED": "0",
                 "DJANGO_SETTINGS_MODULE": "app.settings",
                 "DJANGO_DEBUG": "1",
                 "DJANGO_SECRET_KEY": "synthetic-runtime-test-key",

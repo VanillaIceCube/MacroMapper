@@ -179,12 +179,13 @@ authorization. See [the production guide](../../deploy/production/README.md).
 
 Backend development remains off by default. Use an isolated database, then set
 `DJANGO_MCP_ENABLED=1`, an exact `DJANGO_MCP_BASE_URL` and the real frontend origin
-before `python manage.py migrate` and `python serve.py`. Set `VITE_MCP_ENABLED=1`
+before `uv run --locked python manage.py migrate` and
+`uv run --locked uvicorn app.asgi:application --host 0.0.0.0 --port 8000 --workers 1 --no-proxy-headers`. Set `VITE_MCP_ENABLED=1`
 for Vite. Do not reuse a production database or token in tests.
 
-Run `python manage.py test` in `backend`, then separately
-`DJANGO_MCP_ENABLED=1 DJANGO_MCP_BASE_URL=http://localhost:8000 python manage.py test app_mcp macromapper_mcp`.
-Run frontend tests/lint/build, the canonical framework/parity checks and the
+Run `uv run --locked python manage.py test` in `backend`, then separately
+`DJANGO_MCP_ENABLED=1 DJANGO_MCP_BASE_URL=http://localhost:8000 uv run --locked python manage.py test app_mcp macromapper_mcp`.
+Run frontend tests/lint/build, the shared release parity checks and the
 production deployment suite on disposable Docker. Tests exercise synthetic OAuth,
 real app services and mocked AI; deployment checks do not establish live client
 consent or permission to create business data.

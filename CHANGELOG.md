@@ -14,6 +14,9 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Move backend/frontend Docker exclusions beside each production/development Dockerfile using Dockerfile-specific ignore files while preserving build contexts and frontend configuration inputs.
+- Replace Conda and requirements-file setup with uv-managed environments, Python 3.12 declared in `pyproject.toml`, committed dependency locks, and synchronized CI/Docker tooling (#426).
+- Group backend Dockerfiles in `backend/docker/`; update Compose, build workflows and Docker dependency discovery while retaining the backend build context (FullStackTemplate #337).
 - Standardize README heading emojis, sentence case, reference labels and Markdown spacing while preserving substantive content, code examples and existing anchors.
 - Move the author's original note from the frontend guide to the project README, preserving its wording.
 - Move frontend connection contracts into session guidance and product intent beside route behavior; keep related guides as final navigation.
@@ -35,6 +38,8 @@ All notable changes to this project are documented in this file.
 
 ### Removed
 
+- Inline the production server selection in the Dockerfile and remove the standalone server launcher, preserving MCP enablement and Gunicorn worker/thread/timeout settings.
+- Remove the standalone shared MCP framework checker and its CI invocation; retain framework source pins, manifests and backend/MCP test profiles.
 - Remove centralized frontend lint-configuration, theme/MUI compatibility and domain-architecture suites and their unused direct `@babel/parser` dependency; preserve shared support and all colocated application, component and service tests.
 - Remove the custom frontend development entrypoint and automatic dependency reinstall; start Vite directly and install changed dependencies manually in the development container.
 - Remove frontend end-to-end suites, Playwright configuration and dependencies, browser-test helpers and CI jobs; retain component, backend, action-local and shared release checks.

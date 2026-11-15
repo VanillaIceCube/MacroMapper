@@ -6,11 +6,10 @@ models, permissions and tools. FullStackTemplate is the canonical source;
 `backend/app_mcp/source.json` pins its immutable source and
 `backend/app_mcp/manifest.json` hashes shared runtime Python files (application-specific
 `chatgpt/` packaging is excluded). Edit the
-canonical package, regenerate its manifest with
-`python backend/check_app_mcp.py --write-manifest`, commit it, then copy
-the package/manifest/checker and pin the same commit in every consumer. Never
-brand or independently patch the shared package. CI checks the remote pin;
-`--source-root ../FullStackTemplate` is a local development override only.
+canonical package, update its manifest, commit it, then copy the package/manifest
+and pin the same commit in every consumer. Never brand or independently patch
+the shared package. Validate adoption with the retained backend and MCP-enabled
+test profiles below.
 
 Infrastructure routes requests through nginx to each application's own MCP
 endpoint and OAuth provider. The framework is shared source, deployed inside each
@@ -140,17 +139,12 @@ salt, client IDs, database tables, credentials, domain tools or readiness policy
 
 ## 🧪 Checks
 
-Run `python backend/check_app_mcp.py` from the repository root to verify the
-pinned shared framework. The checker lives outside `app_mcp/` so moving repository
-tooling does not change the framework manifest. Local offline checks can supply
-`--source-root <canonical-checkout>`.
-
 Run the ordinary backend suite from `backend/`, then run a separate enabled
 profile against an isolated test database:
 
 ```sh
-python manage.py test
-DJANGO_MCP_ENABLED=1 DJANGO_MCP_SERVER_FACTORY=app_mcp.server.sample_server python manage.py test app_mcp
+uv run --locked python manage.py test
+DJANGO_MCP_ENABLED=1 DJANGO_MCP_SERVER_FACTORY=app_mcp.server.sample_server uv run --locked python manage.py test app_mcp
 ```
 
 The framework tests cover discovery/initialization/sample calls, absent/invalid
