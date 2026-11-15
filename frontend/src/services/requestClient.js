@@ -1,4 +1,5 @@
-import { loginPath as connectionLoginPath } from './authRedirect';
+import { connectionReturnTo, loginPath as connectionLoginPath } from './authRedirect';
+import { advanceSessionVersion, getSessionVersion } from './sessionState';
 import { navigate } from './navigationService';
 
 const API_BASE_URL =
@@ -15,6 +16,7 @@ function shouldRedirectToLogin(path) {
 }
 
 function clearAuthSession() {
+  advanceSessionVersion();
   try {
     sessionStorage.removeItem('accessToken');
     sessionStorage.removeItem('refreshToken');
@@ -31,7 +33,8 @@ function redirectToLogin(returnTo) {
 
   if (didNavigate || typeof window === 'undefined') return;
 
-  const normalizedBase = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '');
+  const publicUrl = import.meta.env.BASE_URL || '/';
+  const normalizedBase = publicUrl.replace(/\/+$/, '');
   const loginPath = normalizedBase ? `${normalizedBase}${destination}` : destination;
   const loginUrl = `${window.location?.origin ?? ''}${loginPath.startsWith('/') ? '' : '/'}${loginPath}`;
   if (window.location?.replace) {
@@ -85,40 +88,56 @@ function handleUnauthorized(returnTo) {
     // ignore
   }
 
-  redirectToLogin(returnTo);
+  const pending =
+    connectionReturnTo(returnTo) ||
+    connectionReturnTo(`${window.location?.pathname || ''}${window.location?.search || ''}`);
+  redirectToLogin(pending);
 }
 
 let refreshRequest = null;
 
-async function refreshAccessToken() {
-  if (refreshRequest) return refreshRequest;
-
+async function refreshAccessToken(sessionVersion) {
   const refreshToken = sessionStorage.getItem('refreshToken');
   if (!refreshToken) return { status: 'invalid' };
+  if (
+    refreshRequest?.sessionVersion === sessionVersion &&
+    refreshRequest.refreshToken === refreshToken
+  ) {
+    return refreshRequest.promise;
+  }
 
-  refreshRequest = (async () => {
+  const request = { sessionVersion, refreshToken };
+  refreshRequest = request;
+  const isCurrent = () =>
+    getSessionVersion() === sessionVersion &&
+    sessionStorage.getItem('refreshToken') === refreshToken;
+  request.promise = (async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/refresh/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh: refreshToken }),
       });
+      if (!isCurrent()) return { status: 'stale' };
       if (response.status === 400 || response.status === 401) return { status: 'invalid' };
       if (!response.ok) return { status: 'transient' };
 
       const data = await response.json();
-      if (!data?.access) return { status: 'transient' };
+      if (!isCurrent()) return { status: 'stale' };
+      if (typeof data?.access !== 'string' || !data.access.trim()) return { status: 'transient' };
       sessionStorage.setItem('accessToken', data.access);
-      if (data.refresh) sessionStorage.setItem('refreshToken', data.refresh);
+      if (typeof data.refresh === 'string' && data.refresh.trim()) {
+        sessionStorage.setItem('refreshToken', data.refresh);
+      }
       return { status: 'refreshed', accessToken: data.access };
     } catch (_err) {
       return { status: 'transient' };
     } finally {
-      refreshRequest = null;
+      if (refreshRequest === request) refreshRequest = null;
     }
   })();
 
-  return refreshRequest;
+  return request.promise;
 }
 
 export function normalizeHeaders(headers) {
@@ -186,6 +205,7 @@ export async function apiFetch(path, options = {}) {
   const url = `${API_BASE_URL}${path}`;
   const headers = normalizeHeaders(fetchOptions.headers);
 
+  const sessionVersion = getSessionVersion();
   const storedToken = getStoredAccessToken();
   if (storedToken && !hasAuthorizationHeader(headers) && shouldRedirectToLogin(path)) {
     removeAuthorizationHeaders(headers);
@@ -201,10 +221,28 @@ export async function apiFetch(path, options = {}) {
 
   const response = await fetch(url, mergedOptions);
 
-  if (response?.status === 401 && shouldRedirectToLogin(path)) {
-    const refreshResult = await refreshAccessToken();
+  if (
+    response?.status === 401 &&
+    shouldRedirectToLogin(path) &&
+    getSessionVersion() === sessionVersion
+  ) {
+    // Another request may already have rotated this session's access token.
+    const currentToken = getStoredAccessToken();
+    const refreshResult =
+      currentToken && currentToken !== storedToken
+        ? { status: 'refreshed', accessToken: currentToken }
+        : await refreshAccessToken(sessionVersion);
+    if (getSessionVersion() !== sessionVersion) return response;
     if (refreshResult.status === 'refreshed') {
-      return fetch(url, withAccessToken(mergedOptions, refreshResult.accessToken));
+      const retried = await fetch(url, withAccessToken(mergedOptions, refreshResult.accessToken));
+      if (
+        retried?.status === 401 &&
+        getSessionVersion() === sessionVersion &&
+        getStoredAccessToken() === refreshResult.accessToken
+      ) {
+        handleUnauthorized(authReturnTo);
+      }
+      return retried;
     }
     if (refreshResult.status === 'invalid') handleUnauthorized(authReturnTo);
   }

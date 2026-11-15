@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DiaryPage from './DiaryPage';
 import { renderWithProviders } from '../test-helpers/utils';
@@ -1782,4 +1782,111 @@ describe('DiaryPage', () => {
 
     await waitFor(() => expect(deleteMeal).toHaveBeenCalledWith(11, 'access-token'));
   });
+  test('a network failure while estimating preserves the description and allows retry or cancel', async () => {
+    const user = userEvent.setup();
+    fetchDailyDiary.mockResolvedValue(response({ meals: [], totals: [] }));
+    createMealProposal.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    renderWithProviders(<DiaryPage />);
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Map your Meal with AI' }));
+    const dialog = await screen.findByRole('dialog', { name: /Map it with AI/ });
+    const description = within(dialog).getByRole('textbox', { name: 'Describe what you ate' });
+    await user.type(description, 'An apple');
+    await user.click(within(dialog).getByRole('button', { name: 'Create estimate' }));
+    expect(await within(dialog).findByText(/Your meal description is still here/)).toBeVisible();
+    expect(description).toHaveValue('An apple');
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeEnabled();
+    expect(within(dialog).getByRole('button', { name: 'Create estimate' })).toBeEnabled();
+    createMealProposal.mockResolvedValueOnce(response(estimatedProposal));
+    await user.click(within(dialog).getByRole('button', { name: 'Create estimate' }));
+    expect(await screen.findByRole('dialog', { name: /Map Your Meal/ })).toBeVisible();
+  });
+
+  test.each(['manual', 'edit', 'proposal-update', 'proposal-accept'])(
+    'a network failure during %s save keeps the editable meal and releases its controls',
+    async (mode) => {
+      const user = userEvent.setup();
+      fetchDailyDiary.mockResolvedValue(
+        response({ meals: mode === 'edit' ? [meal] : [], totals: [] }),
+      );
+      renderWithProviders(<DiaryPage />);
+      let dialog;
+      if (mode === 'edit') {
+        updateMeal.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+        await user.click(await screen.findByRole('button', { name: 'edit Breakfast' }));
+        dialog = screen.getByRole('dialog', { name: /Edit meal/ });
+      } else {
+        await screen.findByText('Nothing logged yet');
+        if (mode.startsWith('proposal')) {
+          createMealProposal.mockResolvedValueOnce(response(estimatedProposal));
+          await user.click(screen.getByRole('button', { name: 'Map your Meal with AI' }));
+          dialog = await screen.findByRole('dialog', { name: /Map it with AI/ });
+          await user.type(
+            within(dialog).getByRole('textbox', { name: 'Describe what you ate' }),
+            'An apple',
+          );
+          await user.click(within(dialog).getByRole('button', { name: 'Create estimate' }));
+          dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+          if (mode === 'proposal-update')
+            updateMealProposal.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+          else {
+            updateMealProposal.mockResolvedValueOnce(response(estimatedProposal));
+            acceptMealProposal.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+          }
+        } else {
+          createMeal.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+          await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
+          dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+          await user.click(await within(dialog).findByRole('button', { name: 'Add' }));
+        }
+      }
+      const name = within(dialog).getByRole('textbox', { name: /Meal name/ });
+      await user.clear(name);
+      await user.type(name, 'Keep my draft');
+      const save = within(dialog).getByRole('button', {
+        name: mode === 'edit' ? 'Save changes' : 'Save meal',
+      });
+      await user.click(save);
+      expect(await within(dialog).findByText(/Your draft is still here/)).toBeVisible();
+      expect(name).toHaveValue('Keep my draft');
+      expect(save).toBeEnabled();
+      expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeEnabled();
+    },
+  );
+
+  test('a rejected daily load exposes a working retry', async () => {
+    const user = userEvent.setup();
+    fetchDailyDiary.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    renderWithProviders(<DiaryPage />);
+    expect(await screen.findByText('Could not load this day. Please try again.')).toBeVisible();
+    fetchDailyDiary.mockResolvedValueOnce(response({ meals: [meal], totals: [] }));
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('heading', { name: 'Breakfast' })).toBeVisible();
+  });
+
+  test.each(['success', 'failure'])(
+    'ignores an older daily %s after the user selects a newer day',
+    async (result) => {
+      const older = deferred();
+      fetchDailyDiary
+        .mockReturnValueOnce(older.promise)
+        .mockResolvedValue(response({ meals: [], totals: [] }));
+      renderWithProviders(<DiaryPage />);
+      const selected = screen.getByLabelText('diary date');
+      const nextDate = selected.value === '2026-11-15' ? '2026-11-16' : '2026-11-15';
+      fireEvent.change(selected, { target: { value: nextDate } });
+      await screen.findByText('Nothing logged yet');
+      await act(async () => {
+        older.resolve(
+          result === 'success'
+            ? response({ meals: [meal], totals: [] })
+            : response({ detail: 'Old request failed' }, false),
+        );
+      });
+      expect(selected).toHaveValue(nextDate);
+      expect(screen.getByText('Nothing logged yet')).toBeVisible();
+      expect(screen.queryByRole('heading', { name: 'Breakfast' })).not.toBeInTheDocument();
+      expect(screen.queryByText('Old request failed')).not.toBeInTheDocument();
+    },
+  );
 });

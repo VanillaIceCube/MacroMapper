@@ -46,7 +46,7 @@ describe('App', () => {
     window.history.replaceState({}, '', '/login');
     render(<App />);
 
-    await user.click(screen.getByRole('button', { name: 'Create Account' }));
+    await user.click(screen.getByRole('link', { name: 'Create Account' }));
 
     expect(await screen.findByRole('heading', { name: 'Create account' })).toBeInTheDocument();
     expect(window.location.pathname).toBe('/register');

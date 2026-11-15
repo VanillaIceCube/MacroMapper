@@ -588,45 +588,50 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     }
     setEstimating(true);
     setError('');
-    const response = await createMealProposal({ description: request, entry_date: date }, token);
-    if (!response.ok) {
-      setError(await getResponseErrorMessage(response, 'Could not estimate this meal.'));
-      setEstimating(false);
-      return;
-    }
+    try {
+      const response = await createMealProposal({ description: request, entry_date: date }, token);
+      if (!response.ok) {
+        setError(await getResponseErrorMessage(response, 'Could not estimate this meal.'));
+        return;
+      }
 
-    const proposal = await safeReadJson(response);
-    if (!proposal) {
-      setError('Could not parse estimation response.');
+      const proposal = await safeReadJson(response);
+      if (!proposal) {
+        setError('Could not parse estimation response.');
+        return;
+      }
+      const proposalName = proposal.name ?? '';
+      const proposalNotes = proposal.notes ?? '';
+      const proposalDate = proposal.entry_date ?? date;
+      const proposalItems = proposal.items?.map(proposalItemToMealItem) ?? [];
+      setName(proposalName);
+      setNotes(proposalNotes);
+      setEntryDate(proposalDate);
+      setItems(proposalItems);
+      setProposalId(proposal.id);
+      setProposalContext({
+        provider_name: proposal.provider_name,
+        provider_model: proposal.provider_model,
+        confidence_score: proposal.confidence_score,
+      });
+      setCatalogPickerOpen(true);
+      setQuery('');
+      setBaselineFingerprint(
+        mealDraftFingerprint({
+          name: proposalName,
+          notes: proposalNotes,
+          entryDate: proposalDate,
+          items: proposalItems,
+        }),
+      );
+      loadRecentFoods();
+    } catch (_error) {
+      setError(
+        'Could not reach the server. Your meal description is still here. Please try again.',
+      );
+    } finally {
       setEstimating(false);
-      return;
     }
-    const proposalName = proposal.name ?? '';
-    const proposalNotes = proposal.notes ?? '';
-    const proposalDate = proposal.entry_date ?? date;
-    const proposalItems = proposal.items?.map(proposalItemToMealItem) ?? [];
-    setName(proposalName);
-    setNotes(proposalNotes);
-    setEntryDate(proposalDate);
-    setItems(proposalItems);
-    setProposalId(proposal.id);
-    setProposalContext({
-      provider_name: proposal.provider_name,
-      provider_model: proposal.provider_model,
-      confidence_score: proposal.confidence_score,
-    });
-    setCatalogPickerOpen(true);
-    setQuery('');
-    setBaselineFingerprint(
-      mealDraftFingerprint({
-        name: proposalName,
-        notes: proposalNotes,
-        entryDate: proposalDate,
-        items: proposalItems,
-      }),
-    );
-    setEstimating(false);
-    loadRecentFoods();
   };
 
   const addFood = (food) => {
@@ -771,48 +776,53 @@ function MapYourMealDialog({ date, meal, open, token, launchMode, onClose, onSav
     }
     setSaving(true);
     setError('');
-    if (proposalId) {
-      const updateResponse = await updateMealProposal(
-        proposalId,
-        {
-          name: name.trim(),
-          notes: notes.trim(),
-          entry_date: entryDate,
-          items: items.map(mealItemToProposalItem),
-        },
-        token,
-      );
-      if (!updateResponse.ok) {
-        setError(await getResponseErrorMessage(updateResponse, 'Could not save your meal draft.'));
-        setSaving(false);
+    try {
+      if (proposalId) {
+        const updateResponse = await updateMealProposal(
+          proposalId,
+          {
+            name: name.trim(),
+            notes: notes.trim(),
+            entry_date: entryDate,
+            items: items.map(mealItemToProposalItem),
+          },
+          token,
+        );
+        if (!updateResponse.ok) {
+          setError(
+            await getResponseErrorMessage(updateResponse, 'Could not save your meal draft.'),
+          );
+          return;
+        }
+        const acceptResponse = await acceptMealProposal(proposalId, token);
+        if (acceptResponse.ok) {
+          onSaved('Meal added.');
+        } else {
+          setError(
+            await getResponseErrorMessage(acceptResponse, 'Could not add this meal to your diary.'),
+          );
+        }
         return;
       }
-      const acceptResponse = await acceptMealProposal(proposalId, token);
-      if (acceptResponse.ok) {
-        onSaved('Meal added.');
+      const payload = {
+        entry_date: entryDate,
+        name: name.trim(),
+        notes: notes.trim(),
+        items: items.map(mealItemToProposalItem),
+      };
+      const response = meal
+        ? await updateMeal(meal.id, payload, token)
+        : await createMeal(payload, token);
+      if (response.ok) {
+        onSaved(meal ? 'Meal updated.' : 'Meal added.');
       } else {
-        setError(
-          await getResponseErrorMessage(acceptResponse, 'Could not add this meal to your diary.'),
-        );
+        setError(await getResponseErrorMessage(response, 'Could not save this meal.'));
       }
+    } catch (_error) {
+      setError('Could not save this meal. Your draft is still here. Please try again.');
+    } finally {
       setSaving(false);
-      return;
     }
-    const payload = {
-      entry_date: entryDate,
-      name: name.trim(),
-      notes: notes.trim(),
-      items: items.map(mealItemToProposalItem),
-    };
-    const response = meal
-      ? await updateMeal(meal.id, payload, token)
-      : await createMeal(payload, token);
-    if (response.ok) {
-      onSaved(meal ? 'Meal updated.' : 'Meal added.');
-    } else {
-      setError(await getResponseErrorMessage(response, 'Could not save this meal.'));
-    }
-    setSaving(false);
   };
 
   const isEstimateStep = launchMode === 'estimate' && !meal && !proposalId;
@@ -1853,22 +1863,40 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
   const [mapYourMeal, setMapYourMeal] = useState({ open: false, meal: null, launchMode: 'add' });
   const [pendingDelete, setPendingDelete] = useState(null);
   const dateInputRef = useRef(null);
+  const diaryRequestIdRef = useRef(0);
   const token = sessionStorage.getItem('accessToken');
 
   const loadDiary = useCallback(async () => {
+    const requestId = ++diaryRequestIdRef.current;
+    setData({ meals: [], totals: [] });
     setLoading(true);
     setError('');
-    const response = await fetchDailyDiary(date, token);
-    if (response.ok) {
-      setData((await safeReadJson(response)) || { meals: [], totals: [] });
-    } else {
-      setError(await getResponseErrorMessage(response, 'Could not load this day.'));
+    try {
+      const response = await fetchDailyDiary(date, token);
+      if (!response.ok) {
+        throw new Error(await getResponseErrorMessage(response, 'Could not load this day.'));
+      }
+      const result = await safeReadJson(response);
+      if (!Array.isArray(result?.meals) || !Array.isArray(result?.totals)) {
+        throw new Error('Could not read this day. Please try again.');
+      }
+      if (requestId === diaryRequestIdRef.current) setData(result);
+    } catch (error) {
+      if (requestId === diaryRequestIdRef.current) {
+        setError(
+          error instanceof TypeError ? 'Could not load this day. Please try again.' : error.message,
+        );
+      }
+    } finally {
+      if (requestId === diaryRequestIdRef.current) setLoading(false);
     }
-    setLoading(false);
   }, [date, token]);
 
   useEffect(() => {
     loadDiary();
+    return () => {
+      diaryRequestIdRef.current += 1;
+    };
   }, [loadDiary]);
 
   const totalsByKey = useMemo(

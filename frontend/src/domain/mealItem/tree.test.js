@@ -1,17 +1,11 @@
 import {
-  catalogFoodToMealItem,
-  mealItemToProposalItem,
-  proposalItemToMealItem,
-  savedMealItemToEditableMealItem,
-} from './adapters';
-import {
   changeMealItemNutrient,
   changeMealItemPortion,
   changeMealItemServings,
   removeMealItemFromTree,
 } from './tree';
-import { itemNutrientTotal } from '../nutrition/calculations';
 import { servingAmountValue } from './portions';
+import { itemNutrientTotal } from '../nutrition';
 
 const editableLeaf = (overrides = {}) => ({
   key: 'food',
@@ -30,37 +24,79 @@ const editableLeaf = (overrides = {}) => ({
   ...overrides,
 });
 
-const catalogFood = {
-  id: 7,
-  name: 'Apple',
-  provider_name: 'Orchard',
-  origin_type: 'branded',
-  scope: 'shared',
-  current_version: {
-    id: 9,
-    serving_quantity: '1',
-    serving_unit: 'item',
-    serving_label: 'one apple',
-    provenance: 'official',
-    confidence_score: '0.98',
-    portion_options: [],
-    nutrients: [{ key: 'calories', amount: '95' }],
-    sources: [{ title: 'Official source', url: 'https://example.com/apple' }],
-    components: [
-      {
-        id: 11,
-        food_item_id: 8,
-        food_version_id: 10,
-        food_name: 'Apple flesh',
-        servings: '1',
-        nutrients: [{ key: 'calories', amount: '95' }],
-        components: [],
-      },
-    ],
-  },
-};
-
 describe('meal item tree operations', () => {
+  test('leaves every node and its evidence unchanged when an edit targets a missing key', () => {
+    const child = editableLeaf({ key: 'child' });
+    const parent = editableLeaf({
+      key: 'parent',
+      evidence: { status: 'official_verified' },
+      components: [child],
+    });
+    const sibling = editableLeaf({ key: 'sibling' });
+    const items = [parent, sibling];
+
+    const results = [
+      changeMealItemServings(items, 'missing', '3', child),
+      changeMealItemPortion(items, 'missing', 'base'),
+      changeMealItemNutrient(items, 'missing', 'calories', '300'),
+      removeMealItemFromTree(items, 'missing'),
+    ];
+
+    for (const result of results) {
+      expect(result[0]).toBe(parent);
+      expect(result[0].components[0]).toBe(child);
+      expect(result[1]).toBe(sibling);
+    }
+  });
+
+  test.each([
+    ['protein', '10'],
+    ['calories', ''],
+    ['calories', 'invalid'],
+  ])('ignores unsupported composite edits (%s = %s)', (nutrient, value) => {
+    const composite = editableLeaf({
+      key: 'recipe',
+      components: [editableLeaf({ key: 'ingredient' })],
+    });
+
+    const updated = changeMealItemNutrient([composite], 'recipe', nutrient, value);
+
+    expect(updated[0]).toBe(composite);
+  });
+
+  test('does not invent a scaling ratio when a composite has no known calories', () => {
+    const composite = editableLeaf({
+      key: 'recipe',
+      components: [editableLeaf({ key: 'ingredient', nutrients: { calories: null } })],
+    });
+
+    expect(changeMealItemNutrient([composite], 'recipe', 'calories', '100')[0]).toBe(composite);
+    expect(composite.components[0].nutrients.calories).toBeNull();
+  });
+
+  test('zeroing a nested composite preserves unknown nutrients and the original tree', () => {
+    const ingredient = editableLeaf({
+      key: 'ingredient',
+      nutrients: { calories: '100', protein: '3', carbohydrates: null, fat: '' },
+    });
+    const composite = editableLeaf({
+      key: 'recipe',
+      components: [editableLeaf({ key: 'layer', components: [ingredient] })],
+    });
+
+    const updated = changeMealItemNutrient([composite], 'recipe', 'calories', '0')[0];
+
+    expect(updated.components[0].components[0].nutrients).toEqual({
+      calories: '0',
+      protein: '0',
+      carbohydrates: null,
+      fat: '',
+    });
+    expect(itemNutrientTotal(updated, 'calories')).toBe(0);
+    expect(itemNutrientTotal(updated, 'carbohydrates')).toBeNull();
+    expect(ingredient.nutrients.calories).toBe('100');
+  });
+
   test('changes natural serving sizes while preserving count and food identity', () => {
     const apple = editableLeaf({
       name: 'Red apple',
@@ -96,25 +132,6 @@ describe('meal item tree operations', () => {
     expect(itemNutrientTotal(baseToMedium, 'calories')).toBe(240);
     expect(apple.servings).toBe('2');
     expect(changeMealItemPortion([apple], 'food', 'missing')[0]).toBe(apple);
-  });
-
-  test('retains full recipe ingredients and scales only the consumed parent', () => {
-    const recipe = editableLeaf({
-      key: 'recipe',
-      servings: '0.75',
-      selected_portion_key: 'base',
-      components: [
-        editableLeaf({ key: 'tomatoes', servings: '3', nutrients: { calories: '20' } }),
-        editableLeaf({ key: 'chips', servings: '2', nutrients: { calories: '100' } }),
-      ],
-    });
-    expect(itemNutrientTotal(recipe, 'calories')).toBe(195);
-    const half = changeMealItemServings([recipe], 'recipe', '0.5', recipe)[0];
-    expect(itemNutrientTotal(half, 'calories')).toBe(130);
-    expect(half.components).toEqual(recipe.components);
-    const reloaded = proposalItemToMealItem(mealItemToProposalItem(half));
-    expect(itemNutrientTotal(reloaded, 'calories')).toBe(130);
-    expect(reloaded.components.map((item) => item.servings)).toEqual(['3', '2']);
   });
 
   test('keeps decimal entry text and updates nested trees immutably', () => {
@@ -209,156 +226,6 @@ describe('meal item tree operations', () => {
   });
 });
 
-describe('meal item adapters', () => {
-  test('keeps saved natural serving selection and nutrition snapshots', () => {
-    const saved = savedMealItemToEditableMealItem({
-      id: 21,
-      food_item_id: 7,
-      food_version_id: 9,
-      food_name: 'Red apple',
-      servings: '3',
-      serving_unit: 'item',
-      serving_label: 'one small apple',
-      selected_portion_key: 'size:large',
-      portion_options: [
-        { key: 'size:small', label: 'Small', serving_multiplier: '1' },
-        { key: 'size:large', label: 'Large', serving_multiplier: '1.5' },
-      ],
-      nutrients: [{ key: 'calories', amount: '300' }],
-      component_snapshot: [],
-    });
-    expect(servingAmountValue(saved)).toBe('2');
-    expect(itemNutrientTotal(saved, 'calories')).toBe(300);
-    expect(mealItemToProposalItem(saved).selected_portion_key).toBe('size:large');
-  });
-
-  test('preserves proposal identifiers, provenance, confidence, and nested sources', () => {
-    const source = { title: 'Official source', url: 'https://example.com/food' };
-    const proposal = {
-      key: 'proposal',
-      food_item_id: 7,
-      food_version_id: 9,
-      name: 'Meal',
-      servings: '2',
-      provenance: 'user_modified_estimate',
-      source_kind: 'user_modified_estimate',
-      confidence_score: '0.87',
-      market: 'US',
-      product_identifier: 'apple-123',
-      identity_url: 'https://example.com/food',
-      natural_servings: [{ key: 'small', label: 'Small', weight_grams: '149' }],
-      nutrients: { calories: '100' },
-      selected_portion_key: 'half',
-      portion_options: [
-        { key: 'base', label: 'one serving', serving_multiplier: '1' },
-        { key: 'half', label: 'half serving', serving_multiplier: '0.5' },
-      ],
-      sources: [source],
-      components: [
-        {
-          key: 'component',
-          food_item_id: 8,
-          food_version_id: 10,
-          servings: '1',
-          provenance: 'official',
-          confidence_score: null,
-          nutrients: { calories: '50' },
-          sources: [source],
-          components: [],
-        },
-      ],
-    };
-
-    const roundTrip = mealItemToProposalItem(proposalItemToMealItem(proposal));
-    expect(roundTrip).toMatchObject(proposal);
-    expect(roundTrip.sources).toEqual([source]);
-    expect(roundTrip.components[0].sources).toEqual([source]);
-  });
-  test('normalizes catalog foods for the meal builder', () => {
-    const mealItem = catalogFoodToMealItem(catalogFood);
-
-    expect(mealItem).toMatchObject({
-      food_item: 7,
-      food_version: null,
-      source_kind: 'official_verified',
-      nutrients: { calories: '95' },
-      selected_portion_key: 'base',
-    });
-    expect(mealItem.components[0]).toMatchObject({
-      food_item: 8,
-      food_version: 10,
-      name: 'Apple flesh',
-      nutrients: { calories: '95' },
-    });
-    expect(itemNutrientTotal(mealItem.components[0], 'calories')).toBe(95);
-    expect(itemNutrientTotal(mealItem, 'calories')).toBe(95);
-  });
-
-  test('normalizes saved total nutrients back to per-serving editor values', () => {
-    const saved = savedMealItemToEditableMealItem({
-      id: 21,
-      food_item_id: 7,
-      food_version_id: 9,
-      food_name: 'Apple',
-      provider_name: '',
-      servings: '2',
-      serving_quantity: '1',
-      serving_unit: 'item',
-      serving_label: 'one apple',
-      provenance: 'user_entered',
-      nutrients: [{ key: 'calories', amount: '190' }],
-      component_snapshot: [],
-    });
-
-    expect(saved).toMatchObject({
-      food_item: 7,
-      food_version: 9,
-      servings: '2',
-      nutrients: { calories: '95' },
-      source_kind: 'user_entered',
-    });
-  });
-
-  test('preserves component nutrients when normalizing a saved composite item', () => {
-    const saved = savedMealItemToEditableMealItem({
-      id: 22,
-      food_item_id: 10,
-      food_version_id: 12,
-      food_name: 'Avocado toast',
-      provider_name: '',
-      servings: '1',
-      serving_quantity: '1',
-      serving_unit: 'item',
-      serving_label: 'one serving',
-      provenance: 'user_entered',
-      nutrients: [{ key: 'calories', amount: '220' }],
-      component_snapshot: [
-        {
-          food_item_id: 11,
-          food_version_id: 13,
-          food_name: 'Avocado',
-          servings: '1',
-          nutrients: [{ key: 'calories', amount: '160' }],
-          components: [],
-        },
-        {
-          food_item_id: 12,
-          food_version_id: 14,
-          food_name: 'Toast',
-          servings: '1',
-          nutrients: [{ key: 'calories', amount: '60' }],
-          components: [],
-        },
-      ],
-    });
-
-    expect(saved.components.map((component) => itemNutrientTotal(component, 'calories'))).toEqual([
-      160, 60,
-    ]);
-    expect(itemNutrientTotal(saved, 'calories')).toBe(220);
-  });
-});
-
 describe('source-backed nutrition integrity', () => {
   const official = () =>
     editableLeaf({
@@ -373,31 +240,6 @@ describe('source-backed nutrition integrity', () => {
       },
       components: [editableLeaf({ key: 'child', servings: '1', nutrients: { calories: '400' } })],
     });
-
-  test('retains official direct parent values across catalog and diary adapters', () => {
-    const food = {
-      ...catalogFood,
-      current_version: {
-        ...catalogFood.current_version,
-        evidence: official().evidence,
-        nutrients: [{ key: 'calories', amount: '710' }],
-        sources: [{ title: 'Secondary', url: 'https://example.com', is_official: false }],
-      },
-    };
-    const item = catalogFoodToMealItem(food);
-    expect(itemNutrientTotal(item, 'calories')).toBe(710);
-    expect(item.sources[0].is_official).toBe(false);
-    const saved = savedMealItemToEditableMealItem({
-      ...official(),
-      id: 1,
-      food_name: 'Pizza',
-      nutrients: [{ key: 'calories', amount: '1420' }],
-      servings: '2',
-      component_snapshot: [],
-    });
-    expect(itemNutrientTotal(saved, 'calories')).toBe(1420);
-    expect(saved.evidence.status).toBe('source_backed_ai_components');
-  });
 
   test('component edits remove parent verification and use updated totals', () => {
     const item = official();

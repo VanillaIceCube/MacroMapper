@@ -23,7 +23,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { Link as RouterLink, useLocation, useNavigate } from 'react-router';
 import {
   clearAllNotifications,
   clearNotification,
@@ -422,10 +422,9 @@ export default function AppHeader({ title, setDrawerOpen }) {
             />
             {import.meta.env.VITE_MCP_ENABLED === '1' && (
               <MenuItem
-                onClick={() => {
-                  setProfileAnchorEl(null);
-                  navigate('/connections');
-                }}
+                component={RouterLink}
+                to="/connections"
+                onClick={() => setProfileAnchorEl(null)}
               >
                 Connected Apps
               </MenuItem>

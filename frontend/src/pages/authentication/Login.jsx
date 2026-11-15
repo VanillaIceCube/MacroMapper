@@ -1,7 +1,7 @@
 import { connectionReturnTo } from '../../services/authRedirect';
 import { Box, Button, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { Link as RouterLink, useLocation, useNavigate } from 'react-router';
 import AuthPageShell from '../../components/AuthPageShell';
 import { login } from '../../services/authApiClient';
 import { formatAuthErrorMessage, persistAuthSession, readOkJson } from '../../services/authSession';
@@ -79,21 +79,11 @@ export default function Login({ showSnackbar }) {
           {isSubmitting ? 'Logging in...' : 'Login'}
         </Button>
         <Typography variant="caption" sx={{ textAlign: 'center', color: 'var(--atlas-ink-muted)' }}>
-          <Box
-            component="button"
-            type="button"
-            className="auth-link"
-            onClick={() => navigate('/forgot-password')}
-          >
+          <Box component={RouterLink} className="auth-link" to="/forgot-password">
             Forgot Password?
           </Box>
           {' · '}
-          <Box
-            component="button"
-            type="button"
-            className="auth-link"
-            onClick={() => navigate('/register')}
-          >
+          <Box component={RouterLink} className="auth-link" to="/register">
             Create Account
           </Box>
         </Typography>

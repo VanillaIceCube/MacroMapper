@@ -1,3 +1,5 @@
+vi.mock('@mui/material', async () => await vi.importActual('@mui/material'));
+import { Route, Routes } from 'react-router';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AppHeader from './AppHeader';
@@ -29,6 +31,23 @@ const response = (body, ok = true) => ({
 });
 
 describe('AppHeader', () => {
+  test('supports profile menu keyboard navigation, dismissal, and logout', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<AppHeader title="MacroMapper" setDrawerOpen={setDrawerOpen} />);
+
+    await user.click(screen.getByLabelText('user profile'));
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    await user.keyboard('{End}');
+    expect(screen.getByRole('menuitem', { name: 'Logout' })).toHaveFocus();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+    expect(logout).not.toHaveBeenCalled();
+
+    await user.click(screen.getByLabelText('user profile'));
+    await user.keyboard('{End}{Enter}');
+    expect(logout).toHaveBeenCalledTimes(1);
+  });
+
   const setDrawerOpen = vi.fn();
 
   beforeEach(() => {
@@ -247,4 +266,51 @@ describe('AppHeader', () => {
     expect(screen.getByText('Parity notice')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Clear all' })).toBeEnabled();
   });
+});
+
+describe('AppHeader response and navigation integration', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    sessionStorage.setItem('accessToken', 'access');
+  });
+  test.each([null, {}, 'unexpected', 1])(
+    'keeps the header usable for malformed notification JSON: %j',
+    async (body) => {
+      fetchNotifications.mockResolvedValue({ ok: true, json: async () => body });
+      const user = userEvent.setup();
+      renderWithProviders(<AppHeader title="Application" setDrawerOpen={vi.fn()} />);
+      await user.click(screen.getByLabelText('notifications'));
+      expect(await screen.findByText('Notifications are unavailable right now.')).toBeVisible();
+      expect(screen.getByRole('button', { name: /Retry/i })).toBeEnabled();
+    },
+  );
+
+  test.each(['click', 'keyboard'])(
+    'Connected Apps supports %s navigation through its real link',
+    async (activation) => {
+      vi.stubEnv('VITE_MCP_ENABLED', '1');
+      fetchNotifications.mockResolvedValue({ ok: true, json: async () => [] });
+      const user = userEvent.setup();
+      renderWithProviders(
+        <Routes>
+          <Route path="/" element={<AppHeader title="Application" setDrawerOpen={vi.fn()} />} />
+          <Route path="/connections" element={<h1>Connected Apps destination</h1>} />
+        </Routes>,
+      );
+      await user.click(screen.getByLabelText('user profile'));
+      const link = screen.getByRole('menuitem', { name: 'Connected Apps' });
+      expect(link).toHaveAttribute('href', '/connections');
+      if (activation === 'keyboard') {
+        await screen.findByRole('menu');
+        await user.keyboard('{ArrowDown}');
+        expect(link).toHaveFocus();
+        await user.keyboard('{Enter}');
+      } else await user.click(link);
+      expect(
+        await screen.findByRole('heading', { name: 'Connected Apps destination' }),
+      ).toBeVisible();
+    },
+  );
+  afterEach(() => vi.unstubAllEnvs());
 });

@@ -44,9 +44,9 @@ Local `.env` files are excluded from Docker build contexts.
 
 For direct `npm` development, an unset API origin uses `http://localhost:8000`.
 An explicit shell value overrides that default; an explicit blank uses same-origin.
-Vite's `base` setting supplies `%BASE_URL%` for HTML asset URLs. The current
-`BrowserRouter` has no `basename` and uses domain-root routes. An asset prefix
-change alone does not configure subdirectory routing. The API origin is separate
+Vite's `base` setting supplies `%BASE_URL%` for HTML assets and
+`import.meta.env.BASE_URL` for the router basename. Production uses domain-root
+routes; a subdirectory also needs matching server and API routing. The API origin is separate
 from both settings. Development uses port 3000; production Nginx serves the static
 build and preserves SPA deep links.
 
@@ -120,6 +120,10 @@ exercise. Activity estimates and targets are editable tracking information, neve
 medical advice. Weight tracking, photos/barcodes and household/social/coaching
 features remain deferred.
 
+Authentication-page destinations use React Router links with real `href` values,
+keyboard activation and native new-tab behavior. Connected Apps is discoverable
+in the profile menu when the connector is enabled.
+
 ## 🔐 Sessions and connections
 
 Authentication forms disable submission while pending. Tokens and profile data
@@ -128,8 +132,12 @@ Protected requests use the stored JWT when the caller omits Authorization.
 Public authentication forms do not receive an injected access token.
 
 The request wrapper preserves object, tuple-array, and native `Headers` values
-through one JWT refresh/retry. Invalid refresh credentials clear the session;
-temporary refresh failures retain it. Notification failures keep actions available
+through one JWT refresh/retry. Invalid refresh credentials or a second protected
+401 after refresh clear the session;
+temporary refresh failures retain it. Refresh results belong to the login that
+started them: logout or a new login invalidates pending work. Background failures
+preserve an active, validated connection path and query through login.
+Notification failures keep actions available
 for Retry, and malformed mark-read responses must not navigate away.
 Use semantic links for destinations and buttons for actions, with keyboard and
 native new-tab coverage.
@@ -149,8 +157,8 @@ HTTP failures use the first nonblank string in `error_description`, `detail`, th
 nested objects or unrelated JSON fields as fallback messages. Backend public error
 fields must be safe to display. Preserve JWT-only headers, omitted cookies, form
 encoding, signed consent tickets and validated callbacks. Invalid refresh credentials
-clear the session; transient proxy/refresh failures retain it for retry. Notoli
-retains its extra post-refresh 401 handling and legacy API-base compatibility.
+clear the session; transient proxy/refresh failures retain it for retry. All three applications share the same post-refresh 401
+and session-lifecycle contract.
 
 ## 🧮 Domain architecture
 
@@ -269,7 +277,36 @@ or medical interpretation.
 - Call saved records “meal items” in the interface. Reserve component language
   for the optional ingredient breakdown within a composite food.
 
+Diary reads ignore obsolete responses after the date changes or the page unmounts.
+Network failures release loading, save and estimation controls, retain draft input,
+and expose an error for retry; network failures do not automatically retry writes
+or paid estimates.
+
 ## 🧪 Checks
+
+Keep every test beside its implementation with the same basename and extension:
+`Component.jsx` pairs with `Component.test.jsx`, and `service.js` pairs with
+`service.test.js`. Put behavior and integration scenarios in that owning suite
+using scoped `describe` blocks, rather than adding standalone behavior-named or
+`.integration.test` files. JavaScript hooks and components that return no JSX keep
+`.test.js` harnesses using `createElement` when necessary. Shared setup and reusable
+helpers belong in `src/test-helpers/`; tests of a domain package's public API pair
+with its `index.js` entry point.
+
+Keep shared session, request, connection and navigation regressions aligned across
+FullStackTemplate, MacroMapper and Notoli when the behavior applies. Preserve real
+React Router and Material UI keyboard/exit coverage when consolidating suites;
+app-specific domain and route expectations remain in their owning application.
+
+Direct shell and nutrition component tests cover accessible headings, keyboard
+form submission, known versus unavailable nutrient values, editable inputs and
+composite calorie-only editing. Meal-item adapter and tree tests own their focused
+cases; `domain/mealItem/index.test.js` retains cross-module public API workflows.
+
+The small `sessionState.js` counter is covered by request-client race regressions.
+Nutrient definitions, the nutrition re-export entry point and `theme.js` are
+exercised through calculation, presentation and real themed component tests;
+avoid duplicate suites that merely copy metadata, exports or style declarations.
 
 `src/index.test.jsx` boots the real entry point, React root and application in
 jsdom, then checks the signed-out login route and usable form without private API
@@ -290,6 +327,12 @@ npm run build
 ```
 
 ## 🛠️ Maintenance
+
+Shared frontend dependency ranges align across the template and both applications:
+React/React DOM 19.3.1, Material UI/icons 9.5, React Router 8.5.1, and Prettier 3.10.
+Use `react-router` imports. Testing Library belongs in development dependencies;
+TypeScript is explicitly pinned for the tooling peer graph. Keep app-specific
+packages, including Notoli drag-and-drop and its test lint plugin, app-owned.
 
 The flat ESLint configuration uses Vitest globals, matching the configured test
 runner.

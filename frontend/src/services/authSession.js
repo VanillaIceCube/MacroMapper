@@ -1,3 +1,5 @@
+import { advanceSessionVersion } from './sessionState';
+
 export async function safeReadJson(response) {
   try {
     return await response.json();
@@ -67,6 +69,7 @@ export function persistAuthSession(data) {
     throw new Error('Auth response missing tokens.');
   }
 
+  advanceSessionVersion();
   try {
     sessionStorage.setItem('accessToken', data.access);
     sessionStorage.setItem('refreshToken', data.refresh);

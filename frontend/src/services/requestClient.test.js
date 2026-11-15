@@ -1,13 +1,120 @@
 describe('requestClient', () => {
+  test('background requests preserve the active consent URL when authentication expires', async () => {
+    const { setNavigate } = await import('./navigationService');
+    const mockNavigate = vi.fn();
+    setNavigate(mockNavigate);
+    const pending = '/connections/authorize?state=pending%26state';
+    window.history.replaceState({}, '', pending);
+    global.fetch.mockResolvedValue({
+      ok: false,
+      status: 401,
+    });
+    const { apiFetch } = await import('./requestClient');
+    await apiFetch('/api/notifications/');
+    expect(mockNavigate).toHaveBeenCalledWith(`/login?next=${encodeURIComponent(pending)}`, {
+      replace: true,
+    });
+  });
+
+  test('expired connection authentication returns to the pending consent after login', async () => {
+    const { setNavigate } = await import('./navigationService');
+    const mockNavigate = vi.fn();
+    setNavigate(mockNavigate);
+    global.fetch.mockResolvedValue({
+      ok: false,
+      status: 401,
+    });
+    sessionStorage.setItem('accessToken', 'EXPIRED');
+    const { apiFetch } = await import('./requestClient');
+    const pending =
+      '/connections/authorize?state=a%26b&resource=https%3A%2F%2Fnotoli.example%2Fmcp';
+    await apiFetch('/auth/mcp/authorize/', {
+      headers: {
+        Authorization: 'Bearer EXPIRED',
+      },
+      authReturnTo: pending,
+    });
+    expect(mockNavigate).toHaveBeenCalledWith(`/login?next=${encodeURIComponent(pending)}`, {
+      replace: true,
+    });
+    expect(global.fetch.mock.calls[0][1]).not.toHaveProperty('authReturnTo');
+  });
+
+  test('connection requests refresh expired JWTs without forcing a second login', async () => {
+    const { setNavigate } = await import('./navigationService');
+    const mockNavigate = vi.fn();
+    setNavigate(mockNavigate);
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          access: 'FRESH',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+      });
+    sessionStorage.setItem('refreshToken', 'REFRESH');
+    const { apiFetch } = await import('./requestClient');
+    await apiFetch('/auth/mcp/authorize/', {
+      credentials: 'omit',
+      headers: {
+        Authorization: 'Bearer EXPIRED',
+      },
+      authReturnTo: '/connections/authorize?state=state',
+    });
+    expect(global.fetch.mock.calls[2][1]).toEqual({
+      credentials: 'omit',
+      headers: {
+        Authorization: 'Bearer FRESH',
+      },
+    });
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  test('an unset production API base uses same-origin URLs', async () => {
+    vi.stubEnv('PROD', true);
+    vi.stubEnv('DEV', false);
+    const { apiFetch } = await import('./requestClient');
+    await apiFetch('/api/example/');
+    expect(global.fetch).toHaveBeenCalledWith('/api/example/', {});
+  });
+
+  test('the fallback login redirect preserves the Vite deployment base', async () => {
+    vi.stubEnv('BASE_URL', '/sample/');
+    const originalLocation = window.location;
+    const replace = vi.fn();
+    delete window.location;
+    window.location = { ...originalLocation, replace };
+    try {
+      const { clearNavigate } = await import('./navigationService');
+      clearNavigate();
+      const { logout } = await import('./requestClient');
+      logout();
+      expect(replace).toHaveBeenCalledWith(`${originalLocation.origin}/sample/login`);
+    } finally {
+      window.location = originalLocation;
+    }
+  });
+
   beforeEach(() => {
     vi.resetModules();
     vi.stubEnv('VITE_API_BASE_URL', undefined);
+    vi.stubEnv('PROD', false);
+    vi.stubEnv('DEV', true);
+    vi.stubEnv('BASE_URL', '/');
     global.fetch = vi.fn(() => Promise.resolve({ ok: true, status: 200 }));
     sessionStorage.clear();
     window.history.replaceState({}, '', '/');
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
@@ -344,5 +451,197 @@ describe('requestClient', () => {
         method: 'POST',
       });
     }
+  });
+});
+
+describe('session lifecycle', () => {
+  const deferred = () => {
+    let resolve;
+    const promise = new Promise((settle) => {
+      resolve = settle;
+    });
+    return { promise, resolve };
+  };
+  beforeEach(() => {
+    vi.resetModules();
+    sessionStorage.clear();
+    window.history.replaceState({}, '', '/dashboard');
+    vi.stubEnv('VITE_API_BASE_URL', '');
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  test.each([200, 401, 503])(
+    'an old refresh (%s) cannot restore a logged-out session',
+    async (status) => {
+      const pending = deferred();
+      const { persistAuthSession } = await import('./authSession');
+      persistAuthSession({ access: 'old', refresh: 'old-refresh' });
+      const { setNavigate } = await import('./navigationService');
+      const navigate = vi.fn();
+      setNavigate(navigate);
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValueOnce({ status: 401 }).mockReturnValueOnce(pending.promise),
+      );
+      const { apiFetch, logout } = await import('./requestClient');
+      const request = apiFetch('/api/private/');
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+      logout();
+      navigate.mockClear();
+      pending.resolve({
+        status,
+        ok: status === 200,
+        json: async () => ({ access: 'late', refresh: 'late-refresh' }),
+      });
+      await request;
+      expect(sessionStorage.getItem('accessToken')).toBeNull();
+      expect(sessionStorage.getItem('refreshToken')).toBeNull();
+      expect(navigate).not.toHaveBeenCalled();
+      expect(fetch).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  test.each([200, 401, 503])(
+    'an old refresh (%s) cannot overwrite or expire a new login',
+    async (status) => {
+      const pending = deferred();
+      const { persistAuthSession } = await import('./authSession');
+      persistAuthSession({ access: 'old', refresh: 'old-refresh' });
+      const { setNavigate } = await import('./navigationService');
+      const navigate = vi.fn();
+      setNavigate(navigate);
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValueOnce({ status: 401 }).mockReturnValueOnce(pending.promise),
+      );
+      const { apiFetch } = await import('./requestClient');
+      const request = apiFetch('/api/private/');
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+      persistAuthSession({ access: 'new-user', refresh: 'new-user-refresh' });
+      pending.resolve({
+        status,
+        ok: status === 200,
+        json: async () => ({ access: 'late', refresh: 'late-refresh' }),
+      });
+      await request;
+      expect(sessionStorage.getItem('accessToken')).toBe('new-user');
+      expect(sessionStorage.getItem('refreshToken')).toBe('new-user-refresh');
+      expect(navigate).not.toHaveBeenCalled();
+      expect(fetch).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  test('a late protected 401 cannot refresh or clear a newer login', async () => {
+    const pending = deferred();
+    const { persistAuthSession } = await import('./authSession');
+    persistAuthSession({ access: 'old', refresh: 'old-refresh' });
+    vi.stubGlobal('fetch', vi.fn().mockReturnValueOnce(pending.promise));
+    const { apiFetch } = await import('./requestClient');
+    const request = apiFetch('/api/private/');
+    persistAuthSession({ access: 'new-user', refresh: 'new-refresh' });
+    pending.resolve({ status: 401 });
+    await request;
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem('accessToken')).toBe('new-user');
+  });
+
+  test.each(['/api/private/', '/auth/mcp/connections/'])(
+    'a second 401 from %s expires the session and preserves pending consent',
+    async (path) => {
+      const pendingPath = '/connections/authorize?state=keep%26this';
+      window.history.replaceState({}, '', pendingPath);
+      const { persistAuthSession } = await import('./authSession');
+      persistAuthSession({ access: 'old', refresh: 'old-refresh' });
+      const { setNavigate } = await import('./navigationService');
+      const navigate = vi.fn();
+      setNavigate(navigate);
+      vi.stubGlobal(
+        'fetch',
+        vi
+          .fn()
+          .mockResolvedValueOnce({ status: 401 })
+          .mockResolvedValueOnce({ ok: true, json: async () => ({ access: 'fresh' }) })
+          .mockResolvedValueOnce({ status: 401 }),
+      );
+      const { apiFetch } = await import('./requestClient');
+      await apiFetch(path);
+      expect(sessionStorage.getItem('accessToken')).toBeNull();
+      expect(navigate).toHaveBeenCalledWith(`/login?next=${encodeURIComponent(pendingPath)}`, {
+        replace: true,
+      });
+      expect(fetch).toHaveBeenCalledTimes(3);
+    },
+  );
+
+  test('concurrent requests share one refresh and retry with the rotated token', async () => {
+    const pending = deferred();
+    const { persistAuthSession } = await import('./authSession');
+    persistAuthSession({ access: 'old', refresh: 'old-refresh' });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url, options) => {
+        if (url === '/auth/refresh/') return pending.promise;
+        return Promise.resolve(
+          options.headers.Authorization === 'Bearer fresh'
+            ? { ok: true, status: 200 }
+            : { status: 401 },
+        );
+      }),
+    );
+    const { apiFetch } = await import('./requestClient');
+    const first = apiFetch('/api/one/');
+    const second = apiFetch('/api/two/');
+    await vi.waitFor(() =>
+      expect(fetch.mock.calls.filter(([url]) => url === '/auth/refresh/')).toHaveLength(1),
+    );
+    pending.resolve({
+      ok: true,
+      json: async () => ({ access: 'fresh', refresh: 'rotated-refresh' }),
+    });
+    const results = await Promise.all([first, second]);
+    expect(results.every((result) => result.ok)).toBe(true);
+    expect(sessionStorage.getItem('refreshToken')).toBe('rotated-refresh');
+    expect(fetch.mock.calls.filter(([url]) => url === '/auth/refresh/')).toHaveLength(1);
+  });
+  test('a new login starts its own refresh while the prior session is still pending', async () => {
+    const oldRefresh = deferred();
+    const newRefresh = deferred();
+    const { persistAuthSession } = await import('./authSession');
+    persistAuthSession({ access: 'old', refresh: 'old-refresh' });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url, options) => {
+        if (url === '/auth/refresh/') {
+          return JSON.parse(options.body).refresh === 'old-refresh'
+            ? oldRefresh.promise
+            : newRefresh.promise;
+        }
+        return Promise.resolve(
+          options.headers.Authorization === 'Bearer fresh-new-user'
+            ? { status: 200, ok: true }
+            : { status: 401 },
+        );
+      }),
+    );
+    const { apiFetch } = await import('./requestClient');
+    const first = apiFetch('/api/old/');
+    await vi.waitFor(() =>
+      expect(fetch.mock.calls.filter(([url]) => url === '/auth/refresh/')).toHaveLength(1),
+    );
+    persistAuthSession({ access: 'new-user', refresh: 'new-refresh' });
+    const second = apiFetch('/api/new/');
+    await vi.waitFor(() =>
+      expect(fetch.mock.calls.filter(([url]) => url === '/auth/refresh/')).toHaveLength(2),
+    );
+    oldRefresh.resolve({ ok: true, json: async () => ({ access: 'late-old-user' }) });
+    await first;
+    expect(sessionStorage.getItem('accessToken')).toBe('new-user');
+    newRefresh.resolve({ ok: true, json: async () => ({ access: 'fresh-new-user' }) });
+    expect((await second).ok).toBe(true);
+    expect(sessionStorage.getItem('accessToken')).toBe('fresh-new-user');
   });
 });

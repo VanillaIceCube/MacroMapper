@@ -29,7 +29,7 @@ export default function App() {
   return (
     <ThemeProvider theme={fieldAtlasTheme}>
       <CssBaseline />
-      <Router>
+      <Router basename={import.meta.env.BASE_URL}>
         <NavigationBridge />
         <AppHeader title="MacroMapper" setDrawerOpen={setDrawerOpen} />
         <AppNavigationDrawer open={drawerOpen} setOpen={setDrawerOpen} />
