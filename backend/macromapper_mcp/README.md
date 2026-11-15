@@ -173,7 +173,9 @@ only at the controller's recorded safe stages; after migrations, explicit
 later writes. Preserve current journals first and obtain the appropriate recovery
 authorization. See [the production guide](../../deploy/production/README.md).
 
-## 🧪 Local verification
+<a id="-local-verification"></a>
+
+## 🧪 Checks
 
 Backend development remains off by default. Use an isolated database, then set
 `DJANGO_MCP_ENABLED=1`, an exact `DJANGO_MCP_BASE_URL` and the real frontend origin

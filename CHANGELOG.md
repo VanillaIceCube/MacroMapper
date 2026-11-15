@@ -14,6 +14,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Standardize README heading emojis, sentence case, reference labels and Markdown spacing while preserving substantive content, code examples and existing anchors.
 - Move the author's original note from the frontend guide to the project README, preserving its wording.
 - Move frontend connection contracts into session guidance and product intent beside route behavior; keep related guides as final navigation.
 - Align frontend npm commands: production builds run strict lint first and `lint:fix` applies available lint fixes.
