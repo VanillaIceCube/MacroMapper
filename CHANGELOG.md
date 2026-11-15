@@ -10,6 +10,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Consolidate global styles in `frontend/src/index.css`, remove the redundant app stylesheet, and preserve the Atlas theme, shared controls and reduced-motion rules.
 - Group frontend Dockerfiles and Nginx configuration in `frontend/docker/`; update Compose, build workflows and Docker dependency discovery while retaining the frontend build context.
 - Resolve favicon, Apple touch icon and web manifest URLs through the Vite base URL for consistent public asset paths.
 - Align the default ChatGPT listing with its read-only OAuth grant and document explicit configuration and new consent for broader variants.

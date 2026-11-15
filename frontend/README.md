@@ -8,6 +8,8 @@ authentication, and the application shell.
 - `docker/`: production/development Dockerfiles and Nginx configuration.
   Docker builds keep `frontend/` as their context; `.dockerignore` stays at the
   frontend root.
+- `src/index.css`: the single global stylesheet, loaded by `src/index.jsx`; keep
+  theme tokens, document defaults, shared controls and app-specific rules here.
 - `src/components/`: reusable interface components.
 - `src/pages/`: application pages and routes.
 - `src/services/`: API requests and session handling.
@@ -149,7 +151,7 @@ measurement units alone preserves both consumed nutrition and composite evidence
 - Use Material UI components and responsive `sx` values before adding custom
   layout primitives.
 - Use the centralized Material UI theme in `src/theme.js` and the matching CSS
-  custom properties in `src/App.css`; do not introduce one-off brand colors.
+  custom properties in `src/index.css`; do not introduce one-off brand colors.
 - Follow the Field Atlas direction: warm paper surfaces, ink structure, restrained
   cartographic details, and factual rather than clinical language.
 - Use Bone `#F6F1E7` for the canvas, Midnight ink `#17324D` for text and

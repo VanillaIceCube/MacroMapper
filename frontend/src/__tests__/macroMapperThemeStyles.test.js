@@ -215,7 +215,7 @@ function removedMuiSystemPropOffenders(source, relativePath) {
 
 describe('MacroMapper theme styles', () => {
   const sourceRoot = path.resolve(process.cwd(), 'src');
-  const appCss = fs.readFileSync(path.join(sourceRoot, 'App.css'), 'utf8');
+  const globalCss = fs.readFileSync(path.join(sourceRoot, 'index.css'), 'utf8');
   const themeSource = fs.readFileSync(path.join(sourceRoot, 'theme.js'), 'utf8');
   const readSource = (relativePath) => fs.readFileSync(path.join(sourceRoot, relativePath), 'utf8');
   const jsxFiles = fs
@@ -224,20 +224,20 @@ describe('MacroMapper theme styles', () => {
     .map((entry) => path.join(entry.parentPath, entry.name));
 
   test('defines the Field Atlas core and semantic tokens centrally', () => {
-    expect(appCss).toContain('--atlas-bone: #f6f1e7');
-    expect(appCss).toContain('--atlas-ink: #17324d');
-    expect(appCss).toContain('--atlas-forest: #2e6b4f');
-    expect(appCss).toContain('--atlas-persimmon: #e46b3c');
-    expect(appCss).toContain('--atlas-mineral: #a9cad4');
-    expect(appCss).toContain('--atlas-radius-compact: 6px');
-    expect(appCss).toContain('--atlas-radius-surface: 12px');
-    expect(appCss).toContain('--atlas-radius-prominent: 18px');
-    expect(appCss).toContain('--atlas-radius-pill: 999px');
-    expect(appCss).toContain('--calorie-color: var(--atlas-ink)');
-    expect(appCss).toContain('--protein-color: var(--atlas-forest)');
-    expect(appCss).toContain('--carbohydrate-color: var(--atlas-mineral-dark)');
-    expect(appCss).toContain('--fat-color: var(--atlas-persimmon)');
-    expect(appCss).toContain('--activity-color: #356b7f');
+    expect(globalCss).toContain('--atlas-bone: #f6f1e7');
+    expect(globalCss).toContain('--atlas-ink: #17324d');
+    expect(globalCss).toContain('--atlas-forest: #2e6b4f');
+    expect(globalCss).toContain('--atlas-persimmon: #e46b3c');
+    expect(globalCss).toContain('--atlas-mineral: #a9cad4');
+    expect(globalCss).toContain('--atlas-radius-compact: 6px');
+    expect(globalCss).toContain('--atlas-radius-surface: 12px');
+    expect(globalCss).toContain('--atlas-radius-prominent: 18px');
+    expect(globalCss).toContain('--atlas-radius-pill: 999px');
+    expect(globalCss).toContain('--calorie-color: var(--atlas-ink)');
+    expect(globalCss).toContain('--protein-color: var(--atlas-forest)');
+    expect(globalCss).toContain('--carbohydrate-color: var(--atlas-mineral-dark)');
+    expect(globalCss).toContain('--fat-color: var(--atlas-persimmon)');
+    expect(globalCss).toContain('--activity-color: #356b7f');
   });
 
   test('configures the Material UI theme with Field Atlas typography and palette', () => {
@@ -252,10 +252,12 @@ describe('MacroMapper theme styles', () => {
   });
 
   test('uses Forest for focused form controls', () => {
-    expect(appCss).toContain('.MuiInputLabel-root.Mui-focused');
-    expect(appCss).toContain('.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline');
-    expect(appCss).toContain('color: var(--atlas-forest-dark) !important');
-    expect(appCss).toContain('border-color: var(--atlas-forest) !important');
+    expect(globalCss).toContain('.MuiInputLabel-root.Mui-focused');
+    expect(globalCss).toContain(
+      '.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline',
+    );
+    expect(globalCss).toContain('color: var(--atlas-forest-dark) !important');
+    expect(globalCss).toContain('border-color: var(--atlas-forest) !important');
   });
 
   test.each([
@@ -303,8 +305,8 @@ describe('MacroMapper theme styles', () => {
   });
 
   test('provides focus and reduced-motion safeguards', () => {
-    expect(appCss).toContain('.auth-link:focus-visible');
-    expect(appCss).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(globalCss).toContain('.auth-link:focus-visible');
+    expect(globalCss).toContain('@media (prefers-reduced-motion: reduce)');
   });
 
   test('keeps removed Material UI 9 system props inside sx', () => {
