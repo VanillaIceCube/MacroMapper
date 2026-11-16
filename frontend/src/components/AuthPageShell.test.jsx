@@ -4,6 +4,17 @@ import AuthPageShell from './AuthPageShell';
 import { renderWithProviders } from '../test-helpers/utils';
 
 describe('AuthPageShell', () => {
+  test.each(['/', '/cleanup04-check/'])('loads its logo within Vite base %s', (base) => {
+    vi.stubEnv('BASE_URL', base);
+    renderWithProviders(
+      <AuthPageShell title="Sign in">
+        <p>Account access</p>
+      </AuthPageShell>,
+    );
+
+    expect(screen.getByAltText('')).toHaveAttribute('src', `${base}macromapper-mark.png`);
+  });
+
   test('presents the page title as the main heading and renders its content', () => {
     renderWithProviders(
       <AuthPageShell title="Recover access">

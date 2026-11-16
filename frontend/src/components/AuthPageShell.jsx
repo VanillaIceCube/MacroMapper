@@ -14,7 +14,12 @@ export default function AuthPageShell({ children, title }) {
       }}
     >
       <Stack spacing={1} sx={{ alignItems: 'center' }}>
-        <Box component="img" src="/macromapper-mark.png" alt="" sx={{ width: 64, height: 64 }} />
+        <Box
+          component="img"
+          src={`${import.meta.env.BASE_URL}macromapper-mark.png`}
+          alt=""
+          sx={{ width: 64, height: 64 }}
+        />
         <Typography variant="h3" sx={{ fontWeight: 650, color: 'var(--atlas-ink)' }}>
           MacroMapper
         </Typography>

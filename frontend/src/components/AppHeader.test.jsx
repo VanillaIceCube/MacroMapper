@@ -31,6 +31,13 @@ const response = (body, ok = true) => ({
 });
 
 describe('AppHeader', () => {
+  test.each(['/', '/cleanup04-check/'])('loads its logo within Vite base %s', (base) => {
+    vi.stubEnv('BASE_URL', base);
+    renderWithProviders(<AppHeader title="MacroMapper" setDrawerOpen={vi.fn()} />);
+
+    expect(screen.getByAltText('')).toHaveAttribute('src', `${base}macromapper-mark.png`);
+  });
+
   test('supports profile menu keyboard navigation, dismissal, and logout', async () => {
     const user = userEvent.setup();
     renderWithProviders(<AppHeader title="MacroMapper" setDrawerOpen={setDrawerOpen} />);

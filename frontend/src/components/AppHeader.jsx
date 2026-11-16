@@ -94,7 +94,7 @@ export default function AppHeader({ title, setDrawerOpen }) {
           >
             <Box
               component="img"
-              src="/macromapper-mark.png"
+              src={`${import.meta.env.BASE_URL}macromapper-mark.png`}
               alt=""
               aria-hidden="true"
               sx={{ width: 34, height: 34 }}

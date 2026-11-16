@@ -50,8 +50,9 @@ Local `.env` files are excluded from Docker build contexts.
 For direct `npm` development, an unset API origin uses `http://localhost:8000`.
 An explicit shell value overrides that default; an explicit blank uses same-origin.
 Vite's `base` setting supplies `%BASE_URL%` for HTML assets and
-`import.meta.env.BASE_URL` for the router basename. Production uses domain-root
-routes; a subdirectory also needs matching server and API routing. The API origin is separate
+`import.meta.env.BASE_URL` for the router basename and shell, drawer and authentication logos.
+Production uses domain-root routes; a subdirectory also needs matching server and API routing.
+The API origin is separate
 from both settings. Development uses port 3000; production Nginx serves the static
 build and preserves SPA deep links.
 

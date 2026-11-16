@@ -71,7 +71,7 @@ export default function AppNavigationDrawer({ open, setOpen }) {
           >
             <Box
               component="img"
-              src="/macromapper-mark.png"
+              src={`${import.meta.env.BASE_URL}macromapper-mark.png`}
               alt=""
               sx={{ width: 34, height: 34 }}
             />
