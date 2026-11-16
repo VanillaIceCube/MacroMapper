@@ -253,8 +253,8 @@ MCP_SETTINGS.update(
         MCP_SETTINGS["MCP_BASE_URL"],
         {
             "macromapper:read": "Read your meals, proposals, notifications and accessible foods",
-            "macromapper:write": "Prepare changes and permanent deletions; each action requires your approval in MacroMapper before this client can execute it",
-            "macromapper:estimate": "Prepare paid AI work that can spend credits and publish shared food definitions; each action requires your approval in MacroMapper (also requires read/write access)",
+            "macromapper:write": "Make additions and edits directly, including item replacements; archiving and permanent deletion require your separate approval in MacroMapper",
+            "macromapper:estimate": "Run paid AI work directly that can spend credits and publish shared food definitions (also requires read/write access); no separate per-action app approval",
         },
         ["macromapper:read"],
     ),

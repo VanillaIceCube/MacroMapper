@@ -1,6 +1,7 @@
 """Actual app-owned MCP HTTP discovery, tool calls and revocation."""
 
 from unittest import skipUnless
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlencode, urlsplit
 from uuid import uuid4
 
@@ -41,11 +42,13 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
             item["scope"]: item["description"] for item in scoped.json()["permissions"]
         }
         self.assertEqual(set(permissions), {READ, WRITE, ESTIMATE})
-        self.assertIn("permanent deletions", permissions[WRITE])
+        self.assertIn("permanent deletion", permissions[WRITE])
+        self.assertIn("additions and edits directly", permissions[WRITE])
+        self.assertIn("separate approval in MacroMapper", permissions[WRITE])
         self.assertIn("spend credits", permissions[ESTIMATE])
         self.assertIn("publish shared food definitions", permissions[ESTIMATE])
-        for scope in [WRITE, ESTIMATE]:
-            self.assertIn("requires your approval in MacroMapper", permissions[scope])
+        self.assertIn("Run paid AI work directly", permissions[ESTIMATE])
+        self.assertIn("no separate per-action app approval", permissions[ESTIMATE])
 
         default = self.client.get("/auth/mcp/authorize/", query)
         self.assertEqual(default.status_code, 200, default.content)
@@ -149,10 +152,10 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
                     )
                     listing = (await rpc("tools/list")).json()["result"]["tools"]
                     tools = {tool["name"]: tool for tool in listing}
-                    self.assertEqual(len(tools), 14)
+                    self.assertEqual(len(tools), 16)
                     self.assertNotIn("preview_change", tools)
-                    self.assertNotIn("execute_change", tools)
-                    self.assertNotIn("execute_paid_change", tools)
+                    self.assertIn("execute_change", tools)
+                    self.assertIn("execute_paid_change", tools)
                     self.assertNotIn("connection_status", tools)
                     for name in ["confirm_change", "confirm_paid_change"]:
                         self.assertFalse(tools[name]["annotations"]["readOnlyHint"])
@@ -247,7 +250,12 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
                     ]
                     self.assertEqual(unapproved["status"], "prepared")
                     self.assertFalse(unapproved["applied"])
-                    self.assertTrue((await tool("execute_change", changes))["isError"])
+                    self.assertEqual(
+                        (await tool("execute_change", changes))["structuredContent"][
+                            "status"
+                        ],
+                        "prepared",
+                    )
                     await sync_to_async(self.approve)(confirm["confirmation_id"])
                     applied = await tool("confirm_change", confirm)
                     self.assertTrue(applied["structuredContent"]["applied"])
@@ -258,6 +266,26 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
                         (await tool("prepare_change", changes))["structuredContent"][
                             "replayed"
                         ]
+                    )
+                    direct_arguments = {
+                        "request_id": str(uuid4()),
+                        "action": "meal.update",
+                        "target_id": applied["structuredContent"]["result"]["data"][
+                            "id"
+                        ],
+                        "changes": {"notes": "Direct routine edit"},
+                    }
+                    direct = (await tool("execute_change", direct_arguments))[
+                        "structuredContent"
+                    ]
+                    self.assertEqual(direct["status"], "completed")
+                    self.assertEqual(
+                        direct["result"]["data"]["notes"], "Direct routine edit"
+                    )
+                    self.assertTrue(
+                        (await tool("execute_change", direct_arguments))[
+                            "structuredContent"
+                        ]["replayed"]
                     )
                     schema = tools["prepare_change"]["inputSchema"]
                     self.assertIn("request_id", schema["required"])
@@ -300,6 +328,12 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
                         "structuredContent"
                     ]
                     self.assertFalse(paid_prepared["applied"])
+                    self.assertEqual(
+                        (await tool("execute_paid_change", paid_arguments))[
+                            "structuredContent"
+                        ]["status"],
+                        "prepared",
+                    )
                     paid_confirm = {
                         "request_id": paid_arguments["request_id"],
                         "confirmation_id": paid_prepared["result"]["data"][
@@ -317,6 +351,22 @@ class MCPToolTransportTests(MCPToolFixtures, TransactionTestCase):
                             "structuredContent"
                         ]["replayed"]
                     )
+                    direct_paid = dict(paid_arguments, request_id=str(uuid4()))
+                    with patch(
+                        "apps.estimates.services.get_estimation_provider",
+                        side_effect=AssertionError(
+                            "Catalog wire fixture must not call a provider"
+                        ),
+                    ):
+                        done = (await tool("execute_paid_change", direct_paid))[
+                            "structuredContent"
+                        ]
+                        self.assertEqual(done["status"], "completed")
+                        self.assertTrue(
+                            (await tool("execute_paid_change", direct_paid))[
+                                "structuredContent"
+                            ]["replayed"]
+                        )
                     proposals = (await tool("list_proposals", {}))["structuredContent"]
                     proposal_id = proposals["data"][0]["id"]
                     review = (

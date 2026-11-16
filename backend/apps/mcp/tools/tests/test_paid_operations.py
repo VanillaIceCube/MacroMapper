@@ -26,7 +26,7 @@ from apps.foods.models import FoodItem
 from apps.meals.models import MealEntry
 
 from .. import queries, services
-from ..models import Execution
+from ..models import Confirmation, Execution
 from ..permissions import ESTIMATE, READ, WRITE
 from .helpers import MCPToolFixtures
 
@@ -675,6 +675,199 @@ class PaidOperationTests(MCPToolFixtures, TransactionTestCase):
             self.assertEqual(completed["status"], "completed")
             self.assertTrue(replay["replayed"])
             self.assertEqual(replay["result"], completed["result"])
+
+        with (
+            patch.object(
+                server, "get_access_token", return_value=SimpleNamespace(token=self.raw)
+            ),
+            patch(
+                "apps.estimates.services.get_estimation_provider", return_value=provider
+            ),
+        ):
+            async_to_sync(exercise)()
+        self.assertEqual(provider.estimate.call_count, 1)
+        self.assertEqual(MealProposal.objects.count(), 1)
+
+    def direct(self, request):
+        return services.execute_change(self.raw, *self.arguments(request))
+
+    def test_direct_paid_all_four_actions_never_fake_approval_or_hold_provider_transaction(
+        self,
+    ):
+        request = self.request(
+            "proposal.estimate",
+            payload={"description": "Unknown direct dish", "entry_date": "2026-10-30"},
+        )
+
+        def inspect_reservation():
+            self.assertFalse(Confirmation.objects.exists())
+            self.assertEqual(
+                Execution.objects.get(pk=request["request_id"]).state, "in_progress"
+            )
+
+        provider = self.provider(inspect_reservation)
+        with patch(
+            "apps.estimates.services.get_estimation_provider", return_value=provider
+        ):
+            created = self.direct(request)
+            self.assertTrue(self.direct(request)["replayed"])
+        self.assertEqual(provider.estimate.call_count, 1)
+        proposal = MealProposal.objects.get(pk=created["result"]["data"]["id"])
+        edited = self.request(
+            "proposal.update", proposal.pk, {"items": proposal.items[:1]}
+        )
+        self.assertEqual(self.direct(edited)["status"], "completed")
+        meal = self.make_meal()
+        payload = {
+            "entry_date": "2026-10-30",
+            "name": "Direct adjustment",
+            "notes": "",
+            "items": [_catalog_food(self.food.current_version)],
+            "adjustment": "Smaller",
+        }
+
+        def follow_up(**kwargs):
+            self.assertFalse(connection.in_atomic_block)
+            self.assertFalse(Confirmation.objects.exists())
+            return {"applied": False, "message": "No change", "items": []}
+
+        provider = Mock(follow_up=Mock(side_effect=follow_up))
+        with patch(
+            "apps.estimates.provider.get_estimation_provider", return_value=provider
+        ):
+            for operation in [
+                self.request(
+                    "proposal.follow_up",
+                    proposal.pk,
+                    {
+                        "name": proposal.name,
+                        "items": proposal.items,
+                        "follow_up": "Smaller",
+                    },
+                ),
+                self.request("proposal.adjustment", payload=payload),
+                self.request("meal.adjustment", meal.pk, payload),
+            ]:
+                self.assertEqual(self.direct(operation)["status"], "completed")
+                self.assertTrue(self.direct(operation)["replayed"])
+        self.assertEqual(provider.follow_up.call_count, 3)
+
+    def test_direct_paid_timeout_receipt_failure_and_revoked_grant_stay_uncertain(self):
+        from django.db import DatabaseError
+
+        for failure in ["timeout", "receipt", "revoked"]:
+            with self.subTest(failure=failure):
+                request = self.request(
+                    "proposal.estimate",
+                    payload={
+                        "description": "Unknown direct " + failure,
+                        "entry_date": "2026-10-30",
+                    },
+                )
+                before = FoodItem.objects.count()
+
+                def revoke():
+                    type(self.token).objects.filter(pk=self.token.pk).update(scope=READ)
+
+                provider = self.provider(revoke if failure == "revoked" else None)
+                if failure == "timeout":
+                    provider.estimate.side_effect = TimeoutError("Ambiguous")
+                with patch(
+                    "apps.estimates.services.get_estimation_provider",
+                    return_value=provider,
+                ):
+                    if failure == "receipt":
+                        with (
+                            patch.object(
+                                services,
+                                "_complete",
+                                side_effect=DatabaseError("Receipt"),
+                            ),
+                            self.assertRaises(DatabaseError),
+                        ):
+                            self.direct(request)
+                    else:
+                        with self.assertRaises((TimeoutError, PermissionDenied)):
+                            self.direct(request)
+                    self.token.scope = " ".join([READ, WRITE, ESTIMATE])
+                    self.token.save()
+                    self.assertEqual(self.direct(request)["status"], "uncertain")
+                self.assertEqual(provider.estimate.call_count, 1)
+                self.assertEqual(FoodItem.objects.count(), before)
+                self.assertFalse(MealProposal.objects.exists())
+
+    def test_direct_paid_cannot_downgrade_existing_preparation_or_ignore_autocommit(
+        self,
+    ):
+        from django.db import transaction
+
+        request = self.request(
+            "proposal.estimate",
+            payload={
+                "description": "Unknown optional approval",
+                "entry_date": "2026-10-30",
+            },
+        )
+        prepared = self.prepare(request)
+        self.assertEqual(self.direct(request)["status"], "prepared")
+        self.approve(prepared["result"]["data"]["confirmation_id"])
+        self.assertEqual(self.direct(request)["status"], "approved")
+        self.assertFalse(MealProposal.objects.exists())
+        with patch(
+            "apps.estimates.services.get_estimation_provider",
+            return_value=self.provider(),
+        ):
+            self.execute(request)
+        next_request = self.request(
+            "proposal.estimate",
+            payload={
+                "description": "Unknown atomic caller",
+                "entry_date": "2026-10-30",
+            },
+        )
+        with transaction.atomic(), self.assertRaises(ValidationError):
+            self.direct(next_request)
+        self.assertFalse(
+            Execution.objects.filter(pk=next_request["request_id"]).exists()
+        )
+
+    def test_concurrent_direct_paid_duplicate_only_observes_durable_reservation(self):
+        from .. import server
+
+        request = self.request(
+            "proposal.estimate",
+            payload={
+                "description": "Unknown concurrent direct dish",
+                "entry_date": "2026-10-30",
+            },
+        )
+        started, release = Event(), Event()
+
+        def wait_for_release():
+            started.set()
+            if not release.wait(5):
+                raise AssertionError("Provider was not released")
+
+        provider = self.provider(wait_for_release)
+
+        async def exercise():
+            first = asyncio.create_task(
+                server.call(services.execute_change, *self.arguments(request))
+            )
+            try:
+                self.assertTrue(await asyncio.to_thread(started.wait, 3))
+                duplicate = await server.call(
+                    services.execute_change, *self.arguments(request)
+                )
+                self.assertEqual(duplicate["status"], "in_progress")
+            finally:
+                release.set()
+            done = await first
+            replay = await server.call(
+                services.execute_change, *self.arguments(request)
+            )
+            self.assertEqual(done["status"], "completed")
+            self.assertTrue(replay["replayed"])
 
         with (
             patch.object(
