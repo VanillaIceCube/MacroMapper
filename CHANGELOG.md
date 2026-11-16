@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Reject malformed notification display, identity, read-state and navigation fields before publishing list or mark-read results; preserve usable header controls, cached rows and retries.
 - Resolve header, navigation drawer and authentication logos against Vite's base URL so prefixed deployments load the existing public artwork.
 - Discard JWT refresh results after logout or a new login, align post-refresh session expiry, and preserve pending connection navigation.
 - Validate notification lists before rendering and retain usable error and retry controls.
