@@ -23,6 +23,13 @@ function DrawerHarness({ onOpenChange }) {
 }
 
 describe('AppNavigationDrawer', () => {
+  test.each(['/', '/cleanup04-check/'])('loads its logo within Vite base %s', (base) => {
+    vi.stubEnv('BASE_URL', base);
+    renderWithProviders(<AppNavigationDrawer open setOpen={vi.fn()} />);
+
+    expect(screen.getByAltText('')).toHaveAttribute('src', `${base}macromapper-mark.png`);
+  });
+
   test('renders MacroMapper navigation', () => {
     renderWithProviders(<AppNavigationDrawer open setOpen={vi.fn()} />);
 

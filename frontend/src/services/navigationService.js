@@ -1,3 +1,6 @@
+// Native browser actions remain separate from React Router navigation.
+export const browserLocation = { reload: () => window.location.reload() };
+
 let navigateImpl = null;
 
 export function setNavigate(navigate) {

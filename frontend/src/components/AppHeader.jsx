@@ -1,3 +1,6 @@
+import useNotifications from '../hooks/useNotifications';
+import useSession from '../hooks/useSession';
+import { getSessionVersion } from '../services/sessionState';
 import AccountCircle from '@mui/icons-material/AccountCircle';
 import ClearIcon from '@mui/icons-material/Clear';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -22,8 +25,8 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { useState } from 'react';
+import { Link as RouterLink, useLocation, useNavigate } from 'react-router';
 import {
   clearAllNotifications,
   clearNotification,
@@ -31,164 +34,47 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '../services/notificationApiClient';
-import { getResponseErrorMessage, safeReadJson } from '../services/authSession';
+import { getResponseErrorMessage } from '../services/authSession';
 import { logout } from '../services/requestClient';
 
 const AUTH_PATHS = ['/login', '/register', '/forgot-password', '/reset-password'];
 
-function safeGetSessionItem(key) {
-  try {
-    return sessionStorage.getItem(key) || '';
-  } catch (_error) {
-    return '';
-  }
-}
+const notificationApi = {
+  fetchNotifications,
+  markNotificationRead,
+  clearNotification,
+  markAllNotificationsRead,
+  clearAllNotifications,
+};
 
 export default function AppHeader({ title, setDrawerOpen }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [profileAnchorEl, setProfileAnchorEl] = useState(null);
   const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
-  const [notifications, setNotifications] = useState([]);
-  const [notificationsLoading, setNotificationsLoading] = useState(false);
-  const [notificationError, setNotificationError] = useState('');
-  const [actionPending, setActionPending] = useState(false);
-  const [pendingIds, setPendingIds] = useState(() => new Set());
-
-  const profileUsername = safeGetSessionItem('username');
-  const profileEmail = safeGetSessionItem('email');
-  const accessToken = safeGetSessionItem('accessToken');
+  const session = useSession();
+  const { username: profileUsername, email: profileEmail } = session;
   const profilePrimary = profileUsername || profileEmail.split?.('@')?.[0] || 'Account';
   const profileSecondary = profileEmail || null;
-  const unreadCount = useMemo(
-    () =>
-      Array.isArray(notifications)
-        ? notifications.filter((notification) => !notification.is_read).length
-        : 0,
-    [notifications],
-  );
-
-  const loadNotifications = useCallback(async () => {
-    if (!accessToken) {
-      setNotifications([]);
-      return;
-    }
-
-    setNotificationsLoading(true);
-    setNotificationError('');
-    try {
-      const response = await fetchNotifications(accessToken);
-      if (!response.ok) {
-        setNotificationError(
-          await getResponseErrorMessage(response, 'Notifications are unavailable right now.'),
-        );
-        setNotifications([]);
-      } else {
-        const data = await safeReadJson(response);
-        if (!Array.isArray(data)) throw new Error('Invalid notification response.');
-        setNotifications(data);
-      }
-    } catch (_error) {
-      setNotificationError('Notifications are unavailable right now.');
-    } finally {
-      setNotificationsLoading(false);
-    }
-  }, [accessToken]);
-
-  useEffect(() => {
-    loadNotifications();
-  }, [loadNotifications]);
-
-  const finishItemAction = (notificationId) => {
-    setPendingIds((current) => {
-      const remaining = new Set(current);
-      remaining.delete(notificationId);
-      return remaining;
-    });
-  };
-
-  const handleClearNotification = async (notificationId) => {
-    if (pendingIds.has(notificationId) || actionPending) return;
-    setNotificationError('');
-    setPendingIds((current) => new Set(current).add(notificationId));
-    try {
-      const response = await clearNotification(notificationId, accessToken);
-      if (!response?.ok) {
-        setNotificationError(
-          await getResponseErrorMessage(response, 'Could not clear that notification.'),
-        );
-        return;
-      }
-      setNotifications((current) => current.filter((item) => item.id !== notificationId));
-    } catch (_error) {
-      setNotificationError('Could not clear that notification.');
-    } finally {
-      finishItemAction(notificationId);
-    }
-  };
+  const {
+    notifications,
+    notificationsLoading,
+    notificationError,
+    actionPending,
+    pendingIds,
+    unreadCount,
+    loadNotifications,
+    markRead,
+    clearNotification: handleClearNotification,
+    markAllRead: handleMarkAllRead,
+    clearAll: handleClearAll,
+  } = useNotifications(notificationApi, getResponseErrorMessage);
 
   const handleOpenNotification = async (notification) => {
-    if (pendingIds.has(notification.id) || actionPending) return;
-    if (!notification.is_read) {
-      setNotificationError('');
-      setPendingIds((current) => new Set(current).add(notification.id));
-      try {
-        const response = await markNotificationRead(notification.id, accessToken);
-        if (!response?.ok) {
-          setNotificationError(
-            await getResponseErrorMessage(response, 'Could not update that notification.'),
-          );
-          return;
-        }
-        const updated = await response.json();
-        if (updated?.id !== notification.id || updated?.is_read !== true) throw new Error();
-        setNotifications((current) =>
-          current.map((item) => (item.id === updated.id ? updated : item)),
-        );
-      } catch (_error) {
-        setNotificationError('Could not update that notification.');
-        return;
-      } finally {
-        finishItemAction(notification.id);
-      }
-    }
+    if (!(await markRead(notification)) || getSessionVersion() !== session.version) return;
     if (notification.target_path) {
       setNotificationAnchorEl(null);
       navigate(notification.target_path);
-    }
-  };
-
-  const handleMarkAllRead = async () => {
-    if (actionPending || pendingIds.size > 0) return;
-    setNotificationError('');
-    setActionPending(true);
-    try {
-      const response = await markAllNotificationsRead(accessToken);
-      if (!response?.ok)
-        throw new Error(await getResponseErrorMessage(response, 'Could not update notifications.'));
-      setNotifications((current) =>
-        current.map((notification) => ({ ...notification, is_read: true })),
-      );
-    } catch (error) {
-      setNotificationError(error?.message || 'Could not update notifications.');
-    } finally {
-      setActionPending(false);
-    }
-  };
-
-  const handleClearAll = async () => {
-    if (actionPending || pendingIds.size > 0) return;
-    setNotificationError('');
-    setActionPending(true);
-    try {
-      const response = await clearAllNotifications(accessToken);
-      if (!response?.ok)
-        throw new Error(await getResponseErrorMessage(response, 'Could not clear notifications.'));
-      setNotifications([]);
-    } catch (error) {
-      setNotificationError(error?.message || 'Could not clear notifications.');
-    } finally {
-      setActionPending(false);
     }
   };
 
@@ -196,16 +82,7 @@ export default function AppHeader({ title, setDrawerOpen }) {
 
   return (
     <Box sx={{ flexGrow: 1 }}>
-      <AppBar
-        position="sticky"
-        sx={{
-          color: 'var(--atlas-ink)',
-          background: 'rgba(255, 253, 248, 0.96)',
-          boxShadow: 'none',
-          borderBottom: '1px solid var(--atlas-border)',
-          backdropFilter: 'blur(12px)',
-        }}
-      >
+      <AppBar position="sticky">
         <Toolbar sx={{ width: '100%', maxWidth: 1280, mx: 'auto', gap: { xs: 0, sm: 0.5 } }}>
           <Stack
             direction="row"
@@ -217,7 +94,7 @@ export default function AppHeader({ title, setDrawerOpen }) {
           >
             <Box
               component="img"
-              src="/macromapper-mark.png"
+              src={`${import.meta.env.BASE_URL}macromapper-mark.png`}
               alt=""
               aria-hidden="true"
               sx={{ width: 34, height: 34 }}
@@ -422,10 +299,9 @@ export default function AppHeader({ title, setDrawerOpen }) {
             />
             {import.meta.env.VITE_MCP_ENABLED === '1' && (
               <MenuItem
-                onClick={() => {
-                  setProfileAnchorEl(null);
-                  navigate('/connections');
-                }}
+                component={RouterLink}
+                to="/connections"
+                onClick={() => setProfileAnchorEl(null)}
               >
                 Connected Apps
               </MenuItem>

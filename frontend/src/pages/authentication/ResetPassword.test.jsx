@@ -1,3 +1,4 @@
+import { Route, Routes } from 'react-router';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { resetPassword } from '../../services/authApiClient';
@@ -79,4 +80,42 @@ describe('ResetPassword', () => {
     expect(showSnackbar).toHaveBeenCalledWith('error', 'Validation failed.');
     consoleError.mockRestore();
   });
+  describe.each([{ name: 'Back to Login', to: '/login', tabs: 4 }])(
+    'navigation to $to ($name)',
+    ({ name, to, tabs }) => {
+      test.each(['click', 'keyboard'])(
+        '%s follows a real link without submitting',
+        async (activation) => {
+          vi.clearAllMocks();
+          sessionStorage.clear();
+          const user = userEvent.setup();
+          const showSnackbar = vi.fn();
+          renderWithProviders(
+            <Routes>
+              <Route
+                path="/reset-password"
+                element={<ResetPassword showSnackbar={showSnackbar} />}
+              />
+              <Route path={to} element={<h1>Navigation destination</h1>} />
+            </Routes>,
+            { routeEntries: ['/reset-password?uid=test&token=test'] },
+          );
+          const link = screen.getByRole('link', { name, exact: true });
+          expect(link).toHaveAttribute('href', to);
+          if (activation === 'keyboard') {
+            for (let i = 0; i < tabs; i += 1) await user.tab();
+            expect(link).toHaveFocus();
+            await user.keyboard('{Enter}');
+          } else {
+            await user.click(link);
+          }
+          expect(
+            await screen.findByRole('heading', { name: 'Navigation destination' }),
+          ).toBeVisible();
+          expect(resetPassword).not.toHaveBeenCalled();
+          expect(showSnackbar).not.toHaveBeenCalled();
+        },
+      );
+    },
+  );
 });

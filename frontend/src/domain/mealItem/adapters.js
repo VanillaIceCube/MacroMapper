@@ -5,7 +5,7 @@ let mealItemSequence = 0;
 
 const nextKey = (prefix, identifier) => `${prefix}-${identifier}-${mealItemSequence++}`;
 
-export const sourceKindForProvenance = (provenance) =>
+const sourceKindForProvenance = (provenance) =>
   provenance === 'official'
     ? 'official_verified'
     : provenance === 'ai_estimate'
@@ -29,7 +29,7 @@ const withPortionSelection = (item) => {
   };
 };
 
-export const componentSnapshotToMealItem = (component) =>
+const componentSnapshotToMealItem = (component) =>
   withPortionSelection({
     key: nextKey('meal-component', component.food_version_id || component.id),
     food_item: component.food_item_id,
