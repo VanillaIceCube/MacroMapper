@@ -8,6 +8,11 @@ an upstream response. The backend's default 110-second total AI budget leaves
 time to return a controlled error. Production uses the separately owned
 Infrastructure gateway with the same 120-second API read timeout.
 
+Shared release verification runs through
+`python deploy/production/build_bundle.py --check-parity`; its immutable
+Infrastructure source pin is `shared_source` in `production/app.json`.
+See the [production guide](production/README.md) for source synchronization.
+
 <a id="local-docker-with-macromapperlocalhost"></a>
 
 ## 💻 Local Docker with `macromapper.localhost`
@@ -33,10 +38,11 @@ HTTP ports 3000/8000 on localhost. Override host ports with
 No certificate or Nginx is required. Open `http://macromapper.localhost:3000`.
 
 For standalone HTTPS/image checks, prepare the same local environment/database,
-then use:
+then use the following commands with `mkcert` installed:
 
 ```powershell
-./deploy/create-local-certificate.ps1
+New-Item -ItemType Directory -Path certs -Force | Out-Null
+mkcert -cert-file certs/origin.pem -key-file certs/origin.key "macromapper.localhost" localhost 127.0.0.1 ::1
 docker build --file backend/docker/Dockerfile -t ghcr.io/vanillaicecube/macromapper-backend:latest ./backend
 docker build --file frontend/docker/Dockerfile -t ghcr.io/vanillaicecube/macromapper-frontend:latest ./frontend
 Set-Location deploy
@@ -44,7 +50,7 @@ docker compose up -d
 docker compose exec -T backend python manage.py migrate
 ```
 
-The optional certificate helper writes `origin.pem`/`origin.key` to ignored
+The manual `mkcert` command writes `origin.pem`/`origin.key` to ignored
 `certs/`. Open `https://macromapper.localhost`. This standalone project owns its
 proxy and defaults to ports 80/443/8000/3000; override its `MACROMAPPER_*_PORT`
 variables when another local app owns those ports. Do not use this standalone

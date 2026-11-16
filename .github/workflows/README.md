@@ -431,7 +431,7 @@ cover the corrected diff-informed alert filtering used by these scanners.
 
 Deployment uses docker/login-action v4.8.0 at its immutable revision from the
 Infrastructure release standard. Update the canonical workflow and manifest
-first, synchronize `deploy/shared-source.json` and its verified files, then
+first, synchronize `shared_source` in `deploy/production/app.json` and its verified files, then
 regenerate the workflow source inventory. Rendered-only workflow upgrades fail parity.
 
 ## 🚀 Releases and promotion
@@ -450,9 +450,9 @@ are not production release inputs.
 
 ### Shared deployment action update
 
-Docker login v4.7.0 is rendered from Infrastructure commit
-`f3f049830fcd5e5869d1ae120c57d9ccb6c99200`. Keep `deploy/shared-source.json` and
-the generated workflow synchronized; deployment parity remains mandatory.
+Docker login v4.8.0 is rendered from the immutable Infrastructure revision
+recorded under `shared_source` in `deploy/production/app.json`. Keep the pin
+and generated workflow synchronized; deployment parity remains mandatory.
 
 ### Architecture and production summaries
 
