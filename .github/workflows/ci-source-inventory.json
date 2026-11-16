@@ -35,6 +35,12 @@
       ".github/workflows/alert-codeql.yml",
       ".github/workflows/alert-malware.yml",
       ".github/workflows/alert-vulnerability.yml"
+    ],
+    "./.github/actions/setup-uv": [
+      ".github/workflows/ci-auto-merge.yml",
+      ".github/workflows/gate-codeql.yml",
+      ".github/workflows/gate-lint.yml",
+      ".github/workflows/gate-test.yml"
     ]
   },
   "workflows": {
@@ -166,7 +172,7 @@
       "permissions": {
         "contents": "read"
       },
-      "source_sha256": "7c034be23ef8564af16a927c7edeb57f5f1b2c334d7a805b5fee0af6ee6391d6",
+      "source_sha256": "9028be7f039cd380e7f38a0c7ff6dbe60cf89834d632c9f59c008a8c451beb04",
       "variable_names": [
         "LINT_EASTWOOD_REVIEWER_LOGIN",
         "OBI_WAN_REVIEWER_LOGIN",
@@ -199,7 +205,7 @@
         "contents": "read",
         "packages": "write"
       },
-      "source_sha256": "dbcdde1c7598bb59e1296f97f30cd152b3ab270a5d316c7228e39c450b3d753c",
+      "source_sha256": "40c9859441f72e7697ee0d1bdb689a0e357d3854a21e7ad392ecf386bc7925e5",
       "variable_names": [
         "DEPLOY_HOST",
         "DEPLOY_HOST_FINGERPRINT",
@@ -435,7 +441,7 @@
         "pull-requests": "read",
         "security-events": "write"
       },
-      "source_sha256": "295024a6b658f555e48e92a6a576fc4e62ac8da113574c25589a64c851782b63",
+      "source_sha256": "018f1cafa9e50f28231418fcf7bb141978f9cfc73a403ae8678e148a9a9b08e7",
       "variable_names": []
     },
     "gate-lint.yml": {
@@ -511,7 +517,7 @@
         "contents": "read",
         "pull-requests": "read"
       },
-      "source_sha256": "9506e9eb0d7523dbf43a8d78c04529312c84832d170a647e8a06a9ce0fbbea0a",
+      "source_sha256": "1442866efccd7114c256bab36d2ecdd54e4ff9273fa01ce0d23e8101b231e69b",
       "variable_names": [
         "LINT_EASTWOOD_APP_ID"
       ]
@@ -614,7 +620,7 @@
         "contents": "read",
         "pull-requests": "read"
       },
-      "source_sha256": "a5db722e39268ea49695dfaf04d259f087ff71cf7bbea299ff13e18e4aae21bf",
+      "source_sha256": "d2cdc5c0baa08ba92abeec3e19e91eaed93686293e896eb34a9693a9ef684dd4",
       "variable_names": []
     },
     "gate-vulnerability.yml": {
@@ -894,7 +900,7 @@
         "security-events": "read",
         "statuses": "read"
       },
-      "source_sha256": "3e4a4c9998574ab2019bc75936f907062525a051c0cf0fdf904775a67bd074bc",
+      "source_sha256": "58d0b50c59da1b6a0c7749dffaba8daa59be005b7c808323f7dc8f9897bb01cf",
       "variable_names": [
         "AI_REVIEW_MAX_OUTPUT_TOKENS",
         "AI_REVIEW_MODEL",

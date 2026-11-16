@@ -52,13 +52,13 @@ history and valid UTF-8 text when editing or merging entries.
 ## 💻 Local development
 
 Use manual setup; do not assume Django or Node dependencies are installed.
-Use Python 3.12 in an isolated environment and the Node version range in
+Use uv 0.13.8 to manage the locked Python 3.12 environment and the Node version range in
 `frontend/package.json`. From the repository root:
 
 ```powershell
-python -m pip install -r backend/requirements.txt
-python backend/manage.py migrate
-python backend/manage.py runserver 8000
+uv sync --locked --project backend
+uv run --locked --project backend python backend/manage.py migrate
+uv run --locked --project backend python backend/manage.py runserver 8000
 ```
 
 In a separate shell, from the repository root:
@@ -69,8 +69,12 @@ npm ci
 npm start
 ```
 
-Frontend image definitions and Nginx configuration live in `frontend/docker/`;
-keep `frontend/` as the Docker build context.
+Backend image definitions live in `backend/docker/`; keep `backend/` as the
+Docker build context. Frontend image definitions and Nginx configuration live in
+`frontend/docker/`; keep `frontend/` as the Docker build context. Each Dockerfile
+uses its adjacent `Dockerfile.dockerignore` or `Dockerfile.dev.dockerignore`;
+patterns remain relative to the backend/frontend context root. Keep frontend
+Nginx configuration and development startup files available to image builds.
 
 For local Docker hot reload and optional standalone HTTPS, follow
 [deploy/README.md](deploy/README.md). Initialize only missing local environment
@@ -111,12 +115,18 @@ build-time settings. Client-side variables must contain no secrets.
 
 ## 🧪 Checks
 
+Keep backend tests in owning `tests/` packages with descriptive behavior-based
+`test_*.py` modules and empty `__init__.py` files. Shared fixture helpers must not
+define discoverable test cases or import test modules. Group modules and classes
+by behavior, preserve test discovery and assertions when splitting, and keep the
+canonical MCP framework tests aligned across applications.
+
 Run checks in proportion to the change, from the repository root:
 
 ```powershell
-python backend/manage.py test backend
-ruff check backend
-ruff format backend --check
+uv run --locked --project backend python backend/manage.py test backend
+uv run --locked --project backend ruff check backend
+uv run --locked --project backend ruff format backend --check
 ```
 
 From `frontend/`:
@@ -186,7 +196,7 @@ commit SHAs with version comments. Workflow updates do not authorize deployment.
 The shared publisher fails after every `REQUEST_CHANGES`, including repeated or
 unchanged verdicts; valid `APPROVE`/`COMMENT` pass and unavailable/invalid output
 fails. Missing credentials, incomplete required major-upgrade briefs and oversized
-diffs must fail visibly. The shared diff budget is 512 KiB. Obi-Wan's semver-major
+diffs must fail visibly. The shared diff budget is 2 MB (2,000,000 bytes). Obi-Wan's semver-major
 Dependabot brief uses complete primary-source evidence; web search remains limited
 to that review path. Run the repository's publisher regression tests and
 Actionlint when changing this contract. Where used, the read-only `verify-gates.js` audit requires actual
@@ -242,10 +252,23 @@ and local keys/projects. Store local values only in ignored `backend/.env` or
 `deploy/.env`; production values enter the approved private release bundle via
 the Actions repository secret. Never store keys in `deploy/backend.env`.
 
+## ✉️ Email delivery
+
+Use the pinned django-anymail Resend backend directly; do not recreate a custom
+provider wrapper. Preserve console-local and explicit SMTP/custom selections,
+existing credentials, bounded API timeout with the 10-second fallback, disabled
+API dumps and no automatic retries. Missing-key configuration errors must fail
+before HTTP. Keep generic reset responses and safe caller-only error logging;
+never log exception/provider bodies, recipients, reset tokens or credentials.
+Use mocked Requests-boundary tests in `backend/config/tests/` and the
+retained authentication privacy tests. No live mail or new webhook routes are
+part of this contract; see the [backend guide](backend/README.md#-email).
+
 ## 🔌 MCP integration
 
 Shared MCP framework changes originate in FullStackTemplate's canonical Python
-package; synchronize consumer hashes and pins. Derived applications own enablement,
+package; synchronize reviewed runtime changes across consumers and record source
+commits in the coordinated tracking issue. Derived applications own enablement,
 registries, scopes and business tools. Infrastructure supplies ordinary gateway
 routing and its optional MCP contract. Preserve existing Notoli credentials,
 scopes, tool permissions, connection and exact proxy trust. The retired central
@@ -253,13 +276,27 @@ issuer is not a deployment prerequisite. Advertise an app service only after its
 own registry, OAuth and readiness checks pass; framework adoption alone does not
 authorize activation, client registration, owner consent or plugin installation.
 
-Follow the [app MCP contract](backend/macromapper_mcp/README.md) and
+Follow the [app MCP contract](backend/apps/mcp/README.md#application-tools) and
 [MacroMapper #284](https://github.com/VanillaIceCube/MacroMapper/issues/284).
 MacroMapper owns OAuth, existing-account consent, its registry and scopes;
-shared framework files remain unchanged. Preserve REST JWT/login behavior and
-exact trusted peer `172.20.0.3`. Read is the default scope; writes need explicit
-confirmation and paid estimates also need their separate scope. Recheck token,
-user and ownership on every operation.
+shared framework changes stay canonical and identical across consumers. Preserve REST JWT/login behavior and
+exact trusted peer `172.20.0.3`. Read is the default scope. Every consequential
+MCP write, deletion and paid action requires preparation and separate, explicit
+approval by the matching signed-in app user before confirmation can execute it.
+The app JWT-only approval channel is independent of the MCP bearer; a client
+boolean or OAuth grant cannot set approval. Keep exact payload/target/catalog,
+client/token/owner/scope binding, five-minute expiry, cancellation and one-use
+consumption. Generate request UUIDs automatically, retain durable receipts and
+never retry uncertain paid calls under a new UUID automatically. Recheck grants
+and ownership, keep provider waits outside writer transactions, and commit
+publication with its receipt atomically. Preserve host consent/safety controls.
+
+Use the existing optional shared framework approval hook and Connections screen;
+FullStackTemplate and Notoli leave the hook unavailable and retain their own domain
+policies. Approval verifies an explicit decision using the matching app user's
+credentials, not physical human presence or protection against compromise of those
+credentials. See the [threat model](backend/apps/mcp/README.md#-access-and-permissions).
+Preserve required CI and independent review gates.
 
 Production policy and frontend Docker builds enable the reviewed app connector;
 local backend defaults remain off. Run both backend profiles and frontend tests,
@@ -284,5 +321,5 @@ modules independent of React/presentation and use their public entry points.
 Frontend uses Vite, Vitest/jsdom, ESLint 10 and `frontend/dist/`; production API
 requests remain same-origin with blank `VITE_API_BASE_URL`. Keep compatible
 Material UI/icon versions and dependency overrides documented in the frontend
-README. The estimates suite remains a discoverable `estimates/tests/` package;
-root-level full backend discovery requires `python backend/manage.py test backend`.
+README. The estimates suite remains a discoverable `apps/estimates/tests/` package;
+root-level full backend discovery requires `uv run --locked --project backend python backend/manage.py test backend`.
