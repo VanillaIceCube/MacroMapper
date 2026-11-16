@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Return a newly signed action ticket after approval so the existing Cancel control works immediately without reloading; preserve the original action expiry and reject stale tickets.
 - Verify the backend production/development uv bootstrap against reviewed binary wheel hashes for every platform in the pinned Python base; reject altered artifacts and source distributions across all three applications.
 - Disclose delegated MCP changes, permanent deletions and paid AI access accurately on OAuth consent; preserve host consent/safety controls while requiring separate app approval and retaining read-only default grants.
 - Remove the meal/estimate service import cycle by keeping actor-scoped reviewed draft saving with proposal orchestration; REST and MCP share the same authorization and transaction boundaries.

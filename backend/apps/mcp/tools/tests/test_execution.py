@@ -576,3 +576,68 @@ class MCPExecutionTests(MCPToolFixtures, TestCase):
         self.assertEqual([row["id"] for row in selected], [notice.pk])
         self.assertEqual(selected[0]["message"], "A" * 5000)
         self.assertFalse(preview.get("truncated", False))
+
+    def test_post_approval_ticket_cancels_nonpaid_and_paid_before_consumption(self):
+        client = self.approval_client()
+        for request in (
+            self.request(),
+            self.request(
+                "proposal.estimate",
+                payload={"description": "Unknown meal", "entry_date": "2026-10-30"},
+            ),
+        ):
+            with (
+                self.subTest(action=request["action"]),
+                patch("apps.mcp.tools.operations.invoke") as mutation,
+                patch("apps.mcp.tools.operations.invoke_paid") as provider,
+            ):
+                reference = self.prepare(request)["result"]["data"]["confirmation_id"]
+                expires = Confirmation.objects.get(pk=reference).expires_at
+                approved = self.approve(reference)
+                self.assertEqual(approved["approval"]["status"], "approved")
+                self.assertEqual(
+                    Confirmation.objects.get(pk=reference).expires_at, expires
+                )
+                cancelled = client.post(
+                    "/auth/mcp/action-approval/",
+                    {"ticket": approved["ticket"], "decision": "cancel"},
+                )
+                self.assertEqual(cancelled.status_code, 200, cancelled.content)
+                self.assertEqual(cancelled.json()["approval"]["status"], "cancelled")
+                self.assertNotIn("ticket", cancelled.json())
+                outcome = services.confirm_change(
+                    self.raw,
+                    request["request_id"],
+                    reference,
+                    request["authorized_paid"],
+                )
+                self.assertEqual(outcome["status"], "cancelled")
+                self.assertFalse(outcome["applied"])
+                self.assertFalse(Confirmation.objects.filter(pk=reference).exists())
+                mutation.assert_not_called()
+                provider.assert_not_called()
+        self.assertFalse(MealEntry.objects.exists())
+        self.assertFalse(MealProposal.objects.exists())
+
+    def test_post_approval_ticket_cannot_extend_original_action_expiry(self):
+        request = self.request()
+        reference = self.prepare(request)["result"]["data"]["confirmation_id"]
+        expires = Confirmation.objects.get(pk=reference).expires_at
+        approved = self.approve(reference)
+        self.assertEqual(Confirmation.objects.get(pk=reference).expires_at, expires)
+        with patch(
+            "apps.mcp.tools.services.timezone.now",
+            return_value=expires + timedelta(seconds=1),
+        ):
+            response = self.approval_client().post(
+                "/auth/mcp/action-approval/",
+                {"ticket": approved["ticket"], "decision": "cancel"},
+            )
+            self.assertEqual(response.status_code, 409)
+            self.assertEqual(
+                services.confirm_change(self.raw, request["request_id"], reference)[
+                    "status"
+                ],
+                "expired",
+            )
+        self.assertFalse(MealEntry.objects.exists())
