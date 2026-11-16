@@ -91,7 +91,6 @@ Optional backend variables:
 - `DJANGO_ALLOWED_HOSTS`
 - `DJANGO_CORS_ALLOWED_ORIGINS`
 - `DJANGO_CSRF_TRUSTED_ORIGINS`
-- `DJANGO_FORCE_SCRIPT_NAME` (leave blank for subdomain-root routing)
 - `DJANGO_FRONTEND_BASE_URL` (default: `http://localhost:3000`)
 - `DJANGO_EMAIL_BACKEND`
 - `DJANGO_EMAIL_HOST`
