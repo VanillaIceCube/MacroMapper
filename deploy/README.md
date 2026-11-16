@@ -37,7 +37,7 @@ then use:
 
 ```powershell
 ./deploy/create-local-certificate.ps1
-docker build -t ghcr.io/vanillaicecube/macromapper-backend:latest ./backend
+docker build --file backend/docker/Dockerfile -t ghcr.io/vanillaicecube/macromapper-backend:latest ./backend
 docker build --file frontend/docker/Dockerfile -t ghcr.io/vanillaicecube/macromapper-frontend:latest ./frontend
 Set-Location deploy
 docker compose up -d
@@ -90,20 +90,42 @@ release procedure; see the [credential migration guide](../.github/README.md#app
 
 ## 🔌 Shared MCP framework
 
-The [app MCP guide](../backend/macromapper_mcp/README.md) defines app-owned OAuth, exact proxy trust, readiness and first-enable recovery. Local MCP development uses a disposable database, `DJANGO_MCP_ENABLED=1`, the exact backend/frontend origins and `VITE_MCP_ENABLED=1`, with `python serve.py` selecting ASGI. Ordinary hot reload remains disabled by default. Production enables both sides through its reviewed app policy and frontend Dockerfile; its existing shared Nginx routes belong to Infrastructure.
+The [app MCP guide](../backend/apps/mcp/README.md#application-tools) defines app-owned OAuth, exact proxy trust, readiness and first-enable recovery. Local MCP development uses a disposable database, `DJANGO_MCP_ENABLED=1`, the exact backend/frontend origins and `VITE_MCP_ENABLED=1`, with the production image command selecting ASGI. Ordinary hot reload remains disabled by default. Production enables both sides through its reviewed app policy and frontend Dockerfile; its existing shared Nginx routes belong to Infrastructure.
 
 <a id="development-dependency-reproducibility"></a>
 
 ## 📦 Development dependency reproducibility
 
-Development images pin reviewed multi-platform Node 26 and Miniforge 26.9.4-0
-registry digests. Frontend production and development builders use the same
-immutable Node 26 digest. Refresh matching tags/digests together after registry
-verification and a disposable build/configuration check.
+Both backend Dockerfiles install uv using isolated, binary-only pip with reviewed
+SHA-256 hashes from [PyPI's uv 0.13.8 release](https://pypi.org/pypi/uv/0.13.8/json).
+The allowlist covers every platform in the pinned Python image: Linux amd64,
+arm/v7, arm64/v8, 386 and ppc64le. Unlisted artifacts, altered wheels and source
+distributions fail installation. Requirements are passed through stdin; update
+the version and all compatible wheel hashes together after artifact verification.
 
-Frontend production/development Dockerfiles and Nginx configuration live in
-`frontend/docker/`. The build context remains
-`frontend/`; Compose and CI select the Dockerfile explicitly.
+Backend production and development images use the same reviewed Python 3.12
+multi-platform image digest, bootstrap pinned uv 0.13.8, and install the committed
+`uv.lock` with `uv sync --locked`. Frontend builders use the same immutable Node 26 digest.
+Refresh matching tags/digests together after registry verification and a disposable
+build/configuration check. Conda and environment export files are no longer used.
+
+The container environment lives at `/opt/venv`, outside the `/backend` source bind
+mount. The ignored host `backend/.venv/` is excluded from image builds and never
+replaces Linux container dependencies. The backend starts with `uv run --locked`,
+which synchronizes that environment when the container starts. After a backend manifest/lockfile change, restart the
+backend; ordinary Python edits still hot reload:
+
+```powershell
+docker compose --env-file deploy/.env -f deploy/docker-compose.dev.yml restart backend
+```
+
+Backend production/development Dockerfiles live in `backend/docker/`; frontend
+Dockerfiles and Nginx configuration live in `frontend/docker/`. Build contexts
+remain `backend/` and `frontend/`; Compose and CI select each Dockerfile explicitly.
+Each Dockerfile uses its adjacent `Dockerfile.dockerignore` or
+`Dockerfile.dev.dockerignore`. Exclusion patterns are still relative to the build
+context root. The frontend ignores do not exclude Nginx configuration or
+development startup files under `docker/`.
 
 The frontend starts Vite directly with `npm start`. Source hot reload and the
 persistent `frontend_node_modules` volume remain. Dependency changes require a
