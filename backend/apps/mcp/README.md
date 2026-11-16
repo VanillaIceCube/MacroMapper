@@ -271,7 +271,11 @@ user IDs cannot select another account. REST JWTs cannot call MCP.
   read/write access and a user-requested paid action; read access alone cannot spend
   provider credits. Tests mock providers and do not make paid requests.
 
-Every consequential write, deletion and paid action must be prepared, reviewed
+Additions, field/item-collection edits, read flags and paid AI execute directly
+under their granted scopes with durable UUID receipts/reservations. This delegates
+edit authority and, with estimate scope, provider spending to the connected client;
+a compromised client can misuse that authority. Only explicit archive/deletion
+actions must be prepared, reviewed
 in the trusted MacroMapper app, and then confirmed. The approval page requires
 the matching account's REST JWT; MCP bearers and session cookies cannot approve,
 even if they possess a preview ticket. The user explicitly approves the exact
@@ -299,26 +303,39 @@ management remain outside the registry.
 
 ### 🧰 Available capabilities
 
-The registry exposes 14 tools covering 19 closed mutation actions. Call
-`operation_schema(action)` before preparing a change: it returns the allowed
-fields, required values, bounds and scopes for that action.
-Its `requires_confirmation: true` requires trusted app approval before confirmation
-can execute; host consent and safety controls still apply.
+The registry exposes 16 tools covering the same 19 closed mutation actions. Call
+`operation_schema(action)` before a change: it returns allowed fields, required
+values, bounds, scopes, `execution_tool`, `requires_confirmation` and the compatibility
+`confirmation_required_for_fields` array (now empty). Use `execute_change` directly
+for nonpaid edits and `execute_paid_change` for paid work.
+When approval is required, prepare the exact action for separate app approval.
+Host consent and safety controls still apply.
 Meal-item descriptors separate string product identity metadata from the bounded
 `natural_servings` array (at most 12 food-specific gram definitions) and
 `portion_options` array (at most 20 selectable conversions), matching the
 application's writable serializers.
 
-| Area | Read tools | Actions requiring approval |
-| --- | --- | --- |
-| Food catalog | `search_foods`, `get_food` | Create or update your personal foods; archive them. Shared catalog visibility follows the existing app policy. |
-| Diary and nutrition | `meal_diary`, `get_meal`, `nutrition_totals` | Create, edit or delete meals; save or update reviewed drafts. Drafts require explicit name and notes, with an empty notes string allowed. |
-| Proposals | `list_proposals` returns summaries/IDs; `get_proposal` pages current review items | Review/edit, delete draft proposals, or separately accept a proposal into the diary. |
-| Paid estimation | Read proposals before accepting them | Estimate a new proposal, request a proposal follow-up, or adjust a proposal/meal draft. These four actions additionally require `macromapper:estimate`; they do not directly accept a diary meal. |
-| Notifications | `list_notifications`, `get_notification` | Mark one read/unread, delete one, mark all current notifications read, or clear the current set. Arrivals after preparation selects its bounded set are excluded. |
+| Area | Read tools | Direct routine changes | Separate app approval |
+| --- | --- | --- | --- |
+| Foods | `search_foods`, `get_food` | Create/update personal foods | Archive |
+| Meals | `meal_diary`, `get_meal`, `nutrition_totals` | Create named meals/drafts; edit fields or replace items through `meal.update`/`meal.draft_update` | Delete |
+| Proposals | `list_proposals` (summaries), `get_proposal` (current-item pages) | Edit fields/items; accept a reviewed proposal into a new meal | Delete |
+| Paid estimation | Read proposals before acceptance | All four estimate/follow-up/adjustment actions, with separate estimate scope | None by default; optional preparation remains available |
+| Notifications | `list_notifications`, `get_notification` | Read/unread flags; mark all current entries read | Delete one or clear the prepared selection; later arrivals are excluded |
+
+`execute_change(request_id, action, changes, target_id?)` accepts only this closed
+non-removal allowlist. Unknown/read-only fields and ownership changes fail validation.
+Meal creation and draft saving require explicit names, so the direct path cannot
+implicitly call paid AI for naming. `proposal.accept` creates a new diary meal;
+it does not replace an existing meal. Ordinary item collection edits are not deletion
+of the meal/proposal itself. Only `food.archive`, `meal.delete`, `proposal.delete`,
+`notification.delete` and `notification.clear_all` require app approval. Unknown
+actions fail closed until their execution policy is explicitly reviewed.
 
 `prepare_change(request_id, action, changes, target_id?)` handles the 15 nonpaid
-actions with read/write access. `prepare_paid_change` handles the four paid actions
+actions with read/write access, including optional stronger protection for a routine
+action. A UUID already prepared must complete that approval flow; calling either
+direct tool cannot downgrade it. `prepare_paid_change` optionally prepares paid work
 with read/write/estimate access. Their action enums are disjoint. Preparation
 creates private state without business changes or provider calls, returning an
 opaque `confirmation_id` and approval URL containing only that reference. Open
@@ -328,8 +345,10 @@ it in MacroMapper and explicitly Approve or Cancel.
 only the matching, unexpired app-approved preparation. They accept no changed
 payload or caller approval boolean. Confirmation advertises destructive behavior;
 paid confirmation also advertises external interaction. Preparation advertises
-a private write, not a destructive action/provider call. Direct `execute_change`
-and `execute_paid_change` are absent. Exact repeats recover the existing action or
+a private write, not a destructive action/provider call. `execute_change` is limited
+to nonpaid non-removals; `execute_paid_change` runs the four paid actions with
+read/write/estimate permission and a durable in-progress reservation before provider
+I/O. It never creates a fake approved state. Exact repeats recover the existing action or
 receipt without executing the request twice.
 
 The tool caller generates a UUID automatically for each intended operation. It

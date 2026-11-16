@@ -183,6 +183,41 @@ OPERATIONS = {
 }
 
 
+# New operations fail closed until their policy is explicitly reviewed.
+REMOVAL_ACTIONS = frozenset(
+    {
+        "food.archive",
+        "meal.delete",
+        "proposal.delete",
+        "notification.delete",
+        "notification.clear_all",
+    }
+)
+DIRECT_ACTIONS = frozenset(
+    {
+        "food.create",
+        "food.update",
+        "meal.create",
+        "meal.update",
+        "meal.draft_create",
+        "meal.draft_update",
+        "proposal.update",
+        "proposal.accept",
+        "notification.update",
+        "notification.mark_all_read",
+        "proposal.estimate",
+        "proposal.follow_up",
+        "proposal.adjustment",
+        "meal.adjustment",
+    }
+)
+
+
+def requires_approval(action, payload):
+    """Only explicit record deletion/archive requires app approval."""
+    return action not in DIRECT_ACTIONS
+
+
 def strict_fields(serializer, data):
     if not isinstance(data, dict):
         raise ValidationError("Supply an object.")
@@ -520,9 +555,17 @@ def operation_schema(raw, action):
             "action": action,
             "target_id_required": operation.detail,
             "fields": fields,
-            "requires_confirmation": True,
+            "requires_confirmation": requires_approval(action, {}),
+            "confirmation_required_for_fields": [],
+            "execution_tool": (
+                "execute_paid_change" if operation.paid else "execute_change"
+            )
+            if not requires_approval(action, {})
+            else "prepare_paid_change"
+            if operation.paid
+            else "prepare_change",
             "request_id_required": True,
-            "request_id_policy": "Generate a UUID automatically for each intended action; reuse the same UUID and exact arguments to recover its outcome. Never ask the user for an ID. Follow the host client's consent and safety controls; The user must approve the exact prepared action in MacroMapper before MCP confirmation can execute it; an MCP bearer cannot approve.",
+            "request_id_policy": "Generate a UUID automatically for each intended action; reuse the same UUID and exact arguments to recover its outcome. Never ask the user for an ID. Follow the host client's consent and safety controls. Use execute_change directly for nonpaid edits and execute_paid_change for paid work with estimate scope. Only record deletion/archive requires signed-in app approval via prepare/confirm; ordinary item collection edits execute directly. Optional preparation never downgrades an existing pending request; an MCP bearer cannot approve.",
             "paid": operation.paid,
             "scope": ["macromapper:read", "macromapper:write"]
             + (["macromapper:estimate"] if operation.paid else []),

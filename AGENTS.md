@@ -280,9 +280,15 @@ Follow the [app MCP contract](backend/apps/mcp/README.md#application-tools) and
 [MacroMapper #284](https://github.com/VanillaIceCube/MacroMapper/issues/284).
 MacroMapper owns OAuth, existing-account consent, its registry and scopes;
 shared framework changes stay canonical and identical across consumers. Preserve REST JWT/login behavior and
-exact trusted peer `172.20.0.3`. Read is the default scope. Every consequential
-MCP write, deletion and paid action requires preparation and separate, explicit
-approval by the matching signed-in app user before confirmation can execute it.
+exact trusted peer `172.20.0.3`. Read is the default scope. MCP additions,
+field/item-collection edits and read flags execute directly through a closed allowlist
+with an automatically generated request UUID and atomic durable receipt. Paid AI
+executes directly with read/write/estimate scopes and a durable reservation before
+provider I/O. Only food archive, meal/proposal/notification deletion and notification
+clearing require preparation and separate approval by the matching signed-in app user.
+Meal creation/drafts require explicit nonblank names; nonpaid actions never call AI.
+Optional preparation of any non-removal request, including paid work, cannot be
+downgraded through direct execution. Never fabricate an approved state for direct work.
 The app JWT-only approval channel is independent of the MCP bearer; a client
 boolean or OAuth grant cannot set approval. Keep exact payload/target/catalog,
 client/token/owner/scope binding, five-minute expiry, cancellation and one-use
@@ -292,8 +298,9 @@ and ownership, keep provider waits outside writer transactions, and commit
 publication with its receipt atomically. Preserve host consent/safety controls.
 
 Use the existing optional shared framework approval hook and Connections screen;
-FullStackTemplate and Notoli leave the hook unavailable and retain their own domain
-policies. Approval verifies an explicit decision using the matching app user's
+Notoli uses the same hook for sensitive actions, with its own scopes and domain
+snapshots. FullStackTemplate leaves the hook unavailable. Shared framework/UI
+source remains identical; paid-provider behavior is MacroMapper-specific. Approval verifies an explicit decision using the matching app user's
 credentials, not physical human presence or protection against compromise of those
 credentials. See the [threat model](backend/apps/mcp/README.md#-access-and-permissions).
 Preserve required CI and independent review gates.

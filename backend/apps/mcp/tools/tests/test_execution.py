@@ -20,7 +20,7 @@ from apps.notifications.models import Notification
 from .. import queries, results, services
 from ..models import Confirmation, Execution
 from ..permissions import ESTIMATE, READ, WRITE
-from .helpers import MCPToolFixtures, definition
+from .helpers import MCPToolFixtures, MealToolFixtures, definition
 
 
 @skipUnless(settings.MCP_ENABLED, "Run the enabled app-owned OAuth profile")
@@ -641,3 +641,106 @@ class MCPExecutionTests(MCPToolFixtures, TestCase):
                 "expired",
             )
         self.assertFalse(MealEntry.objects.exists())
+
+
+@skipUnless(settings.MCP_ENABLED, "Run the enabled app-owned OAuth profile")
+class TieredExecutionTests(MealToolFixtures, TestCase):
+    def direct(self, request):
+        return services.execute_change(self.raw, *self.arguments(request)[:-1])
+
+    def test_routine_direct_is_atomic_replayable_and_never_names_with_ai(self):
+        request = self.request()
+        with patch(
+            "apps.meals.services.generate_meal_name",
+            side_effect=AssertionError("No implicit AI"),
+        ) as provider:
+            output = self.direct(request)
+            self.assertEqual(output["status"], "completed")
+            self.assertFalse(Confirmation.objects.exists())
+            self.assertTrue(self.direct(request)["replayed"])
+            for name in (None, "", "  "):
+                payload = self.meal_payload()
+                if name is None:
+                    payload.pop("name")
+                else:
+                    payload["name"] = name
+                with self.assertRaises(APIException):
+                    self.direct(self.request(payload=payload))
+            provider.assert_not_called()
+        self.assertEqual(MealEntry.objects.count(), 1)
+        with patch.object(
+            Execution, "save", side_effect=RuntimeError("receipt failure")
+        ):
+            with self.assertRaises(RuntimeError):
+                self.direct(self.request())
+        self.assertEqual(MealEntry.objects.count(), 1)
+
+    def test_sensitive_variants_and_unknown_fields_cannot_use_direct_path(self):
+        meal = self.make_meal()
+        for action, payload in (
+            ("meal.delete", {}),
+            ("meal.update", {"items": []}),
+            ("proposal.estimate", {}),
+        ):
+            with (
+                self.subTest(action=action, payload=payload),
+                self.assertRaises(APIException),
+            ):
+                self.direct(self.request(action, meal.pk, payload))
+        with self.assertRaises(APIException):
+            self.direct(self.request("meal.update", meal.pk, {"owner": self.other.pk}))
+        meal.refresh_from_db()
+        self.assertTrue(meal.items.exists())
+
+    def test_optional_preparation_cannot_be_downgraded_or_retargeted(self):
+        request = self.request()
+        prepared = self.prepare(request)
+        self.assertEqual(self.direct(request)["status"], "prepared")
+        self.assertFalse(MealEntry.objects.exists())
+        changed = dict(request, payload=dict(request["payload"], name="Changed"))
+        with self.assertRaises(APIException):
+            self.direct(changed)
+        self.approve(prepared["result"]["data"]["confirmation_id"])
+        self.assertEqual(self.direct(request)["status"], "approved")
+        self.assertFalse(MealEntry.objects.exists())
+        self.execute(request)
+        self.assertTrue(self.direct(request)["replayed"])
+
+    def test_discovery_distinguishes_replacement_fields_and_paid_policy(self):
+        from .. import operations
+
+        routine = operations.operation_schema(self.raw, "meal.update")["data"]
+        self.assertFalse(routine["requires_confirmation"])
+        self.assertEqual(routine["confirmation_required_for_fields"], [])
+        self.assertEqual(routine["execution_tool"], "execute_change")
+        self.assertTrue(
+            operations.operation_schema(self.raw, "meal.delete")["data"][
+                "requires_confirmation"
+            ]
+        )
+        paid = operations.operation_schema(self.raw, "proposal.estimate")["data"]
+        self.assertFalse(paid["requires_confirmation"])
+        self.assertEqual(paid["execution_tool"], "execute_paid_change")
+        self.assertEqual(
+            {
+                name
+                for name in operations.OPERATIONS
+                if operations.requires_approval(name, {})
+            },
+            operations.REMOVAL_ACTIONS,
+        )
+
+    def test_meal_and_draft_item_replacement_are_direct_ordinary_edits(self):
+        meal = self.make_meal()
+        payload = {
+            "item_inputs": [{"food_item": self.food.pk, "servings": "2", "order": 0}]
+        }
+        request = self.request("meal.update", meal.pk, payload)
+        self.assertEqual(self.direct(request)["status"], "completed")
+        self.assertEqual(str(meal.items.get().servings), "2.0000")
+        draft = self.request(
+            "meal.draft_update", meal.pk, self.draft_payload([self.food])
+        )
+        self.assertEqual(self.direct(draft)["status"], "completed")
+        self.assertTrue(self.direct(draft)["replayed"])
+        self.assertFalse(Confirmation.objects.exists())

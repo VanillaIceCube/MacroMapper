@@ -8,7 +8,7 @@ All notable changes to this project are documented in this file.
 
 - Return a newly signed action ticket after approval so the existing Cancel control works immediately without reloading; preserve the original action expiry and reject stale tickets.
 - Verify the backend production/development uv bootstrap against reviewed binary wheel hashes for every platform in the pinned Python base; reject altered artifacts and source distributions across all three applications.
-- Disclose delegated MCP changes, permanent deletions and paid AI access accurately on OAuth consent; preserve host consent/safety controls while requiring separate app approval and retaining read-only default grants.
+- Disclose delegated MCP changes, permanent deletions and paid AI access accurately on OAuth consent; preserve host consent/safety controls, require separate app approval for archive/deletion, and retain read-only default grants.
 - Remove the meal/estimate service import cycle by keeping actor-scoped reviewed draft saving with proposal orchestration; REST and MCP share the same authorization and transaction boundaries.
 - Verify the CI uv bootstrap against a reviewed wheel SHA-256 before installation across all four repositories; reject unsupported runner targets and source distributions.
 - Return structured reconnect guidance for expired or under-scoped MCP connections while keeping object denials separate and sanitizing unexpected failures.
@@ -17,10 +17,10 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
-- Require separate signed-in app approval for every MCP mutation/deletion/paid action: exact signed previews, five-minute expiry, token/owner/client binding, cancellation, stale-state rejection and durable one-use execution. MCP bearers and caller booleans cannot approve.
+- Execute MCP additions, field/item edits and paid AI directly under their scopes with durable UUID receipts/reservations; require separate signed-in app approval only for archive/deletion: exact signed previews, five-minute expiry, token/owner/client binding, cancellation, stale-state rejection and durable one-use execution. MCP bearers and caller booleans cannot approve.
 - Clarify and regression-test MCP token scope resolution: omitted or blank scope continues to require the application's baseline scope, with identical framework coverage across applications.
 - Raise the complete source-diff limit for all three AI reviewers to 2 MB (2,000,000 bytes) across all four repositories; preserve fail-closed incomplete reviews and all other context, token and model settings.
-- Expose 14 read/prepare/confirm tools retaining all 19 actions; automatic UUIDs recover saved outcomes and paid reservations prevent duplicate provider calls. The existing Connections screen hosts trusted approval with framing protection.
+- Expose 16 read/direct-execute/optional-prepare/confirm tools retaining all 19 actions; automatic UUIDs recover saved outcomes and paid reservations prevent duplicate provider calls. The existing Connections screen hosts trusted approval with framing protection.
 - Separate MCP permissions, action dispatch, authenticated services, actor-scoped queries and bounded results; retain private Confirmation state and add durable receipts through the existing unreleased migration.
 - Use `services.py` consistently for actor-scoped domain business operations and name proposal recipe-tree helpers `recipe_edits.py`; REST and MCP share those services.
 - Share actor-scoped catalog, diary, proposal and notification operations directly between REST and MCP; remove synthetic REST requests/viewset calls while retaining ownership, paid-provider guards and bounded-result behavior.

@@ -202,6 +202,99 @@ def _owned(record, token):
         raise PermissionDenied("Execution unavailable for this connection.")
 
 
+def execute_change(raw, request_id, action, target_id, payload, authorized_paid=False):
+    """Execute a non-removal; paid work reserves before its provider wait."""
+    request_id = _request_id(request_id)
+    operation = operations.OPERATIONS.get(action)
+    payload = json_value(payload)
+    if not isinstance(payload, dict) or operations.requires_approval(action, payload):
+        raise operations.OperationError(
+            "This action requires preparation and signed-in app approval."
+        )
+    if (
+        operation is None
+        or type(authorized_paid) is not bool
+        or operation.paid != authorized_paid
+    ):
+        raise ValidationError("Use the matching paid or nonpaid execution tool.")
+    if (operation.detail and (type(target_id) is not int or target_id <= 0)) or (
+        not operation.detail and target_id is not None
+    ):
+        raise ValidationError("Supply the action's exact target identifier.")
+    digest = _digest(action, target_id, payload)
+    outer_transaction = connection.in_atomic_block
+    with transaction.atomic():
+        token = principal(raw, write=True, paid=operation.paid, lock=True)
+        record = Execution.objects.select_for_update().filter(pk=request_id).first()
+        if record is not None:
+            _owned(record, token)
+            if record.request_digest != digest:
+                raise operations.OperationError(
+                    "This request ID belongs to different arguments."
+                )
+            if record.state not in {Execution.State.PREPARED, Execution.State.APPROVED}:
+                return _outcome(record, replayed=True)
+            # A client may opt into stronger approval, but cannot then bypass it.
+            pending = _preparation(record)
+            if pending is None:
+                return _outcome(record, replayed=True)
+            if pending.token_checksum != token.token_checksum:
+                raise PermissionDenied("Preparation belongs to a different token.")
+            if _fresh(record, pending, token.user) is None:
+                return _outcome(record, replayed=True)
+            return _prepared(record, pending, replayed=True)
+        target = queries.target_for(operation, token.user, target_id)
+        serializer = operations.validated(action, token.user, target, payload)
+        operations.validate_draft(action, serializer, token.user, target)
+        selected_ids = []
+        if action == "notification.mark_all_read":
+            selected_ids = list(
+                notification_services.notifications_for(token.user)
+                .order_by("pk")
+                .values_list("pk", flat=True)[:201]
+            )
+            if len(selected_ids) > 200:
+                raise ValidationError(
+                    "Use individual notification operations for more than 200 entries."
+                )
+        # Retain the same live catalog validation and guarded paid publication.
+        fingerprint = queries.snapshot(
+            action, target, token.user, payload, selected_ids
+        )
+        prepared = (
+            operations.builder_fields(serializer, token.user, target)
+            if operation.serializer is MapYourMealAdjustmentSerializer
+            else None
+        )
+        if operation.paid and outer_transaction:
+            raise ValidationError("Paid operations require an autocommit caller.")
+        record = Execution.objects.create(
+            id=request_id,
+            owner=token.user,
+            client_id=token.application.client_id,
+            action=action,
+            target_id=target_id,
+            request_digest=digest,
+            state=Execution.State.IN_PROGRESS,
+        )
+        if not operation.paid:
+            return _complete(
+                record,
+                operations.invoke(
+                    action,
+                    operation,
+                    token.user,
+                    target,
+                    serializer,
+                    target_id,
+                    selected_ids,
+                ),
+            )
+    return _execute_paid(
+        raw, record, token, target, serializer, payload, fingerprint, prepared
+    )
+
+
 def prepare_change(raw, request_id, action, target_id, payload, authorized_paid=False):
     """Prepare exactly one action; no business mutation or provider call occurs."""
     request_id = _request_id(request_id)
@@ -367,14 +460,10 @@ def action_approval(user, reference, decision=None):
                 changes=pending.payload,
                 current=current,
                 expires_at=pending.expires_at.isoformat(),
-                destructive=record.action
-                in {
-                    "food.archive",
-                    "meal.delete",
-                    "proposal.delete",
-                    "notification.delete",
-                    "notification.clear_all",
-                },
+                destructive=(
+                    operations.requires_approval(record.action, pending.payload)
+                    and not operation.paid
+                ),
             ),
             maximum=327680,
             max_nodes=13000,
@@ -442,6 +531,18 @@ def confirm_change(raw, request_id, confirmation_id, authorized_paid=False):
                     pending.selected_ids,
                 ),
             )
+
+    return _execute_paid(
+        raw, record, token, target, serializer, payload, fingerprint, prepared
+    )
+
+
+def _execute_paid(
+    raw, record, token, target, serializer, payload, fingerprint, prepared
+):
+    """Shared one-use paid execution after either direct reservation or approval."""
+    action, target_id = record.action, record.target_id
+    operation = operations.OPERATIONS[action]
 
     # Reservation is durable before the provider wait. A retry or crashed worker
     # cannot invoke the provider again for this UUID. No writer lock spans I/O.

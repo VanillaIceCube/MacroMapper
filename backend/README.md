@@ -98,8 +98,9 @@ and personal writes in `apps/foods/services.py`, diary queries/writes in
 transactions; serializers validate boundary fields and delegate their writes.
 Shared business behavior uses the owning app's `services` module. Specialized
 ingredient-tree editing helpers live in `apps/estimates/recipe_edits.py`.
-MCP prepares changes, requires separate JWT-authenticated app approval, and
-consumes the exact approved action with current OAuth authorization. Automatic
+MCP executes additions, ordinary edits (including item replacements) and paid AI
+directly under their scopes; only archive/deletion requires separate JWT-authenticated app approval
+before consuming the exact action with current OAuth authorization. Automatic
 request-UUID protection, provider-wait guards and bounded receipts remain; MCP
 does not construct REST requests or invoke viewsets.
 
