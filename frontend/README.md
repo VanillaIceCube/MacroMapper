@@ -5,9 +5,10 @@ authentication, and the application shell.
 
 ## 🧭 Structure
 
-- `docker/`: production/development Dockerfiles and Nginx configuration.
-  Docker builds keep `frontend/` as their context; `.dockerignore` stays at the
-  frontend root.
+- `docker/`: production/development Dockerfiles, their matching
+  `Dockerfile.dockerignore` / `Dockerfile.dev.dockerignore`, and Nginx configuration.
+  Docker builds keep `frontend/` as their context; ignore patterns are relative
+  to that context root. Nginx and development startup files remain build inputs.
 - `src/theme.js`: palette and nutrient tokens, typography, document colors and
   Material UI defaults. `CssBaseline` exposes its tokens as CSS custom properties.
 - `src/index.css`: the single global stylesheet, loaded by `src/index.jsx`; keep
@@ -179,6 +180,17 @@ Optional consent and Connected Apps use `VITE_MCP_ENABLED=1`. Preserve JWT-only
 consent and validated return paths. See the [backend MCP guide](../backend/README.md#-mcp-integration).
 The production Dockerfile enables this build argument by default; raw Vite
 development remains opt-in. Enabling the UI does not register a client or grant.
+
+The existing `/connections/authorize?approval_id=<opaque UUID>` screen supports
+app-owned action review. It loads the complete preview with the app JWT, renders
+untrusted text without HTML, and submits only the signed ticket plus explicit
+Approve/Cancel. It never auto-approves or puts credentials in links. Invalid/stale
+tickets clear controls and require fresh review. Framed action review is refused;
+frontend Nginx applies `frame-ancestors 'none'`, `X-Frame-Options: DENY`, no-store and
+no-referrer to the exact `/connections/authorize` page, preserving embedding policy
+elsewhere. Only MacroMapper configures the backend handler; FullStackTemplate and
+Notoli retain reusable plumbing with action approval unavailable and existing
+domain behavior unchanged.
 
 ### Connections response contract
 

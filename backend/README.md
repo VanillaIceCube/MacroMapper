@@ -5,19 +5,24 @@ permissions, notifications, and application integrations.
 
 ## 🧭 Structure
 
-- `app/`: settings and server entry points.
-- `foods/`, `estimates/`, `meals/`: catalog, proposals, and diary.
-- `authentication/`, `notifications/`: accounts and notifications.
-- `macromapper_mcp/`, `app_mcp/`: application tools and shared MCP.
+- `config/`: Django settings, root URLs and ASGI/WSGI entry points.
+- `docker/`: production/development Dockerfiles and matching
+  `Dockerfile.dockerignore` / `Dockerfile.dev.dockerignore`; keep `backend/` as the
+  build context and write exclusion patterns relative to that context root.
+- `apps/foods/`, `apps/estimates/`, `apps/meals/`: catalog, proposals, and diary.
+- `apps/authentication/`, `apps/notifications/`: accounts and notifications.
+- `apps/mcp/`: shared `framework/`, application `tools/` and `chatgpt/` packaging.
 
 ## 💻 Local development
 
-Use Python 3.12 in an isolated environment. From the repository root:
+Install [uv 0.13.8](https://docs.astral.sh/uv/getting-started/installation/). It manages
+Python 3.12 and the local `backend/.venv/`; Conda is no longer required. From the
+repository root:
 
 ```powershell
-python -m pip install -r backend/requirements.txt
-python backend/manage.py migrate
-python backend/manage.py runserver 8000
+uv sync --locked --project backend
+uv run --locked --project backend python backend/manage.py migrate
+uv run --locked --project backend python backend/manage.py runserver 8000
 ```
 
 Local settings can be supplied in ignored `backend/.env`.
@@ -28,9 +33,12 @@ a separate application key; see [local estimation setup](../deploy/README.md#-lo
 
 ## ⚙️ Configuration
 
+Production (`DJANGO_DEBUG=0`) requires an explicit nonblank `DJANGO_SECRET_KEY`.
+Static files use Django's default storage and the retained WhiteNoise middleware.
+
 Local runs load ignored `backend/.env`. The database defaults to
 `backend/db.sqlite3`; set `DJANGO_SQLITE_PATH` to use another local database.
-Use `app/settings.py` for current defaults.
+Use `config/settings.py` for current defaults.
 
 | Setting | Purpose |
 | --- | --- |
@@ -60,6 +68,13 @@ Blank-name meal saves fall back to a sequential name if generation fails.
 
 ## 🔐 Authentication API
 
+Registration, login and reset preserve passwords exactly, including leading and
+trailing spaces. Request serializers reject malformed credential/link types with
+HTTP 400; email addresses are trimmed and normalized. Registration returns an
+explicit client error for duplicate identities and rolls back account creation,
+required onboarding and session creation together if any step fails. Recovery
+responses remain generic for valid email-shaped input.
+
 - `POST /auth/register/`
   - Body: `email`, `password`, and optional `username`
   - Returns: `access`, `refresh`, `username`, `email`, and a success message
@@ -74,6 +89,20 @@ Blank-name meal saves fall back to a sequential name if generation fails.
   - Always returns a generic success response for valid email-shaped input
 - `POST /auth/reset-password/`
   - Body: `uid`, `token`, `password`
+
+REST views and MCP tools use the same actor-scoped operations: catalog queries
+and personal writes in `apps/foods/services.py`, diary queries/writes in
+`apps/meals/services.py`, proposal operations and reviewed draft saving in
+`apps/estimates/services.py`, and recipient activity operations in
+`apps/notifications/services.py`. These entrypoints recheck ownership and own
+transactions; serializers validate boundary fields and delegate their writes.
+Shared business behavior uses the owning app's `services` module. Specialized
+ingredient-tree editing helpers live in `apps/estimates/recipe_edits.py`.
+MCP executes additions, ordinary edits (including item replacements) and paid AI
+directly under their scopes; only archive/deletion requires separate JWT-authenticated app approval
+before consuming the exact action with current OAuth authorization. Automatic
+request-UUID protection, provider-wait guards and bounded receipts remain; MCP
+does not construct REST requests or invoke viewsets.
 
 ## 🥗 Food catalog API
 
@@ -275,84 +304,114 @@ getter to avoid a service/serializer import cycle and keep provider calls patcha
 
 ## ✉️ Email
 
-Local development uses Django's console email backend. The included
-Resend HTTPS backend is configured with:
+Local development uses Django's console email backend. Resend delivery uses the
+maintained [django-anymail backend](https://anymail.dev/en/stable/esps/resend/):
 
 ```env
-DJANGO_EMAIL_BACKEND=authentication.email_backends.ResendApiEmailBackend
+DJANGO_EMAIL_BACKEND=anymail.backends.resend.EmailBackend
 DJANGO_EMAIL_HOST_KEY=<resend-api-key>
 DJANGO_EMAIL_TIMEOUT=10
 DJANGO_DEFAULT_FROM_EMAIL=<sender-on-a-verified-domain>
 ```
 
-Keep `.localhost` senders with console delivery. Live delivery uses an approved
+`config/settings.py` maps the existing `DJANGO_EMAIL_HOST_KEY` through
+`EMAIL_HOST_PASSWORD` into `ANYMAIL["RESEND_API_KEY"]`; no new credential is needed.
+Known historical custom-backend selectors normalize to the maintained backend.
+Console, SMTP and other explicitly configured backends retain their selection.
+Keep `.localhost` senders with console delivery; live delivery uses an approved
 sender domain and private credentials configured through the production guide.
-Plain text, HTML, multipart alternatives, `cc`, `bcc`, and `reply_to` are supported.
+Plain text, HTML alternatives, `cc`, `bcc` and `reply_to` remain supported.
 
-The socket-operation timeout defaults to 10 seconds and supports `0 < seconds <= 30`.
-The environment value is parsed as an integer. Invalid runtime timeout values fall
-back safely; malformed startup configuration fails visibly. A successful provider
-response means acceptance, not confirmed inbox delivery.
+`ANYMAIL["REQUESTS_TIMEOUT"]` accepts the configured integer timeout when
+`0 < seconds <= 30`, falling back to 10 seconds outside that range. Malformed
+integer startup configuration still fails visibly. Raw Anymail request/response
+dumps stay disabled with `DEBUG_API_REQUESTS=False`; do not enable them because
+they include credentials, recipients and message content. HTTP sessions have no
+automatic retries. A timeout may occur after acceptance, so this application does
+not retry or resend automatically. Provider acceptance does not prove inbox delivery.
 
-Failures preserve `fail_silently`: false re-raises, while true skips failures and
-returns the number sent. Password reset returns a generic response for known and
-unknown accounts, including delivery failures. Logger `authentication.email_backends`
-records safe category/status fields: `configuration`, `request`, `rate_limit`,
-`provider`, `timeout`, `network`, or `unexpected`. Never log provider response
-bodies, recipient details, reset tokens, message contents, or credentials.
+Operational provider/network failures preserve `fail_silently`: false raises,
+while true skips failed messages and returns the number sent. Missing API keys
+are visible Anymail configuration errors before any HTTP request. Exceptions can
+hold sensitive provider/message details; never log their text, tracebacks,
+recipients, reset tokens or credentials. Authentication catches delivery errors
+and logs only its generic password-reset failure message; known and unknown
+accounts receive the same public response even when delivery fails.
 
-Diagnose failures using those categories and the existing provider dashboard.
-There is no automatic retry or resend: a timeout may occur after acceptance.
-Use mocked delivery tests; production email receipt requires separate verification.
+Project-owned configuration and mocked HTTP contracts live in
+`config/tests/`; password-reset privacy tests remain in
+`apps/authentication/tests/`. Use the existing provider dashboard for delivery
+investigation. No custom provider wrapper, tracking/inbound route or webhook
+extras are installed. Production mail receipt remains separately verified.
 
 ## 🔌 MCP integration
 
-The shared-framework checker lives at `backend/check_app_mcp.py`, beside the backend
-and outside the hash-verified package. Run `python backend/check_app_mcp.py` from
-the repository root; use `--source-root <canonical-checkout>` for local offline
-verification. See the [framework guide](app_mcp/README.md) for source ownership.
+The shared MCP framework remains owned by FullStackTemplate. Preserve its source
+pin and manifest when adopting canonical changes; see the
+[framework guide](apps/mcp/README.md#framework) for source ownership and the retained tests.
 
-The [MCP README](app_mcp/README.md) explains shared transport,
+The [MCP README](apps/mcp/README.md#framework) explains shared transport,
 OAuth, configuration, and verification.
 
 Application tools, scopes, consent, and client setup live in the
-[MacroMapper MCP README](macromapper_mcp/README.md).
+[MacroMapper MCP README](apps/mcp/README.md#application-tools).
 
-Connection manifests, artwork, and package builders live in
-[chatgpt/](app_mcp/chatgpt/README.md).
+Connection manifests and artwork live in
+[chatgpt/](apps/mcp/README.md#chatgpt).
 
 ## 🧪 Checks
+
+Backend tests live in an owning `tests/` package beside each app or configuration
+module. Use descriptive `test_*.py` filenames and behavior-based test class names,
+keep `__init__.py` empty, and put shared setup/builders in fixture-only modules
+such as `helpers.py`. Helpers must not define test cases or import test modules.
+Split independent behavior groups when that makes failures easier to locate;
+keep related end-to-end scenarios together.
+
+Authentication packages share registration, login, password recovery/reset and
+recovery-privacy groups. Configuration owns production settings and email
+configuration/delivery. The canonical MCP framework has identical profile, OAuth
+and transport test modules in all three applications; app tools remain app-owned.
+
+Foods own catalog queries, mutations, identity, serving options, publication and
+migration tests; meals own diary entries, drafts and component graphs. MCP tool
+tests separate catalog operations, app approval/execution/replay, paid operations, drafts, response
+limits and transport. Run both the default and enabled MCP profiles.
 
 From the repository root:
 
 ```powershell
-python backend/manage.py test backend
-ruff check backend
-ruff format backend --check
-python backend/manage.py makemigrations --check --dry-run
+uv run --locked --project backend python backend/manage.py test backend
+uv run --locked --project backend ruff check backend
+uv run --locked --project backend ruff format backend --check
+uv run --locked --project backend python backend/manage.py makemigrations --check --dry-run
 ```
 
 ## 🧪 Estimates test organization
 
-`estimates/tests/` is a discoverable Python package. Keep its `__init__.py` and
-name new modules `test_*.py`; do not recreate a competing `estimates/tests.py`.
-Use `test_proposals.py` for proposal API behavior, `test_adjustments.py` for
-adjustment lifecycle/rollback, `test_admin.py` for admin immutability, and
-`test_provider.py` for provider requests and normalization. Shared data builders
-belong in `helpers.py`, which does not define discoverable test classes.
+`apps/estimates/tests/` is a discoverable Python package. Keep its `__init__.py` and
+name new modules `test_*.py`; do not recreate a competing `apps/estimates/tests.py`.
+Group tests by behavior: catalog matching/publication/integrity, proposal review
+and follow-up, builder adjustments, recipe editing/portions/interpretation/evidence,
+natural-serving matching/selection, provider requests/deadlines, transactions, adjustment lifecycle,
+Gunicorn runtime and admin. For example, `test_recipe_portions.py` owns consumed
+fractions and `test_catalog_matching.py` owns catalog resolution. Shared fixture
+builders and setup-only mixins live in `helpers.py` and
+`natural_serving_fixtures.py`; test modules do not import
+other test modules or re-export test classes from the package initializer.
 
 Import helpers with `from .helpers import ...` and app modules with `from
 ..models import ...` (or their absolute app paths). Patch dependencies where the
-code under test looks them up, such as `estimates.services.get_estimation_provider`,
+code under test looks them up, such as `apps.estimates.services.get_estimation_provider`,
 not where test helpers live. Keep provider calls mocked; no API key is needed.
 
-From the repository root, run `python backend/manage.py test estimates` for all
+From the repository root, run `uv run --locked --project backend python backend/manage.py test apps.estimates` for all
 estimate modules, or append a module/class/method such as
-`estimates.tests.test_provider.OpenAIProviderTests`. Also run
-`python backend/manage.py test backend` to verify full Django discovery. The
+`apps.estimates.tests.test_provider.OpenAIProviderTests`. Also run
+`uv run --locked --project backend python backend/manage.py test backend` to verify full Django discovery. The
 explicit directory matters at the repository root: without a label, discovery
 starts in the current directory and can report zero tests. CI instead runs
-`python manage.py test` with `backend` as its working directory. Compare test
+`uv run --locked python manage.py test` with `backend` as its working directory. Compare test
 inventories and assertions before/after moving tests, including class decorators,
 setup/teardown, helpers and subtests; a green reduced suite is insufficient.
 
@@ -363,9 +422,13 @@ preserve password whitespace, and retain generic account-recovery responses.
 Notification operations remain recipient-scoped; bulk mutations are atomic.
 Preserve pending/error handling through response parsing in the frontend.
 
-Maintain the Python version in `environment.yml` and pip dependencies in
-`requirements.txt` together with CI and Docker. The test runner's fast password
-hasher applies only during tests; normal settings retain secure hashing.
+Declare dependencies in `pyproject.toml` and commit the resolved `uv.lock`.
+`uv add --project backend <package>` updates both; use `uv lock --project backend`
+after editing the manifest manually. `project.requires-python` in `pyproject.toml`
+is the Python version source for uv and CI; keep the Docker base aligned with it. CI/builds use `uv sync --locked`, which rejects stale
+lockfiles. Development tools are in the `dev` dependency group; production images
+install runtime dependencies with `--no-dev`. Django uses its default test runner and secure password hashing; focused tests may
+override hashing within their own test scope.
 See [Docker dependency maintenance](../deploy/README.md#development-dependency-reproducibility).
 
 ## 📚 Domain contracts
@@ -422,8 +485,8 @@ claim or trust/research evidence remains an immutable version distinction.
 Existing version nutrients, provenance, confidence, source evidence and response
 metadata remain unchanged.
 A materially changed definition or verification coverage creates a new version.
-Personal definitions remain owner-specific and are never merged by the
-consolidation command.
+Personal definitions remain owner-specific and are never merged by shared-food
+consolidation services.
 
 Current version selection is deterministic: categorical verified parent coverage
 wins first (fully verified and source-backed with inferred components, then
@@ -520,7 +583,7 @@ and historical quantities/nutrients.
 
 ## 🔎 Publication and research
 
-`foods.evidence.usable_nutrition` accepts any finite nonnegative known nutrient,
+`apps.foods.evidence.usable_nutrition` accepts any finite nonnegative known nutrient,
 including zero. Nulls mean unknown. Empty leaves fail publication with a visible
 unresolved error before any shared food is written. Usable partial records and
 containers with populated components remain valid. The shared creation service
