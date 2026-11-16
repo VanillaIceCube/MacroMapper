@@ -1,3 +1,5 @@
+vi.mock('@mui/material', async () => await vi.importActual('@mui/material'));
+import { Route, Routes } from 'react-router';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AppHeader from './AppHeader';
@@ -29,6 +31,30 @@ const response = (body, ok = true) => ({
 });
 
 describe('AppHeader', () => {
+  test.each(['/', '/cleanup04-check/'])('loads its logo within Vite base %s', (base) => {
+    vi.stubEnv('BASE_URL', base);
+    renderWithProviders(<AppHeader title="MacroMapper" setDrawerOpen={vi.fn()} />);
+
+    expect(screen.getByAltText('')).toHaveAttribute('src', `${base}macromapper-mark.png`);
+  });
+
+  test('supports profile menu keyboard navigation, dismissal, and logout', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<AppHeader title="MacroMapper" setDrawerOpen={setDrawerOpen} />);
+
+    await user.click(screen.getByLabelText('user profile'));
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    await user.keyboard('{End}');
+    expect(screen.getByRole('menuitem', { name: 'Logout' })).toHaveFocus();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+    expect(logout).not.toHaveBeenCalled();
+
+    await user.click(screen.getByLabelText('user profile'));
+    await user.keyboard('{End}{Enter}');
+    expect(logout).toHaveBeenCalledTimes(1);
+  });
+
   const setDrawerOpen = vi.fn();
 
   beforeEach(() => {
@@ -247,4 +273,109 @@ describe('AppHeader', () => {
     expect(screen.getByText('Parity notice')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Clear all' })).toBeEnabled();
   });
+});
+
+describe('AppHeader response and navigation integration', () => {
+  const notification = {
+    id: 1,
+    title: 'Notification title',
+    message: 'Notification message',
+    is_read: false,
+    target_path: '/notification-target',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    sessionStorage.setItem('accessToken', 'access');
+  });
+  test.each([
+    null,
+    {},
+    'unexpected',
+    1,
+    ...['title', 'message'].flatMap((field) =>
+      [{ text: 'bad' }, ['bad'], 42, true].map((value) => [{ ...notification, [field]: value }]),
+    ),
+  ])('keeps the header usable for malformed notification JSON: %j', async (body) => {
+    fetchNotifications
+      .mockResolvedValueOnce({ ok: true, json: async () => body })
+      .mockResolvedValue({ ok: true, json: async () => [notification] });
+    const user = userEvent.setup();
+    renderWithProviders(<AppHeader title="Application" setDrawerOpen={vi.fn()} />);
+    await user.click(screen.getByLabelText('notifications'));
+    expect(await screen.findByText('Notifications are unavailable right now.')).toBeVisible();
+    expect(screen.getByRole('button', { name: /Retry/i })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: /Retry/i }));
+    expect(await screen.findByText(notification.message)).toBeVisible();
+    expect(screen.queryByText('Notifications are unavailable right now.')).not.toBeInTheDocument();
+  });
+
+  test.each([
+    ['title', {}],
+    ['message', []],
+    ['target_path', {}],
+    ['is_read', 'true'],
+    ['board_name', {}],
+    ['list_name', {}],
+  ])(
+    'keeps the cached row and prevents navigation after malformed %s in mark-read',
+    async (field, value) => {
+      fetchNotifications.mockResolvedValue({ ok: true, json: async () => [notification] });
+      markNotificationRead
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ ...notification, is_read: true, [field]: value }),
+        })
+        .mockResolvedValue({ ok: true, json: async () => ({ ...notification, is_read: true }) });
+      const user = userEvent.setup();
+      renderWithProviders(
+        <Routes>
+          <Route path="/" element={<AppHeader title="Application" setDrawerOpen={vi.fn()} />} />
+          <Route path="/notification-target" element={<h1>Notification destination</h1>} />
+        </Routes>,
+      );
+      await user.click(screen.getByLabelText('notifications'));
+      await user.click(await screen.findByText(notification.message));
+      expect(await screen.findByText('Could not update that notification.')).toBeVisible();
+      expect(screen.getByText(notification.message)).toBeVisible();
+      expect(
+        screen.queryByRole('heading', { name: 'Notification destination' }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Clear notification')).toBeEnabled();
+      await user.click(screen.getByText(notification.message));
+      expect(
+        await screen.findByRole('heading', { name: 'Notification destination' }),
+      ).toBeVisible();
+      expect(markNotificationRead).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  test.each(['click', 'keyboard'])(
+    'Connected Apps supports %s navigation through its real link',
+    async (activation) => {
+      vi.stubEnv('VITE_MCP_ENABLED', '1');
+      fetchNotifications.mockResolvedValue({ ok: true, json: async () => [] });
+      const user = userEvent.setup();
+      renderWithProviders(
+        <Routes>
+          <Route path="/" element={<AppHeader title="Application" setDrawerOpen={vi.fn()} />} />
+          <Route path="/connections" element={<h1>Connected Apps destination</h1>} />
+        </Routes>,
+      );
+      await user.click(screen.getByLabelText('user profile'));
+      const link = screen.getByRole('menuitem', { name: 'Connected Apps' });
+      expect(link).toHaveAttribute('href', '/connections');
+      if (activation === 'keyboard') {
+        await screen.findByRole('menu');
+        await user.keyboard('{ArrowDown}');
+        expect(link).toHaveFocus();
+        await user.keyboard('{Enter}');
+      } else await user.click(link);
+      expect(
+        await screen.findByRole('heading', { name: 'Connected Apps destination' }),
+      ).toBeVisible();
+    },
+  );
+  afterEach(() => vi.unstubAllEnvs());
 });

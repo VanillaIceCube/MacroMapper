@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Reject malformed notification display, identity, read-state and navigation fields before publishing list or mark-read results; preserve usable header controls, cached rows and retries.
+- Resolve header, navigation drawer and authentication logos against Vite's base URL so prefixed deployments load the existing public artwork.
+- Discard JWT refresh results after logout or a new login, align post-refresh session expiry, and preserve pending connection navigation.
+- Validate notification lists before rendering and retain usable error and retry controls.
+- Release meal save and estimation controls after network failures while preserving drafts; ignore stale daily diary responses after date changes.
 - Return a newly signed action ticket after approval so the existing Cancel control works immediately without reloading; preserve the original action expiry and reject stale tickets.
 - Verify the backend production/development uv bootstrap against reviewed binary wheel hashes for every platform in the pinned Python base; reject altered artifacts and source distributions across all three applications.
 - Disclose delegated MCP changes, permanent deletions and paid AI access accurately on OAuth consent; preserve host consent/safety controls, require separate app approval for archive/deletion, and retain read-only default grants.
@@ -17,6 +22,11 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Centralize reactive frontend session ownership and notification lifecycle handling, isolate account changes and stale async results, and lazy-load route pages with usable loading and reload recovery across the shared application family.
+- Make the Field Atlas theme the source for global palette, nutrient, radius and derived CSS tokens; move shared focus and app-bar styling into Material UI defaults while preserving contextual layouts and accessibility rules.
+- Add direct authentication-shell, nutrition-card and macro-bar regressions; separate meal-item adapter and tree coverage while retaining public API workflows.
+- Pair frontend tests with the owning source basename and extension, consolidate behavior and integration cases without losing coverage, and align applicable shared regression checks.
+- Use semantic authentication and Connected Apps links, align common frontend dependency ranges, and standardize Vite environment, router base and build-output configuration.
 - Execute MCP additions, field/item edits and paid AI directly under their scopes with durable UUID receipts/reservations; require separate signed-in app approval only for archive/deletion: exact signed previews, five-minute expiry, token/owner/client binding, cancellation, stale-state rejection and durable one-use execution. MCP bearers and caller booleans cannot approve.
 - Clarify and regression-test MCP token scope resolution: omitted or blank scope continues to require the application's baseline scope, with identical framework coverage across applications.
 - Raise the complete source-diff limit for all three AI reviewers to 2 MB (2,000,000 bytes) across all four repositories; preserve fail-closed incomplete reviews and all other context, token and model settings.
@@ -44,13 +54,6 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
-- Consolidate MCP framework, tools and ChatGPT guidance into one `apps/mcp/README.md`, preserving permissions, tool catalogs and connection instructions.
-- Replace the custom Resend backend with pinned django-anymail, preserving existing credentials, backend selectors, bounded timeouts and password-reset privacy while removing the temporary email wrapper package.
-- Separate provider email delivery into `apps/email/`, keeping password-reset behavior and privacy coverage in authentication.
-- Group Django application packages under `backend/apps/`, group shared MCP `framework/`, application `tools/` and `chatgpt/` packaging under `apps.mcp` and project configuration to `backend/config/`, preserving existing app labels, database tables and migration identities.
-- Move backend/frontend Docker exclusions beside each production/development Dockerfile using Dockerfile-specific ignore files while preserving build contexts and frontend configuration inputs.
-- Replace Conda and requirements-file setup with uv-managed environments, Python 3.12 declared in `pyproject.toml`, committed dependency locks, and synchronized CI/Docker tooling (#426).
-- Group backend Dockerfiles in `backend/docker/`; update Compose, build workflows and Docker dependency discovery while retaining the backend build context (FullStackTemplate #337).
 - Standardize README heading emojis, sentence case, reference labels and Markdown spacing while preserving substantive content, code examples and existing anchors.
 - Move the author's original note from the frontend guide to the project README, preserving its wording.
 - Move frontend connection contracts into session guidance and product intent beside route behavior; keep related guides as final navigation.
@@ -69,19 +72,30 @@ All notable changes to this project are documented in this file.
 - Align shared agent instructions across the repository family while preserving application-specific contracts and Infrastructure authorization controls.
 - Move active CI helpers into `.github/tools/`, browser helpers beside `frontend/e2e/` journeys, and the MCP checker into `backend/`; update callers, path filters, regressions, and owning guides while preserving existing checks and isolation.
 - Move the local certificate helper into `deploy/`.
+- Consolidate MCP framework, tools and ChatGPT guidance into one `apps/mcp/README.md`, preserving permissions, tool catalogs and connection instructions.
+- Replace the custom Resend backend with pinned django-anymail, preserving existing credentials, backend selectors, bounded timeouts and password-reset privacy while removing the temporary email wrapper package.
+- Separate provider email delivery into `apps/email/`, keeping password-reset behavior and privacy coverage in authentication.
+- Group Django application packages under `backend/apps/`, group shared MCP `framework/`, application `tools/` and `chatgpt/` packaging under `apps.mcp` and project configuration to `backend/config/`, preserving existing app labels, database tables and migration identities.
+- Move backend/frontend Docker exclusions beside each production/development Dockerfile using Dockerfile-specific ignore files while preserving build contexts and frontend configuration inputs.
+- Replace Conda and requirements-file setup with uv-managed environments, Python 3.12 declared in `pyproject.toml`, committed dependency locks, and synchronized CI/Docker tooling (#426).
+- Group backend Dockerfiles in `backend/docker/`; update Compose, build workflows and Docker dependency discovery while retaining the backend build context (FullStackTemplate #337).
 
 ### Removed
 
-- Remove unused MCP framework source-pin and hash-manifest metadata; retain coordinated source review and runtime tests.
-- Remove the local ChatGPT package/listing builders and their test modules; retain source manifests/artwork and ordinary/MCP runtime checks.
-- Inline the production server selection in the Dockerfile and remove the standalone server launcher, preserving MCP enablement and Gunicorn worker/thread/timeout settings.
-- Remove the standalone shared MCP framework checker and its CI invocation; retain framework source pins, manifests and backend/MCP test profiles.
+- Remove the unused shared AI-review publisher error binding and synchronize the release builder without its unused origin constant to Infrastructure source `15b9bdfaf7530de4979dce0ee3cef6baffa814ac`.
+- Remove unused exports from internal meal conversion, nutrient calculation, authentication, and theme helpers, plus the unused activity color token.
+- Remove the obsolete `STATICFILES_STORAGE` declaration ignored by Django 6; preserve the existing active static-file storage behavior.
+- Remove the unreferenced primary-color CSS alias; retain the Field Atlas tokens used by the application.
 - Remove centralized frontend lint-configuration, theme/MUI compatibility and domain-architecture suites and their unused direct `@babel/parser` dependency; preserve shared support and all colocated application, component and service tests.
 - Remove the custom frontend development entrypoint and automatic dependency reinstall; start Vite directly and install changed dependencies manually in the development container.
 - Remove frontend end-to-end suites, Playwright configuration and dependencies, browser-test helpers and CI jobs; retain component, backend, action-local and shared release checks.
 - Remove the root `scripts/` folder and retired production deployment/bundle compatibility stubs.
 - Remove duplicate documentation indexes, redirects, stale narratives and historical receipts after preserving useful contracts. Remove obsolete tour, design and visual-receipt screenshots; retain the author’s original note in the frontend guide.
 - Remove the root `tests/` directory and its CI invocations; retain backend, frontend/browser, action-local, and shared release suites.
+- Remove unused MCP framework source-pin and hash-manifest metadata; retain coordinated source review and runtime tests.
+- Remove the local ChatGPT package/listing builders and their test modules; retain source manifests/artwork and ordinary/MCP runtime checks.
+- Inline the production server selection in the Dockerfile and remove the standalone server launcher, preserving MCP enablement and Gunicorn worker/thread/timeout settings.
+- Remove the standalone shared MCP framework checker and its CI invocation; retain framework source pins, manifests and backend/MCP test profiles.
 
 ## 2026-11-13
 
