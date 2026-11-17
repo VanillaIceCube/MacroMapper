@@ -2,6 +2,29 @@
 
 All notable changes to this project are documented in this file.
 
+## 2026-11-16
+
+### Fixed
+
+- Guard standalone HTTPS routing for Django admin and DRF static assets so they continue to reach the backend instead of the frontend fallback.
+- Keep the production release guide's source pin and canonical links aligned with app configuration, and reject documentation drift during repository validation.
+- Remove the retired consumer parity checker only after successful shared-source synchronization; preserve it on failed validation and reject unsafe cleanup paths before writes.
+- Clarify missing-only SQLite initialization and file checks before either local Compose profile starts, preserving existing databases.
+
+### Changed
+
+- Align production Compose layout and operational comments across applications while preserving existing service, network and port behavior.
+- Align production release guides across applications with consistent configuration, authorization, recovery, MCP, maintenance and verification guidance while preserving app-specific policy and onboarding safeguards.
+- Align MCP enablement with the shared environment switch, preserve exact ASGI proxy trust while disabled, and retain explicit application enablement policies.
+- Align local deployment profiles across applications: loopback-only ports, private backend networks, exact proxy trust, Uvicorn/Vite reload, matching MCP/browser origins and streaming routes, safe forwarded headers, cache controls and local setup instructions.
+- Fold shared release verification and synchronization into the existing bundle builder; keep CI/deployment parity gates and store the immutable Infrastructure source pin in the existing app configuration.
+
+### Removed
+
+- Remove obsolete `DJANGO_FORCE_SCRIPT_NAME` support and its example/release-policy fields; retain unprefixed application and static URLs.
+- Remove the standalone release parity checker and per-application shared-source JSON file while retaining their automated checks.
+- Remove the optional local certificate PowerShell helper and document direct certificate generation for standalone local HTTPS.
+
 ## 2026-11-15
 
 ### Fixed

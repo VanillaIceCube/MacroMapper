@@ -91,7 +91,6 @@ Optional backend variables:
 - `DJANGO_ALLOWED_HOSTS`
 - `DJANGO_CORS_ALLOWED_ORIGINS`
 - `DJANGO_CSRF_TRUSTED_ORIGINS`
-- `DJANGO_FORCE_SCRIPT_NAME` (leave blank for subdomain-root routing)
 - `DJANGO_FRONTEND_BASE_URL` (default: `http://localhost:3000`)
 - `DJANGO_EMAIL_BACKEND`
 - `DJANGO_EMAIL_HOST`
@@ -142,7 +141,7 @@ Shared frontend test setup and helpers live in `frontend/src/test-helpers/`.
 App, startup and feature tests stay beside their implementation. Vitest discovers
 `*.test.js` and `*.test.jsx`.
 
-For shared release changes, run `python deploy/check_parity.py` and
+For shared release changes, run `python deploy/production/build_bundle.py --check-parity` and
 `python -m unittest discover -s deploy/tests -v` with a disposable local/CI Docker
 daemon, plus all applicable consumer suites. Never test against production.
 
@@ -158,10 +157,10 @@ allowed while prerequisites or acceptance remain unfinished. History reconciliat
 does not authorize deployment, and an absent production branch is not a reason
 to create one. Follow the [main-first release policy](https://github.com/VanillaIceCube/FullStackTemplate/blob/main/.github/README.md#main-first-releases).
 
-Common release code, tests, checker and workflow are owned by Infrastructure.
+Common release code, verification, tests and workflow are owned by Infrastructure.
 Change `app-release/v1` at the source, regenerate its manifest, then synchronize
 all consumers to the same immutable source commit. Application repositories track
-that source in `deploy/shared-source.json`; never edit only a vendored copy.
+that source in `shared_source` in `deploy/production/app.json`; never edit only a vendored copy.
 Preserve app-specific Compose, network/readiness policy, immutable image digests,
 SQLite capture/recovery and explicit rollback. Keep shared ingress/certificates
 and host operations within their separately authorized Infrastructure scope.
