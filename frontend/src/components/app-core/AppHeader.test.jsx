@@ -3,13 +3,13 @@ import { Route, Routes } from 'react-router';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AppHeader from './AppHeader';
-import { renderWithProviders } from '../test-helpers/utils';
-import { fetchNotifications } from '../services/notificationApiClient';
-import { logout } from '../services/requestClient';
+import { renderWithProviders } from '../../test-helpers/utils';
+import { fetchNotifications } from '../../services/notificationApiClient';
+import { logout } from '../../services/requestClient';
 
-vi.mock('../services/notificationApiClient', () => ({ fetchNotifications: vi.fn() }));
+vi.mock('../../services/notificationApiClient', () => ({ fetchNotifications: vi.fn() }));
 
-vi.mock('../services/requestClient', () => ({
+vi.mock('../../services/requestClient', () => ({
   logout: vi.fn(),
 }));
 

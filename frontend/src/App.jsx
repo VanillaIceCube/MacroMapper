@@ -1,14 +1,14 @@
 import { getSessionVersion } from './services/sessionState';
 import useSession, { useSessionGuard } from './hooks/useSession';
-import RouteContent from './components/RouteContent';
+import RouteContent from './components/app-core/RouteContent';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import { lazy, useCallback, useState } from 'react';
 import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router';
-import AppHeader from './components/AppHeader';
-import AppNavigationDrawer from './components/AppNavigationDrawer';
-import AppSnackbar from './components/AppSnackbar';
-import AuthenticatedRoute from './components/AuthenticatedRoute';
-import NavigationBridge from './components/NavigationBridge';
+import AppHeader from './components/app-core/AppHeader';
+import AppNavigationDrawer from './components/app-core/AppNavigationDrawer';
+import AppSnackbar from './components/app-core/AppSnackbar';
+import AuthenticatedRoute from './components/app-core/AuthenticatedRoute';
+import NavigationBridge from './components/app-core/NavigationBridge';
 import appTheme from './theme';
 
 const DiaryPage = lazy(() => import('./pages/DiaryPage'));

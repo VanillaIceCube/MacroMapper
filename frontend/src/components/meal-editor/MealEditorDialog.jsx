@@ -38,7 +38,7 @@ import {
   savedMealItemToEditableMealItem,
 } from '../../domain/mealItem';
 import { randomMealEstimateExample } from '../../mealEstimateExamples';
-import MealItemEditorRow from '../MealItemEditorRow';
+import MealItemEditorRow from './MealItemEditorRow';
 import MealNutritionSummary from '../nutrition/MealNutritionSummary';
 import FoodCatalogPicker from './FoodCatalogPicker';
 

@@ -1,4 +1,4 @@
-import useSession from '../hooks/useSession';
+import useSession from '../../hooks/useSession';
 import AccountCircle from '@mui/icons-material/AccountCircle';
 import MenuIcon from '@mui/icons-material/Menu';
 import {
@@ -15,7 +15,7 @@ import {
 } from '@mui/material';
 import { useState } from 'react';
 import { Link as RouterLink, useLocation } from 'react-router';
-import { logout } from '../services/requestClient';
+import { logout } from '../../services/requestClient';
 import NotificationsMenu from './NotificationsMenu';
 
 const AUTH_PATHS = ['/login', '/register', '/forgot-password', '/reset-password'];

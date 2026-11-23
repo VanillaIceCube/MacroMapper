@@ -15,6 +15,7 @@ authentication, and the application shell.
   platform rendering, element resets, app layout, contour artwork, native links
   and reduced-motion rules here, consuming the theme's custom properties.
 - `src/components/`: reusable interface components.
+  Standard components maintained across the three apps live in [src/components/app-core/](src/components/app-core/).
 - `src/pages/`: application pages and routes.
 - `src/services/`: API requests and centralized session storage.
 - `src/hooks/`: reactive session access and shared notification lifecycle behavior.
@@ -27,7 +28,7 @@ authentication, and the application shell.
 | To change | Start here |
 | --- | --- |
 | Routes and layout | [App](src/App.jsx) |
-| Header and notifications | [AppHeader](src/components/AppHeader.jsx), [NotificationsMenu](src/components/NotificationsMenu.jsx) |
+| Header and notifications | [AppHeader](src/components/app-core/AppHeader.jsx), [NotificationsMenu](src/components/app-core/NotificationsMenu.jsx) |
 | Sign-in, registration, and password reset | [AuthForm and its pages](src/pages/authentication/) |
 | Shared colors, typography, and component styles | [Theme](src/theme.js) |
 | Diary and daily totals | [DiaryPage](src/pages/DiaryPage.jsx) |

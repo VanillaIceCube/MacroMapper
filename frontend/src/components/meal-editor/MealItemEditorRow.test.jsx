@@ -1,12 +1,12 @@
 import { fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { renderWithProviders } from '../test-helpers/utils';
+import { renderWithProviders } from '../../test-helpers/utils';
 import {
   changeMealItemNutrient,
   changeMealItemPortion,
   changeMealItemServings,
-} from '../domain/mealItem';
+} from '../../domain/mealItem';
 import MealItemEditorRow from './MealItemEditorRow';
 
 const apple = {

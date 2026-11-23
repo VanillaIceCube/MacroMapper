@@ -2,7 +2,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import AppNavigationDrawer from './AppNavigationDrawer';
-import { renderWithProviders } from '../test-helpers/utils';
+import { renderWithProviders } from '../../test-helpers/utils';
 
 function DrawerHarness({ onOpenChange }) {
   const [open, setOpen] = useState(false);

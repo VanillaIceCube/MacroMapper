@@ -3,16 +3,16 @@ import { Route, Routes } from 'react-router';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import NotificationsMenu from './NotificationsMenu';
-import { renderWithProviders } from '../test-helpers/utils';
+import { renderWithProviders } from '../../test-helpers/utils';
 import {
   clearAllNotifications,
   clearNotification,
   fetchNotifications,
   markAllNotificationsRead,
   markNotificationRead,
-} from '../services/notificationApiClient';
+} from '../../services/notificationApiClient';
 
-vi.mock('../services/notificationApiClient', () => ({
+vi.mock('../../services/notificationApiClient', () => ({
   clearAllNotifications: vi.fn(),
   clearNotification: vi.fn(),
   fetchNotifications: vi.fn(),

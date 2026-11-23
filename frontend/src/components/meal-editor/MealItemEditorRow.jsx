@@ -24,8 +24,8 @@ import {
   portionOptionLabel,
   selectedPortion,
   servingAmountValue,
-} from '../domain/mealItem';
-import { ItemNutritionCards } from './nutrition/NutritionCards';
+} from '../../domain/mealItem';
+import { ItemNutritionCards } from '../nutrition/NutritionCards';
 
 const evidenceLabels = {
   source_backed_ai_components: { label: 'Official parent; AI components', color: 'success' },
