@@ -17,7 +17,7 @@ authentication, and the application shell.
 - `src/components/`: reusable interface components.
   Standard components maintained across the three apps live in [src/components/app-core/](src/components/app-core/).
 - `src/pages/`: application pages and routes.
-- `src/services/`: API requests and centralized session storage.
+- `src/services/`: API requests, response parsing in `apiResponse.js` and session storage in `sessionState.js`.
 - `src/hooks/`: reactive session access and shared notification lifecycle behavior.
 - `src/domain/`: pure nutrition, portion, and meal calculations.
 - `src/test-helpers/`: shared test setup and reusable helpers.
@@ -31,9 +31,9 @@ authentication, and the application shell.
 | Header and notifications | [AppHeader](src/components/app-core/AppHeader.jsx), [NotificationsMenu](src/components/app-core/NotificationsMenu.jsx) |
 | Sign-in, registration, and password reset | [AuthForm](src/components/app-core/AuthForm.jsx) and [route pages](src/pages/authentication/) |
 | Shared colors, typography, and component styles | [Theme](src/theme.js) |
-| Diary and daily totals | [DiaryPage](src/pages/DiaryPage.jsx) |
+| Diary and daily totals | [DiaryPage](src/pages/DiaryPage.jsx) and [saved meal cards](src/components/diary/DiaryMealCard.jsx) |
 | Meal drafts, estimates, and saving | [MealEditorDialog](src/components/meal-editor/MealEditorDialog.jsx) |
-| Food search, filters, and pagination | [FoodCatalogPicker](src/components/meal-editor/FoodCatalogPicker.jsx) |
+| Food search, filters, and pagination | [FoodCatalogPicker](src/components/meal-editor/FoodCatalogPicker.jsx) and [food result cards](src/components/meal-editor/CatalogFoodCard.jsx) |
 
 ## 💻 Local development
 
@@ -166,7 +166,7 @@ the hook for rendering, and the store operations for writes. The unrelated
 
 The application shell and protected content reset on account changes, including
 open menus, private drafts and Notoli's board drawer state. Async continuations
-use `useSessionGuard` before account-scoped navigation or global UI updates.
+use `useSessionGuard` before account-scoped navigation or global UI updates. Authentication forms also check the current URL so a late response cannot take over after navigation starts.
 Logout/expiry queue their login message before publishing the cleared session;
 root snackbar state preserves successful login/register feedback and excludes
 messages from an older generation.

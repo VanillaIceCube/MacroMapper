@@ -3,8 +3,9 @@ import { TextField } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { login } from '../../services/authApiClient';
-import { formatAuthErrorMessage } from '../../services/authSession';
+import { formatAuthErrorMessage } from '../../services/apiResponse';
 import { startSession } from '../../services/sessionState';
+import { useSessionGuard } from '../../hooks/useSession';
 import AuthForm, { AuthLink } from '../../components/app-core/AuthForm';
 
 export default function Login({ showSnackbar }) {
@@ -12,6 +13,7 @@ export default function Login({ showSnackbar }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
+  const isCurrentSession = useSessionGuard({ trackLocation: true });
   const location = useLocation();
 
   useEffect(() => {
@@ -30,8 +32,11 @@ export default function Login({ showSnackbar }) {
   const handleLogin = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
+    let acceptedResponse = false;
     try {
       const data = await login({ email, password });
+      if (!isCurrentSession()) return;
+      acceptedResponse = true;
       startSession(data);
       showSnackbar('success', `Welcome ${data.username || email.split('@')[0] || 'there'}!`);
       const next =
@@ -40,6 +45,8 @@ export default function Login({ showSnackbar }) {
           : null;
       navigate(next || '/');
     } catch (error) {
+      // A session storage failure can also advance the session version.
+      if (!acceptedResponse && !isCurrentSession()) return;
       showSnackbar('error', formatAuthErrorMessage(error, 'Login failed.'));
     } finally {
       setIsSubmitting(false);

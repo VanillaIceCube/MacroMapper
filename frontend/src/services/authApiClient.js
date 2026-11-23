@@ -1,5 +1,5 @@
 import { apiFetch } from './requestClient';
-import { readOkJson } from './authSession';
+import { readOkJson } from './apiResponse';
 
 async function postAuthForm(path, payload, invalidResponseMessage) {
   const response = await apiFetch(path, {

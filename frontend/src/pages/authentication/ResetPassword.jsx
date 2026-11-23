@@ -2,7 +2,8 @@ import { TextField } from '@mui/material';
 import { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { resetPassword } from '../../services/authApiClient';
-import { formatAuthErrorMessage } from '../../services/authSession';
+import { formatAuthErrorMessage } from '../../services/apiResponse';
+import { useSessionGuard } from '../../hooks/useSession';
 import AuthForm, { AuthLink } from '../../components/app-core/AuthForm';
 
 export default function ResetPassword({ showSnackbar }) {
@@ -10,6 +11,7 @@ export default function ResetPassword({ showSnackbar }) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const navigate = useNavigate();
+  const isCurrentSession = useSessionGuard({ trackLocation: true });
   const location = useLocation();
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const uid = params.get('uid') || '';
@@ -29,9 +31,11 @@ export default function ResetPassword({ showSnackbar }) {
     setIsSubmitting(true);
     try {
       const data = await resetPassword({ uid, token, password });
+      if (!isCurrentSession()) return;
       showSnackbar('success', data?.message || 'Password reset successful.');
       navigate('/login');
     } catch (error) {
+      if (!isCurrentSession()) return;
       showSnackbar('error', formatAuthErrorMessage(error, 'Password reset failed.'));
     } finally {
       setIsSubmitting(false);

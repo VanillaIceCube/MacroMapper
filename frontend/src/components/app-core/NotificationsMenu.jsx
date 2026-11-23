@@ -20,7 +20,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import useNotifications from '../../hooks/useNotifications';
 import { useSessionGuard } from '../../hooks/useSession';
-import { getResponseErrorMessage } from '../../services/authSession';
+import { getResponseErrorMessage } from '../../services/apiResponse';
 import * as notificationApi from '../../services/notificationApiClient';
 
 export default function NotificationsMenu() {

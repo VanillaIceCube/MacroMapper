@@ -4,13 +4,13 @@ import {
   isAuthNetworkError,
   readOkJson,
   safeReadJson,
-} from './authSession';
+} from './apiResponse';
 
 function makeResponse({ ok, status = 200, json }) {
   return { ok, status, json };
 }
 
-describe('authSession', () => {
+describe('apiResponse', () => {
   test('recognizes browser network failures by type or message', () => {
     expect(isAuthNetworkError(new TypeError('Failed to fetch'))).toBe(true);
     expect(isAuthNetworkError(new Error('NetworkError when attempting to fetch resource.'))).toBe(

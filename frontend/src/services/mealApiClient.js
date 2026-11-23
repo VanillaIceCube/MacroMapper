@@ -1,5 +1,5 @@
 import { apiFetch } from './requestClient';
-import { getResponseErrorMessage, safeReadJson } from './authSession';
+import { getResponseErrorMessage, safeReadJson } from './apiResponse';
 
 function jsonRequest(method, payload) {
   return {
