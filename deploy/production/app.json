@@ -2,11 +2,10 @@
   "contract_version": 1,
   "shared_source": {
     "repository": "VanillaIceCube/JudeAndrewAlabaInfrastructure",
-    "commit": "3e3d8663e192d2c5141e22eeae3e4aa07fa390c8"
+    "commit": "4443489f730f617e6b3db9a186d9d6331e89e1b0"
   },
   "app": "macromapper",
   "domain": "macromapper.judeandrewalaba.com",
-  "root_hint": "/opt/apps/macromapper",
   "services": {
     "backend": "macromapper-backend",
     "frontend": "macromapper-frontend"
@@ -37,32 +36,9 @@
     "container": "host-ingress-proxy",
     "project": "host-ingress",
     "addresses": {
-      "notoli_backend_private": "172.30.88.2",
       "macromapper-ingress": "172.20.0.3"
     },
     "networks": {
-      "notoli_backend_private": {
-        "internal": true,
-        "subnet": "172.30.88.0/29",
-        "allowed": [
-          "host-ingress-proxy",
-          "notoli-backend"
-        ],
-        "required": [
-          "host-ingress-proxy"
-        ]
-      },
-      "notoli_default": {
-        "internal": false,
-        "subnet": "172.18.0.0/16",
-        "allowed": [
-          "host-ingress-proxy",
-          "notoli-frontend"
-        ],
-        "required": [
-          "host-ingress-proxy"
-        ]
-      },
       "macromapper-ingress": {
         "internal": false,
         "subnet": "172.20.0.0/16",
@@ -150,7 +126,6 @@
     ]
   },
   "workflow": {
-    "frontend_build_arg": "VITE_API_BASE_URL",
     "extra_env": {
       "MACROMAPPER_OPENAI_API_KEY": "${{ secrets.MACROMAPPER_OPENAI_API_KEY }}",
       "OPENAI_MEAL_ESTIMATION_MODEL": "${{ vars.OPENAI_MEAL_ESTIMATION_MODEL }}",

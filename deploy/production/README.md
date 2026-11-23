@@ -166,13 +166,17 @@ release evidence rather than inferring live state from this historical audit.
 [app.json](app.json) owns the app's services, container names, domain,
 environment, networks, database and readiness policy; [compose.yml](compose.yml)
 defines its two services. Common release and bundle code has no app-name branches.
+The gateway section describes only this app's route networks and trusted peers.
+Infrastructure's `nginx/check_host.py` owns full-host topology checks, including
+other apps' networks. `workflow.extra_env` adds only app-specific Actions inputs;
+all frontend builds use `VITE_API_BASE_URL=` for same-origin API requests.
 Infrastructure owns `app-release/v1`, its manifest, tests and workflow template.
 `shared_source` in `app.json` pins that source to immutable commit
-`3e3d8663e192d2c5141e22eeae3e4aa07fa390c8` across all three consumers. CI verifies
+`4443489f730f617e6b3db9a186d9d6331e89e1b0` across all three consumers. CI verifies
 the common files and generated workflow, failing on drift or unavailable source.
 Change the Infrastructure source, regenerate its manifest, then synchronize all
 consumers; never edit only a vendored common file. See the
-[release standard](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/blob/3e3d8663e192d2c5141e22eeae3e4aa07fa390c8/app-release/README.md)
+[release standard](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/blob/4443489f730f617e6b3db9a186d9d6331e89e1b0/app-release/README.md)
 for the parity matrix and coordinated update procedure.
 
 Required Actions access variables: `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PATH`,
@@ -202,8 +206,8 @@ variables and logs. Release bundles and captured recovery evidence stay private.
 MacroMapper domain: `macromapper.judeandrewalaba.com`; Compose service, container
 and image names: `macromapper-backend` / `macromapper-frontend`. Both services
 join `macromapper-ingress` and `macromapper_default`; the exact trusted gateway
-peer is `172.20.0.3`. The gateway policy also retains Notoli's route networks and
-its `172.30.88.2` address; app releases must preserve that trust boundary.
+peer is `172.20.0.3`. Notoli's separate networks and trusted peer remain under
+Infrastructure's host topology checks rather than this app's release policy.
 
 Required additional Actions app secret: `MACROMAPPER_OPENAI_API_KEY`.
 Optional `OPENAI_MEAL_ESTIMATION_MODEL` and `OPENAI_MEAL_ESTIMATION_TIMEOUT`
@@ -393,9 +397,9 @@ workflow. For local source development only, add
 `--source-root <infrastructure-checkout>` to `--check-parity` to verify local
 common hashes offline; that does not verify the remote pin. Use `--sync` only
 after reviewing a coordinated source/pin update across all three consumers.
-Successful synchronization also removes the retired `deploy/check_parity.py`.
-Check-only and failed validation runs preserve it; unsafe cleanup paths are
-rejected before writes.
+Synchronization replaces only the verified common files and rendered workflow;
+other local files remain untouched. A linked `deploy/` directory is rejected
+before writes.
 CI always checks the immutable pin.
 
 The full release suite needs Linux and a disposable local/CI Docker daemon,
@@ -527,4 +531,4 @@ production status.
 - [Workflow guide](../../.github/workflows/README.md)
 - [App policy](app.json), [Compose](compose.yml), [bundle builder](build_bundle.py),
   [release controller](release.py) and [deployment workflow](../../.github/workflows/ci-deploy.yml)
-- [Infrastructure release standard](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/blob/3e3d8663e192d2c5141e22eeae3e4aa07fa390c8/app-release/README.md)
+- [Infrastructure release standard](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/blob/4443489f730f617e6b3db9a186d9d6331e89e1b0/app-release/README.md)
