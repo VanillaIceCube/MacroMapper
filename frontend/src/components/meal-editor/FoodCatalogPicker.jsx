@@ -34,14 +34,20 @@ import { NutritionCards } from '../nutrition/NutritionCards';
 import { foodEvidenceLabel, foodProvenanceLabels } from '../nutrition/nutritionPresentation';
 
 const catalogPageSize = 20;
-const initialCatalogRequest = {
-  query: '',
+const catalogFilterDefaults = {
   scope: 'all',
   originType: 'all',
-  sort: 'recommended',
   provider: '',
   provenance: 'all',
 };
+const defaultCatalogFilters = { ...catalogFilterDefaults, query: '', sort: 'recommended' };
+const newestFoodsFirst = '-created_at,-id';
+const catalogOrdering = {
+  name: 'name,id',
+  recent: newestFoodsFirst,
+  logged: '-has_logged,-last_logged_on,name,id',
+};
+
 const catalogScopeOptions = [
   { value: 'all', label: 'All' },
   { value: 'personal', label: 'My Foods' },
@@ -59,6 +65,20 @@ const catalogSortOptions = [
   { value: 'name', label: 'Alphabetically' },
 ];
 
+function hasCatalogFilters({ scope, originType, provider, provenance }) {
+  return (
+    scope !== 'all' || originType !== 'all' || Boolean(provider.trim()) || provenance !== 'all'
+  );
+}
+
+function showsRecentFoods(filters) {
+  return (
+    !filters.query.trim() &&
+    !hasCatalogFilters(filters) &&
+    (filters.sort === 'recommended' || filters.sort === 'recent')
+  );
+}
+
 export default function FoodCatalogPicker({
   open,
   token,
@@ -67,32 +87,19 @@ export default function FoodCatalogPicker({
   onAddFood,
 }) {
   const [catalogPickerOpen, setCatalogPickerOpen] = useState(true);
-  const [query, setQuery] = useState('');
-  const [catalogScope, setCatalogScope] = useState('all');
-  const [catalogOriginType, setCatalogOriginType] = useState('all');
-  const [catalogSort, setCatalogSort] = useState('recommended');
+  const [draftFilters, setDraftFilters] = useState(defaultCatalogFilters);
+  const [appliedFilters, setAppliedFilters] = useState(null);
   const [catalogFiltersOpen, setCatalogFiltersOpen] = useState(false);
-  const [catalogProvider, setCatalogProvider] = useState('');
-  const [catalogProvenance, setCatalogProvenance] = useState('all');
-  const [appliedCatalogOriginType, setAppliedCatalogOriginType] = useState('all');
-  const [appliedCatalogProvider, setAppliedCatalogProvider] = useState('');
-  const [appliedCatalogProvenance, setAppliedCatalogProvenance] = useState('all');
   const [catalogFeedback, setCatalogFeedback] = useState('');
-  const [catalogError, setCatalogError] = useState('');
-  const [catalogRetry, setCatalogRetry] = useState(null);
+  const [catalogError, setCatalogError] = useState(null);
   const [foods, setFoods] = useState([]);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [showingRecentFoods, setShowingRecentFoods] = useState(false);
-  const [searching, setSearching] = useState(false);
-  const [loadingMoreFoods, setLoadingMoreFoods] = useState(false);
-  const [catalogHasMore, setCatalogHasMore] = useState(false);
-  const [catalogNextOffset, setCatalogNextOffset] = useState(0);
+  const [catalogLoading, setCatalogLoading] = useState(null);
+  const [nextPageOffset, setNextPageOffset] = useState(null);
   const [catalogActionsAnchorEl, setCatalogActionsAnchorEl] = useState(null);
   const [catalogActionsFoodId, setCatalogActionsFoodId] = useState(null);
   const [catalogDetailFoodIds, setCatalogDetailFoodIds] = useState(() => new Set());
   const catalogSearchRef = useRef(null);
   const catalogRequestIdRef = useRef(0);
-  const appliedCatalogRequestRef = useRef(initialCatalogRequest);
   const selectedFoodIds = useMemo(
     () => new Set(mealItems.map((item) => String(item.food_item))),
     [mealItems],
@@ -102,310 +109,115 @@ export default function FoodCatalogPicker({
     [foods, selectedFoodIds],
   );
   const activeCatalogFood = availableFoods.find((food) => food.id === catalogActionsFoodId);
-  const hasCatalogFilters =
-    catalogScope !== 'all' ||
-    catalogOriginType !== 'all' ||
-    Boolean(catalogProvider.trim()) ||
-    catalogProvenance !== 'all';
+  const filtersInUse = appliedFilters ?? defaultCatalogFilters;
+  const {
+    originType: appliedOriginType,
+    provider: appliedProvider,
+    provenance: appliedProvenance,
+  } = filtersInUse;
+  const showingRecentFoods = appliedFilters !== null && showsRecentFoods(appliedFilters);
+  const searching = catalogLoading === 'search';
+  const loadingMoreFoods = catalogLoading === 'more';
+  const catalogHasMore = nextPageOffset !== null;
   const advancedCatalogFilterCount =
-    Number(appliedCatalogOriginType !== 'all') +
-    Number(Boolean(appliedCatalogProvider.trim())) +
-    Number(appliedCatalogProvenance !== 'all');
+    Number(appliedOriginType !== 'all') +
+    Number(Boolean(appliedProvider.trim())) +
+    Number(appliedProvenance !== 'all');
 
-  const loadRecentFoods = useCallback(
-    async ({ append = false, offset = 0 } = {}, appliedRequest = initialCatalogRequest) => {
+  const loadCatalogPage = useCallback(
+    async (filters, offset = 0) => {
       const requestId = ++catalogRequestIdRef.current;
-      if (append) {
-        setLoadingMoreFoods(true);
-      } else {
-        setSearching(true);
-        setLoadingMoreFoods(false);
-        appliedCatalogRequestRef.current = appliedRequest;
-        setAppliedCatalogOriginType(appliedRequest.originType);
-        setAppliedCatalogProvider(appliedRequest.provider);
-        setAppliedCatalogProvenance(appliedRequest.provenance);
-        setHasSearched(false);
-        setShowingRecentFoods(true);
-      }
-      setCatalogError('');
-      setCatalogRetry(null);
-      try {
-        const response = await searchFoods('', token, {
-          ordering: '-created_at,-id',
-          limit: catalogPageSize + 1,
-          offset,
-        });
-        if (requestId !== catalogRequestIdRef.current) return;
-        if (response.ok) {
-          const results = (await safeReadJson(response)) || [];
-          if (requestId !== catalogRequestIdRef.current) return;
-          const page = results.slice(0, catalogPageSize);
-          setFoods((current) => {
-            if (!append) return page;
-            const loadedIds = new Set(current.map((food) => String(food.id)));
-            return [...current, ...page.filter((food) => !loadedIds.has(String(food.id)))];
-          });
-          setCatalogHasMore(results.length > catalogPageSize);
-          setCatalogNextOffset(offset + page.length);
-        } else {
-          const message = await getResponseErrorMessage(
-            response,
-            'Could not load recent catalog foods.',
-          );
-          if (requestId !== catalogRequestIdRef.current) return;
-          if (!append) {
-            setFoods([]);
-            setCatalogHasMore(false);
-            setCatalogNextOffset(0);
-          }
-          setCatalogError(message);
-          setCatalogRetry({
-            type: 'recent',
-            appliedRequest,
-            pageOptions: { append, offset },
-          });
-        }
-      } catch (_error) {
-        if (requestId !== catalogRequestIdRef.current) return;
+      const isLatestRequest = () => requestId === catalogRequestIdRef.current;
+      const append = offset > 0;
+      const recent = showsRecentFoods(filters);
+      const query = filters.query.trim();
+      const provider = filters.provider.trim();
+      const fallbackError = recent
+        ? 'Could not load recent catalog foods.'
+        : 'Could not search the food catalog.';
+
+      setCatalogLoading(append ? 'more' : 'search');
+      if (!append) setAppliedFilters(filters);
+      if (!recent) setCatalogFeedback('');
+      setCatalogError(null);
+
+      const showLoadError = (message) => {
+        if (!isLatestRequest()) return;
         if (!append) {
           setFoods([]);
-          setCatalogHasMore(false);
-          setCatalogNextOffset(0);
+          setNextPageOffset(null);
         }
-        setCatalogError('Could not load recent catalog foods.');
-        setCatalogRetry({
-          type: 'recent',
-          appliedRequest,
-          pageOptions: { append, offset },
+        setCatalogError({ message, filters, offset });
+      };
+
+      const options = {
+        limit: catalogPageSize + 1,
+        offset,
+        ordering: catalogOrdering[filters.sort] ?? (query ? 'relevance,name,id' : newestFoodsFirst),
+      };
+      if (filters.scope !== 'all') options.scope = filters.scope;
+      if (filters.originType !== 'all') options.originType = filters.originType;
+      if (provider) options.provider = provider;
+      if (filters.provenance !== 'all') options.provenance = filters.provenance;
+
+      try {
+        const response = await searchFoods(query, token, options);
+        if (!isLatestRequest()) return;
+        if (!response.ok) {
+          showLoadError(await getResponseErrorMessage(response, fallbackError));
+          return;
+        }
+
+        const results = (await safeReadJson(response)) || [];
+        if (!isLatestRequest()) return;
+        const page = results.slice(0, catalogPageSize);
+        setFoods((current) => {
+          if (!append) return page;
+          const loadedIds = new Set(current.map((food) => String(food.id)));
+          return [...current, ...page.filter((food) => !loadedIds.has(String(food.id)))];
         });
+        setNextPageOffset(results.length > catalogPageSize ? offset + page.length : null);
+      } catch (_error) {
+        showLoadError(fallbackError);
       } finally {
-        if (requestId === catalogRequestIdRef.current) {
-          if (append) setLoadingMoreFoods(false);
-          else setSearching(false);
-        }
+        if (isLatestRequest()) setCatalogLoading(null);
       }
     },
     [token],
   );
 
-  const runSearch = useCallback(
-    async (overrides = {}, { append = false, offset = 0 } = {}) => {
-      const nextQuery = overrides.query ?? query;
-      const nextScope = overrides.scope ?? catalogScope;
-      const nextOriginType = overrides.originType ?? catalogOriginType;
-      const nextSort = overrides.sort ?? catalogSort;
-      const nextProvider = overrides.provider ?? catalogProvider;
-      const nextProvenance = overrides.provenance ?? catalogProvenance;
-      const appliedRequest = {
-        query: nextQuery,
-        scope: nextScope,
-        originType: nextOriginType,
-        sort: nextSort,
-        provider: nextProvider,
-        provenance: nextProvenance,
-      };
-      const normalizedQuery = nextQuery.trim();
-      const hasFilters =
-        nextScope !== 'all' ||
-        nextOriginType !== 'all' ||
-        Boolean(nextProvider.trim()) ||
-        nextProvenance !== 'all';
-      if (
-        !normalizedQuery &&
-        !hasFilters &&
-        (nextSort === 'recommended' || nextSort === 'recent')
-      ) {
-        loadRecentFoods({ append, offset }, appliedRequest);
-        return;
-      }
-      const requestId = ++catalogRequestIdRef.current;
-      if (append) {
-        setLoadingMoreFoods(true);
-      } else {
-        setSearching(true);
-        setLoadingMoreFoods(false);
-        setHasSearched(true);
-        setShowingRecentFoods(false);
-      }
-      setCatalogFeedback('');
-      setCatalogError('');
-      setCatalogRetry(null);
-      if (!append) {
-        appliedCatalogRequestRef.current = appliedRequest;
-        setAppliedCatalogOriginType(nextOriginType);
-        setAppliedCatalogProvider(nextProvider);
-        setAppliedCatalogProvenance(nextProvenance);
-      }
-      const options = {
-        limit: catalogPageSize + 1,
-        offset,
-        ordering:
-          nextSort === 'name'
-            ? 'name,id'
-            : nextSort === 'logged'
-              ? '-has_logged,-last_logged_on,name,id'
-              : nextSort === 'recent' || !normalizedQuery
-                ? '-created_at,-id'
-                : 'relevance,name,id',
-      };
-      if (nextScope !== 'all') options.scope = nextScope;
-      if (nextOriginType !== 'all') options.originType = nextOriginType;
-      if (nextProvider.trim()) options.provider = nextProvider.trim();
-      if (nextProvenance !== 'all') options.provenance = nextProvenance;
-      try {
-        const response = await searchFoods(normalizedQuery, token, options);
-        if (requestId !== catalogRequestIdRef.current) return;
-        if (response.ok) {
-          const results = (await safeReadJson(response)) || [];
-          if (requestId !== catalogRequestIdRef.current) return;
-          const page = results.slice(0, catalogPageSize);
-          setFoods((current) => {
-            if (!append) return page;
-            const loadedIds = new Set(current.map((food) => String(food.id)));
-            return [...current, ...page.filter((food) => !loadedIds.has(String(food.id)))];
-          });
-          setCatalogHasMore(results.length > catalogPageSize);
-          setCatalogNextOffset(offset + page.length);
-        } else {
-          const message = await getResponseErrorMessage(
-            response,
-            'Could not search the food catalog.',
-          );
-          if (requestId !== catalogRequestIdRef.current) return;
-          if (!append) {
-            setFoods([]);
-            setCatalogHasMore(false);
-            setCatalogNextOffset(0);
-          }
-          setCatalogError(message);
-          setCatalogRetry({
-            type: 'search',
-            overrides: appliedRequest,
-            pageOptions: { append, offset },
-          });
-        }
-      } catch (_error) {
-        if (requestId !== catalogRequestIdRef.current) return;
-        if (!append) {
-          setFoods([]);
-          setCatalogHasMore(false);
-          setCatalogNextOffset(0);
-        }
-        setCatalogError('Could not search the food catalog.');
-        setCatalogRetry({
-          type: 'search',
-          overrides: appliedRequest,
-          pageOptions: { append, offset },
-        });
-      } finally {
-        if (requestId === catalogRequestIdRef.current) {
-          if (append) setLoadingMoreFoods(false);
-          else setSearching(false);
-        }
-      }
-    },
-    [
-      catalogOriginType,
-      catalogProvider,
-      catalogProvenance,
-      catalogScope,
-      catalogSort,
-      loadRecentFoods,
-      query,
-      token,
-    ],
-  );
+  const updateDraftFilter = (name, value) => {
+    setDraftFilters((current) => ({ ...current, [name]: value }));
+  };
 
-  const runAppliedCatalogSearch = useCallback(
-    (overrides = {}, pageOptions = {}) =>
-      runSearch({ ...appliedCatalogRequestRef.current, ...overrides }, pageOptions),
-    [runSearch],
-  );
-
-  const retryCatalogRequest = () => {
-    if (!catalogRetry) return;
-    if (catalogRetry.type === 'recent') {
-      loadRecentFoods(catalogRetry.pageOptions, catalogRetry.appliedRequest);
-      return;
-    }
-    runSearch(catalogRetry.overrides, catalogRetry.pageOptions);
+  // Scope, sort, and clear actions apply only their own changes. Search and
+  // Apply filters submit all draft fields together.
+  const applyFilterChanges = (changes) => {
+    setDraftFilters((current) => ({ ...current, ...changes }));
+    loadCatalogPage({ ...filtersInUse, ...changes });
   };
 
   const resetCatalogFilters = () => {
-    setCatalogScope('all');
-    setCatalogOriginType('all');
-    setCatalogProvider('');
-    setCatalogProvenance('all');
     setCatalogFeedback('');
-    setCatalogError('');
-    setCatalogRetry(null);
-    runAppliedCatalogSearch({
-      scope: 'all',
-      originType: 'all',
-      provider: '',
-      provenance: 'all',
-    });
+    applyFilterChanges(catalogFilterDefaults);
   };
 
-  const clearCatalogFilter = (filter) => {
-    const overrides = {};
-    if (filter === 'scope') {
-      setCatalogScope('all');
-      overrides.scope = 'all';
-    }
-    if (filter === 'originType') {
-      setCatalogOriginType('all');
-    }
-    if (filter === 'provider') {
-      setCatalogProvider('');
-    }
-    if (filter === 'provenance') {
-      setCatalogProvenance('all');
-    }
-    if (filter === 'originType') overrides.originType = 'all';
-    if (filter === 'provider') overrides.provider = '';
-    if (filter === 'provenance') overrides.provenance = 'all';
-    runAppliedCatalogSearch(overrides);
-  };
-
-  const loadMoreCatalogFoods = () => {
-    if (!catalogHasMore || searching || loadingMoreFoods) return;
-    const pageOptions = { append: true, offset: catalogNextOffset };
-    if (showingRecentFoods) {
-      loadRecentFoods(pageOptions, appliedCatalogRequestRef.current);
-    } else {
-      runAppliedCatalogSearch({}, pageOptions);
-    }
+  const clearCatalogFilter = (name) => {
+    applyFilterChanges({ [name]: catalogFilterDefaults[name] });
   };
 
   useEffect(() => {
     if (!open) return undefined;
     setCatalogPickerOpen(true);
-    setQuery('');
-    setCatalogScope('all');
-    setCatalogOriginType('all');
-    setCatalogSort('recommended');
+    setDraftFilters(defaultCatalogFilters);
     setCatalogFiltersOpen(false);
-    setCatalogProvider('');
-    setCatalogProvenance('all');
-    setAppliedCatalogOriginType('all');
-    setAppliedCatalogProvider('');
-    setAppliedCatalogProvenance('all');
-    appliedCatalogRequestRef.current = initialCatalogRequest;
     setCatalogFeedback('');
-    setCatalogError('');
-    setCatalogRetry(null);
     setFoods([]);
-    setHasSearched(false);
-    setShowingRecentFoods(false);
-    setSearching(false);
-    setLoadingMoreFoods(false);
-    setCatalogHasMore(false);
-    setCatalogNextOffset(0);
+    setNextPageOffset(null);
     setCatalogActionsAnchorEl(null);
     setCatalogActionsFoodId(null);
     setCatalogDetailFoodIds(new Set());
-    loadRecentFoods();
+    loadCatalogPage(defaultCatalogFilters);
 
     const focusFrame = focusSearchOnOpen
       ? window.requestAnimationFrame(() => catalogSearchRef.current?.focus())
@@ -414,7 +226,7 @@ export default function FoodCatalogPicker({
       catalogRequestIdRef.current += 1;
       if (focusFrame !== null) window.cancelAnimationFrame(focusFrame);
     };
-  }, [open, loadRecentFoods, focusSearchOnOpen]);
+  }, [open, loadCatalogPage, focusSearchOnOpen]);
 
   const addFood = (food) => {
     onAddFood(food);
@@ -475,7 +287,7 @@ export default function FoodCatalogPicker({
             alignItems: 'center',
           }}
         >
-          {catalogPickerOpen && (hasSearched || showingRecentFoods) && (
+          {catalogPickerOpen && appliedFilters && (
             <Chip
               label={
                 showingRecentFoods
@@ -501,25 +313,25 @@ export default function FoodCatalogPicker({
           <TextField
             inputRef={catalogSearchRef}
             label="Search catalog"
-            value={query}
+            value={draftFilters.query}
             onChange={(event) => {
               const nextQuery = event.target.value;
-              setQuery(nextQuery);
+              updateDraftFilter('query', nextQuery);
               if (!nextQuery.trim()) {
-                runAppliedCatalogSearch({ query: '' });
+                loadCatalogPage({ ...filtersInUse, query: '' });
               }
             }}
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
                 event.preventDefault();
-                runSearch();
+                loadCatalogPage(draftFilters);
               }
             }}
             fullWidth
           />
           <Button
             variant="outlined"
-            onClick={() => runSearch()}
+            onClick={() => loadCatalogPage(draftFilters)}
             disabled={searching}
             startIcon={searching ? <CircularProgress size={18} /> : <SearchIcon />}
             aria-label="search foods"
@@ -540,11 +352,10 @@ export default function FoodCatalogPicker({
             <ToggleButtonGroup
               exclusive
               size="small"
-              value={catalogScope}
+              value={draftFilters.scope}
               onChange={(_event, nextScope) => {
                 if (!nextScope) return;
-                setCatalogScope(nextScope);
-                runAppliedCatalogSearch({ scope: nextScope });
+                applyFilterChanges({ scope: nextScope });
               }}
               aria-label="Catalog scope"
               sx={{
@@ -581,12 +392,8 @@ export default function FoodCatalogPicker({
               select
               size="small"
               label="Sort"
-              value={catalogSort}
-              onChange={(event) => {
-                const nextSort = event.target.value;
-                setCatalogSort(nextSort);
-                runAppliedCatalogSearch({ sort: nextSort });
-              }}
+              value={draftFilters.sort}
+              onChange={(event) => applyFilterChanges({ sort: event.target.value })}
               sx={{ minWidth: 150 }}
             >
               {catalogSortOptions.map((option) => (
@@ -612,8 +419,8 @@ export default function FoodCatalogPicker({
                 select
                 size="small"
                 label="Food type"
-                value={catalogOriginType}
-                onChange={(event) => setCatalogOriginType(event.target.value)}
+                value={draftFilters.originType}
+                onChange={(event) => updateDraftFilter('originType', event.target.value)}
                 sx={{ minWidth: { md: 150 } }}
               >
                 <MenuItem value="all">Any food type</MenuItem>
@@ -626,12 +433,12 @@ export default function FoodCatalogPicker({
               <TextField
                 size="small"
                 label="Provider or brand"
-                value={catalogProvider}
-                onChange={(event) => setCatalogProvider(event.target.value)}
+                value={draftFilters.provider}
+                onChange={(event) => updateDraftFilter('provider', event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') {
                     event.preventDefault();
-                    runSearch();
+                    loadCatalogPage(draftFilters);
                   }
                 }}
                 sx={{ flex: 1, minWidth: { sm: 180 } }}
@@ -640,8 +447,8 @@ export default function FoodCatalogPicker({
                 select
                 size="small"
                 label="Provenance"
-                value={catalogProvenance}
-                onChange={(event) => setCatalogProvenance(event.target.value)}
+                value={draftFilters.provenance}
+                onChange={(event) => updateDraftFilter('provenance', event.target.value)}
                 sx={{ minWidth: { sm: 180 } }}
               >
                 <MenuItem value="all">Any provenance</MenuItem>
@@ -654,7 +461,7 @@ export default function FoodCatalogPicker({
               <Button
                 size="small"
                 variant="contained"
-                onClick={() => runSearch()}
+                onClick={() => loadCatalogPage(draftFilters)}
                 sx={{ minHeight: 40, whiteSpace: 'nowrap' }}
               >
                 Apply filters
@@ -662,7 +469,7 @@ export default function FoodCatalogPicker({
               <Button
                 size="small"
                 onClick={resetCatalogFilters}
-                disabled={!hasCatalogFilters && !advancedCatalogFilterCount}
+                disabled={!hasCatalogFilters(draftFilters) && !advancedCatalogFilterCount}
                 sx={{ minHeight: 40, whiteSpace: 'nowrap' }}
               >
                 Clear all
@@ -681,24 +488,24 @@ export default function FoodCatalogPicker({
             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
               Active filters
             </Typography>
-            {appliedCatalogOriginType !== 'all' && (
+            {appliedOriginType !== 'all' && (
               <Chip
                 size="small"
-                label={`Type: ${catalogOriginTypeOptions.find((option) => option.value === appliedCatalogOriginType)?.label}`}
+                label={`Type: ${catalogOriginTypeOptions.find((option) => option.value === appliedOriginType)?.label}`}
                 onDelete={() => clearCatalogFilter('originType')}
               />
             )}
-            {appliedCatalogProvider.trim() && (
+            {appliedProvider.trim() && (
               <Chip
                 size="small"
-                label={`Provider: ${appliedCatalogProvider.trim()}`}
+                label={`Provider: ${appliedProvider.trim()}`}
                 onDelete={() => clearCatalogFilter('provider')}
               />
             )}
-            {appliedCatalogProvenance !== 'all' && (
+            {appliedProvenance !== 'all' && (
               <Chip
                 size="small"
-                label={foodProvenanceLabels[appliedCatalogProvenance]}
+                label={foodProvenanceLabels[appliedProvenance]}
                 onDelete={() => clearCatalogFilter('provenance')}
               />
             )}
@@ -712,14 +519,14 @@ export default function FoodCatalogPicker({
               <Button
                 color="inherit"
                 size="small"
-                onClick={retryCatalogRequest}
+                onClick={() => loadCatalogPage(catalogError.filters, catalogError.offset)}
                 disabled={searching || loadingMoreFoods}
               >
                 Retry
               </Button>
             }
           >
-            {catalogError}
+            {catalogError.message}
           </Alert>
         )}
         {catalogFeedback && (
@@ -963,7 +770,7 @@ export default function FoodCatalogPicker({
                   <Button
                     size="small"
                     variant="text"
-                    onClick={loadMoreCatalogFoods}
+                    onClick={() => loadCatalogPage(filtersInUse, nextPageOffset)}
                     disabled={searching || loadingMoreFoods}
                     startIcon={loadingMoreFoods ? <CircularProgress size={16} /> : undefined}
                     endIcon={loadingMoreFoods ? undefined : <ExpandMoreIcon />}
@@ -1005,7 +812,7 @@ export default function FoodCatalogPicker({
           >
             {showingRecentFoods
               ? 'No recent foods are available yet. Search the catalog or create a personal food.'
-              : !hasSearched
+              : !appliedFilters
                 ? 'Search by food or provider to see matching foods.'
                 : foods.length
                   ? 'All matching foods are already in this meal.'
