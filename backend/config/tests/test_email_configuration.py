@@ -31,7 +31,7 @@ class EmailConfigurationTests(SimpleTestCase):
                 values = self.settings_values(DJANGO_EMAIL_BACKEND=backend)
                 self.assertEqual(values["EMAIL_BACKEND"], backend)
 
-    def test_existing_backend_selectors_use_the_maintained_backend(self):
+    def test_explicit_backend_selectors_are_not_rewritten(self):
         for backend in [
             BACKEND,
             "authentication.email_backends.ResendApiEmailBackend",
@@ -40,7 +40,7 @@ class EmailConfigurationTests(SimpleTestCase):
         ]:
             with self.subTest(backend=backend):
                 values = self.settings_values(DJANGO_EMAIL_BACKEND=backend)
-                self.assertEqual(values["EMAIL_BACKEND"], BACKEND)
+                self.assertEqual(values["EMAIL_BACKEND"], backend)
 
     def test_existing_key_maps_without_mutation_and_blank_keys_are_omitted(self):
         values = self.settings_values(DJANGO_EMAIL_HOST_KEY=" synthetic-key ")

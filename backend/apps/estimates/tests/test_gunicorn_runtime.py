@@ -56,7 +56,10 @@ class GunicornDeadlineTests(unittest.TestCase):
                 port = sock.getsockname()[1]
             entrypoint = next(
                 json.loads(line.removeprefix("CMD "))
-                for line in (ROOT / "docker" / "Dockerfile").read_text().splitlines()
+                for line in (ROOT / "docker" / "Dockerfile")
+                .read_text()
+                .replace("\\\n", "")
+                .splitlines()
                 if line.startswith("CMD ")
             )
             self.assertEqual(entrypoint[:2], ["sh", "-c"])

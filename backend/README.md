@@ -316,7 +316,8 @@ DJANGO_DEFAULT_FROM_EMAIL=<sender-on-a-verified-domain>
 
 `config/settings.py` maps the existing `DJANGO_EMAIL_HOST_KEY` through
 `EMAIL_HOST_PASSWORD` into `ANYMAIL["RESEND_API_KEY"]`; no new credential is needed.
-Known historical custom-backend selectors normalize to the maintained backend.
+Set the maintained backend name explicitly; retired custom selectors are no
+longer translated at startup.
 Console, SMTP and other explicitly configured backends retain their selection.
 Keep `.localhost` senders with console delivery; live delivery uses an approved
 sender domain and private credentials configured through the production guide.
