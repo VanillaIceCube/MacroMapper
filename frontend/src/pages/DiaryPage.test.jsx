@@ -1,6 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DiaryPage from './DiaryPage';
+import { startSession } from '../services/sessionState';
 import { renderWithProviders } from '../test-helpers/utils';
 import {
   acceptMealProposal,
@@ -27,11 +28,6 @@ vi.mock('../services/mealApiClient', () => ({
   updateMealProposal: vi.fn(),
   updateMeal: vi.fn(),
 }));
-
-const response = (body = {}, ok = true) => ({
-  ok,
-  json: vi.fn().mockResolvedValue(body),
-});
 
 const deferred = () => {
   let resolve;
@@ -243,12 +239,12 @@ describe('DiaryPage', () => {
     vi.clearAllMocks();
     sessionStorage.clear();
     sessionStorage.setItem('accessToken', 'access-token');
-    searchFoods.mockResolvedValue(response([apple]));
+    searchFoods.mockResolvedValue([apple]);
   });
 
   test('keeps date navigation compact and puts the Today action on the left', async () => {
     const user = userEvent.setup();
-    fetchDailyDiary.mockResolvedValue(response({ meals: [], totals: [] }));
+    fetchDailyDiary.mockResolvedValue({ meals: [], totals: [] });
 
     renderWithProviders(<DiaryPage />);
 
@@ -283,17 +279,15 @@ describe('DiaryPage', () => {
   });
 
   test('shows saved meals and daily totals', async () => {
-    fetchDailyDiary.mockResolvedValue(
-      response({
-        date: '2026-08-16',
-        meals: [meal],
-        totals: [
-          { key: 'calories', name: 'Calories', unit: 'kcal', amount: '95.0000' },
-          { key: 'protein', name: 'Protein', unit: 'g', amount: '0.5000' },
-          { key: 'sugar', name: 'Sugar', unit: 'g', amount: null },
-        ],
-      }),
-    );
+    fetchDailyDiary.mockResolvedValue({
+      date: '2026-08-16',
+      meals: [meal],
+      totals: [
+        { key: 'calories', name: 'Calories', unit: 'kcal', amount: '95.0000' },
+        { key: 'protein', name: 'Protein', unit: 'g', amount: '0.5000' },
+        { key: 'sugar', name: 'Sugar', unit: 'g', amount: null },
+      ],
+    });
 
     renderWithProviders(<DiaryPage />);
 
@@ -323,7 +317,7 @@ describe('DiaryPage', () => {
 
   test('keeps a cleared native date from breaking diary navigation', async () => {
     const user = userEvent.setup();
-    fetchDailyDiary.mockResolvedValue(response({ meals: [], totals: [] }));
+    fetchDailyDiary.mockResolvedValue({ meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
     await screen.findByRole('heading', { name: 'Nothing logged yet' });
 
@@ -340,14 +334,14 @@ describe('DiaryPage', () => {
     expect(screen.getByRole('button', { name: /^choose diary date/ })).toHaveAccessibleName(
       `choose diary date, current date ${nextDate}`,
     );
-    await waitFor(() => expect(fetchDailyDiary).toHaveBeenLastCalledWith(nextDate, 'access-token'));
+    await waitFor(() => expect(fetchDailyDiary).toHaveBeenLastCalledWith(nextDate));
     await user.click(screen.getByRole('button', { name: 'return to today', exact: true }));
     expect(screen.getByLabelText('diary date', { exact: true })).toHaveValue(currentDate);
   });
 
   test('opens the native picker on its date input and preserves the click fallback', async () => {
     const user = userEvent.setup();
-    fetchDailyDiary.mockResolvedValue(response({ meals: [], totals: [] }));
+    fetchDailyDiary.mockResolvedValue({ meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
     await screen.findByRole('heading', { name: 'Nothing logged yet' });
     const input = screen.getByLabelText('diary date', { exact: true });
@@ -364,7 +358,7 @@ describe('DiaryPage', () => {
   });
 
   test('centers saved food metadata beside the full food context at table widths', async () => {
-    fetchDailyDiary.mockResolvedValue(response({ meals: [meal], totals: [] }));
+    fetchDailyDiary.mockResolvedValue({ meals: [meal], totals: [] });
     renderWithProviders(<DiaryPage />);
     const table = await screen.findByRole('table', { name: 'Breakfast food breakdown' });
     expect(within(table).getByText('Food & Servings', { exact: true })).toHaveAttribute(
@@ -403,23 +397,21 @@ describe('DiaryPage', () => {
         },
       ],
     };
-    fetchDailyDiary.mockResolvedValue(
-      response({
-        date: '2026-08-16',
-        meals: [estimatedMeal],
-        totals: [
-          { key: 'calories', name: 'Calories', unit: 'kcal', amount: '95.4000' },
-          { key: 'protein', name: 'Protein', unit: 'g', amount: '0.5000' },
-          {
-            key: 'carbohydrates',
-            name: 'Carbohydrates',
-            unit: 'g',
-            amount: '1.5000',
-          },
-          { key: 'fat', name: 'Fat', unit: 'g', amount: '0.4000' },
-        ],
-      }),
-    );
+    fetchDailyDiary.mockResolvedValue({
+      date: '2026-08-16',
+      meals: [estimatedMeal],
+      totals: [
+        { key: 'calories', name: 'Calories', unit: 'kcal', amount: '95.4000' },
+        { key: 'protein', name: 'Protein', unit: 'g', amount: '0.5000' },
+        {
+          key: 'carbohydrates',
+          name: 'Carbohydrates',
+          unit: 'g',
+          amount: '1.5000',
+        },
+        { key: 'fat', name: 'Fat', unit: 'g', amount: '0.4000' },
+      ],
+    });
 
     renderWithProviders(<DiaryPage />);
 
@@ -440,8 +432,8 @@ describe('DiaryPage', () => {
 
   test('creates a meal from a searched catalog food', async () => {
     const user = userEvent.setup();
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
-    createMeal.mockResolvedValue(response(meal));
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
+    createMeal.mockResolvedValue(meal);
     const showSnackbar = vi.fn();
     renderWithProviders(<DiaryPage showSnackbar={showSnackbar} />);
 
@@ -486,7 +478,6 @@ describe('DiaryPage', () => {
             }),
           ],
         }),
-        'access-token',
       );
     });
     expect(showSnackbar).toHaveBeenCalledWith('success', 'Meal added.');
@@ -513,10 +504,10 @@ describe('DiaryPage', () => {
       current_version: { ...apple.current_version, id: 220 + index },
     }));
     searchFoods
-      .mockResolvedValueOnce(response(recentResults))
-      .mockResolvedValueOnce(response(firstSearchPage))
-      .mockResolvedValueOnce(response(secondSearchPage));
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+      .mockResolvedValueOnce(recentResults)
+      .mockResolvedValueOnce(firstSearchPage)
+      .mockResolvedValueOnce(secondSearchPage);
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -526,7 +517,7 @@ describe('DiaryPage', () => {
     expect(await within(dialog).findByText('Recent food 01')).toBeVisible();
     expect(within(dialog).getAllByRole('button', { name: 'Add' })).toHaveLength(20);
     expect(within(dialog).getByText('20 recent')).toBeVisible();
-    expect(searchFoods).toHaveBeenCalledWith('', 'access-token', {
+    expect(searchFoods).toHaveBeenCalledWith('', {
       ordering: '-created_at,-id',
       limit: 21,
       offset: 0,
@@ -545,7 +536,7 @@ describe('DiaryPage', () => {
     expect(within(dialog).getAllByRole('button', { name: 'Add' })).toHaveLength(30);
     expect(within(dialog).getByText('30 shown')).toBeVisible();
     expect(within(dialog).queryByRole('button', { name: 'Show 20 more' })).not.toBeInTheDocument();
-    expect(searchFoods).toHaveBeenLastCalledWith('catalog', 'access-token', {
+    expect(searchFoods).toHaveBeenLastCalledWith('catalog', {
       limit: 21,
       offset: 20,
       ordering: 'relevance,name,id',
@@ -561,8 +552,8 @@ describe('DiaryPage', () => {
       scope: 'shared',
       current_version: { ...apple.current_version, id: 10 },
     };
-    searchFoods.mockResolvedValue(response([apple, sharedApple]));
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    searchFoods.mockResolvedValue([apple, sharedApple]);
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -588,8 +579,8 @@ describe('DiaryPage', () => {
       name: 'Personal Pear',
       current_version: { ...apple.current_version, id: 11 },
     };
-    searchFoods.mockResolvedValueOnce(response([apple])).mockReturnValueOnce(scopedResults.promise);
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    searchFoods.mockResolvedValueOnce([apple]).mockReturnValueOnce(scopedResults.promise);
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -606,12 +597,12 @@ describe('DiaryPage', () => {
     expect(resultViewport.scrollTop).toBe(120);
     expect(within(dialog).getByText('Apple')).toBeVisible();
 
-    scopedResults.resolve(response([personalPear]));
+    scopedResults.resolve([personalPear]);
 
     expect(await within(dialog).findByText('Personal Pear')).toBeVisible();
     expect(within(dialog).queryByText('Apple')).not.toBeInTheDocument();
     expect(resultViewport).toHaveAttribute('aria-busy', 'false');
-    expect(searchFoods).toHaveBeenLastCalledWith('', 'access-token', {
+    expect(searchFoods).toHaveBeenLastCalledWith('', {
       limit: 21,
       offset: 0,
       ordering: '-created_at,-id',
@@ -621,8 +612,8 @@ describe('DiaryPage', () => {
 
   test('sorts the catalog by foods the current user logged most recently', async () => {
     const user = userEvent.setup();
-    searchFoods.mockResolvedValue(response([apple]));
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    searchFoods.mockResolvedValue([apple]);
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -635,7 +626,7 @@ describe('DiaryPage', () => {
     await user.click(screen.getByRole('option', { name: 'Recently logged' }));
 
     await waitFor(() =>
-      expect(searchFoods).toHaveBeenLastCalledWith('', 'access-token', {
+      expect(searchFoods).toHaveBeenLastCalledWith('', {
         limit: 21,
         offset: 0,
         ordering: '-has_logged,-last_logged_on,name,id',
@@ -645,8 +636,8 @@ describe('DiaryPage', () => {
 
   test('combines catalog search filters and confirms an added result', async () => {
     const user = userEvent.setup();
-    searchFoods.mockResolvedValue(response([apple]));
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    searchFoods.mockResolvedValue([apple]);
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -664,7 +655,7 @@ describe('DiaryPage', () => {
     await user.click(within(dialog).getByRole('button', { name: 'search foods' }));
 
     await waitFor(() =>
-      expect(searchFoods).toHaveBeenLastCalledWith('apple', 'access-token', {
+      expect(searchFoods).toHaveBeenLastCalledWith('apple', {
         limit: 21,
         offset: 0,
         ordering: 'relevance,name,id',
@@ -681,8 +672,8 @@ describe('DiaryPage', () => {
 
   test('keeps active advanced catalog filters tied to the last applied search', async () => {
     const user = userEvent.setup();
-    searchFoods.mockResolvedValue(response([apple]));
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    searchFoods.mockResolvedValue([apple]);
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -708,8 +699,8 @@ describe('DiaryPage', () => {
 
   test('preserves applied criteria when scope and sorting change with unapplied drafts', async () => {
     const user = userEvent.setup();
-    searchFoods.mockResolvedValue(response([apple]));
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    searchFoods.mockResolvedValue([apple]);
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -729,7 +720,7 @@ describe('DiaryPage', () => {
 
     await user.click(within(dialog).getByRole('button', { name: 'All' }));
     await waitFor(() =>
-      expect(searchFoods).toHaveBeenLastCalledWith('', 'access-token', {
+      expect(searchFoods).toHaveBeenLastCalledWith('', {
         limit: 21,
         offset: 0,
         ordering: '-created_at,-id',
@@ -740,7 +731,7 @@ describe('DiaryPage', () => {
     await user.click(within(dialog).getByRole('combobox', { name: 'Sort' }));
     await user.click(screen.getByRole('option', { name: 'Alphabetically' }));
     await waitFor(() =>
-      expect(searchFoods).toHaveBeenLastCalledWith('', 'access-token', {
+      expect(searchFoods).toHaveBeenLastCalledWith('', {
         limit: 21,
         offset: 0,
         ordering: 'name,id',
@@ -760,8 +751,8 @@ describe('DiaryPage', () => {
       name: `Filtered food ${String(index + 1).padStart(2, '0')}`,
       current_version: { ...apple.current_version, id: 400 + index },
     }));
-    searchFoods.mockResolvedValue(response(catalogResults));
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    searchFoods.mockResolvedValue(catalogResults);
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -780,7 +771,7 @@ describe('DiaryPage', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Show 20 more' }));
 
     await waitFor(() =>
-      expect(searchFoods).toHaveBeenLastCalledWith('', 'access-token', {
+      expect(searchFoods).toHaveBeenLastCalledWith('', {
         limit: 21,
         offset: 20,
         ordering: '-created_at,-id',
@@ -795,8 +786,8 @@ describe('DiaryPage', () => {
 
   test('isolates shared catalog foods', async () => {
     const user = userEvent.setup();
-    searchFoods.mockResolvedValue(response([apple]));
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    searchFoods.mockResolvedValue([apple]);
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -806,7 +797,7 @@ describe('DiaryPage', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Shared' }));
 
     await waitFor(() =>
-      expect(searchFoods).toHaveBeenLastCalledWith('', 'access-token', {
+      expect(searchFoods).toHaveBeenLastCalledWith('', {
         limit: 21,
         offset: 0,
         ordering: '-created_at,-id',
@@ -818,9 +809,9 @@ describe('DiaryPage', () => {
   test('retries a failed initial catalog load without showing an empty state', async () => {
     const user = userEvent.setup();
     searchFoods
-      .mockResolvedValueOnce(response({ detail: 'The catalog could not be loaded.' }, false))
-      .mockResolvedValueOnce(response([apple]));
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+      .mockRejectedValueOnce(new Error('The catalog could not be loaded.'))
+      .mockResolvedValueOnce([apple]);
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -836,7 +827,7 @@ describe('DiaryPage', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Retry' }));
 
     expect(await within(dialog).findByText('Apple')).toBeVisible();
-    expect(searchFoods).toHaveBeenLastCalledWith('', 'access-token', {
+    expect(searchFoods).toHaveBeenLastCalledWith('', {
       ordering: '-created_at,-id',
       limit: 21,
       offset: 0,
@@ -847,10 +838,10 @@ describe('DiaryPage', () => {
     const user = userEvent.setup();
     const berry = { ...apple, id: 12, name: 'Blueberry' };
     searchFoods
-      .mockResolvedValueOnce(response([apple]))
-      .mockResolvedValueOnce(response({ detail: 'The catalog is temporarily unavailable.' }, false))
-      .mockResolvedValueOnce(response([berry]));
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+      .mockResolvedValueOnce([apple])
+      .mockRejectedValueOnce(new Error('The catalog is temporarily unavailable.'))
+      .mockResolvedValueOnce([berry]);
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -866,7 +857,7 @@ describe('DiaryPage', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Retry' }));
 
     expect(await within(dialog).findByText('Blueberry')).toBeVisible();
-    expect(searchFoods).toHaveBeenLastCalledWith('berry', 'access-token', {
+    expect(searchFoods).toHaveBeenLastCalledWith('berry', {
       limit: 21,
       offset: 0,
       ordering: 'relevance,name,id',
@@ -878,8 +869,8 @@ describe('DiaryPage', () => {
 
   test('distinguishes an empty catalog from a search with no matches', async () => {
     const user = userEvent.setup();
-    searchFoods.mockResolvedValue(response([]));
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    searchFoods.mockResolvedValue([]);
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -903,8 +894,8 @@ describe('DiaryPage', () => {
 
   test('clears catalog filters individually and resets them together', async () => {
     const user = userEvent.setup();
-    searchFoods.mockResolvedValue(response([apple]));
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    searchFoods.mockResolvedValue([apple]);
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -943,7 +934,7 @@ describe('DiaryPage', () => {
     );
     expect(within(dialog).getByRole('textbox', { name: 'Provider or brand' })).toHaveValue('');
     expect(within(dialog).queryByLabelText('Active catalog filters')).not.toBeInTheDocument();
-    expect(searchFoods).toHaveBeenLastCalledWith('apple', 'access-token', {
+    expect(searchFoods).toHaveBeenLastCalledWith('apple', {
       limit: 21,
       offset: 0,
       ordering: 'relevance,name,id',
@@ -952,7 +943,7 @@ describe('DiaryPage', () => {
 
   test('lays out catalog filters responsively', async () => {
     const user = userEvent.setup();
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -973,8 +964,8 @@ describe('DiaryPage', () => {
 
   test('leaves a new meal name blank for generation when saving', async () => {
     const user = userEvent.setup();
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
-    createMeal.mockResolvedValue(response({ ...meal, name: 'Apple' }));
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
+    createMeal.mockResolvedValue({ ...meal, name: 'Apple' });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -994,14 +985,13 @@ describe('DiaryPage', () => {
           name: '',
           items: [expect.objectContaining({ food_item_id: 7, food_version_id: 9, servings: '1' })],
         }),
-        'access-token',
       ),
     );
   });
 
   test('opens Map it with AI first and Map Your Meal directly from the matching action', async () => {
     const user = userEvent.setup();
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -1016,7 +1006,7 @@ describe('DiaryPage', () => {
     await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
     dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
     expect(await within(dialog).findByText('Apple')).toBeVisible();
-    expect(searchFoods).toHaveBeenCalledWith('', 'access-token', {
+    expect(searchFoods).toHaveBeenCalledWith('', {
       ordering: '-created_at,-id',
       limit: 21,
       offset: 0,
@@ -1033,7 +1023,7 @@ describe('DiaryPage', () => {
 
   test('keeps the AI estimate dialog compact throughout a backdrop close', async () => {
     const user = userEvent.setup();
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -1050,7 +1040,7 @@ describe('DiaryPage', () => {
   });
 
   test('keeps the meal-log actions grouped at the opposite edge of the toolbar', async () => {
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
 
     renderWithProviders(<DiaryPage />);
 
@@ -1079,16 +1069,14 @@ describe('DiaryPage', () => {
 
   test('uses AI Adjustments to build and save a meal from no foods', async () => {
     const user = userEvent.setup();
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
-    adjustMealProposal.mockResolvedValue(
-      response({
-        applied: true,
-        message: 'Added a taco.',
-        proposal: estimatedProposal,
-      }),
-    );
-    updateMealProposal.mockResolvedValue(response(estimatedProposal));
-    acceptMealProposal.mockResolvedValue(response(meal));
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
+    adjustMealProposal.mockResolvedValue({
+      applied: true,
+      message: 'Added a taco.',
+      proposal: estimatedProposal,
+    });
+    updateMealProposal.mockResolvedValue(estimatedProposal);
+    acceptMealProposal.mockResolvedValue(meal);
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -1116,7 +1104,6 @@ describe('DiaryPage', () => {
         notes: '',
         items: [],
       }),
-      'access-token',
     );
 
     await user.click(within(dialog).getByRole('button', { name: 'Save meal' }));
@@ -1124,16 +1111,15 @@ describe('DiaryPage', () => {
       expect(updateMealProposal).toHaveBeenCalledWith(
         90,
         expect.objectContaining({ name: 'Estimated lunch' }),
-        'access-token',
       ),
     );
-    expect(acceptMealProposal).toHaveBeenCalledWith(90, 'access-token');
+    expect(acceptMealProposal).toHaveBeenCalledWith(90);
     expect(createMeal).not.toHaveBeenCalled();
   });
 
   test('orders the Map Your Meal sections around nutrition, items, and adjustments', async () => {
     const user = userEvent.setup();
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -1156,7 +1142,7 @@ describe('DiaryPage', () => {
 
   test('validates the estimate prompt inside the unified meal dialog', async () => {
     const user = userEvent.setup();
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -1170,10 +1156,8 @@ describe('DiaryPage', () => {
 
   test('keeps the unified estimate prompt open when estimation fails', async () => {
     const user = userEvent.setup();
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
-    createMealProposal.mockResolvedValue(
-      response({ detail: 'The estimate provider is unavailable.' }, false),
-    );
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
+    createMealProposal.mockRejectedValue(new Error('The estimate provider is unavailable.'));
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -1191,10 +1175,10 @@ describe('DiaryPage', () => {
 
   test('hands an AI proposal to the unified builder and combines it with catalog foods', async () => {
     const user = userEvent.setup();
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
-    createMealProposal.mockResolvedValue(response(estimatedProposal));
-    updateMealProposal.mockResolvedValue(response(estimatedProposal));
-    acceptMealProposal.mockResolvedValue(response(meal));
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
+    createMealProposal.mockResolvedValue(estimatedProposal);
+    updateMealProposal.mockResolvedValue(estimatedProposal);
+    acceptMealProposal.mockResolvedValue(meal);
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -1233,17 +1217,41 @@ describe('DiaryPage', () => {
             expect.objectContaining({ food_item_id: 8, food_version_id: 10 }),
           ]),
         }),
-        'access-token',
       );
     });
-    expect(acceptMealProposal).toHaveBeenCalledWith(90, 'access-token');
+    expect(acceptMealProposal).toHaveBeenCalledWith(90);
     expect(createMeal).not.toHaveBeenCalled();
+  });
+
+  test('does not accept a proposal after the account changes during its update', async () => {
+    const user = userEvent.setup();
+    const pendingUpdate = deferred();
+    fetchDailyDiary.mockResolvedValue({ meals: [], totals: [] });
+    createMealProposal.mockResolvedValue(estimatedProposal);
+    updateMealProposal.mockReturnValueOnce(pendingUpdate.promise);
+    renderWithProviders(<DiaryPage />);
+
+    await user.click(await screen.findByRole('button', { name: 'Map your Meal with AI' }));
+    const prompt = await screen.findByRole('dialog', { name: /Map it with AI/ });
+    await user.type(within(prompt).getByRole('textbox', { name: 'Describe what you ate' }), 'Taco');
+    await user.click(within(prompt).getByRole('button', { name: 'Create estimate' }));
+
+    const editor = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    await user.click(within(editor).getByRole('button', { name: 'Save meal' }));
+    expect(updateMealProposal).toHaveBeenCalledOnce();
+
+    await act(async () => {
+      startSession({ access: 'different-account', refresh: 'different-refresh' });
+      pendingUpdate.resolve();
+    });
+
+    expect(acceptMealProposal).not.toHaveBeenCalled();
   });
 
   test('waits for a new estimate before loading the catalog when the editor reopens', async () => {
     const user = userEvent.setup();
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
-    createMealProposal.mockResolvedValue(response(estimatedProposal));
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
+    createMealProposal.mockResolvedValue(estimatedProposal);
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -1271,9 +1279,9 @@ describe('DiaryPage', () => {
 
   test('keeps advanced edits available for a catalog food added after a proposal', async () => {
     const user = userEvent.setup();
-    searchFoods.mockImplementation((query) => response(query ? [breakfastBurrito] : [apple]));
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
-    createMealProposal.mockResolvedValue(response(estimatedProposal));
+    searchFoods.mockImplementation((query) => (query ? [breakfastBurrito] : [apple]));
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
+    createMealProposal.mockResolvedValue(estimatedProposal);
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -1303,7 +1311,7 @@ describe('DiaryPage', () => {
     const recent = deferred();
     const search = deferred();
     searchFoods.mockImplementation((query) => (query ? search.promise : recent.promise));
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -1313,9 +1321,9 @@ describe('DiaryPage', () => {
     await user.type(searchInput, 'Apple');
     await user.keyboard('{Enter}');
 
-    search.resolve(response([apple]));
+    search.resolve([apple]);
     expect(await within(dialog).findByText('Apple')).toBeVisible();
-    recent.resolve(response([breakfastBurrito]));
+    recent.resolve([breakfastBurrito]);
     await waitFor(() => expect(within(dialog).getByText('Apple')).toBeVisible());
     expect(within(dialog).queryByText('Breakfast Burrito')).not.toBeInTheDocument();
   });
@@ -1337,7 +1345,7 @@ describe('DiaryPage', () => {
         },
       ],
     };
-    fetchDailyDiary.mockResolvedValue(response({ meals: [savedApples], totals: [] }));
+    fetchDailyDiary.mockResolvedValue({ meals: [savedApples], totals: [] });
     renderWithProviders(<DiaryPage />);
     expect(await screen.findByText('2 × Red apple')).toBeVisible();
     expect(screen.getByText('Large')).toBeVisible();
@@ -1368,13 +1376,15 @@ describe('DiaryPage', () => {
       ...original,
       items: [{ ...fish, components: [...fish.components, eggs] }],
     };
-    fetchDailyDiary.mockResolvedValue(response({ meals: [], totals: [] }));
-    createMealProposal.mockResolvedValue(response(original));
-    adjustMealProposal.mockResolvedValue(
-      response({ applied: true, message: 'Moved eggs into breaded tilapia.', proposal: corrected }),
-    );
-    updateMealProposal.mockResolvedValue(response(corrected));
-    acceptMealProposal.mockResolvedValue(response(meal));
+    fetchDailyDiary.mockResolvedValue({ meals: [], totals: [] });
+    createMealProposal.mockResolvedValue(original);
+    adjustMealProposal.mockResolvedValue({
+      applied: true,
+      message: 'Moved eggs into breaded tilapia.',
+      proposal: corrected,
+    });
+    updateMealProposal.mockResolvedValue(corrected);
+    acceptMealProposal.mockResolvedValue(meal);
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -1418,22 +1428,19 @@ describe('DiaryPage', () => {
             }),
           ],
         }),
-        'access-token',
       ),
     );
   });
 
   test('keeps AI Adjustments in Map Your Meal after estimation', async () => {
     const user = userEvent.setup();
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
-    createMealProposal.mockResolvedValue(response(estimatedProposal));
-    adjustMealProposal.mockResolvedValue(
-      response({
-        applied: true,
-        message: 'Updated the meal.',
-        proposal: { ...estimatedProposal, name: 'Updated estimated lunch' },
-      }),
-    );
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
+    createMealProposal.mockResolvedValue(estimatedProposal);
+    adjustMealProposal.mockResolvedValue({
+      applied: true,
+      message: 'Updated the meal.',
+      proposal: { ...estimatedProposal, name: 'Updated estimated lunch' },
+    });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -1460,14 +1467,13 @@ describe('DiaryPage', () => {
     expect(adjustMealProposal).toHaveBeenCalledWith(
       90,
       expect.objectContaining({ adjustment: 'Add salsa', name: 'Estimated lunch' }),
-      'access-token',
     );
   });
 
   test('shows catalog estimate tags and details and restores a removed food', async () => {
     const user = userEvent.setup();
-    searchFoods.mockResolvedValue(response([estimatedTaco]));
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    searchFoods.mockResolvedValue([estimatedTaco]);
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -1565,7 +1571,7 @@ describe('DiaryPage', () => {
 
   test('protects an unsaved Map Your Meal draft before closing', async () => {
     const user = userEvent.setup();
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -1597,34 +1603,32 @@ describe('DiaryPage', () => {
 
   test('uses AI Adjustments while editing an existing diary entry', async () => {
     const user = userEvent.setup();
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [meal], totals: [] }));
-    adjustMeal.mockResolvedValue(
-      response({
-        applied: true,
-        message: 'Added a taco and increased the apple.',
-        proposal: {
-          ...estimatedProposal,
-          name: 'Breakfast',
-          notes: 'Early meal',
-          entry_date: '2026-08-16',
-          items: [
-            {
-              ...estimatedProposal.items[0],
-              key: 'saved-apple',
-              food_item_id: 7,
-              food_version_id: 9,
-              name: 'Apple',
-              provider_name: '',
-              servings: '2',
-              serving_unit: 'item',
-              serving_label: 'one apple',
-            },
-            estimatedProposal.items[0],
-          ],
-        },
-      }),
-    );
-    updateMeal.mockResolvedValue(response(meal));
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [meal], totals: [] });
+    adjustMeal.mockResolvedValue({
+      applied: true,
+      message: 'Added a taco and increased the apple.',
+      proposal: {
+        ...estimatedProposal,
+        name: 'Breakfast',
+        notes: 'Early meal',
+        entry_date: '2026-08-16',
+        items: [
+          {
+            ...estimatedProposal.items[0],
+            key: 'saved-apple',
+            food_item_id: 7,
+            food_version_id: 9,
+            name: 'Apple',
+            provider_name: '',
+            servings: '2',
+            serving_unit: 'item',
+            serving_label: 'one apple',
+          },
+          estimatedProposal.items[0],
+        ],
+      },
+    });
+    updateMeal.mockResolvedValue(meal);
     renderWithProviders(<DiaryPage />);
 
     await user.click(await screen.findByRole('button', { name: 'edit Breakfast' }));
@@ -1643,7 +1647,6 @@ describe('DiaryPage', () => {
         adjustment: 'Add a taco and make that two apples',
         name: 'Breakfast',
       }),
-      'access-token',
     );
     expect(adjustMealProposal).not.toHaveBeenCalled();
 
@@ -1657,15 +1660,14 @@ describe('DiaryPage', () => {
             expect.objectContaining({ food_item_id: 8, food_version_id: 10, servings: '1' }),
           ],
         }),
-        'access-token',
       ),
     );
   });
 
   test('edits a meal and replaces its component quantity', async () => {
     const user = userEvent.setup();
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [meal], totals: [] }));
-    updateMeal.mockResolvedValue(response({ ...meal, name: 'Brunch' }));
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [meal], totals: [] });
+    updateMeal.mockResolvedValue({ ...meal, name: 'Brunch' });
     renderWithProviders(<DiaryPage />);
 
     await user.click(await screen.findByRole('button', { name: 'edit Breakfast' }));
@@ -1685,7 +1687,6 @@ describe('DiaryPage', () => {
           name: 'Brunch',
           items: [expect.objectContaining({ food_item_id: 7, food_version_id: 9, servings: '2' })],
         }),
-        'access-token',
       );
     });
     expect(adjustMealProposal).not.toHaveBeenCalled();
@@ -1695,8 +1696,8 @@ describe('DiaryPage', () => {
 
   test('shows catalog composite nutrition in Map Your Meal and expanded components', async () => {
     const user = userEvent.setup();
-    searchFoods.mockResolvedValue(response([breakfastBurrito]));
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    searchFoods.mockResolvedValue([breakfastBurrito]);
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -1777,9 +1778,7 @@ describe('DiaryPage', () => {
         },
       ],
     };
-    fetchDailyDiary.mockResolvedValue(
-      response({ date: '2026-08-16', meals: [compositeMeal], totals: [] }),
-    );
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [compositeMeal], totals: [] });
     renderWithProviders(<DiaryPage />);
 
     await user.click(await screen.findByRole('button', { name: 'edit Lunch' }));
@@ -1801,20 +1800,24 @@ describe('DiaryPage', () => {
 
   test('deletes a meal after confirmation', async () => {
     const user = userEvent.setup();
-    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [meal], totals: [] }));
-    deleteMeal.mockResolvedValue(response(null));
+    fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [meal], totals: [] });
+    deleteMeal.mockResolvedValue(null);
     renderWithProviders(<DiaryPage />);
 
     await user.click(await screen.findByRole('button', { name: 'delete Breakfast' }));
     const dialog = screen.getByRole('dialog', { name: 'Delete Breakfast?' });
     await user.click(within(dialog).getByRole('button', { name: 'Delete meal' }));
 
-    await waitFor(() => expect(deleteMeal).toHaveBeenCalledWith(11, 'access-token'));
+    await waitFor(() => expect(deleteMeal).toHaveBeenCalledWith(11));
   });
   test('a network failure while estimating preserves the description and allows retry or cancel', async () => {
     const user = userEvent.setup();
-    fetchDailyDiary.mockResolvedValue(response({ meals: [], totals: [] }));
-    createMealProposal.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    fetchDailyDiary.mockResolvedValue({ meals: [], totals: [] });
+    createMealProposal.mockRejectedValueOnce(
+      new Error(
+        'Could not reach the server. Your meal description is still here. Please try again.',
+      ),
+    );
     renderWithProviders(<DiaryPage />);
     await screen.findByText('Nothing logged yet');
     await user.click(screen.getByRole('button', { name: 'Map your Meal with AI' }));
@@ -1826,7 +1829,7 @@ describe('DiaryPage', () => {
     expect(description).toHaveValue('An apple');
     expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeEnabled();
     expect(within(dialog).getByRole('button', { name: 'Create estimate' })).toBeEnabled();
-    createMealProposal.mockResolvedValueOnce(response(estimatedProposal));
+    createMealProposal.mockResolvedValueOnce(estimatedProposal);
     await user.click(within(dialog).getByRole('button', { name: 'Create estimate' }));
     expect(await screen.findByRole('dialog', { name: /Map Your Meal/ })).toBeVisible();
   });
@@ -1835,19 +1838,19 @@ describe('DiaryPage', () => {
     'a network failure during %s save keeps the editable meal and releases its controls',
     async (mode) => {
       const user = userEvent.setup();
-      fetchDailyDiary.mockResolvedValue(
-        response({ meals: mode === 'edit' ? [meal] : [], totals: [] }),
-      );
+      fetchDailyDiary.mockResolvedValue({ meals: mode === 'edit' ? [meal] : [], totals: [] });
       renderWithProviders(<DiaryPage />);
       let dialog;
       if (mode === 'edit') {
-        updateMeal.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+        updateMeal.mockRejectedValueOnce(
+          new Error('Could not save this meal. Your draft is still here. Please try again.'),
+        );
         await user.click(await screen.findByRole('button', { name: 'edit Breakfast' }));
         dialog = screen.getByRole('dialog', { name: /Edit meal/ });
       } else {
         await screen.findByText('Nothing logged yet');
         if (mode.startsWith('proposal')) {
-          createMealProposal.mockResolvedValueOnce(response(estimatedProposal));
+          createMealProposal.mockResolvedValueOnce(estimatedProposal);
           await user.click(screen.getByRole('button', { name: 'Map your Meal with AI' }));
           dialog = await screen.findByRole('dialog', { name: /Map it with AI/ });
           await user.type(
@@ -1857,13 +1860,19 @@ describe('DiaryPage', () => {
           await user.click(within(dialog).getByRole('button', { name: 'Create estimate' }));
           dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
           if (mode === 'proposal-update')
-            updateMealProposal.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+            updateMealProposal.mockRejectedValueOnce(
+              new Error('Could not save this meal. Your draft is still here. Please try again.'),
+            );
           else {
-            updateMealProposal.mockResolvedValueOnce(response(estimatedProposal));
-            acceptMealProposal.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+            updateMealProposal.mockResolvedValueOnce(estimatedProposal);
+            acceptMealProposal.mockRejectedValueOnce(
+              new Error('Could not save this meal. Your draft is still here. Please try again.'),
+            );
           }
         } else {
-          createMeal.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+          createMeal.mockRejectedValueOnce(
+            new Error('Could not save this meal. Your draft is still here. Please try again.'),
+          );
           await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
           dialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
           await user.click(await within(dialog).findByRole('button', { name: 'Add' }));
@@ -1885,10 +1894,10 @@ describe('DiaryPage', () => {
 
   test('a rejected daily load exposes a working retry', async () => {
     const user = userEvent.setup();
-    fetchDailyDiary.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    fetchDailyDiary.mockRejectedValueOnce(new Error('Could not load this day. Please try again.'));
     renderWithProviders(<DiaryPage />);
     expect(await screen.findByText('Could not load this day. Please try again.')).toBeVisible();
-    fetchDailyDiary.mockResolvedValueOnce(response({ meals: [meal], totals: [] }));
+    fetchDailyDiary.mockResolvedValueOnce({ meals: [meal], totals: [] });
     await user.click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByRole('heading', { name: 'Breakfast' })).toBeVisible();
   });
@@ -1896,21 +1905,18 @@ describe('DiaryPage', () => {
   test.each(['success', 'failure'])(
     'ignores an older daily %s after the user selects a newer day',
     async (result) => {
-      const older = deferred();
+      const older = Promise.withResolvers();
       fetchDailyDiary
         .mockReturnValueOnce(older.promise)
-        .mockResolvedValue(response({ meals: [], totals: [] }));
+        .mockResolvedValue({ meals: [], totals: [] });
       renderWithProviders(<DiaryPage />);
       const selected = screen.getByLabelText('diary date');
       const nextDate = selected.value === '2026-11-15' ? '2026-11-16' : '2026-11-15';
       fireEvent.change(selected, { target: { value: nextDate } });
       await screen.findByText('Nothing logged yet');
       await act(async () => {
-        older.resolve(
-          result === 'success'
-            ? response({ meals: [meal], totals: [] })
-            : response({ detail: 'Old request failed' }, false),
-        );
+        if (result === 'success') older.resolve({ meals: [meal], totals: [] });
+        else older.reject(new Error('Old request failed'));
       });
       expect(selected).toHaveValue(nextDate);
       expect(screen.getByText('Nothing logged yet')).toBeVisible();

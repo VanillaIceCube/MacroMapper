@@ -12,10 +12,7 @@ vi.mock('../../services/authApiClient', () => ({
 describe('ForgotPassword', () => {
   test('requests a password reset', async () => {
     const showSnackbar = vi.fn();
-    forgotPassword.mockResolvedValue({
-      ok: true,
-      json: async () => ({ message: 'Password reset link has been sent!' }),
-    });
+    forgotPassword.mockResolvedValue({ message: 'Password reset link has been sent!' });
     renderWithProviders(<ForgotPassword showSnackbar={showSnackbar} />, {
       routeEntries: ['/forgot-password'],
     });
@@ -31,10 +28,10 @@ describe('ForgotPassword', () => {
   test('blocks duplicate submissions and recovers after a validation failure', async () => {
     const showSnackbar = vi.fn();
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-    let resolveRequest;
+    let rejectRequest;
     forgotPassword.mockReturnValueOnce(
-      new Promise((resolve) => {
-        resolveRequest = resolve;
+      new Promise((_resolve, reject) => {
+        rejectRequest = reject;
       }),
     );
     renderWithProviders(<ForgotPassword showSnackbar={showSnackbar} />, {
@@ -46,11 +43,7 @@ describe('ForgotPassword', () => {
     expect(pendingButton).toBeDisabled();
     fireEvent.click(pendingButton);
     expect(forgotPassword).toHaveBeenCalledTimes(1);
-    resolveRequest({
-      ok: false,
-      status: 400,
-      json: async () => ({ password: ['Validation failed.'] }),
-    });
+    rejectRequest(new Error('Validation failed.'));
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Send Reset Link' })).toBeEnabled(),
     );

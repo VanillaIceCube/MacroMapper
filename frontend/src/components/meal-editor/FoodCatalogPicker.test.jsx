@@ -1,3 +1,4 @@
+import { clearSession, startSession } from '../../services/sessionState';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { searchFoods } from '../../services/mealApiClient';
@@ -6,20 +7,18 @@ import FoodCatalogPicker from './FoodCatalogPicker';
 
 vi.mock('../../services/mealApiClient');
 
+beforeEach(() => startSession({ access: 'access-token', refresh: 'refresh-token' }));
+afterEach(() => clearSession());
+
 test('hides foods already in the draft and sends the chosen food to the editor', async () => {
   const user = userEvent.setup();
   const apple = { id: 7, name: 'Apple', current_version: { serving_label: 'one apple' } };
   const pear = { id: 8, name: 'Pear', current_version: { serving_label: 'one pear' } };
   const onAddFood = vi.fn();
-  searchFoods.mockResolvedValue(Response.json([apple, pear]));
+  searchFoods.mockResolvedValue([apple, pear]);
 
   renderWithProviders(
-    <FoodCatalogPicker
-      open
-      token="access-token"
-      mealItems={[{ food_item: '7' }]}
-      onAddFood={onAddFood}
-    />,
+    <FoodCatalogPicker open mealItems={[{ food_item: '7' }]} onAddFood={onAddFood} />,
   );
 
   const catalog = within(screen.getByRole('region', { name: 'Add from the Catalog' }));
@@ -40,14 +39,12 @@ test('retries a failed page with the applied search and keeps the foods already 
     current_version: { serving_label: 'one serving' },
   }));
   searchFoods
-    .mockResolvedValueOnce(Response.json([]))
-    .mockResolvedValueOnce(Response.json(foods))
-    .mockResolvedValueOnce(Response.json({ detail: 'Could not load more foods.' }, { status: 503 }))
-    .mockResolvedValueOnce(Response.json([foods[19], foods[20]]));
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce(foods)
+    .mockRejectedValueOnce(new Error('Could not load more foods.'))
+    .mockResolvedValueOnce([foods[19], foods[20]]);
 
-  renderWithProviders(
-    <FoodCatalogPicker open token="access-token" mealItems={[]} onAddFood={vi.fn()} />,
-  );
+  renderWithProviders(<FoodCatalogPicker open mealItems={[]} onAddFood={vi.fn()} />);
 
   const catalog = within(screen.getByRole('region', { name: 'Add from the Catalog' }));
   const search = catalog.getByRole('textbox', { name: 'Search catalog' });
@@ -65,7 +62,7 @@ test('retries a failed page with the applied search and keeps the foods already 
   expect(catalog.getByText('Orchard food 1')).toBeVisible();
   expect(catalog.getAllByText('Orchard food 20')).toHaveLength(1);
   expect(search).toHaveValue('orchard draft');
-  expect(searchFoods).toHaveBeenLastCalledWith('orchard', 'access-token', {
+  expect(searchFoods).toHaveBeenLastCalledWith('orchard', {
     limit: 21,
     offset: 20,
     ordering: 'relevance,name,id',

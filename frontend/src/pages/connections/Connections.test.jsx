@@ -74,10 +74,7 @@ beforeEach(() => {
     applications: [{ id: 1, name: 'ChatGPT', client_id: 'gpt' }],
   });
   connections.revokeConnection.mockResolvedValue({ revoked: true });
-  login.mockResolvedValue({
-    ok: true,
-    json: async () => ({ access: 'NEW-JWT', refresh: 'REFRESH', username: 'alice' }),
-  });
+  login.mockResolvedValue({ access: 'NEW-JWT', refresh: 'REFRESH', username: 'alice' });
 });
 
 test('an authenticated user goes directly to consent with application, identity and permissions', async () => {

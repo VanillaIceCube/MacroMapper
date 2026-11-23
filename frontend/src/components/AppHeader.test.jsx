@@ -109,7 +109,7 @@ describe('AppHeader', () => {
     expect(screen.getByLabelText('notifications')).toBeInTheDocument();
     expect(screen.getByLabelText('user profile')).toBeInTheDocument();
     expect(screen.getByLabelText('menu')).toBeInTheDocument();
-    await waitFor(() => expect(fetchNotifications).toHaveBeenCalledWith('access'));
+    await waitFor(() => expect(fetchNotifications).toHaveBeenCalledWith());
   });
 
   test('opens the navigation drawer', async () => {
@@ -157,7 +157,7 @@ describe('AppHeader', () => {
     expect(screen.getByText('Welcome to MacroMapper')).toBeInTheDocument();
     expect(screen.getByText('Your private workspace is ready.')).toBeInTheDocument();
     await user.click(screen.getByText('Mark all read'));
-    expect(markAllNotificationsRead).toHaveBeenCalledWith('access');
+    expect(markAllNotificationsRead).toHaveBeenCalledWith();
   });
   test.each(['network', 'malformed'])(
     'retries a failed load without reporting an empty inbox (%s)',

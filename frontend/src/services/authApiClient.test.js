@@ -7,7 +7,7 @@ vi.mock('./requestClient', () => ({
 
 describe('authApiClient', () => {
   beforeEach(() => {
-    apiFetch.mockResolvedValue({ ok: true });
+    apiFetch.mockResolvedValue(Response.json({ message: 'OK' }));
   });
 
   test('login posts trimmed email credentials', async () => {
@@ -30,7 +30,9 @@ describe('authApiClient', () => {
   });
 
   test('forgotPassword posts the email', async () => {
-    await forgotPassword({ email: ' user@example.com ' });
+    await expect(forgotPassword({ email: ' user@example.com ' })).resolves.toEqual({
+      message: 'OK',
+    });
 
     expect(apiFetch).toHaveBeenCalledWith(
       '/auth/forgot-password/',

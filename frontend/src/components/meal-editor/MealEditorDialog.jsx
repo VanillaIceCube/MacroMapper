@@ -1,3 +1,4 @@
+import useSession, { useSessionGuard } from '../../hooks/useSession';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import RestaurantMenuOutlinedIcon from '@mui/icons-material/RestaurantMenuOutlined';
 import SendIcon from '@mui/icons-material/Send';
@@ -26,7 +27,6 @@ import {
   updateMeal,
   updateMealProposal,
 } from '../../services/mealApiClient';
-import { getResponseErrorMessage, safeReadJson } from '../../services/authSession';
 import {
   catalogFoodToMealItem,
   changeMealItemNutrient,
@@ -52,15 +52,9 @@ const mealDraftFingerprint = ({ name, notes, entryDate, items }) =>
     items,
   });
 
-export default function MealEditorDialog({
-  date,
-  meal,
-  open,
-  token,
-  launchMode,
-  onClose,
-  onSaved,
-}) {
+export default function MealEditorDialog({ date, meal, open, launchMode, onClose, onSaved }) {
+  const { accessToken } = useSession();
+  const isCurrentSession = useSessionGuard();
   const [estimateDescription, setEstimateDescription] = useState('');
   const [estimatePlaceholder, setEstimatePlaceholder] = useState(randomMealEstimateExample);
   const [estimating, setEstimating] = useState(false);
@@ -108,9 +102,10 @@ export default function MealEditorDialog({
     if (launchMode === 'estimate' && !meal) {
       setEstimatePlaceholder(randomMealEstimateExample());
     }
-  }, [date, launchMode, meal, open, token]);
+  }, [date, launchMode, meal, open, accessToken]);
 
   const createEstimate = async () => {
+    if (!isCurrentSession()) return;
     const request = estimateDescription.trim();
     if (!request) {
       setError('Describe the meal you want to estimate.');
@@ -119,17 +114,8 @@ export default function MealEditorDialog({
     setEstimating(true);
     setError('');
     try {
-      const response = await createMealProposal({ description: request, entry_date: date }, token);
-      if (!response.ok) {
-        setError(await getResponseErrorMessage(response, 'Could not estimate this meal.'));
-        return;
-      }
-
-      const proposal = await safeReadJson(response);
-      if (!proposal) {
-        setError('Could not parse estimation response.');
-        return;
-      }
+      const proposal = await createMealProposal({ description: request, entry_date: date });
+      if (!isCurrentSession()) return;
       const proposalName = proposal.name ?? '';
       const proposalNotes = proposal.notes ?? '';
       const proposalDate = proposal.entry_date ?? date;
@@ -152,10 +138,8 @@ export default function MealEditorDialog({
           items: proposalItems,
         }),
       );
-    } catch (_error) {
-      setError(
-        'Could not reach the server. Your meal description is still here. Please try again.',
-      );
+    } catch (error) {
+      setError(error.message);
     } finally {
       setEstimating(false);
     }
@@ -185,6 +169,7 @@ export default function MealEditorDialog({
   };
 
   const applyAdjustment = async () => {
+    if (!isCurrentSession()) return;
     const request = adjustment.trim();
     if (!request) {
       setAdjustmentFeedback({
@@ -204,51 +189,31 @@ export default function MealEditorDialog({
         notes: notes.trim(),
         items: items.map(mealItemToProposalItem),
       };
-      const response = meal
-        ? await adjustMeal(meal.id, payload, token)
-        : await adjustMealProposal(proposalId, payload, token);
-      if (response.ok) {
-        const result = await safeReadJson(response);
-        if (!result) {
-          setAdjustmentFeedback({
-            severity: 'error',
-            message: 'Could not parse adjustment response.',
-          });
-          return;
-        }
-        const updatedProposal = result.proposal;
-        if (!meal) {
-          setProposalId(updatedProposal.id);
-        }
-        if (result.applied) {
-          setName(updatedProposal.name);
-          if (updatedProposal.notes !== undefined) setNotes(updatedProposal.notes || '');
-          if (updatedProposal.entry_date) setEntryDate(updatedProposal.entry_date);
-          setItems(updatedProposal.items.map(proposalItemToMealItem));
-          setProposalContext({
-            provider_name: updatedProposal.provider_name,
-            provider_model: updatedProposal.provider_model,
-            confidence_score: updatedProposal.confidence_score,
-          });
-          setAdjustment('');
-          setAdjustmentFeedback({ severity: 'success', message: result.message });
-        } else {
-          setAdjustmentFeedback({ severity: 'warning', message: result.message });
-        }
-      } else {
-        setAdjustmentFeedback({
-          severity: 'error',
-          message: await getResponseErrorMessage(
-            response,
-            'Could not apply that adjustment. Your current meal is still here.',
-          ),
-        });
+      const result = meal
+        ? await adjustMeal(meal.id, payload)
+        : await adjustMealProposal(proposalId, payload);
+      if (!isCurrentSession()) return;
+      const updatedProposal = result.proposal;
+      if (!meal) {
+        setProposalId(updatedProposal.id);
       }
-    } catch (_error) {
-      setAdjustmentFeedback({
-        severity: 'error',
-        message: 'Could not reach AI. Your current meal and adjustment are still here.',
-      });
+      if (result.applied) {
+        setName(updatedProposal.name);
+        if (updatedProposal.notes !== undefined) setNotes(updatedProposal.notes || '');
+        if (updatedProposal.entry_date) setEntryDate(updatedProposal.entry_date);
+        setItems(updatedProposal.items.map(proposalItemToMealItem));
+        setProposalContext({
+          provider_name: updatedProposal.provider_name,
+          provider_model: updatedProposal.provider_model,
+          confidence_score: updatedProposal.confidence_score,
+        });
+        setAdjustment('');
+        setAdjustmentFeedback({ severity: 'success', message: result.message });
+      } else {
+        setAdjustmentFeedback({ severity: 'warning', message: result.message });
+      }
+    } catch (error) {
+      setAdjustmentFeedback({ severity: 'error', message: error.message });
     } finally {
       setAdjustmentBusy(false);
     }
@@ -272,6 +237,7 @@ export default function MealEditorDialog({
   };
 
   const save = async () => {
+    if (!isCurrentSession()) return;
     if (!entryDate || !items.length) {
       setError('Choose a date and add at least one food.');
       return;
@@ -290,30 +256,15 @@ export default function MealEditorDialog({
     setError('');
     try {
       if (proposalId) {
-        const updateResponse = await updateMealProposal(
-          proposalId,
-          {
-            name: name.trim(),
-            notes: notes.trim(),
-            entry_date: entryDate,
-            items: items.map(mealItemToProposalItem),
-          },
-          token,
-        );
-        if (!updateResponse.ok) {
-          setError(
-            await getResponseErrorMessage(updateResponse, 'Could not save your meal draft.'),
-          );
-          return;
-        }
-        const acceptResponse = await acceptMealProposal(proposalId, token);
-        if (acceptResponse.ok) {
-          onSaved('Meal added.');
-        } else {
-          setError(
-            await getResponseErrorMessage(acceptResponse, 'Could not add this meal to your diary.'),
-          );
-        }
+        await updateMealProposal(proposalId, {
+          name: name.trim(),
+          notes: notes.trim(),
+          entry_date: entryDate,
+          items: items.map(mealItemToProposalItem),
+        });
+        if (!isCurrentSession()) return;
+        await acceptMealProposal(proposalId);
+        if (isCurrentSession()) onSaved('Meal added.');
         return;
       }
       const payload = {
@@ -322,16 +273,11 @@ export default function MealEditorDialog({
         notes: notes.trim(),
         items: items.map(mealItemToProposalItem),
       };
-      const response = meal
-        ? await updateMeal(meal.id, payload, token)
-        : await createMeal(payload, token);
-      if (response.ok) {
-        onSaved(meal ? 'Meal updated.' : 'Meal added.');
-      } else {
-        setError(await getResponseErrorMessage(response, 'Could not save this meal.'));
-      }
-    } catch (_error) {
-      setError('Could not save this meal. Your draft is still here. Please try again.');
+      if (meal) await updateMeal(meal.id, payload);
+      else await createMeal(payload);
+      if (isCurrentSession()) onSaved(meal ? 'Meal updated.' : 'Meal added.');
+    } catch (error) {
+      setError(error.message);
     } finally {
       setSaving(false);
     }
@@ -550,7 +496,6 @@ export default function MealEditorDialog({
 
               <FoodCatalogPicker
                 open={open}
-                token={token}
                 mealItems={items}
                 focusSearchOnOpen={!meal && launchMode === 'add'}
                 onAddFood={addFood}

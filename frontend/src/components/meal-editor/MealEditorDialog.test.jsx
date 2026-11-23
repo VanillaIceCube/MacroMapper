@@ -1,3 +1,4 @@
+import { clearSession, startSession } from '../../services/sessionState';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMeal, searchFoods } from '../../services/mealApiClient';
@@ -6,22 +7,22 @@ import MealEditorDialog from './MealEditorDialog';
 
 vi.mock('../../services/mealApiClient');
 
+beforeEach(() => startSession({ access: 'access-token', refresh: 'refresh-token' }));
+afterEach(() => clearSession());
+
 test('keeps a manual draft after a failed save and reports success when retried', async () => {
   const user = userEvent.setup();
   const onSaved = vi.fn();
-  searchFoods.mockResolvedValue(
-    Response.json([
-      { id: 7, name: 'Apple', current_version: { id: 9, serving_label: 'one apple' } },
-    ]),
-  );
+  searchFoods.mockResolvedValue([
+    { id: 7, name: 'Apple', current_version: { id: 9, serving_label: 'one apple' } },
+  ]);
   createMeal
-    .mockResolvedValueOnce(Response.json({ detail: 'Could not save right now.' }, { status: 503 }))
-    .mockResolvedValueOnce(Response.json({ id: 21 }, { status: 201 }));
+    .mockRejectedValueOnce(new Error('Could not save right now.'))
+    .mockResolvedValueOnce({ id: 21 });
 
   renderWithProviders(
     <MealEditorDialog
       open
-      token="access-token"
       date="2026-11-23"
       meal={null}
       launchMode="add"
@@ -50,7 +51,6 @@ test('keeps a manual draft after a failed save and reports success when retried'
       entry_date: '2026-11-23',
       items: [expect.objectContaining({ food_item_id: 7, food_version_id: 9 })],
     }),
-    'access-token',
   );
   expect(onSaved).toHaveBeenCalledExactlyOnceWith('Meal added.');
 });

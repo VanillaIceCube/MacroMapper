@@ -1,4 +1,4 @@
-import useSession from '../hooks/useSession';
+import useSession, { useSessionGuard } from '../hooks/useSession';
 import AddIcon from '@mui/icons-material/Add';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
@@ -27,7 +27,6 @@ import {
 } from '@mui/material';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { deleteMeal, fetchDailyDiary } from '../services/mealApiClient';
-import { getResponseErrorMessage, safeReadJson } from '../services/authSession';
 import { selectedPortion, servingAmountValue } from '../domain/mealItem';
 import CalorieContributionChart from '../components/nutrition/CalorieContributionChart';
 import MacroCalorieBar from '../components/nutrition/MacroCalorieBar';
@@ -103,33 +102,26 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
   const [pendingDelete, setPendingDelete] = useState(null);
   const dateInputRef = useRef(null);
   const diaryRequestIdRef = useRef(0);
-  const { accessToken: token } = useSession();
+  const { accessToken } = useSession();
+  const isCurrentSession = useSessionGuard();
 
   const loadDiary = useCallback(async () => {
+    if (!accessToken || !isCurrentSession()) return;
     const requestId = ++diaryRequestIdRef.current;
     setData({ meals: [], totals: [] });
     setLoading(true);
     setError('');
     try {
-      const response = await fetchDailyDiary(date, token);
-      if (!response.ok) {
-        throw new Error(await getResponseErrorMessage(response, 'Could not load this day.'));
-      }
-      const result = await safeReadJson(response);
-      if (!Array.isArray(result?.meals) || !Array.isArray(result?.totals)) {
-        throw new Error('Could not read this day. Please try again.');
-      }
+      const result = await fetchDailyDiary(date);
       if (requestId === diaryRequestIdRef.current) setData(result);
     } catch (error) {
       if (requestId === diaryRequestIdRef.current) {
-        setError(
-          error instanceof TypeError ? 'Could not load this day. Please try again.' : error.message,
-        );
+        setError(error.message);
       }
     } finally {
       if (requestId === diaryRequestIdRef.current) setLoading(false);
     }
-  }, [date, token]);
+  }, [date, accessToken, isCurrentSession]);
 
   useEffect(() => {
     loadDiary();
@@ -170,14 +162,18 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
   );
 
   const removeMeal = async () => {
-    const response = await deleteMeal(pendingDelete.id, token);
-    if (response.ok) {
+    if (!isCurrentSession()) return;
+    try {
+      await deleteMeal(pendingDelete.id);
+      if (!isCurrentSession()) return;
       setPendingDelete(null);
       showSnackbar('success', 'Meal deleted.');
       await loadDiary();
-    } else {
-      setPendingDelete(null);
-      setError(await getResponseErrorMessage(response, 'Could not delete this meal.'));
+    } catch (error) {
+      if (isCurrentSession()) {
+        setPendingDelete(null);
+        setError(error.message);
+      }
     }
   };
 
@@ -963,7 +959,6 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
           date={date}
           meal={mealEditor.meal}
           open={mealEditor.open}
-          token={token}
           launchMode={mealEditor.launchMode}
           onClose={() => setMealEditor((current) => ({ ...current, open: false }))}
           onSaved={async (message) => {

@@ -1,37 +1,30 @@
 import { apiFetch } from './requestClient';
 
-const authHeader = (token) => (token ? { Authorization: `Bearer ${token}` } : {});
-const jsonHeaders = (token) => ({
-  ...authHeader(token),
-  'Content-Type': 'application/json',
-});
+const jsonHeaders = { 'Content-Type': 'application/json' };
 
-export const fetchNotifications = (token) =>
-  apiFetch('/api/notifications/', {
-    headers: authHeader(token),
-  });
+export const fetchNotifications = () => apiFetch('/api/notifications/');
 
-export const markNotificationRead = (notificationId, token) =>
+export const markNotificationRead = (notificationId) =>
   apiFetch(`/api/notifications/${notificationId}/`, {
     method: 'PATCH',
-    headers: jsonHeaders(token),
+    headers: jsonHeaders,
     body: JSON.stringify({ is_read: true }),
   });
 
-export const clearNotification = (notificationId, token) =>
+export const clearNotification = (notificationId) =>
   apiFetch(`/api/notifications/${notificationId}/`, {
     method: 'DELETE',
-    headers: jsonHeaders(token),
+    headers: jsonHeaders,
   });
 
-export const clearAllNotifications = (token) =>
+export const clearAllNotifications = () =>
   apiFetch('/api/notifications/clear-all/', {
     method: 'DELETE',
-    headers: jsonHeaders(token),
+    headers: jsonHeaders,
   });
 
-export const markAllNotificationsRead = (token) =>
+export const markAllNotificationsRead = () =>
   apiFetch('/api/notifications/mark-all-read/', {
     method: 'PATCH',
-    headers: jsonHeaders(token),
+    headers: jsonHeaders,
   });

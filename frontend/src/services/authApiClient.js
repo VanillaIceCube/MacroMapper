@@ -1,38 +1,32 @@
 import { apiFetch } from './requestClient';
+import { readOkJson } from './authSession';
 
-const jsonHeaders = { 'Content-Type': 'application/json' };
+async function postAuthForm(path, payload, invalidResponseMessage) {
+  const response = await apiFetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return readOkJson(response, invalidResponseMessage);
+}
 
 export const login = ({ email, password }) =>
-  apiFetch('/auth/login/', {
-    method: 'POST',
-    headers: jsonHeaders,
-    body: JSON.stringify({ email: email?.trim(), password }),
-  });
+  postAuthForm('/auth/login/', { email: email?.trim(), password }, 'Login failed.');
 
 export const register = ({ email, username, password }) => {
   const payload = { email: email?.trim(), password };
   const trimmedUsername = username?.trim();
-  if (trimmedUsername) {
-    payload.username = trimmedUsername;
-  }
+  if (trimmedUsername) payload.username = trimmedUsername;
 
-  return apiFetch('/auth/register/', {
-    method: 'POST',
-    headers: jsonHeaders,
-    body: JSON.stringify(payload),
-  });
+  return postAuthForm('/auth/register/', payload, 'Registration failed.');
 };
 
 export const forgotPassword = ({ email }) =>
-  apiFetch('/auth/forgot-password/', {
-    method: 'POST',
-    headers: jsonHeaders,
-    body: JSON.stringify({ email: email?.trim() }),
-  });
+  postAuthForm(
+    '/auth/forgot-password/',
+    { email: email?.trim() },
+    'Password reset request failed.',
+  );
 
 export const resetPassword = ({ uid, token, password }) =>
-  apiFetch('/auth/reset-password/', {
-    method: 'POST',
-    headers: jsonHeaders,
-    body: JSON.stringify({ uid, token, password }),
-  });
+  postAuthForm('/auth/reset-password/', { uid, token, password }, 'Password reset failed.');

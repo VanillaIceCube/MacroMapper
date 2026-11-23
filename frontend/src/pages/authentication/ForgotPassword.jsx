@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router';
 import AuthPageShell from '../../components/AuthPageShell';
 import { forgotPassword } from '../../services/authApiClient';
-import { formatAuthErrorMessage, readOkJson } from '../../services/authSession';
+import { formatAuthErrorMessage } from '../../services/authSession';
 
 export default function ForgotPassword({ showSnackbar }) {
   const navigate = useNavigate();
@@ -14,8 +14,7 @@ export default function ForgotPassword({ showSnackbar }) {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      const response = await forgotPassword({ email });
-      const data = await readOkJson(response, 'Password reset request failed.');
+      const data = await forgotPassword({ email });
       showSnackbar(
         'success',
         data?.message || 'If that account exists, we sent a password reset link.',

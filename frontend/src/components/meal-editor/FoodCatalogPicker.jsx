@@ -1,3 +1,4 @@
+import useSession, { useSessionGuard } from '../../hooks/useSession';
 import AddIcon from '@mui/icons-material/Add';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -27,7 +28,6 @@ import {
 } from '@mui/material';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { searchFoods } from '../../services/mealApiClient';
-import { getResponseErrorMessage, safeReadJson } from '../../services/authSession';
 import { nutrientArrayToValues as nutrientValues } from '../../domain/nutrition';
 import { formatNutritionAmount as formatAmount } from '../../utils/nutritionFormatting';
 import { NutritionCards } from '../nutrition/NutritionCards';
@@ -79,13 +79,9 @@ function showsRecentFoods(filters) {
   );
 }
 
-export default function FoodCatalogPicker({
-  open,
-  token,
-  mealItems,
-  focusSearchOnOpen,
-  onAddFood,
-}) {
+export default function FoodCatalogPicker({ open, mealItems, focusSearchOnOpen, onAddFood }) {
+  const { accessToken } = useSession();
+  const isCurrentSession = useSessionGuard();
   const [catalogPickerOpen, setCatalogPickerOpen] = useState(true);
   const [draftFilters, setDraftFilters] = useState(defaultCatalogFilters);
   const [appliedFilters, setAppliedFilters] = useState(null);
@@ -126,8 +122,9 @@ export default function FoodCatalogPicker({
 
   const loadCatalogPage = useCallback(
     async (filters, offset = 0) => {
+      if (!accessToken || !isCurrentSession()) return;
       const requestId = ++catalogRequestIdRef.current;
-      const isLatestRequest = () => requestId === catalogRequestIdRef.current;
+      const isLatestRequest = () => isCurrentSession() && requestId === catalogRequestIdRef.current;
       const append = offset > 0;
       const recent = showsRecentFoods(filters);
       const query = filters.query.trim();
@@ -161,14 +158,7 @@ export default function FoodCatalogPicker({
       if (filters.provenance !== 'all') options.provenance = filters.provenance;
 
       try {
-        const response = await searchFoods(query, token, options);
-        if (!isLatestRequest()) return;
-        if (!response.ok) {
-          showLoadError(await getResponseErrorMessage(response, fallbackError));
-          return;
-        }
-
-        const results = (await safeReadJson(response)) || [];
+        const results = await searchFoods(query, options);
         if (!isLatestRequest()) return;
         const page = results.slice(0, catalogPageSize);
         setFoods((current) => {
@@ -177,13 +167,13 @@ export default function FoodCatalogPicker({
           return [...current, ...page.filter((food) => !loadedIds.has(String(food.id)))];
         });
         setNextPageOffset(results.length > catalogPageSize ? offset + page.length : null);
-      } catch (_error) {
-        showLoadError(fallbackError);
+      } catch (error) {
+        showLoadError(error.message || fallbackError);
       } finally {
         if (isLatestRequest()) setCatalogLoading(null);
       }
     },
-    [token],
+    [accessToken, isCurrentSession],
   );
 
   const updateDraftFilter = (name, value) => {

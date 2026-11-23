@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router';
 import AuthPageShell from '../../components/AuthPageShell';
 import { login } from '../../services/authApiClient';
-import { formatAuthErrorMessage, persistAuthSession, readOkJson } from '../../services/authSession';
+import { formatAuthErrorMessage, persistAuthSession } from '../../services/authSession';
 
 export default function Login({ showSnackbar }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -30,8 +30,7 @@ export default function Login({ showSnackbar }) {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      const response = await login({ email, password });
-      const data = await readOkJson(response, 'Login failed.');
+      const data = await login({ email, password });
       persistAuthSession(data);
       showSnackbar('success', `Welcome ${data.username || email.split('@')[0] || 'there'}!`);
       const next =
