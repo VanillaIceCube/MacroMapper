@@ -1240,6 +1240,35 @@ describe('DiaryPage', () => {
     expect(createMeal).not.toHaveBeenCalled();
   });
 
+  test('waits for a new estimate before loading the catalog when the editor reopens', async () => {
+    const user = userEvent.setup();
+    fetchDailyDiary.mockResolvedValue(response({ date: '2026-08-16', meals: [], totals: [] }));
+    createMealProposal.mockResolvedValue(response(estimatedProposal));
+    renderWithProviders(<DiaryPage />);
+
+    await screen.findByText('Nothing logged yet');
+    await user.click(screen.getByRole('button', { name: 'Map your Meal with AI' }));
+    const prompt = await screen.findByRole('dialog', { name: /Map it with AI/ });
+    await user.type(
+      within(prompt).getByRole('textbox', { name: 'Describe what you ate' }),
+      'Carne asada taco',
+    );
+    await user.click(within(prompt).getByRole('button', { name: 'Create estimate' }));
+
+    const review = await screen.findByRole('dialog', { name: /Map Your Meal/ });
+    await within(review).findByText('Apple');
+    await user.click(within(review).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(review).not.toBeInTheDocument());
+    searchFoods.mockClear();
+
+    await user.click(screen.getByRole('button', { name: 'Map your Meal with AI' }));
+    const newPrompt = await screen.findByRole('dialog', { name: /Map it with AI/ });
+    expect(within(newPrompt).getByRole('textbox', { name: 'Describe what you ate' })).toHaveValue(
+      '',
+    );
+    expect(searchFoods).not.toHaveBeenCalled();
+  });
+
   test('keeps advanced edits available for a catalog food added after a proposal', async () => {
     const user = userEvent.setup();
     searchFoods.mockImplementation((query) => response(query ? [breakfastBurrito] : [apple]));

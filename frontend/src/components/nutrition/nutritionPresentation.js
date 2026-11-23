@@ -109,3 +109,22 @@ export function decorateCalorieContributions(contributions = []) {
     };
   });
 }
+
+export const foodProvenanceLabels = {
+  official: 'Official',
+  community_estimate: 'Community Estimate',
+  ai_estimate: 'AI Estimate',
+  user_modified_estimate: 'User Adjusted',
+  user_entered: 'User Entered',
+};
+
+export const foodEvidenceLabel = (item) =>
+  item.evidence?.status === 'legacy_unverified' && item.provenance === 'official'
+    ? 'Legacy official; evidence unrecorded'
+    : {
+        source_backed_ai_components: 'Official parent; AI components',
+        partially_source_backed: 'Partially source-backed estimate',
+        user_modified_estimate: 'User Adjusted',
+      }[item.evidence?.status] ||
+      foodProvenanceLabels[item.provenance] ||
+      'Unknown';

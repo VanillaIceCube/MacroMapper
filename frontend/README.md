@@ -22,6 +22,16 @@ authentication, and the application shell.
 - `src/test-helpers/`: shared test setup and reusable helpers.
   App, startup and feature tests stay beside the files they exercise.
 
+For diary changes, start with the file that owns the action:
+
+- [DiaryPage](src/pages/DiaryPage.jsx) loads the selected day, displays totals
+  and saved meals, and opens the meal editor.
+- [MealEditorDialog](src/components/meal-editor/MealEditorDialog.jsx) owns the
+  meal draft, AI estimation and adjustments, and saving or discarding edits.
+- [FoodCatalogPicker](src/components/meal-editor/FoodCatalogPicker.jsx) owns
+  catalog search, filters, pagination and result details. It sends the chosen
+  food to the editor, which adds it to the draft.
+
 ## 💻 Local development
 
 Use Node.js 24.15+ within 24.x or Node.js 26.x, matching `package.json`.
