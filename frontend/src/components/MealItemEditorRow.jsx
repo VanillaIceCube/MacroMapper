@@ -25,6 +25,7 @@ import {
   selectedPortion,
   servingAmountValue,
 } from '../domain/mealItem';
+import { ItemNutritionCards } from './nutrition/NutritionCards';
 
 const evidenceLabels = {
   source_backed_ai_components: { label: 'Official parent; AI components', color: 'success' },
@@ -54,9 +55,6 @@ export default function MealItemEditorRow({
   onPortionChange,
   onNutrientChange,
   onRemove,
-  renderNutrition,
-  allowNutritionEditing = true,
-  allowComponentEditing = true,
 }) {
   const [componentsOpen, setComponentsOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -69,7 +67,6 @@ export default function MealItemEditorRow({
         sourceLabels[item.source_kind] ||
         sourceLabels.ai_estimate;
   const isComponent = depth > 0;
-  const canEditItem = !isComponent || allowComponentEditing;
   const options = displayedPortionOptions(item);
   const activePortion = selectedPortion(item);
   const hasDetails =
@@ -77,7 +74,6 @@ export default function MealItemEditorRow({
     item.provider_name ||
     Boolean(item.sources?.length) ||
     Boolean(item.evidence);
-  const hasActions = hasDetails || canEditItem;
   const accentColor =
     source.color === 'warning'
       ? 'var(--atlas-persimmon)'
@@ -134,12 +130,15 @@ export default function MealItemEditorRow({
             </Typography>
           </Box>
           <Box sx={{ minWidth: 0, gridArea: 'nutrition' }}>
-            {renderNutrition(
-              item,
-              nutritionEditing
-                ? (nutrient, value) => onNutrientChange(item.key, nutrient, value)
-                : undefined,
-            )}
+            <ItemNutritionCards
+              item={item}
+              compact
+              onNutrientChange={
+                nutritionEditing
+                  ? (nutrient, value) => onNutrientChange(item.key, nutrient, value)
+                  : undefined
+              }
+            />
           </Box>
           <Box
             sx={{
@@ -163,7 +162,6 @@ export default function MealItemEditorRow({
               size="small"
               value={servingAmountValue(item)}
               onChange={(event) => onServings(item.key, event.target.value, item)}
-              disabled={!canEditItem}
               slotProps={{ htmlInput: { min: 0, step: 'any' } }}
               sx={{ gridArea: 'quantity', minWidth: 0, width: '100%' }}
             />
@@ -173,7 +171,7 @@ export default function MealItemEditorRow({
               size="small"
               value={activePortion?.key || 'base'}
               onChange={(event) => onPortionChange(item.key, event.target.value)}
-              disabled={!canEditItem || options.length < 2}
+              disabled={options.length < 2}
               sx={{ gridArea: 'portion', minWidth: 0, width: '100%' }}
             >
               {options.map((option) => (
@@ -215,65 +213,57 @@ export default function MealItemEditorRow({
                 {item.components.length}
               </Button>
             )}
-            {hasActions && (
-              <>
-                <IconButton
-                  size="small"
-                  aria-label={`More actions for ${item.name}`}
-                  aria-haspopup="menu"
-                  aria-expanded={Boolean(actionsAnchorEl)}
-                  onClick={(event) => setActionsAnchorEl(event.currentTarget)}
-                  sx={{ p: 0.2 }}
+            <IconButton
+              size="small"
+              aria-label={`More actions for ${item.name}`}
+              aria-haspopup="menu"
+              aria-expanded={Boolean(actionsAnchorEl)}
+              onClick={(event) => setActionsAnchorEl(event.currentTarget)}
+              sx={{ p: 0.2 }}
+            >
+              <MoreVertIcon fontSize="small" />
+            </IconButton>
+            <Menu
+              anchorEl={actionsAnchorEl}
+              open={Boolean(actionsAnchorEl)}
+              onClose={() => setActionsAnchorEl(null)}
+              MenuListProps={{ 'aria-label': `Actions for ${item.name}` }}
+            >
+              {hasDetails && (
+                <MenuItem
+                  aria-label={`${detailsOpen ? 'Hide' : 'Show'} estimate details for ${item.name}`}
+                  onClick={() => {
+                    setDetailsOpen((current) => !current);
+                    setActionsAnchorEl(null);
+                  }}
                 >
-                  <MoreVertIcon fontSize="small" />
-                </IconButton>
-                <Menu
-                  anchorEl={actionsAnchorEl}
-                  open={Boolean(actionsAnchorEl)}
-                  onClose={() => setActionsAnchorEl(null)}
-                  MenuListProps={{ 'aria-label': `Actions for ${item.name}` }}
-                >
-                  {hasDetails && (
-                    <MenuItem
-                      aria-label={`${detailsOpen ? 'Hide' : 'Show'} estimate details for ${item.name}`}
-                      onClick={() => {
-                        setDetailsOpen((current) => !current);
-                        setActionsAnchorEl(null);
-                      }}
-                    >
-                      <InfoOutlinedIcon fontSize="small" sx={{ mr: 1.25 }} />
-                      {detailsOpen ? 'Hide details' : 'Estimate details'}
-                    </MenuItem>
-                  )}
-                  {allowNutritionEditing && canEditItem && (
-                    <MenuItem
-                      aria-label={`${nutritionEditing ? 'Finish editing' : 'Edit'} nutrition for ${item.name}`}
-                      selected={nutritionEditing}
-                      onClick={() => {
-                        setNutritionEditing((current) => !current);
-                        setActionsAnchorEl(null);
-                      }}
-                    >
-                      <EditOutlinedIcon fontSize="small" sx={{ mr: 1.25 }} />
-                      {nutritionEditing ? 'Finish editing' : 'Edit nutrition'}
-                    </MenuItem>
-                  )}
-                  {canEditItem && (
-                    <MenuItem
-                      aria-label={`remove ${item.name}`}
-                      onClick={() => {
-                        setActionsAnchorEl(null);
-                        onRemove(item.key);
-                      }}
-                      sx={{ color: 'error.main' }}
-                    >
-                      <DeleteOutlineIcon fontSize="small" sx={{ mr: 1.25 }} />
-                      Remove
-                    </MenuItem>
-                  )}
-                </Menu>
-              </>
-            )}
+                  <InfoOutlinedIcon fontSize="small" sx={{ mr: 1.25 }} />
+                  {detailsOpen ? 'Hide details' : 'Estimate details'}
+                </MenuItem>
+              )}
+              <MenuItem
+                aria-label={`${nutritionEditing ? 'Finish editing' : 'Edit'} nutrition for ${item.name}`}
+                selected={nutritionEditing}
+                onClick={() => {
+                  setNutritionEditing((current) => !current);
+                  setActionsAnchorEl(null);
+                }}
+              >
+                <EditOutlinedIcon fontSize="small" sx={{ mr: 1.25 }} />
+                {nutritionEditing ? 'Finish editing' : 'Edit nutrition'}
+              </MenuItem>
+              <MenuItem
+                aria-label={`remove ${item.name}`}
+                onClick={() => {
+                  setActionsAnchorEl(null);
+                  onRemove(item.key);
+                }}
+                sx={{ color: 'error.main' }}
+              >
+                <DeleteOutlineIcon fontSize="small" sx={{ mr: 1.25 }} />
+                Remove
+              </MenuItem>
+            </Menu>
           </Stack>
         </Box>
         {hasDetails && (
@@ -360,9 +350,6 @@ export default function MealItemEditorRow({
                   onPortionChange={onPortionChange}
                   onNutrientChange={onNutrientChange}
                   onRemove={onRemove}
-                  renderNutrition={renderNutrition}
-                  allowNutritionEditing={allowNutritionEditing}
-                  allowComponentEditing={allowComponentEditing}
                 />
               ))}
             </Stack>

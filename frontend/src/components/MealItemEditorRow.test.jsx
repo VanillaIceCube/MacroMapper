@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { renderWithProviders } from '../test-helpers/utils';
@@ -7,7 +7,6 @@ import {
   changeMealItemPortion,
   changeMealItemServings,
 } from '../domain/mealItem';
-import { itemNutrientTotal } from '../domain/nutrition';
 import MealItemEditorRow from './MealItemEditorRow';
 
 const apple = {
@@ -36,11 +35,10 @@ function EditableRow({ initialItem }) {
       onPortionChange={(key, portion) =>
         setItems((current) => changeMealItemPortion(current, key, portion))
       }
-      onNutrientChange={vi.fn()}
+      onNutrientChange={(key, nutrient, value) =>
+        setItems((current) => changeMealItemNutrient(current, key, nutrient, value))
+      }
       onRemove={vi.fn()}
-      renderNutrition={(item) => (
-        <span aria-label={`${item.name} calories`}>{itemNutrientTotal(item, 'calories')}</span>
-      )}
     />
   );
 }
@@ -53,17 +51,17 @@ describe('meal item food and portion presentation', () => {
     expect(screen.getByText('Red apple')).toBeVisible();
     expect(screen.getByRole('spinbutton', { name: 'Count' })).toHaveValue(2);
     expect(screen.getByRole('combobox', { name: 'Unit' })).toHaveTextContent('Small');
-    expect(screen.getByLabelText('Red apple calories')).toHaveTextContent('160');
+    expect(within(screen.getByLabelText('Red apple macro values')).getByText('160')).toBeVisible();
 
     await user.click(screen.getByRole('combobox', { name: 'Unit' }));
     await user.click(screen.getByRole('option', { name: 'Medium' }));
     expect(screen.getByRole('spinbutton', { name: 'Count' })).toHaveValue(2);
-    expect(screen.getByLabelText('Red apple calories')).toHaveTextContent('192');
+    expect(within(screen.getByLabelText('Red apple macro values')).getByText('192')).toBeVisible();
 
     await user.click(screen.getByRole('combobox', { name: 'Unit' }));
     await user.click(screen.getByRole('option', { name: 'Large' }));
     expect(screen.getByRole('spinbutton', { name: 'Count' })).toHaveValue(2);
-    expect(screen.getByLabelText('Red apple calories')).toHaveTextContent('240');
+    expect(within(screen.getByLabelText('Red apple macro values')).getByText('240')).toBeVisible();
     expect(screen.getByText('Red apple')).toBeVisible();
   });
 
@@ -80,17 +78,28 @@ describe('meal item food and portion presentation', () => {
       />,
     );
 
-    expect(screen.getByLabelText('Chilaquiles calories')).toHaveTextContent('180');
+    expect(
+      within(screen.getByLabelText('Chilaquiles macro values')).getByText('180'),
+    ).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Expand components for Chilaquiles' }));
     expect(
       screen.getByText(
         'Ingredients shown per full portion; totals above reflect the amount eaten.',
       ),
     ).toBeVisible();
-    expect(screen.getByLabelText('Tomato calories')).toHaveTextContent('240');
+    expect(within(screen.getByLabelText('Tomato macro values')).getByText('240')).toBeVisible();
     expect(
       screen.getAllByRole('spinbutton', { name: 'Count' }).map((field) => field.value),
     ).toEqual(['0.75', '3']);
+
+    await user.click(screen.getByRole('button', { name: 'More actions for Tomato' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Edit nutrition for Tomato' }));
+    const ingredientCalories = screen.getByRole('spinbutton', { name: 'Calories for Tomato' });
+    expect(ingredientCalories).toHaveValue(240);
+    fireEvent.change(ingredientCalories, { target: { value: '200' } });
+    expect(
+      within(screen.getByLabelText('Chilaquiles macro values')).getByText('150'),
+    ).toBeVisible();
   });
 });
 
@@ -108,7 +117,7 @@ const row = (overrides = {}) => ({
   ...overrides,
 });
 
-const renderRow = (item) => render(<MealItemEditorRow item={item} renderNutrition={() => null} />);
+const renderRow = (item) => renderWithProviders(<EditableRow initialItem={item} />);
 
 async function details(name) {
   await userEvent.click(screen.getByRole('button', { name: `More actions for ${name}` }));

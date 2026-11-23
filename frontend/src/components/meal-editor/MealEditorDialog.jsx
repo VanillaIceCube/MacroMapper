@@ -40,7 +40,6 @@ import {
 import { randomMealEstimateExample } from '../../mealEstimateExamples';
 import MealItemEditorRow from '../MealItemEditorRow';
 import MealNutritionSummary from '../nutrition/MealNutritionSummary';
-import { ItemNutritionCards } from '../nutrition/NutritionCards';
 import FoodCatalogPicker from './FoodCatalogPicker';
 
 const mealBuilderSurfaceRadius = 'var(--atlas-radius-prominent)';
@@ -631,11 +630,6 @@ export default function MealEditorDialog({
                         onPortionChange={changePortion}
                         onNutrientChange={changeNutrient}
                         onRemove={removeItem}
-                        allowNutritionEditing
-                        allowComponentEditing
-                        renderNutrition={(foodItem, onChange) => (
-                          <ItemNutritionCards item={foodItem} compact onNutrientChange={onChange} />
-                        )}
                       />
                     ))}
                   </Stack>
