@@ -1,7 +1,7 @@
-import { apiFetch } from './requestClient';
+import { apiFetch } from '../http/requestClient';
 import { forgotPassword, login, register, resetPassword } from './authApiClient';
 
-vi.mock('./requestClient', () => ({
+vi.mock('../http/requestClient', () => ({
   apiFetch: vi.fn(),
 }));
 

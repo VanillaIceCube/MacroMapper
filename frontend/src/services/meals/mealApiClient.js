@@ -1,5 +1,5 @@
-import { apiFetch } from './requestClient';
-import { getResponseErrorMessage, safeReadJson } from './apiResponse';
+import { apiFetch } from '../http/requestClient';
+import { getResponseErrorMessage, safeReadJson } from '../http/apiResponse';
 
 function jsonRequest(method, payload) {
   return {

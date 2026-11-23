@@ -1,4 +1,4 @@
-import useSession, { useSessionGuard } from '../../hooks/useSession';
+import useSession, { useSessionGuard } from '../../hooks/authentication/useSession';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import RestaurantMenuOutlinedIcon from '@mui/icons-material/RestaurantMenuOutlined';
 import SendIcon from '@mui/icons-material/Send';
@@ -26,7 +26,7 @@ import {
   createMealProposal,
   updateMeal,
   updateMealProposal,
-} from '../../services/mealApiClient';
+} from '../../services/meals/mealApiClient';
 import {
   catalogFoodToMealItem,
   changeMealItemNutrient,

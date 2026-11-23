@@ -9,8 +9,8 @@ describe('connectionsClient request contract', () => {
 
   beforeEach(async () => {
     vi.resetModules();
-    vi.doMock('./requestClient', () => ({ apiFetch: vi.fn() }));
-    ({ apiFetch } = await import('./requestClient'));
+    vi.doMock('../http/requestClient', () => ({ apiFetch: vi.fn() }));
+    ({ apiFetch } = await import('../http/requestClient'));
     ({
       loadActionApproval,
       decideActionApproval,
@@ -166,13 +166,13 @@ describe('connectionsClient request contract', () => {
     });
   });
 
-  afterEach(() => vi.doUnmock('./requestClient'));
+  afterEach(() => vi.doUnmock('../http/requestClient'));
 });
 
 describe('connectionsClient with JWT recovery', () => {
   // Exercise the real request client: parsing must not interfere with JWT recovery.
   beforeEach(() => {
-    vi.doUnmock('./requestClient');
+    vi.doUnmock('../http/requestClient');
     vi.resetModules();
     vi.stubEnv('VITE_API_BASE_URL', '');
     sessionStorage.clear();
@@ -216,7 +216,7 @@ describe('connectionsClient with JWT recovery', () => {
         .mockResolvedValueOnce(response(401, '<html>PRIVATE-SESSION-DATA</html>'))
         .mockResolvedValueOnce(response(401, '<html>PRIVATE-REFRESH-DATA</html>')),
     );
-    const { setNavigate } = await import('./navigationService');
+    const { setNavigate } = await import('../navigation/navigationService');
     const navigate = vi.fn();
     setNavigate(navigate);
     const { loadConsent } = await import('./connectionsClient');

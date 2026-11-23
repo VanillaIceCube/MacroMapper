@@ -1,11 +1,11 @@
-import { clearSession, startSession } from '../../services/sessionState';
+import { clearSession, startSession } from '../../services/authentication/sessionState';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { searchFoods } from '../../services/mealApiClient';
+import { searchFoods } from '../../services/meals/mealApiClient';
 import { renderWithProviders } from '../../test-helpers/utils';
 import FoodCatalogPicker from './FoodCatalogPicker';
 
-vi.mock('../../services/mealApiClient');
+vi.mock('../../services/meals/mealApiClient');
 
 beforeEach(() => startSession({ access: 'access-token', refresh: 'refresh-token' }));
 afterEach(() => clearSession());

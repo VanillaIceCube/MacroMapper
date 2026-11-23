@@ -1,4 +1,4 @@
-import useSession, { useSessionGuard } from '../../hooks/useSession';
+import useSession, { useSessionGuard } from '../../hooks/authentication/useSession';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -24,7 +24,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { searchFoods } from '../../services/mealApiClient';
+import { searchFoods } from '../../services/meals/mealApiClient';
 import { foodProvenanceLabels } from '../nutrition/nutritionPresentation';
 import CatalogFoodCard from './CatalogFoodCard';
 

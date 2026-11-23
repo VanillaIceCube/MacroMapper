@@ -1,9 +1,9 @@
 import { TextField } from '@mui/material';
 import { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { resetPassword } from '../../services/authApiClient';
-import { formatAuthErrorMessage } from '../../services/apiResponse';
-import { useSessionGuard } from '../../hooks/useSession';
+import { resetPassword } from '../../services/authentication/authApiClient';
+import { formatAuthErrorMessage } from '../../services/http/apiResponse';
+import { useSessionGuard } from '../../hooks/authentication/useSession';
 import AuthForm, { AuthLink } from '../../components/app-core/AuthForm';
 
 export default function ResetPassword({ showSnackbar }) {

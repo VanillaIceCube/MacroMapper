@@ -1,10 +1,10 @@
 import { TextField } from '@mui/material';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { register } from '../../services/authApiClient';
-import { formatAuthErrorMessage } from '../../services/apiResponse';
-import { startSession } from '../../services/sessionState';
-import { useSessionGuard } from '../../hooks/useSession';
+import { register } from '../../services/authentication/authApiClient';
+import { formatAuthErrorMessage } from '../../services/http/apiResponse';
+import { startSession } from '../../services/authentication/sessionState';
+import { useSessionGuard } from '../../hooks/authentication/useSession';
 import AuthForm, { AuthLink } from '../../components/app-core/AuthForm';
 
 export default function Register({ showSnackbar }) {

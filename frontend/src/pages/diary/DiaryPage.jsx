@@ -1,4 +1,4 @@
-import useSession, { useSessionGuard } from '../hooks/useSession';
+import useSession, { useSessionGuard } from '../../hooks/authentication/useSession';
 import AddIcon from '@mui/icons-material/Add';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
@@ -24,13 +24,13 @@ import {
   Typography,
 } from '@mui/material';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { deleteMeal, fetchDailyDiary } from '../services/mealApiClient';
-import CalorieContributionChart from '../components/nutrition/CalorieContributionChart';
-import MacroCalorieSplit from '../components/nutrition/MacroCalorieSplit';
-import { NUTRIENT_FIELDS as launchNutrients } from '../components/nutrition/nutritionPresentation';
-import { formatNutritionAmount as formatAmount } from '../utils/nutritionFormatting';
-import DiaryMealCard from '../components/DiaryMealCard';
-import MealEditorDialog from '../components/meal-editor/MealEditorDialog';
+import { deleteMeal, fetchDailyDiary } from '../../services/meals/mealApiClient';
+import CalorieContributionChart from '../../components/nutrition/CalorieContributionChart';
+import MacroCalorieSplit from '../../components/nutrition/MacroCalorieSplit';
+import { NUTRIENT_FIELDS as launchNutrients } from '../../components/nutrition/nutritionPresentation';
+import { formatNutritionAmount as formatAmount } from '../../utils/nutritionFormatting';
+import DiaryMealCard from '../../components/diary/DiaryMealCard';
+import MealEditorDialog from '../../components/meal-editor/MealEditorDialog';
 
 const localDate = () => {
   const now = new Date();

@@ -1,8 +1,8 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DiaryPage from './DiaryPage';
-import { startSession } from '../services/sessionState';
-import { renderWithProviders } from '../test-helpers/utils';
+import { startSession } from '../../services/authentication/sessionState';
+import { renderWithProviders } from '../../test-helpers/utils';
 import {
   acceptMealProposal,
   adjustMeal,
@@ -14,9 +14,9 @@ import {
   searchFoods,
   updateMealProposal,
   updateMeal,
-} from '../services/mealApiClient';
+} from '../../services/meals/mealApiClient';
 
-vi.mock('../services/mealApiClient', () => ({
+vi.mock('../../services/meals/mealApiClient', () => ({
   acceptMealProposal: vi.fn(),
   adjustMeal: vi.fn(),
   adjustMealProposal: vi.fn(),

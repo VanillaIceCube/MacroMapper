@@ -4,12 +4,14 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AppHeader from './AppHeader';
 import { renderWithProviders } from '../../test-helpers/utils';
-import { fetchNotifications } from '../../services/notificationApiClient';
-import { logout } from '../../services/requestClient';
+import { fetchNotifications } from '../../services/notifications/notificationApiClient';
+import { logout } from '../../services/http/requestClient';
 
-vi.mock('../../services/notificationApiClient', () => ({ fetchNotifications: vi.fn() }));
+vi.mock('../../services/notifications/notificationApiClient', () => ({
+  fetchNotifications: vi.fn(),
+}));
 
-vi.mock('../../services/requestClient', () => ({
+vi.mock('../../services/http/requestClient', () => ({
   logout: vi.fn(),
 }));
 

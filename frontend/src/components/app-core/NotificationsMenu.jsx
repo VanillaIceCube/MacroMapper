@@ -18,10 +18,10 @@ import {
 } from '@mui/material';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import useNotifications from '../../hooks/useNotifications';
-import { useSessionGuard } from '../../hooks/useSession';
-import { getResponseErrorMessage } from '../../services/apiResponse';
-import * as notificationApi from '../../services/notificationApiClient';
+import useNotifications from '../../hooks/notifications/useNotifications';
+import { useSessionGuard } from '../../hooks/authentication/useSession';
+import { getResponseErrorMessage } from '../../services/http/apiResponse';
+import * as notificationApi from '../../services/notifications/notificationApiClient';
 
 export default function NotificationsMenu() {
   const navigate = useNavigate();

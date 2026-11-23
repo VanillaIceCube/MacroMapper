@@ -1,11 +1,11 @@
-import { connectionReturnTo } from '../../services/authRedirect';
+import { connectionReturnTo } from '../../services/authentication/authRedirect';
 import { TextField } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { login } from '../../services/authApiClient';
-import { formatAuthErrorMessage } from '../../services/apiResponse';
-import { startSession } from '../../services/sessionState';
-import { useSessionGuard } from '../../hooks/useSession';
+import { login } from '../../services/authentication/authApiClient';
+import { formatAuthErrorMessage } from '../../services/http/apiResponse';
+import { startSession } from '../../services/authentication/sessionState';
+import { useSessionGuard } from '../../hooks/authentication/useSession';
 import AuthForm, { AuthLink } from '../../components/app-core/AuthForm';
 
 export default function Login({ showSnackbar }) {

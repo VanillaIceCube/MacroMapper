@@ -1,4 +1,4 @@
-import { apiFetch } from './requestClient';
+import { apiFetch } from '../http/requestClient';
 import {
   clearAllNotifications,
   clearNotification,
@@ -7,7 +7,7 @@ import {
   markNotificationRead,
 } from './notificationApiClient';
 
-vi.mock('./requestClient', () => ({
+vi.mock('../http/requestClient', () => ({
   apiFetch: vi.fn(),
 }));
 

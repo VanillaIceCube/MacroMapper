@@ -1,11 +1,11 @@
 import { Route, Routes } from 'react-router';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { resetPassword } from '../../services/authApiClient';
+import { resetPassword } from '../../services/authentication/authApiClient';
 import { renderWithProviders } from '../../test-helpers/utils';
 import ResetPassword from './ResetPassword';
 
-vi.mock('../../services/authApiClient', () => ({
+vi.mock('../../services/authentication/authApiClient', () => ({
   resetPassword: vi.fn(),
 }));
 

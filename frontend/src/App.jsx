@@ -1,5 +1,5 @@
-import { getSessionVersion } from './services/sessionState';
-import useSession, { useSessionGuard } from './hooks/useSession';
+import { getSessionVersion } from './services/authentication/sessionState';
+import useSession, { useSessionGuard } from './hooks/authentication/useSession';
 import RouteContent from './components/app-core/RouteContent';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import { lazy, useCallback, useState } from 'react';
@@ -11,14 +11,14 @@ import AuthenticatedRoute from './components/app-core/AuthenticatedRoute';
 import NavigationBridge from './components/app-core/NavigationBridge';
 import appTheme from './theme';
 
-const DiaryPage = lazy(() => import('./pages/DiaryPage'));
+const DiaryPage = lazy(() => import('./pages/diary/DiaryPage'));
 const ForgotPassword = lazy(() => import('./pages/authentication/ForgotPassword'));
 const Login = lazy(() => import('./pages/authentication/Login'));
 const Register = lazy(() => import('./pages/authentication/Register'));
 const ResetPassword = lazy(() => import('./pages/authentication/ResetPassword'));
-const ConnectedApps = lazy(() => import('./pages/Connections'));
+const ConnectedApps = lazy(() => import('./pages/connections/Connections'));
 const OAuthConsent = lazy(() =>
-  import('./pages/Connections').then((module) => ({ default: module.OAuthConsent })),
+  import('./pages/connections/Connections').then((module) => ({ default: module.OAuthConsent })),
 );
 
 function ApplicationSession({ showSnackbar }) {

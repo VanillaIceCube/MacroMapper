@@ -10,9 +10,9 @@ import {
   fetchNotifications,
   markAllNotificationsRead,
   markNotificationRead,
-} from '../../services/notificationApiClient';
+} from '../../services/notifications/notificationApiClient';
 
-vi.mock('../../services/notificationApiClient', () => ({
+vi.mock('../../services/notifications/notificationApiClient', () => ({
   clearAllNotifications: vi.fn(),
   clearNotification: vi.fn(),
   fetchNotifications: vi.fn(),
