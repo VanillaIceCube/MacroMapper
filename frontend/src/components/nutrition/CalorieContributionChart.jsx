@@ -72,7 +72,7 @@ export default function CalorieContributionChart({
         p: dashboard ? { xs: 1.25, sm: 1.5 } : 1,
         border: '1px solid var(--atlas-border)',
         borderRadius: 'var(--atlas-radius-surface)',
-        bgcolor: 'var(--atlas-paper)',
+        bgcolor: 'var(--surface-background)',
       }}
     >
       <Typography
@@ -172,7 +172,7 @@ export default function CalorieContributionChart({
                     sx={{
                       width: dashboard ? { xs: 92, sm: 106 } : 92,
                       flex: '0 0 auto',
-                      color: dashboard ? 'var(--atlas-ink-muted)' : undefined,
+                      color: dashboard ? 'var(--muted-text)' : undefined,
                       fontSize: dashboard ? { xs: '0.68rem', sm: '0.75rem' } : undefined,
                       textAlign: 'right',
                       whiteSpace: 'nowrap',
@@ -186,10 +186,7 @@ export default function CalorieContributionChart({
           })}
         </Stack>
       ) : emptyText ? (
-        <Typography
-          variant={dashboard ? 'body2' : 'caption'}
-          sx={{ color: 'var(--atlas-ink-muted)' }}
-        >
+        <Typography variant={dashboard ? 'body2' : 'caption'} sx={{ color: 'var(--muted-text)' }}>
           {emptyText}
         </Typography>
       ) : null}

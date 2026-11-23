@@ -243,7 +243,6 @@ export default function FoodCatalogPicker({ open, mealItems, focusSearchOnOpen, 
       aria-labelledby="food-search-heading"
       elevation={0}
       sx={{
-        order: 5,
         p: { xs: 1.5, sm: 2 },
         bgcolor: 'var(--atlas-mineral-soft)',
         border: '1px solid rgba(71, 121, 138, 0.32)',
@@ -583,7 +582,7 @@ export default function FoodCatalogPicker({ open, mealItems, focusSearchOnOpen, 
                       listStyle: 'none',
                       mb: 1,
                       p: 1.25,
-                      bgcolor: 'var(--atlas-paper)',
+                      bgcolor: 'var(--surface-background)',
                       border: '1px solid var(--atlas-border)',
                       borderLeft: `4px solid ${food.scope === 'personal' ? 'var(--atlas-persimmon)' : 'var(--atlas-forest)'}`,
                     }}

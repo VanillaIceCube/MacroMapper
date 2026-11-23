@@ -87,7 +87,7 @@ export default function MealItemEditorRow({
       sx={{
         ml: depth > 1 ? { xs: 1, sm: 2 } : 0,
         my: isComponent ? 0.25 : 0.35,
-        bgcolor: isComponent ? 'var(--atlas-bone)' : 'var(--atlas-paper)',
+        bgcolor: isComponent ? 'var(--page-background)' : 'var(--surface-background)',
         border: isComponent
           ? '1px solid var(--atlas-border-strong)'
           : '1px solid var(--atlas-border)',
@@ -119,7 +119,7 @@ export default function MealItemEditorRow({
               variant="body2"
               title={item.name}
               sx={{
-                color: 'var(--atlas-ink)',
+                color: 'var(--surface-text)',
                 fontSize: '0.84rem',
                 fontWeight: 800,
                 lineHeight: 1.15,
@@ -205,7 +205,7 @@ export default function MealItemEditorRow({
                   minHeight: 24,
                   px: 0.35,
                   py: 0,
-                  color: 'var(--atlas-ink-muted)',
+                  color: 'var(--muted-text)',
                   fontWeight: 800,
                   '& .MuiButton-endIcon': { ml: 0.2 },
                 }}
@@ -338,7 +338,7 @@ export default function MealItemEditorRow({
         {!!item.components?.length && (
           <Collapse in={componentsOpen} unmountOnExit>
             <Stack spacing={0.75} sx={{ mt: 0.85 }}>
-              <Typography variant="caption" sx={{ color: 'var(--atlas-ink-muted)' }}>
+              <Typography variant="caption" sx={{ color: 'var(--muted-text)' }}>
                 Ingredients shown per full portion; totals above reflect the amount eaten.
               </Typography>
               {item.components.map((component) => (

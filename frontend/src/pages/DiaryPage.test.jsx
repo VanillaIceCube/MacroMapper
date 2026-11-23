@@ -1129,15 +1129,18 @@ describe('DiaryPage', () => {
     await user.click(within(dialog).getByRole('button', { name: 'search foods' }));
     await user.click(await within(dialog).findByRole('button', { name: 'Add' }));
 
-    expect(within(dialog).getByRole('region', { name: 'Meal Details' })).toHaveStyle({
-      order: '1',
-    });
-    expect(within(dialog).getByRole('region', { name: 'Meal macro breakdown' })).toBeVisible();
-    expect(within(dialog).getByRole('region', { name: 'Meal Items' })).toHaveStyle({ order: '3' });
-    expect(within(dialog).getByText('AI Adjustments')).toBeVisible();
-    expect(within(dialog).getByRole('region', { name: 'Add from the Catalog' })).toHaveStyle({
-      order: '5',
-    });
+    const mealEditor = within(dialog);
+    const sections = [
+      'Meal Details',
+      'Meal macro breakdown',
+      'Meal Items',
+      'Add from the Catalog',
+      'AI Adjustments',
+    ].map((name) => mealEditor.getByRole('region', { name }));
+
+    expect(
+      mealEditor.getAllByRole('region').filter((section) => sections.includes(section)),
+    ).toEqual(sections);
   });
 
   test('validates the estimate prompt inside the unified meal dialog', async () => {

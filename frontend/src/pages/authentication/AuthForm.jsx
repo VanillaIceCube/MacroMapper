@@ -29,7 +29,7 @@ export default function AuthForm({ title, onSubmit, isSubmitting, submitLabel, f
           alt=""
           sx={{ width: 64, height: 64 }}
         />
-        <Typography variant="h3" sx={{ fontWeight: 650, color: 'var(--atlas-ink)' }}>
+        <Typography variant="h3" sx={{ fontWeight: 650, color: 'var(--surface-text)' }}>
           MacroMapper
         </Typography>
         <Typography
@@ -50,10 +50,10 @@ export default function AuthForm({ title, onSubmit, isSubmitting, submitLabel, f
           boxShadow: '0 24px 70px rgba(23, 50, 77, 0.1)',
         }}
       >
-        <Typography component="h1" variant="h4" sx={{ mb: 1, color: 'var(--atlas-ink)' }}>
+        <Typography component="h1" variant="h4" sx={{ mb: 1, color: 'var(--surface-text)' }}>
           {title}
         </Typography>
-        <Typography sx={{ mb: 3, color: 'var(--atlas-ink-muted)' }}>
+        <Typography sx={{ mb: 3, color: 'var(--muted-text)' }}>
           Your private nutrition workspace is one step away.
         </Typography>
         <Box
@@ -70,10 +70,7 @@ export default function AuthForm({ title, onSubmit, isSubmitting, submitLabel, f
           <Button fullWidth type="submit" disabled={isSubmitting} variant="contained">
             {submitLabel}
           </Button>
-          <Typography
-            variant="caption"
-            sx={{ textAlign: 'center', color: 'var(--atlas-ink-muted)' }}
-          >
+          <Typography variant="caption" sx={{ textAlign: 'center', color: 'var(--muted-text)' }}>
             {footer}
           </Typography>
         </Box>

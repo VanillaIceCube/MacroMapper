@@ -20,7 +20,7 @@ export default function AppNavigationDrawer({ open, setOpen }) {
   const isDiary = location.pathname === '/' || location.pathname === '/diary';
 
   const navigationItemStyles = (active) => ({
-    color: active ? 'var(--atlas-forest-dark)' : 'var(--atlas-ink)',
+    color: active ? 'var(--atlas-forest-dark)' : 'var(--surface-text)',
     bgcolor: active ? 'var(--atlas-forest-soft)' : 'transparent',
     borderRadius: 'var(--atlas-radius-surface)',
     border: active ? '1px solid rgba(46, 107, 79, 0.2)' : '1px solid transparent',
@@ -75,14 +75,14 @@ export default function AppNavigationDrawer({ open, setOpen }) {
               alt=""
               sx={{ width: 34, height: 34 }}
             />
-            <Typography variant="h5" sx={{ fontWeight: 650, color: 'var(--atlas-ink)' }}>
+            <Typography variant="h5" sx={{ fontWeight: 650, color: 'var(--surface-text)' }}>
               MacroMapper
             </Typography>
           </Stack>
           <IconButton
             aria-label="close navigation"
             onClick={() => setOpen(false)}
-            sx={{ color: 'var(--atlas-ink)' }}
+            sx={{ color: 'var(--surface-text)' }}
           >
             <CloseIcon />
           </IconButton>
@@ -92,7 +92,7 @@ export default function AppNavigationDrawer({ open, setOpen }) {
           <ListItemButton onClick={goDiary} selected={isDiary} sx={navigationItemStyles(isDiary)}>
             <ListItemIcon
               sx={{
-                color: isDiary ? 'var(--atlas-forest)' : 'var(--atlas-ink-muted)',
+                color: isDiary ? 'var(--atlas-forest)' : 'var(--muted-text)',
                 minWidth: 40,
               }}
             >
@@ -101,7 +101,7 @@ export default function AppNavigationDrawer({ open, setOpen }) {
             <ListItemText primary="Meal diary" />
           </ListItemButton>
         </List>
-        <Typography variant="body2" sx={{ px: 2.5, py: 2, color: 'var(--atlas-ink-muted)' }}>
+        <Typography variant="body2" sx={{ px: 2.5, py: 2, color: 'var(--muted-text)' }}>
           Nutrition and activity, mapped clearly.
         </Typography>
       </Box>

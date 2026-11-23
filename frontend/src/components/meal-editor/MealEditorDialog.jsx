@@ -326,7 +326,7 @@ export default function MealEditorDialog({ date, meal, open, launchMode, onClose
             height: { xs: '100%', sm: 'auto' },
             maxHeight: { xs: '100%', sm: 'calc(100% - 32px)' },
             borderRadius: { xs: 0, sm: mealBuilderSurfaceRadius },
-            bgcolor: 'var(--atlas-paper)',
+            bgcolor: 'var(--surface-background)',
             border: '1px solid var(--atlas-border-strong)',
             boxShadow: '0 24px 64px rgba(23, 50, 77, 0.16)',
           },
@@ -336,7 +336,7 @@ export default function MealEditorDialog({ date, meal, open, launchMode, onClose
           component="div"
           sx={{
             bgcolor: meal ? 'var(--atlas-mineral-soft)' : 'var(--atlas-persimmon-soft)',
-            color: 'var(--atlas-ink)',
+            color: 'var(--surface-text)',
             borderBottom: '1px solid var(--atlas-border)',
             px: { xs: 2, sm: 3 },
             py: { xs: 2, sm: 2.5 },
@@ -361,7 +361,7 @@ export default function MealEditorDialog({ date, meal, open, launchMode, onClose
                 <Typography
                   component="p"
                   variant="overline"
-                  sx={{ color: 'var(--atlas-ink-muted)', fontWeight: 800, lineHeight: 1.2 }}
+                  sx={{ color: 'var(--muted-text)', fontWeight: 800, lineHeight: 1.2 }}
                 >
                   {mealHeader.eyebrow}
                 </Typography>
@@ -378,7 +378,7 @@ export default function MealEditorDialog({ date, meal, open, launchMode, onClose
                 id="map-your-meal-description"
                 component="p"
                 variant="body2"
-                sx={{ color: 'var(--atlas-ink-muted)', mt: 0.5, maxWidth: 620 }}
+                sx={{ color: 'var(--muted-text)', mt: 0.5, maxWidth: 620 }}
               >
                 {mealHeader.description}
               </Typography>
@@ -387,7 +387,7 @@ export default function MealEditorDialog({ date, meal, open, launchMode, onClose
         </DialogTitle>
         <DialogContent
           sx={{
-            bgcolor: 'var(--atlas-paper)',
+            bgcolor: 'var(--surface-background)',
             borderColor: 'transparent',
             px: { xs: 2, sm: 3 },
             pt: '0 !important',
@@ -408,13 +408,13 @@ export default function MealEditorDialog({ date, meal, open, launchMode, onClose
                 minRows={3}
                 autoFocus
               />
-              <Typography variant="body2" sx={{ color: 'var(--atlas-ink-muted)' }}>
+              <Typography variant="body2" sx={{ color: 'var(--muted-text)' }}>
                 MacroMapper checks your visible food catalog first. Matched foods use their existing
                 nutrition data, while unmatched foods are estimated by GPT with web sources and
                 remain editable before saving.
               </Typography>
               {estimating && (
-                <Typography role="status" variant="body2" sx={{ color: 'var(--atlas-ink-muted)' }}>
+                <Typography role="status" variant="body2" sx={{ color: 'var(--muted-text)' }}>
                   Estimation can take up to two minutes. Keep this dialog open while we check
                   sources.
                 </Typography>
@@ -451,7 +451,6 @@ export default function MealEditorDialog({ date, meal, open, launchMode, onClose
                 aria-labelledby="meal-identity-heading"
                 elevation={0}
                 sx={{
-                  order: 1,
                   p: { xs: 1.5, sm: 2 },
                   border: '1px solid var(--atlas-border)',
                 }}
@@ -494,19 +493,13 @@ export default function MealEditorDialog({ date, meal, open, launchMode, onClose
                 </Stack>
               </Paper>
 
-              <FoodCatalogPicker
-                open={open}
-                mealItems={items}
-                focusSearchOnOpen={!meal && launchMode === 'add'}
-                onAddFood={addFood}
-              />
+              <MealNutritionSummary items={items} />
 
               <Paper
                 component="section"
                 aria-labelledby="meal-items-heading"
                 elevation={0}
                 sx={{
-                  order: 3,
                   p: { xs: 1.5, sm: 2 },
                   border: '1px solid var(--atlas-border-strong)',
                 }}
@@ -546,7 +539,7 @@ export default function MealEditorDialog({ date, meal, open, launchMode, onClose
                       mt: 1.5,
                       p: 2.5,
                       textAlign: 'center',
-                      bgcolor: 'var(--atlas-bone)',
+                      bgcolor: 'var(--page-background)',
                       border: '1px dashed var(--atlas-border-strong)',
                       borderRadius: 'var(--atlas-radius-surface)',
                     }}
@@ -581,15 +574,18 @@ export default function MealEditorDialog({ date, meal, open, launchMode, onClose
                 )}
               </Paper>
 
-              <Box sx={{ order: 2 }}>
-                <MealNutritionSummary items={items} />
-              </Box>
+              <FoodCatalogPicker
+                open={open}
+                mealItems={items}
+                focusSearchOnOpen={!meal && launchMode === 'add'}
+                onAddFood={addFood}
+              />
 
               <Paper
                 component="section"
                 aria-labelledby="ai-adjustments-heading"
                 elevation={0}
-                sx={{ order: 6, p: 1.25, border: '1px solid var(--atlas-border)' }}
+                sx={{ p: 1.25, border: '1px solid var(--atlas-border)' }}
               >
                 <Stack spacing={0.75}>
                   <Stack
@@ -669,7 +665,7 @@ export default function MealEditorDialog({ date, meal, open, launchMode, onClose
         </DialogContent>
         <DialogActions
           sx={{
-            bgcolor: 'var(--atlas-paper)',
+            bgcolor: 'var(--surface-background)',
             borderTop: '1px solid var(--atlas-border)',
             px: { xs: 1.5, sm: 3 },
             py: 1.25,

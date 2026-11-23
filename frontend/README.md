@@ -22,15 +22,17 @@ authentication, and the application shell.
 - `src/test-helpers/`: shared test setup and reusable helpers.
   App, startup and feature tests stay beside the files they exercise.
 
-For diary changes, start with the file that owns the action:
+### Where to change things
 
-- [DiaryPage](src/pages/DiaryPage.jsx) loads the selected day, displays totals
-  and saved meals, and opens the meal editor.
-- [MealEditorDialog](src/components/meal-editor/MealEditorDialog.jsx) owns the
-  meal draft, AI estimation and adjustments, and saving or discarding edits.
-- [FoodCatalogPicker](src/components/meal-editor/FoodCatalogPicker.jsx) owns
-  catalog search, filters, pagination and result details. It sends the chosen
-  food to the editor, which adds it to the draft.
+| To change | Start here |
+| --- | --- |
+| Routes and layout | [App](src/App.jsx) |
+| Header and notifications | [AppHeader](src/components/AppHeader.jsx), [NotificationsMenu](src/components/NotificationsMenu.jsx) |
+| Sign-in, registration, and password reset | [AuthForm and its pages](src/pages/authentication/) |
+| Shared colors, typography, and component styles | [Theme](src/theme.js) |
+| Diary and daily totals | [DiaryPage](src/pages/DiaryPage.jsx) |
+| Meal drafts, estimates, and saving | [MealEditorDialog](src/components/meal-editor/MealEditorDialog.jsx) |
+| Food search, filters, and pagination | [FoodCatalogPicker](src/components/meal-editor/FoodCatalogPicker.jsx) |
 
 ## 💻 Local development
 
@@ -169,11 +171,10 @@ root snackbar state preserves successful login/register feedback and excludes
 messages from an older generation.
 
 `useNotifications` owns loading, retries, unread state and synchronous item/bulk
-locks. Headers inject stable app-owned API adapters and keep presentation and
-target navigation local. Generation and unmount guards discard stale lists,
-mutations and errors; token rotation preserves pending work. An earlier list
-request cannot undo a newer mutation. MacroMapper retains its existing HTTP
-error-message adapter.
+locks. `NotificationsMenu` connects the hook to the app's notification API and
+handles presentation and navigation. The hook discards stale results after
+account changes or unmount. Token rotation preserves pending work, and an
+earlier list request cannot undo a newer mutation.
 
 Authentication forms disable submission while pending. Tokens and profile data
 live in `sessionStorage`; new sessions trim profile fields and clear absent values.
@@ -203,9 +204,9 @@ Approve/Cancel. It never auto-approves or puts credentials in links. Invalid/sta
 tickets clear controls and require fresh review. Framed action review is refused;
 frontend Nginx applies `frame-ancestors 'none'`, `X-Frame-Options: DENY`, no-store and
 no-referrer to the exact `/connections/authorize` page, preserving embedding policy
-elsewhere. Only MacroMapper configures the backend handler; FullStackTemplate and
-Notoli retain reusable plumbing with action approval unavailable and existing
-domain behavior unchanged.
+elsewhere. MacroMapper and Notoli configure app-owned approval handlers.
+FullStackTemplate supplies the reusable flow for applications that register a
+handler.
 
 ### Connections response contract
 
@@ -251,6 +252,11 @@ on enclosing composites are cleared and their totals are recalculated. Switching
 measurement units alone preserves both consumed nutrition and composite evidence.
 
 ## 🎨 Style guide
+
+Use `--page-background` and `--page-text` for the document, and
+`--surface-background` and `--surface-text` for panels and controls. The app theme
+defines these colors. Keep sibling JSX sections in the order they appear on
+screen so keyboard navigation follows the layout.
 
 ### Foundations
 

@@ -8,7 +8,7 @@ const nutrientPresentation = {
     label: 'Calories',
     note: 'Total energy',
     color: 'var(--calorie-color)',
-    background: 'var(--atlas-paper)',
+    background: 'var(--surface-background)',
   },
   protein: {
     label: 'Protein',
@@ -31,22 +31,22 @@ const nutrientPresentation = {
   fiber: {
     label: 'Fiber',
     color: 'var(--fiber-color)',
-    background: 'var(--atlas-paper)',
+    background: 'var(--surface-background)',
   },
   sugar: {
     label: 'Sugar',
     color: 'var(--sugar-color)',
-    background: 'var(--atlas-paper)',
+    background: 'var(--surface-background)',
   },
   sodium: {
     label: 'Sodium',
     color: 'var(--sodium-color)',
-    background: 'var(--atlas-paper)',
+    background: 'var(--surface-background)',
   },
   cholesterol: {
     label: 'Cholesterol',
     color: 'var(--cholesterol-color)',
-    background: 'var(--atlas-paper)',
+    background: 'var(--surface-background)',
   },
 };
 

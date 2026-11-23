@@ -9,7 +9,7 @@ import AppNavigationDrawer from './components/AppNavigationDrawer';
 import AppSnackbar from './components/AppSnackbar';
 import AuthenticatedRoute from './components/AuthenticatedRoute';
 import NavigationBridge from './components/NavigationBridge';
-import fieldAtlasTheme from './theme';
+import appTheme from './theme';
 
 const DiaryPage = lazy(() => import('./pages/DiaryPage'));
 const ForgotPassword = lazy(() => import('./pages/authentication/ForgotPassword'));
@@ -90,7 +90,7 @@ export default function App() {
     setSnackbar({ open: true, severity, message, version: getSessionVersion() });
   }, []);
   return (
-    <ThemeProvider theme={fieldAtlasTheme}>
+    <ThemeProvider theme={appTheme}>
       <CssBaseline />
       <Router basename={import.meta.env.BASE_URL}>
         <ApplicationSession key={version} showSnackbar={showSnackbar} />

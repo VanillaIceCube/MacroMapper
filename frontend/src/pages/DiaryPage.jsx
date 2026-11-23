@@ -207,7 +207,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
               >
                 Meal Log
               </Typography>
-              <Typography sx={{ mt: 0.75, color: 'var(--atlas-ink-muted)' }}>
+              <Typography sx={{ mt: 0.75, color: 'var(--muted-text)' }}>
                 Find your way to better nutrition, one meal at a time.
               </Typography>
             </Box>
@@ -245,8 +245,8 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   position: 'relative',
                   flexShrink: 0,
                   p: 0.375,
-                  bgcolor: 'var(--atlas-paper)',
-                  color: 'var(--atlas-ink)',
+                  bgcolor: 'var(--surface-background)',
+                  color: 'var(--surface-text)',
                   border: '1px solid var(--atlas-border)',
                   borderRadius: 'var(--atlas-radius-pill)',
                 }}
@@ -274,7 +274,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                         minWidth: { xs: 126, sm: 142 },
                         minHeight: 40,
                         px: 1.25,
-                        color: 'var(--atlas-ink)',
+                        color: 'var(--surface-text)',
                         fontWeight: 800,
                       }}
                     >
@@ -339,7 +339,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
             elevation={0}
             sx={{
               p: { xs: 2, sm: 2.5 },
-              bgcolor: 'var(--atlas-paper)',
+              bgcolor: 'var(--surface-background)',
               border: '1px solid var(--atlas-border)',
               borderRadius: 'var(--atlas-radius-prominent)',
             }}
@@ -355,7 +355,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
               <Typography id="daily-totals-heading" component="h2" variant="h5">
                 Daily Summary
               </Typography>
-              <Typography variant="body2" sx={{ color: 'var(--atlas-ink-muted)' }}>
+              <Typography variant="body2" sx={{ color: 'var(--muted-text)' }}>
                 Saved nutrition for {isToday ? 'today' : `${dateParts.weekday}, ${dateParts.date}`}
               </Typography>
             </Stack>
@@ -376,7 +376,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   sx={{
                     minWidth: 0,
                     p: { xs: 1.25, sm: 1.5 },
-                    bgcolor: 'var(--atlas-paper)',
+                    bgcolor: 'var(--surface-background)',
                     border: '1px solid var(--atlas-border)',
                     borderTop: `3px solid ${nutrient.color}`,
                     borderRadius: 'var(--atlas-radius-surface)',
@@ -418,7 +418,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                           ? formatAmount(totalsByKey[nutrient.key].amount)
                           : '—'}
                       </Typography>
-                      <Typography variant="caption" noWrap sx={{ color: 'var(--atlas-ink-muted)' }}>
+                      <Typography variant="caption" noWrap sx={{ color: 'var(--muted-text)' }}>
                         {nutrient.unit}
                       </Typography>
                     </Stack>
@@ -494,12 +494,12 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                           (total, meal) => total + meal.items.length,
                           0,
                         )} saved foods`}
-                        sx={{ bgcolor: 'var(--atlas-mineral-soft)', color: 'var(--atlas-ink)' }}
+                        sx={{ bgcolor: 'var(--atlas-mineral-soft)', color: 'var(--surface-text)' }}
                       />
                     </Stack>
                   )}
                 </Stack>
-                <Typography variant="body2" sx={{ mt: 0.25, color: 'var(--atlas-ink-muted)' }}>
+                <Typography variant="body2" sx={{ mt: 0.25, color: 'var(--muted-text)' }}>
                   Food calories, serving context, confidence, provenance, and macro balance for each
                   meal.
                 </Typography>
@@ -540,8 +540,8 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                 sx={{
                   p: { xs: 3, sm: 4.5 },
                   textAlign: 'center',
-                  bgcolor: 'var(--atlas-paper)',
-                  color: 'var(--atlas-ink)',
+                  bgcolor: 'var(--surface-background)',
+                  color: 'var(--surface-text)',
                   border: '1px dashed var(--atlas-border-strong)',
                   borderRadius: 'var(--atlas-radius-prominent)',
                 }}
@@ -550,7 +550,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                   sx={{ fontSize: 42, color: 'var(--atlas-forest)', mb: 1 }}
                 />
                 <Typography variant="h6">Nothing logged yet</Typography>
-                <Typography sx={{ mt: 0.5, color: 'var(--atlas-ink-muted)' }}>
+                <Typography sx={{ mt: 0.5, color: 'var(--muted-text)' }}>
                   Estimate a meal or add foods manually to start this day’s log.
                 </Typography>
               </Paper>
@@ -584,7 +584,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                         elevation={0}
                         sx={{
                           p: 2,
-                          bgcolor: 'var(--atlas-paper)',
+                          bgcolor: 'var(--surface-background)',
                           border: '1px solid var(--atlas-border)',
                           borderRadius: 'var(--atlas-radius-surface)',
                         }}
@@ -629,7 +629,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                 label={`${meal.items.length} ${meal.items.length === 1 ? 'food' : 'foods'}`}
                                 sx={{
                                   bgcolor: 'var(--atlas-mineral-soft)',
-                                  color: 'var(--atlas-ink)',
+                                  color: 'var(--surface-text)',
                                 }}
                               />
                               {dailyShare !== null && (
@@ -719,7 +719,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                     gap: 1,
                                     px: 1.25,
                                     py: 0.65,
-                                    bgcolor: 'var(--atlas-bone)',
+                                    bgcolor: 'var(--page-background)',
                                     borderBottom: '1px solid var(--atlas-border)',
                                   }}
                                 >
@@ -729,7 +729,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                         key={label}
                                         role="columnheader"
                                         variant="caption"
-                                        sx={{ color: 'var(--atlas-ink-muted)', fontWeight: 800 }}
+                                        sx={{ color: 'var(--muted-text)', fontWeight: 800 }}
                                       >
                                         {label}
                                       </Typography>
@@ -792,7 +792,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                             sx={{
                                               display: 'block',
                                               mt: 0.2,
-                                              color: 'var(--atlas-ink-muted)',
+                                              color: 'var(--muted-text)',
                                             }}
                                           >
                                             {itemContext}
@@ -804,7 +804,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                           variant="caption"
                                           sx={{
                                             display: { sm: 'none' },
-                                            color: 'var(--atlas-ink-muted)',
+                                            color: 'var(--muted-text)',
                                           }}
                                         >
                                           Calories
@@ -835,7 +835,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                           variant="caption"
                                           sx={{
                                             display: { sm: 'none' },
-                                            color: 'var(--atlas-ink-muted)',
+                                            color: 'var(--muted-text)',
                                           }}
                                         >
                                           Confidence
@@ -855,7 +855,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                           variant="caption"
                                           sx={{
                                             display: { sm: 'none' },
-                                            color: 'var(--atlas-ink-muted)',
+                                            color: 'var(--muted-text)',
                                           }}
                                         >
                                           Provenance
@@ -874,7 +874,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                     mt: 1.25,
                                     px: 1.25,
                                     py: 1,
-                                    bgcolor: 'var(--atlas-bone)',
+                                    bgcolor: 'var(--page-background)',
                                     borderLeft: '3px solid var(--atlas-mineral)',
                                     borderRadius: 'var(--atlas-radius-compact)',
                                   }}
@@ -883,7 +883,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                     variant="caption"
                                     sx={{
                                       display: 'block',
-                                      color: 'var(--atlas-ink-muted)',
+                                      color: 'var(--muted-text)',
                                       fontWeight: 800,
                                     }}
                                   >
@@ -893,7 +893,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                     variant="body2"
                                     sx={{
                                       mt: 0.15,
-                                      color: 'var(--atlas-ink-muted)',
+                                      color: 'var(--muted-text)',
                                       whiteSpace: 'pre-line',
                                     }}
                                   >
@@ -928,7 +928,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
                                     sx={{
                                       px: 1,
                                       py: 0.75,
-                                      bgcolor: 'var(--atlas-paper)',
+                                      bgcolor: 'var(--surface-background)',
                                       border: '1px solid var(--atlas-border-strong)',
                                       borderTop: `2px solid ${color}`,
                                       borderRadius: 'var(--atlas-radius-surface)',
@@ -974,7 +974,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
           aria-describedby="delete-meal-description"
           sx={{
             '& .MuiDialog-paper': {
-              bgcolor: 'var(--atlas-paper)',
+              bgcolor: 'var(--surface-background)',
               border: '1px solid var(--atlas-border-strong)',
             },
           }}

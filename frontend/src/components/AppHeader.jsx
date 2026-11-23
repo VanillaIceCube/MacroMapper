@@ -52,7 +52,7 @@ export default function AppHeader({ title, setDrawerOpen }) {
               variant="h5"
               component="div"
               noWrap
-              sx={{ color: 'var(--atlas-ink)', fontWeight: 650, letterSpacing: '-0.02em' }}
+              sx={{ color: 'var(--surface-text)', fontWeight: 650, letterSpacing: '-0.02em' }}
             >
               {title}
             </Typography>
@@ -63,7 +63,10 @@ export default function AppHeader({ title, setDrawerOpen }) {
             color="inherit"
             aria-label="user profile"
             onClick={(event) => setProfileAnchorEl(event.currentTarget)}
-            sx={{ color: 'var(--atlas-ink)', '&:hover': { bgcolor: 'var(--atlas-mineral-soft)' } }}
+            sx={{
+              color: 'var(--surface-text)',
+              '&:hover': { bgcolor: 'var(--atlas-mineral-soft)' },
+            }}
           >
             <AccountCircle />
           </IconButton>
@@ -76,8 +79,8 @@ export default function AppHeader({ title, setDrawerOpen }) {
             slotProps={{
               paper: {
                 sx: {
-                  backgroundColor: 'var(--atlas-paper)',
-                  color: 'var(--atlas-ink)',
+                  backgroundColor: 'var(--surface-background)',
+                  color: 'var(--surface-text)',
                   boxShadow: '0 18px 50px rgba(23, 50, 77, 0.14)',
                   border: '1px solid var(--atlas-border-strong)',
                   borderRadius: 'var(--atlas-radius-prominent)',
@@ -98,8 +101,8 @@ export default function AppHeader({ title, setDrawerOpen }) {
                 primary={profilePrimary}
                 secondary={profileSecondary}
                 slotProps={{
-                  primary: { sx: { fontWeight: 'bold', color: 'var(--atlas-ink)' } },
-                  secondary: { sx: { color: 'var(--atlas-ink-muted)', opacity: 1 } },
+                  primary: { sx: { fontWeight: 'bold', color: 'var(--surface-text)' } },
+                  secondary: { sx: { color: 'var(--muted-text)', opacity: 1 } },
                 }}
               />
             </MenuItem>
@@ -138,7 +141,10 @@ export default function AppHeader({ title, setDrawerOpen }) {
             color="inherit"
             aria-label="menu"
             onClick={() => setDrawerOpen((current) => !current)}
-            sx={{ color: 'var(--atlas-ink)', '&:hover': { bgcolor: 'var(--atlas-mineral-soft)' } }}
+            sx={{
+              color: 'var(--surface-text)',
+              '&:hover': { bgcolor: 'var(--atlas-mineral-soft)' },
+            }}
           >
             <MenuIcon />
           </IconButton>

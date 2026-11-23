@@ -55,7 +55,7 @@ export default function NotificationsMenu() {
         color="inherit"
         aria-label="notifications"
         onClick={(event) => setNotificationAnchorEl(event.currentTarget)}
-        sx={{ color: 'var(--atlas-ink)', '&:hover': { bgcolor: 'var(--atlas-mineral-soft)' } }}
+        sx={{ color: 'var(--surface-text)', '&:hover': { bgcolor: 'var(--atlas-mineral-soft)' } }}
       >
         <Badge badgeContent={unreadCount} color="secondary">
           <NotificationsIcon />
@@ -70,8 +70,8 @@ export default function NotificationsMenu() {
         slotProps={{
           paper: {
             sx: {
-              backgroundColor: 'var(--atlas-paper)',
-              color: 'var(--atlas-ink)',
+              backgroundColor: 'var(--surface-background)',
+              color: 'var(--surface-text)',
               boxShadow: '0 18px 50px rgba(23, 50, 77, 0.14)',
               border: '1px solid var(--atlas-border-strong)',
               borderRadius: 'var(--atlas-radius-prominent)',
@@ -153,11 +153,11 @@ export default function NotificationsMenu() {
                       slotProps={{
                         primary: {
                           sx: {
-                            color: 'var(--atlas-ink)',
+                            color: 'var(--surface-text)',
                             fontWeight: notification.is_read ? 500 : 'bold',
                           },
                         },
-                        secondary: { sx: { color: 'var(--atlas-ink-muted)' } },
+                        secondary: { sx: { color: 'var(--muted-text)' } },
                       }}
                     />
                     <Tooltip title="Clear notification">
@@ -175,7 +175,7 @@ export default function NotificationsMenu() {
                           ml: 1,
                           alignSelf: 'center',
                           flexShrink: 0,
-                          color: 'var(--atlas-ink)',
+                          color: 'var(--surface-text)',
                         }}
                       >
                         <ClearIcon fontSize="small" />

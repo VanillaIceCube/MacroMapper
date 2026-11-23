@@ -18,7 +18,7 @@ function ConnectionSurface({ title, children }) {
       <Typography variant="h4" sx={{ color: 'white', fontWeight: 'bold' }}>
         {title}
       </Typography>
-      <Paper sx={{ p: 3, background: 'var(--secondary-background-color)' }}>
+      <Paper sx={{ p: 3, background: 'var(--surface-background)' }}>
         <Stack spacing={2}>{children}</Stack>
       </Paper>
     </Stack>
@@ -86,7 +86,7 @@ function OAuthConnectionConsent() {
             <Button
               disabled={busy}
               variant="contained"
-              sx={{ backgroundColor: 'var(--secondary-color)' }}
+              sx={{ backgroundColor: 'var(--surface-text)' }}
               onClick={() => decide('allow')}
             >
               Allow
