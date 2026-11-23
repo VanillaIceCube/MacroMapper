@@ -29,7 +29,7 @@ import CalorieContributionChart from '../components/nutrition/CalorieContributio
 import MacroCalorieSplit from '../components/nutrition/MacroCalorieSplit';
 import { NUTRIENT_FIELDS as launchNutrients } from '../components/nutrition/nutritionPresentation';
 import { formatNutritionAmount as formatAmount } from '../utils/nutritionFormatting';
-import DiaryMealCard from '../components/diary/DiaryMealCard';
+import DiaryMealCard from '../components/DiaryMealCard';
 import MealEditorDialog from '../components/meal-editor/MealEditorDialog';
 
 const localDate = () => {

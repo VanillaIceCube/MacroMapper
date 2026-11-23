@@ -16,9 +16,9 @@ const ForgotPassword = lazy(() => import('./pages/authentication/ForgotPassword'
 const Login = lazy(() => import('./pages/authentication/Login'));
 const Register = lazy(() => import('./pages/authentication/Register'));
 const ResetPassword = lazy(() => import('./pages/authentication/ResetPassword'));
-const ConnectedApps = lazy(() => import('./pages/connections/Connections'));
+const ConnectedApps = lazy(() => import('./pages/Connections'));
 const OAuthConsent = lazy(() =>
-  import('./pages/connections/Connections').then((module) => ({ default: module.OAuthConsent })),
+  import('./pages/Connections').then((module) => ({ default: module.OAuthConsent })),
 );
 
 function ApplicationSession({ showSnackbar }) {

@@ -23,6 +23,9 @@ authentication, and the application shell.
 - `src/test-helpers/`: shared test setup and reusable helpers.
   App, startup and feature tests stay beside the files they exercise.
 
+Keep `components/`, `pages/`, `hooks/` and `services/` flat by default. Group modules you
+usually edit together one level down. A source file and its adjacent test count as one module.
+
 ### Where to change things
 
 | To change | Start here |
@@ -31,7 +34,7 @@ authentication, and the application shell.
 | Header and notifications | [AppHeader](src/components/app-core/AppHeader.jsx), [NotificationsMenu](src/components/app-core/NotificationsMenu.jsx) |
 | Sign-in, registration, and password reset | [AuthForm](src/components/app-core/AuthForm.jsx) and [route pages](src/pages/authentication/) |
 | Shared colors, typography, and component styles | [Theme](src/theme.js) |
-| Diary and daily totals | [DiaryPage](src/pages/DiaryPage.jsx) and [saved meal cards](src/components/diary/DiaryMealCard.jsx) |
+| Diary and daily totals | [DiaryPage](src/pages/DiaryPage.jsx) and [saved meal cards](src/components/DiaryMealCard.jsx) |
 | Meal drafts, estimates, and saving | [MealEditorDialog](src/components/meal-editor/MealEditorDialog.jsx) |
 | Food search, filters, and pagination | [FoodCatalogPicker](src/components/meal-editor/FoodCatalogPicker.jsx) and [food result cards](src/components/meal-editor/CatalogFoodCard.jsx) |
 

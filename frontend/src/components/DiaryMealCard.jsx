@@ -1,15 +1,15 @@
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Box, Chip, IconButton, Paper, Stack, Typography } from '@mui/material';
-import { selectedPortion, servingAmountValue } from '../../domain/meal-item';
-import { nutrientArrayToValues as nutrientValues } from '../../domain/nutrition';
+import { selectedPortion, servingAmountValue } from '../domain/meal-item';
+import { nutrientArrayToValues as nutrientValues } from '../domain/nutrition';
 import {
   formatNutritionAmount as formatAmount,
   formatWholeNutritionAmount as formatWholeAmount,
-} from '../../utils/nutritionFormatting';
-import MacroCalorieBar from '../nutrition/MacroCalorieBar';
-import MacroCalorieSplit from '../nutrition/MacroCalorieSplit';
-import { foodEvidenceLabel } from '../nutrition/nutritionPresentation';
+} from '../utils/nutritionFormatting';
+import MacroCalorieBar from './nutrition/MacroCalorieBar';
+import MacroCalorieSplit from './nutrition/MacroCalorieSplit';
+import { foodEvidenceLabel } from './nutrition/nutritionPresentation';
 
 const mealContextText = (notes) => notes.replace(/^Estimated from:\s*/i, '').trim() || notes;
 
