@@ -1,7 +1,11 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DiaryPage from './DiaryPage';
-import { startSession } from '../../services/authentication/sessionState';
+import {
+  getSessionVersion,
+  rotateSessionTokens,
+  startSession,
+} from '../../services/authentication/sessionState';
 import { renderWithProviders } from '../../test-helpers/utils';
 import {
   acceptMealProposal,
@@ -1894,6 +1898,21 @@ describe('DiaryPage', () => {
       expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeEnabled();
     },
   );
+
+  test('keeps the loaded diary visible without refetching when the access token rotates', async () => {
+    startSession({ access: 'access-token', refresh: 'refresh-token' });
+    fetchDailyDiary.mockResolvedValue({ meals: [meal], totals: [] });
+    renderWithProviders(<DiaryPage />);
+    expect(await screen.findByRole('heading', { name: 'Breakfast' })).toBeVisible();
+    expect(fetchDailyDiary).toHaveBeenCalledOnce();
+
+    await act(async () => {
+      rotateSessionTokens({ access: 'rotated-token' }, getSessionVersion(), 'refresh-token');
+    });
+
+    expect(screen.getByRole('heading', { name: 'Breakfast' })).toBeVisible();
+    expect(fetchDailyDiary).toHaveBeenCalledOnce();
+  });
 
   test('a rejected daily load exposes a working retry', async () => {
     const user = userEvent.setup();

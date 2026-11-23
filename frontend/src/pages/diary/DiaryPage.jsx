@@ -79,11 +79,11 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
   const [pendingDelete, setPendingDelete] = useState(null);
   const dateInputRef = useRef(null);
   const diaryRequestIdRef = useRef(0);
-  const { accessToken } = useSession();
+  const isSignedIn = Boolean(useSession().accessToken);
   const isCurrentSession = useSessionGuard();
 
   const loadDiary = useCallback(async () => {
-    if (!accessToken || !isCurrentSession()) return;
+    if (!isSignedIn || !isCurrentSession()) return;
     const requestId = ++diaryRequestIdRef.current;
     setData({ meals: [], totals: [] });
     setLoading(true);
@@ -98,7 +98,7 @@ export default function DiaryPage({ showSnackbar = () => {} }) {
     } finally {
       if (requestId === diaryRequestIdRef.current) setLoading(false);
     }
-  }, [date, accessToken, isCurrentSession]);
+  }, [date, isSignedIn, isCurrentSession]);
 
   useEffect(() => {
     loadDiary();

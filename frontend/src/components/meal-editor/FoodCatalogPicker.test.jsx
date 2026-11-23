@@ -1,5 +1,10 @@
-import { clearSession, startSession } from '../../services/authentication/sessionState';
-import { screen, within } from '@testing-library/react';
+import {
+  clearSession,
+  getSessionVersion,
+  rotateSessionTokens,
+  startSession,
+} from '../../services/authentication/sessionState';
+import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { searchFoods } from '../../services/meals/mealApiClient';
 import { renderWithProviders } from '../../test-helpers/utils';
@@ -67,4 +72,32 @@ test('retries a failed page with the applied search and keeps the foods already 
     offset: 20,
     ordering: 'relevance,name,id',
   });
+});
+
+test('preserves catalog search, filters, and results when the access token rotates', async () => {
+  const user = userEvent.setup();
+  searchFoods.mockReset();
+  searchFoods
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([{ id: 8, name: 'Orchard pear', scope: 'shared' }])
+    .mockResolvedValue([]);
+  renderWithProviders(<FoodCatalogPicker open mealItems={[]} onAddFood={vi.fn()} />);
+
+  const catalog = within(screen.getByRole('region', { name: 'Add from the Catalog' }));
+  const scope = catalog.getByRole('button', { name: 'Shared', exact: true });
+  const search = catalog.getByRole('textbox', { name: 'Search catalog' });
+  await user.click(scope);
+  await user.type(search, 'orchard{Enter}');
+  expect(await catalog.findByText('Orchard pear')).toBeVisible();
+  expect(searchFoods).toHaveBeenCalledTimes(3);
+
+  await act(async () => {
+    rotateSessionTokens({ access: 'rotated-token' }, getSessionVersion(), 'refresh-token');
+  });
+
+  expect(search).toHaveValue('orchard');
+  expect(scope).toHaveAttribute('aria-pressed', 'true');
+  expect(catalog.getByText('Orchard pear')).toBeVisible();
+  expect(searchFoods).toHaveBeenCalledTimes(3);
 });

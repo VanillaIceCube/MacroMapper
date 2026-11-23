@@ -53,7 +53,7 @@ const mealDraftFingerprint = ({ name, notes, entryDate, items }) =>
   });
 
 export default function MealEditorDialog({ date, meal, open, launchMode, onClose, onSaved }) {
-  const { accessToken } = useSession();
+  const { version: sessionVersion } = useSession();
   const isCurrentSession = useSessionGuard();
   const [estimateDescription, setEstimateDescription] = useState('');
   const [estimatePlaceholder, setEstimatePlaceholder] = useState(randomMealEstimateExample);
@@ -102,7 +102,7 @@ export default function MealEditorDialog({ date, meal, open, launchMode, onClose
     if (launchMode === 'estimate' && !meal) {
       setEstimatePlaceholder(randomMealEstimateExample());
     }
-  }, [date, launchMode, meal, open, accessToken]);
+  }, [date, launchMode, meal, open, sessionVersion]);
 
   const createEstimate = async () => {
     if (!isCurrentSession()) return;

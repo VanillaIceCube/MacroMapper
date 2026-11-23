@@ -75,7 +75,7 @@ function showsRecentFoods(filters) {
 }
 
 export default function FoodCatalogPicker({ open, mealItems, focusSearchOnOpen, onAddFood }) {
-  const { accessToken } = useSession();
+  const isSignedIn = Boolean(useSession().accessToken);
   const isCurrentSession = useSessionGuard();
   const [catalogPickerOpen, setCatalogPickerOpen] = useState(true);
   const [draftFilters, setDraftFilters] = useState(defaultCatalogFilters);
@@ -117,7 +117,7 @@ export default function FoodCatalogPicker({ open, mealItems, focusSearchOnOpen, 
 
   const loadCatalogPage = useCallback(
     async (filters, offset = 0) => {
-      if (!accessToken || !isCurrentSession()) return;
+      if (!isSignedIn || !isCurrentSession()) return;
       const requestId = ++catalogRequestIdRef.current;
       const isLatestRequest = () => isCurrentSession() && requestId === catalogRequestIdRef.current;
       const append = offset > 0;
@@ -168,7 +168,7 @@ export default function FoodCatalogPicker({ open, mealItems, focusSearchOnOpen, 
         if (isLatestRequest()) setCatalogLoading(null);
       }
     },
-    [accessToken, isCurrentSession],
+    [isSignedIn, isCurrentSession],
   );
 
   const updateDraftFilter = (name, value) => {
