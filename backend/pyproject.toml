@@ -10,7 +10,7 @@ dependencies = [
     "gunicorn==26.2.0",
     "python-dotenv==1.2.4",
     "openai==3.52.0",
-    "pydantic==2.14.3",
+    "pydantic==2.14.4",
     "whitenoise==6.12.0",
     "django-oauth-toolkit==3.4.1",
     "mcp==2.3.0",
