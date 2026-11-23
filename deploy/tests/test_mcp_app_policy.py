@@ -56,11 +56,7 @@ class AppOwnedMCPPolicyTests(unittest.TestCase):
             policy = json.loads((bundle / "app.json").read_text())
             self.assertEqual(
                 set(policy["gateway"]["networks"]),
-                {"notoli_backend_private", "notoli_default", "macromapper-ingress"},
-            )
-            self.assertEqual(
-                policy["gateway"]["addresses"]["notoli_backend_private"],
-                "172.30.88.2",
+                {"macromapper-ingress"},
             )
             self.assertEqual(
                 policy["gateway"]["addresses"]["macromapper-ingress"],

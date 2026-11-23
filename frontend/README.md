@@ -47,6 +47,10 @@ settings. Production Docker builds pass the matching build argument, which is
 compiled into the static assets; a blank value selects same-origin requests.
 Local `.env` files are excluded from Docker build contexts.
 
+`docker/nginx.conf` sets backend proxy headers once and groups routes with the
+same behavior. Slash redirects, SPA deep links and consent-page headers stay
+explicit. The API keeps its longer timeout in a separate location.
+
 For direct `npm` development, an unset API origin uses `http://localhost:8000`.
 An explicit shell value overrides that default; an explicit blank uses same-origin.
 Vite's `base` setting supplies `%BASE_URL%` for HTML assets and
