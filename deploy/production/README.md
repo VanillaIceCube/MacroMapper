@@ -18,8 +18,8 @@ prerequisites before promotion through the existing `env-prod` process. Merging
 `main` does not deploy. Initial adoption and migrations retain their specific
 procedures below; this guide does not establish their live completion.
 
-**Before recovery from the first MCP-enabled release, read the
-[first-enable exception](#-first-enable-recovery) and select the retained disabled controller.**
+**Before the first MCP-enabled release, verify the saved disabled controller
+and read the [first-enable recovery guidance](#-first-enable-recovery).**
 
 ## 🚀 Release sequence
 
@@ -86,23 +86,30 @@ Command errors intentionally withhold captured output; diagnose privately using 
 ### Authorized recovery commands
 
 Use the same `app_root` and selected `release_id` from the private record.
-The examples use the retained release directory. If failure occurred before that
-directory existed, select the verified retained incoming controller or a reviewed
-compatible controller; do not assume `releases/$release_id` exists. Preserve its
-app policy and readiness contract. MacroMapper's first-enable exception is
-covered in its [MCP recovery guidance](https://github.com/VanillaIceCube/MacroMapper/blob/main/deploy/production/README.md#-first-enable-recovery).
+Run the failed attempt's retained, reviewed `incoming/$release_id/release.py`.
+It automatically selects the checksummed `release.py` and `app.json` saved under
+`recovery/$release_id/previous-release/`, while holding the existing deployment
+locks. The recovered app uses its own readiness policy, including a previously
+disabled MCP profile. You still choose the recovery ID and database mode.
+
+Missing, changed, foreign or unrecorded controller/policy data stops recovery
+before Docker or database changes; no latest-script or candidate-policy fallback
+is guessed. Legacy recovery without an accepted saved release still requires
+its separately reviewed procedure. Retain incoming bundles and recovery records.
+Older tools that predate automatic selection retain their documented manual
+controller choice; do not overwrite those immutable bundles.
 
 For an approved rollback that can lose post-snapshot writes:
 
 ```bash
-python3 "$app_root/releases/$release_id/release.py" rollback \
+python3 "$app_root/incoming/$release_id/release.py" rollback \
   --root "$app_root" --recovery "$release_id" --restore-database
 ```
 
 Recovery verifies cached images before stopping the backend, saves the current
 DB/journals from the stopped writer too, restores the selected DB with its
 original ownership/mode, and recreates **only app services**, no pull. It runs
-the same readiness gates and records success only afterward. Failed rollback
+the saved release's readiness gates and records success only afterward. Failed rollback
 stops backend writers and leaves the failure marker/recovery data intact.
 
 If backup/check failed **before migration started**, the operator may instead
@@ -110,7 +117,7 @@ restart the captured previous app configuration with all current data (no older
 snapshot selection). Current journals are consolidated before container recreation:
 
 ```bash
-python3 "$app_root/releases/$release_id/release.py" rollback \
+python3 "$app_root/incoming/$release_id/release.py" rollback \
   --root "$app_root" --recovery "$release_id" --keep-database
 ```
 
@@ -172,11 +179,11 @@ other apps' networks. `workflow.extra_env` adds only app-specific Actions inputs
 all frontend builds use `VITE_API_BASE_URL=` for same-origin API requests.
 Infrastructure owns `app-release/v1`, its manifest, tests and workflow template.
 `shared_source` in `app.json` pins that source to immutable commit
-`4443489f730f617e6b3db9a186d9d6331e89e1b0` across all three consumers. CI verifies
+`07420531a79f14cb1ba3914c2865e5d4847d1bf4` across all three consumers. CI verifies
 the common files and generated workflow, failing on drift or unavailable source.
 Change the Infrastructure source, regenerate its manifest, then synchronize all
 consumers; never edit only a vendored common file. See the
-[release standard](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/blob/4443489f730f617e6b3db9a186d9d6331e89e1b0/app-release/README.md)
+[release standard](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/blob/07420531a79f14cb1ba3914c2865e5d4847d1bf4/app-release/README.md)
 for the parity matrix and coordinated update procedure.
 
 Required Actions access variables: `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PATH`,
@@ -331,17 +338,14 @@ the OLD backend, which has no new MCP trust setting. The NEW bundle fixes that
 setting to `172.20.0.3`; verify it and the MCP flag in final runtime acceptance.
 Do not alter the shared controller or retained immutable bundles to pass checks.
 
-If the first enabled release fails, invoke the retained previous disabled
-controller with the failed candidate's recovery ID, for example:
+If the first enabled release fails, use the normal rollback command above with
+the failed candidate's recovery ID. Automatic selection runs the verified saved
+disabled controller and its ordinary readiness, so restored disabled images do
+not have to satisfy the enabled candidate's MCP metadata checks.
 
-```bash
-python3 "$previous_disabled_release/release.py" rollback \
-  --root "$app_root" --recovery "$failed_release_id" --restore-database
-```
-
-Resolve these paths/IDs from verified private records, not this example. The old
-controller uses its own ordinary readiness, so restored disabled images can pass.
-The enabled candidate controller would demand unavailable MCP metadata. Keep
+Resolve the ID from verified private records. With older retained tools that
+predate automatic selection, invoke the verified previous disabled controller
+explicitly using that same failed recovery ID. Keep
 `--keep-database` only for the documented pre-migration safe stages; after
 migration, explicit database restore can discard later writes and needs the
 appropriate recovery authorization. Capture the current writer/journals before
@@ -531,4 +535,4 @@ production status.
 - [Workflow guide](../../.github/workflows/README.md)
 - [App policy](app.json), [Compose](compose.yml), [bundle builder](build_bundle.py),
   [release controller](release.py) and [deployment workflow](../../.github/workflows/ci-deploy.yml)
-- [Infrastructure release standard](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/blob/4443489f730f617e6b3db9a186d9d6331e89e1b0/app-release/README.md)
+- [Infrastructure release standard](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/blob/07420531a79f14cb1ba3914c2865e5d4847d1bf4/app-release/README.md)
