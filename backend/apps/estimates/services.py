@@ -37,7 +37,7 @@ from apps.foods.services import build_component_map, create_food_item
 from apps.meals.models import MealEntry
 from apps.meals.services import (
     _effective_nutrients,
-    generate_meal_name,
+    default_meal_name,
     replace_meal_items,
     require_meal_owner,
 )
@@ -2668,51 +2668,13 @@ def save_draft(actor, data, meal=None):
     """Save a reviewed draft for its actor without a reverse service dependency."""
     if meal is not None:
         require_meal_owner(actor, meal)
+    else:
+        data = {"name": "", "notes": "", **data}
     return save_meal_draft(owner=actor, meal=meal, **data)
 
 
-def save_meal_draft(*, owner, meal, entry_date, name, notes, items):
-    if meal is None and not name:
-        catalog_versions_map = _visible_catalog_versions_map(
-            owner=owner, pairs=_collect_catalog_pairs(items)
-        )
-        secured_items = secure_builder_items(
-            owner=owner, items=items, catalog_versions_map=catalog_versions_map
-        )
-        reviewed_items = _apply_review_attribution(
-            items=secured_items,
-            owner=owner,
-            catalog_versions_map=catalog_versions_map,
-        )
-        name = generate_meal_name(
-            owner=owner,
-            entry_date=entry_date,
-            selected_foods=[
-                {
-                    "name": item["name"],
-                    "provider_name": item.get("provider_name", ""),
-                    "servings": str(
-                        _storage_decimal(
-                            item.get("servings"), decimal_places=4, default="1"
-                        )
-                    ),
-                }
-                for item in reviewed_items
-            ],
-        )
-    # Revalidate inside the write transaction after the potentially long wait.
-    return _save_meal_draft(
-        owner=owner,
-        meal=meal,
-        entry_date=entry_date,
-        name=name,
-        notes=notes,
-        items=items,
-    )
-
-
 @transaction.atomic
-def _save_meal_draft(*, owner, meal, entry_date, name, notes, items):
+def save_meal_draft(*, owner, meal, entry_date, name, notes, items):
     if meal is not None:
         meal = MealEntry.objects.select_for_update().get(pk=meal.pk, owner=owner)
     allowed_version_ids = saved_meal_version_ids(meal) if meal is not None else set()
@@ -2745,7 +2707,7 @@ def _save_meal_draft(*, owner, meal, entry_date, name, notes, items):
         meal = MealEntry.objects.create(
             owner=owner,
             entry_date=entry_date,
-            name=name,
+            name=name or default_meal_name(owner=owner, entry_date=entry_date),
             notes=notes,
         )
     else:

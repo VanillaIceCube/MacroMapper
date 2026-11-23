@@ -1,4 +1,4 @@
-"""Concurrent provider waits, draft revalidation and atomic publication."""
+"""Concurrent provider waits, draft authorization and atomic publication."""
 
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
@@ -55,61 +55,17 @@ class EstimationTransactionTests(TransactionTestCase):
             },
         )
 
-    def test_blank_name_wait_allows_a_concurrent_database_write(self):
-        owner, _, draft = self._draft()
+    def test_blank_name_draft_rechecks_catalog_availability(self):
+        owner, food, draft = self._draft()
+        FoodItem.objects.filter(pk=food.pk).update(archived_at=timezone.now())
         data = {
             key: value for key, value in draft.items() if key not in {"owner", "meal"}
         }
 
-        def ordinary_write():
-            try:
-                get_user_model().objects.create_user(
-                    username="name-concurrent", email="name-concurrent@example.com"
-                )
-            finally:
-                connections.close_all()
+        with self.assertRaises(ValidationError):
+            save_draft(owner, data)
 
-        def generate_name(selected_foods):
-            self.assertFalse(connections["default"].in_atomic_block)
-            self.assertEqual(selected_foods[0]["name"], "Toast")
-            with ThreadPoolExecutor(max_workers=1) as executor:
-                executor.submit(ordinary_write).result(timeout=2)
-            return "Named toast"
-
-        provider = Mock()
-        provider.generate_name.side_effect = generate_name
-        with patch(
-            "apps.meals.services.get_estimation_provider", return_value=provider
-        ):
-            meal = save_draft(owner, data)
-        self.assertEqual(meal.name, "Named toast")
-        self.assertEqual(meal.items.count(), 1)
-        self.assertTrue(
-            get_user_model().objects.filter(username="name-concurrent").exists()
-        )
-
-    def test_blank_name_draft_revalidates_food_archived_during_ai_wait(self):
-        _, food, draft = self._draft()
-
-        def generate_name(selected_foods):
-            FoodItem.objects.filter(pk=food.pk).update(archived_at=timezone.now())
-            return "Named toast"
-
-        provider = Mock()
-        provider.generate_name.side_effect = generate_name
-        with patch(
-            "apps.meals.services.get_estimation_provider", return_value=provider
-        ):
-            with self.assertRaises(ValidationError):
-                save_draft(
-                    draft["owner"],
-                    {
-                        key: value
-                        for key, value in draft.items()
-                        if key not in {"owner", "meal"}
-                    },
-                )
-        self.assertFalse(draft["owner"].meal_entries.exists())
+        self.assertFalse(owner.meal_entries.exists())
 
     def test_actor_draft_save_rechecks_live_owner_before_mutating(self):
         owner, _, draft = self._draft()
