@@ -172,7 +172,7 @@ settings and allowlist/base-URL variables when domains or routes change.
 Retain prior release images and matched private recovery data; no host-wide Docker
 pruning. Cleanup requires the host operator to review disk usage and select unused
 app images explicitly. Releases manage only the app's backend/frontend; local
-`deploy/docker-compose.yml` and `deploy/nginx-proxy.conf` are local/legacy-only.
+`deploy/compose.yml` and `deploy/nginx.conf` are local/legacy-only.
 
 Production uses `https://macromapper.judeandrewalaba.com` behind Cloudflare and
 origin Nginx, with deployment path `/opt/apps/macromapper` and GHCR images
@@ -249,7 +249,7 @@ gates. Application AI model selection remains app-owned.
 Meal estimation keeps `MACROMAPPER_OPENAI_API_KEY`, with separate production
 and local keys/projects. Store local values only in ignored `backend/.env` or
 `deploy/.env`; production values enter the approved private release bundle via
-the Actions repository secret. Never store keys in `deploy/backend.env`.
+the Actions repository secret. Never store keys in `deploy/.env.example`.
 
 ## ✉️ Email delivery
 

@@ -314,7 +314,7 @@ must not come from the reviewer project or be shared between environments:
 4. Put only the local key in the ignored local env file for the setup you use;
    restart the native backend process or recreate the local Docker backend so
    it reads the new value (a plain container restart keeps the old environment).
-   Preserve other env settings. `deploy/backend.env` is a tracked example, never a secret target.
+   Preserve other env settings. `deploy/.env.example` is a tracked example, never a secret target.
 5. Validate a non-catalog AI estimation locally and after the authorized
    production deployment. Check OpenAI Usage in each project and by key before
    retiring old credentials. Keep previous credentials valid for explicit release
