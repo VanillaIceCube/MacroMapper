@@ -300,7 +300,7 @@ or medical interpretation.
 
 ### Authentication
 
-- Build public authentication pages with `AuthPageShell`.
+- Build public authentication pages with `AuthForm`.
 - Give every form a visible heading, native submit behavior, and browser
   autocomplete metadata.
 - Show API outcomes through the shared application snackbar.

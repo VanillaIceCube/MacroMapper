@@ -1,9 +1,9 @@
-import { Box, Button, TextField, Typography } from '@mui/material';
+import { TextField } from '@mui/material';
 import { useState } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router';
-import AuthPageShell from '../../components/AuthPageShell';
+import { useNavigate } from 'react-router';
 import { forgotPassword } from '../../services/authApiClient';
 import { formatAuthErrorMessage } from '../../services/authSession';
+import AuthForm, { AuthLink } from './AuthForm';
 
 export default function ForgotPassword({ showSnackbar }) {
   const navigate = useNavigate();
@@ -28,33 +28,22 @@ export default function ForgotPassword({ showSnackbar }) {
   };
 
   return (
-    <AuthPageShell title="Reset your password">
-      <Box
-        component="form"
-        sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
-        onSubmit={(event) => {
-          event.preventDefault();
-          handleSubmit();
-        }}
-      >
-        <TextField
-          fullWidth
-          label="Email"
-          type="email"
-          name="email"
-          autoComplete="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-        />
-        <Button fullWidth type="submit" disabled={isSubmitting} variant="contained">
-          {isSubmitting ? 'Sending...' : 'Send Reset Link'}
-        </Button>
-        <Typography variant="caption" sx={{ textAlign: 'center', color: 'var(--atlas-ink-muted)' }}>
-          <Box component={RouterLink} className="auth-link" to="/login">
-            Back to Login
-          </Box>
-        </Typography>
-      </Box>
-    </AuthPageShell>
+    <AuthForm
+      title="Reset your password"
+      onSubmit={handleSubmit}
+      isSubmitting={isSubmitting}
+      submitLabel={isSubmitting ? 'Sending...' : 'Send Reset Link'}
+      footer={<AuthLink to="/login">Back to Login</AuthLink>}
+    >
+      <TextField
+        fullWidth
+        label="Email"
+        type="email"
+        name="email"
+        autoComplete="email"
+        value={email}
+        onChange={(event) => setEmail(event.target.value)}
+      />
+    </AuthForm>
   );
 }

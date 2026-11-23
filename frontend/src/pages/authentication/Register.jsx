@@ -1,9 +1,9 @@
-import { Box, Button, TextField, Typography } from '@mui/material';
+import { TextField } from '@mui/material';
 import { useState } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router';
-import AuthPageShell from '../../components/AuthPageShell';
+import { useNavigate } from 'react-router';
 import { register } from '../../services/authApiClient';
 import { formatAuthErrorMessage, persistAuthSession } from '../../services/authSession';
+import AuthForm, { AuthLink } from './AuthForm';
 
 export default function Register({ showSnackbar }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,56 +34,48 @@ export default function Register({ showSnackbar }) {
   };
 
   return (
-    <AuthPageShell title="Create account">
-      <Box
-        component="form"
-        sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
-        onSubmit={(event) => {
-          event.preventDefault();
-          handleRegister();
-        }}
-      >
-        <TextField
-          fullWidth
-          label="Email"
-          type="email"
-          autoComplete="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-        />
-        <TextField
-          fullWidth
-          label="Username (optional)"
-          autoComplete="username"
-          value={username}
-          onChange={(event) => setUsername(event.target.value)}
-        />
-        <TextField
-          fullWidth
-          label="Password"
-          type="password"
-          autoComplete="new-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-        <TextField
-          fullWidth
-          label="Confirm Password"
-          type="password"
-          autoComplete="new-password"
-          value={confirmPassword}
-          onChange={(event) => setConfirmPassword(event.target.value)}
-        />
-        <Button fullWidth type="submit" disabled={isSubmitting} variant="contained">
-          {isSubmitting ? 'Registering...' : 'Register'}
-        </Button>
-        <Typography variant="caption" sx={{ textAlign: 'center', color: 'var(--atlas-ink-muted)' }}>
-          Already have an account?{' '}
-          <Box component={RouterLink} className="auth-link" to="/login">
-            Sign in
-          </Box>
-        </Typography>
-      </Box>
-    </AuthPageShell>
+    <AuthForm
+      title="Create account"
+      onSubmit={handleRegister}
+      isSubmitting={isSubmitting}
+      submitLabel={isSubmitting ? 'Registering...' : 'Register'}
+      footer={
+        <>
+          Already have an account? <AuthLink to="/login">Sign in</AuthLink>
+        </>
+      }
+    >
+      <TextField
+        fullWidth
+        label="Email"
+        type="email"
+        autoComplete="email"
+        value={email}
+        onChange={(event) => setEmail(event.target.value)}
+      />
+      <TextField
+        fullWidth
+        label="Username (optional)"
+        autoComplete="username"
+        value={username}
+        onChange={(event) => setUsername(event.target.value)}
+      />
+      <TextField
+        fullWidth
+        label="Password"
+        type="password"
+        autoComplete="new-password"
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
+      />
+      <TextField
+        fullWidth
+        label="Confirm Password"
+        type="password"
+        autoComplete="new-password"
+        value={confirmPassword}
+        onChange={(event) => setConfirmPassword(event.target.value)}
+      />
+    </AuthForm>
   );
 }

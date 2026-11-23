@@ -1,10 +1,10 @@
 import { connectionReturnTo } from '../../services/authRedirect';
-import { Box, Button, TextField, Typography } from '@mui/material';
+import { TextField } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { Link as RouterLink, useLocation, useNavigate } from 'react-router';
-import AuthPageShell from '../../components/AuthPageShell';
+import { useLocation, useNavigate } from 'react-router';
 import { login } from '../../services/authApiClient';
 import { formatAuthErrorMessage, persistAuthSession } from '../../services/authSession';
+import AuthForm, { AuthLink } from './AuthForm';
 
 export default function Login({ showSnackbar }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,47 +46,37 @@ export default function Login({ showSnackbar }) {
   };
 
   return (
-    <AuthPageShell title="Login">
-      <Box
-        component="form"
-        autoComplete="on"
-        sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
-        onSubmit={(event) => {
-          event.preventDefault();
-          handleLogin();
-        }}
-      >
-        <TextField
-          fullWidth
-          label="Email"
-          type="email"
-          name="email"
-          autoComplete="username"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-        />
-        <TextField
-          fullWidth
-          label="Password"
-          type="password"
-          name="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-        <Button fullWidth type="submit" disabled={isSubmitting} variant="contained">
-          {isSubmitting ? 'Logging in...' : 'Login'}
-        </Button>
-        <Typography variant="caption" sx={{ textAlign: 'center', color: 'var(--atlas-ink-muted)' }}>
-          <Box component={RouterLink} className="auth-link" to="/forgot-password">
-            Forgot Password?
-          </Box>
+    <AuthForm
+      title="Login"
+      onSubmit={handleLogin}
+      isSubmitting={isSubmitting}
+      submitLabel={isSubmitting ? 'Logging in...' : 'Login'}
+      footer={
+        <>
+          <AuthLink to="/forgot-password">Forgot Password?</AuthLink>
           {' · '}
-          <Box component={RouterLink} className="auth-link" to="/register">
-            Create Account
-          </Box>
-        </Typography>
-      </Box>
-    </AuthPageShell>
+          <AuthLink to="/register">Create Account</AuthLink>
+        </>
+      }
+    >
+      <TextField
+        fullWidth
+        label="Email"
+        type="email"
+        name="email"
+        autoComplete="username"
+        value={email}
+        onChange={(event) => setEmail(event.target.value)}
+      />
+      <TextField
+        fullWidth
+        label="Password"
+        type="password"
+        name="password"
+        autoComplete="current-password"
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
+      />
+    </AuthForm>
   );
 }

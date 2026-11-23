@@ -1,6 +1,15 @@
-import { Box, Paper, Stack, Typography } from '@mui/material';
+import { Box, Button, Paper, Stack, Typography } from '@mui/material';
+import { Link as RouterLink } from 'react-router';
 
-export default function AuthPageShell({ children, title }) {
+export function AuthLink({ to, children }) {
+  return (
+    <Box component={RouterLink} className="auth-link" to={to}>
+      {children}
+    </Box>
+  );
+}
+
+export default function AuthForm({ title, onSubmit, isSubmitting, submitLabel, footer, children }) {
   return (
     <Stack
       className="atlas-contours"
@@ -47,7 +56,27 @@ export default function AuthPageShell({ children, title }) {
         <Typography sx={{ mb: 3, color: 'var(--atlas-ink-muted)' }}>
           Your private nutrition workspace is one step away.
         </Typography>
-        <Box>{children}</Box>
+        <Box
+          component="form"
+          aria-label={title}
+          autoComplete="on"
+          sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSubmit();
+          }}
+        >
+          {children}
+          <Button fullWidth type="submit" disabled={isSubmitting} variant="contained">
+            {submitLabel}
+          </Button>
+          <Typography
+            variant="caption"
+            sx={{ textAlign: 'center', color: 'var(--atlas-ink-muted)' }}
+          >
+            {footer}
+          </Typography>
+        </Box>
       </Paper>
     </Stack>
   );
