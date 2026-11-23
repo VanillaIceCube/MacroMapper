@@ -24,7 +24,7 @@ import {
   portionOptionLabel,
   selectedPortion,
   servingAmountValue,
-} from '../../domain/mealItem';
+} from '../../domain/meal-item';
 import { ItemNutritionCards } from '../nutrition/NutritionCards';
 
 const evidenceLabels = {

@@ -6,7 +6,7 @@ import {
   changeMealItemNutrient,
   changeMealItemPortion,
   changeMealItemServings,
-} from '../../domain/mealItem';
+} from '../../domain/meal-item';
 import MealItemEditorRow from './MealItemEditorRow';
 
 const apple = {

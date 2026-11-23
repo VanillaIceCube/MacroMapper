@@ -27,7 +27,7 @@ import {
 } from '@mui/material';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { deleteMeal, fetchDailyDiary } from '../services/mealApiClient';
-import { selectedPortion, servingAmountValue } from '../domain/mealItem';
+import { selectedPortion, servingAmountValue } from '../domain/meal-item';
 import CalorieContributionChart from '../components/nutrition/CalorieContributionChart';
 import MacroCalorieBar from '../components/nutrition/MacroCalorieBar';
 import MacroCalorieSplit from '../components/nutrition/MacroCalorieSplit';

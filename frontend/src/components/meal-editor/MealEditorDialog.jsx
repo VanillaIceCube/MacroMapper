@@ -36,7 +36,7 @@ import {
   proposalItemToMealItem,
   removeMealItemFromTree,
   savedMealItemToEditableMealItem,
-} from '../../domain/mealItem';
+} from '../../domain/meal-item';
 import { randomMealEstimateExample } from '../../mealEstimateExamples';
 import MealItemEditorRow from './MealItemEditorRow';
 import MealNutritionSummary from '../nutrition/MealNutritionSummary';

@@ -29,7 +29,7 @@ authentication, and the application shell.
 | --- | --- |
 | Routes and layout | [App](src/App.jsx) |
 | Header and notifications | [AppHeader](src/components/app-core/AppHeader.jsx), [NotificationsMenu](src/components/app-core/NotificationsMenu.jsx) |
-| Sign-in, registration, and password reset | [AuthForm and its pages](src/pages/authentication/) |
+| Sign-in, registration, and password reset | [AuthForm](src/components/app-core/AuthForm.jsx) and [route pages](src/pages/authentication/) |
 | Shared colors, typography, and component styles | [Theme](src/theme.js) |
 | Diary and daily totals | [DiaryPage](src/pages/DiaryPage.jsx) |
 | Meal drafts, estimates, and saving | [MealEditorDialog](src/components/meal-editor/MealEditorDialog.jsx) |
@@ -224,7 +224,7 @@ and session-lifecycle contract.
 
 ## 🧮 Domain architecture
 
-Components and pages import meal-item operations from `src/domain/mealItem` and
+Components and pages import meal-item operations from `src/domain/meal-item` and
 nutrition operations/definitions from `src/domain/nutrition`, using named imports
 relative to the consumer. Each package's `index.js` exposes its public API;
 consumers should not reach into `adapters`, `portions`, `tree`, `calculations`,
@@ -331,7 +331,7 @@ or medical interpretation.
 ### Nutrition surfaces
 
 - Import nutrient definitions and calculations from `src/domain/nutrition/` and
-  meal-item portions, adapters, and tree operations from `src/domain/mealItem/`.
+  meal-item portions, adapters, and tree operations from `src/domain/meal-item/`.
   Keep domain modules independent of React, Material UI, components, and pages.
 - Keep labels, semantic colors, gradients, and chart decoration in
   `components/nutrition/nutritionPresentation.js`. Share locale-aware number
@@ -375,7 +375,7 @@ app-specific domain and route expectations remain in their owning application.
 Direct shell and nutrition component tests cover accessible headings, keyboard
 form submission, known versus unavailable nutrient values, editable inputs and
 composite calorie-only editing. Meal-item adapter and tree tests own their focused
-cases; `domain/mealItem/index.test.js` retains cross-module public API workflows.
+cases; `domain/meal-item/index.test.js` retains cross-module public API workflows.
 
 The session store and hooks have direct race/reactivity coverage, with request-client
 and real application tests covering refresh, account changes and auth feedback.

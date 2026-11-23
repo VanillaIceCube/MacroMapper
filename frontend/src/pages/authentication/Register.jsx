@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router';
 import { register } from '../../services/authApiClient';
 import { formatAuthErrorMessage } from '../../services/authSession';
 import { startSession } from '../../services/sessionState';
-import AuthForm, { AuthLink } from './AuthForm';
+import AuthForm, { AuthLink } from '../../components/app-core/AuthForm';
 
 export default function Register({ showSnackbar }) {
   const [isSubmitting, setIsSubmitting] = useState(false);

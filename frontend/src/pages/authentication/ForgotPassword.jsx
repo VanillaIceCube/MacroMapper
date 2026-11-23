@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { forgotPassword } from '../../services/authApiClient';
 import { formatAuthErrorMessage } from '../../services/authSession';
-import AuthForm, { AuthLink } from './AuthForm';
+import AuthForm, { AuthLink } from '../../components/app-core/AuthForm';
 
 export default function ForgotPassword({ showSnackbar }) {
   const navigate = useNavigate();
