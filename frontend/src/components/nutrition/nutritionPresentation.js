@@ -8,7 +8,7 @@ const nutrientPresentation = {
     label: 'Calories',
     note: 'Total energy',
     color: 'var(--calorie-color)',
-    background: 'var(--atlas-paper)',
+    background: 'var(--surface-background)',
   },
   protein: {
     label: 'Protein',
@@ -31,22 +31,22 @@ const nutrientPresentation = {
   fiber: {
     label: 'Fiber',
     color: 'var(--fiber-color)',
-    background: 'var(--atlas-paper)',
+    background: 'var(--surface-background)',
   },
   sugar: {
     label: 'Sugar',
     color: 'var(--sugar-color)',
-    background: 'var(--atlas-paper)',
+    background: 'var(--surface-background)',
   },
   sodium: {
     label: 'Sodium',
     color: 'var(--sodium-color)',
-    background: 'var(--atlas-paper)',
+    background: 'var(--surface-background)',
   },
   cholesterol: {
     label: 'Cholesterol',
     color: 'var(--cholesterol-color)',
-    background: 'var(--atlas-paper)',
+    background: 'var(--surface-background)',
   },
 };
 
@@ -109,3 +109,22 @@ export function decorateCalorieContributions(contributions = []) {
     };
   });
 }
+
+export const foodProvenanceLabels = {
+  official: 'Official',
+  community_estimate: 'Community Estimate',
+  ai_estimate: 'AI Estimate',
+  user_modified_estimate: 'User Adjusted',
+  user_entered: 'User Entered',
+};
+
+export const foodEvidenceLabel = (item) =>
+  item.evidence?.status === 'legacy_unverified' && item.provenance === 'official'
+    ? 'Legacy official; evidence unrecorded'
+    : {
+        source_backed_ai_components: 'Official parent; AI components',
+        partially_source_backed: 'Partially source-backed estimate',
+        user_modified_estimate: 'User Adjusted',
+      }[item.evidence?.status] ||
+      foodProvenanceLabels[item.provenance] ||
+      'Unknown';

@@ -38,7 +38,7 @@ export function NutritionCards({
               p: compact ? 0.75 : 1,
               border: '1px solid var(--atlas-border)',
               borderTop: `${compact ? 2 : 3}px solid ${color}`,
-              bgcolor: 'var(--atlas-paper)',
+              bgcolor: 'var(--surface-background)',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'center',
@@ -46,7 +46,7 @@ export function NutritionCards({
           >
             <Typography
               variant={compact ? 'caption' : 'overline'}
-              sx={{ color: 'var(--atlas-ink-muted)', lineHeight: 1.1, fontWeight: 700 }}
+              sx={{ color: 'var(--muted-text)', lineHeight: 1.1, fontWeight: 700 }}
             >
               {label}
             </Typography>
@@ -93,7 +93,7 @@ export function NutritionCards({
                 <Typography variant={compact ? 'subtitle1' : 'h6'} noWrap sx={{ lineHeight: 1.15 }}>
                   {formatNutritionAmount(values[key])}
                 </Typography>
-                <Typography variant="caption" noWrap sx={{ color: 'var(--atlas-ink-muted)' }}>
+                <Typography variant="caption" noWrap sx={{ color: 'var(--muted-text)' }}>
                   {unit}
                 </Typography>
               </Stack>
@@ -101,7 +101,7 @@ export function NutritionCards({
             {!compact && (
               <Typography
                 variant="caption"
-                sx={{ color: 'var(--atlas-ink-muted)', display: 'block', mt: 0.15 }}
+                sx={{ color: 'var(--muted-text)', display: 'block', mt: 0.15 }}
               >
                 {note}
               </Typography>

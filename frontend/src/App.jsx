@@ -1,17 +1,17 @@
-import { getSessionVersion } from './services/sessionState';
-import useSession, { useSessionGuard } from './hooks/useSession';
-import RouteContent from './components/RouteContent';
+import { getSessionVersion } from './services/authentication/sessionState';
+import useSession, { useSessionGuard } from './hooks/authentication/useSession';
+import RouteContent from './components/app-core/RouteContent';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import { lazy, useCallback, useState } from 'react';
 import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router';
-import AppHeader from './components/AppHeader';
-import AppNavigationDrawer from './components/AppNavigationDrawer';
-import AppSnackbar from './components/AppSnackbar';
-import AuthenticatedRoute from './components/AuthenticatedRoute';
-import NavigationBridge from './components/NavigationBridge';
-import fieldAtlasTheme from './theme';
+import AppHeader from './components/app-core/AppHeader';
+import AppNavigationDrawer from './components/app-core/AppNavigationDrawer';
+import AppSnackbar from './components/app-core/AppSnackbar';
+import AuthenticatedRoute from './components/app-core/AuthenticatedRoute';
+import NavigationBridge from './components/app-core/NavigationBridge';
+import appTheme from './theme';
 
-const DiaryPage = lazy(() => import('./pages/DiaryPage'));
+const DiaryPage = lazy(() => import('./pages/diary/DiaryPage'));
 const ForgotPassword = lazy(() => import('./pages/authentication/ForgotPassword'));
 const Login = lazy(() => import('./pages/authentication/Login'));
 const Register = lazy(() => import('./pages/authentication/Register'));
@@ -20,10 +20,6 @@ const ConnectedApps = lazy(() => import('./pages/connections/Connections'));
 const OAuthConsent = lazy(() =>
   import('./pages/connections/Connections').then((module) => ({ default: module.OAuthConsent })),
 );
-
-function Protected({ children }) {
-  return <AuthenticatedRoute>{children}</AuthenticatedRoute>;
-}
 
 function ApplicationSession({ showSnackbar }) {
   const isCurrentSession = useSessionGuard();
@@ -45,17 +41,17 @@ function ApplicationSession({ showSnackbar }) {
               <Route
                 path="/connections/authorize"
                 element={
-                  <Protected>
+                  <AuthenticatedRoute>
                     <OAuthConsent />
-                  </Protected>
+                  </AuthenticatedRoute>
                 }
               />
               <Route
                 path="/connections"
                 element={
-                  <Protected>
+                  <AuthenticatedRoute>
                     <ConnectedApps />
-                  </Protected>
+                  </AuthenticatedRoute>
                 }
               />
             </>
@@ -67,17 +63,17 @@ function ApplicationSession({ showSnackbar }) {
           <Route
             path="/"
             element={
-              <Protected>
+              <AuthenticatedRoute>
                 <DiaryPage showSnackbar={showSessionSnackbar} />
-              </Protected>
+              </AuthenticatedRoute>
             }
           />
           <Route
             path="/diary"
             element={
-              <Protected>
+              <AuthenticatedRoute>
                 <DiaryPage showSnackbar={showSessionSnackbar} />
-              </Protected>
+              </AuthenticatedRoute>
             }
           />
           <Route path="*" element={<Navigate to="/" replace />} />
@@ -94,7 +90,7 @@ export default function App() {
     setSnackbar({ open: true, severity, message, version: getSessionVersion() });
   }, []);
   return (
-    <ThemeProvider theme={fieldAtlasTheme}>
+    <ThemeProvider theme={appTheme}>
       <CssBaseline />
       <Router basename={import.meta.env.BASE_URL}>
         <ApplicationSession key={version} showSnackbar={showSnackbar} />

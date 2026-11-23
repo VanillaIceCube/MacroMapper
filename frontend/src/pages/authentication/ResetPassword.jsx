@@ -1,15 +1,17 @@
-import { Box, Button, TextField, Typography } from '@mui/material';
+import { TextField } from '@mui/material';
 import { useMemo, useState } from 'react';
-import { Link as RouterLink, useLocation, useNavigate } from 'react-router';
-import AuthPageShell from '../../components/AuthPageShell';
-import { resetPassword } from '../../services/authApiClient';
-import { formatAuthErrorMessage, readOkJson } from '../../services/authSession';
+import { useLocation, useNavigate } from 'react-router';
+import { resetPassword } from '../../services/authentication/authApiClient';
+import { formatAuthErrorMessage } from '../../services/http/apiResponse';
+import { useSessionGuard } from '../../hooks/authentication/useSession';
+import AuthForm, { AuthLink } from '../../components/app-core/AuthForm';
 
 export default function ResetPassword({ showSnackbar }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const navigate = useNavigate();
+  const isCurrentSession = useSessionGuard({ trackLocation: true });
   const location = useLocation();
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const uid = params.get('uid') || '';
@@ -28,11 +30,12 @@ export default function ResetPassword({ showSnackbar }) {
 
     setIsSubmitting(true);
     try {
-      const response = await resetPassword({ uid, token, password });
-      const data = await readOkJson(response, 'Password reset failed.');
+      const data = await resetPassword({ uid, token, password });
+      if (!isCurrentSession()) return;
       showSnackbar('success', data?.message || 'Password reset successful.');
       navigate('/login');
     } catch (error) {
+      if (!isCurrentSession()) return;
       showSnackbar('error', formatAuthErrorMessage(error, 'Password reset failed.'));
     } finally {
       setIsSubmitting(false);
@@ -40,40 +43,29 @@ export default function ResetPassword({ showSnackbar }) {
   };
 
   return (
-    <AuthPageShell title="Choose a new password">
-      <Box
-        component="form"
-        sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
-        onSubmit={(event) => {
-          event.preventDefault();
-          handleSubmit();
-        }}
-      >
-        <TextField
-          fullWidth
-          label="New Password"
-          type="password"
-          autoComplete="new-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-        <TextField
-          fullWidth
-          label="Confirm Password"
-          type="password"
-          autoComplete="new-password"
-          value={confirmPassword}
-          onChange={(event) => setConfirmPassword(event.target.value)}
-        />
-        <Button fullWidth type="submit" disabled={isSubmitting} variant="contained">
-          {isSubmitting ? 'Resetting...' : 'Reset Password'}
-        </Button>
-        <Typography variant="caption" sx={{ textAlign: 'center', color: 'var(--atlas-ink-muted)' }}>
-          <Box component={RouterLink} className="auth-link" to="/login">
-            Back to Login
-          </Box>
-        </Typography>
-      </Box>
-    </AuthPageShell>
+    <AuthForm
+      title="Choose a new password"
+      onSubmit={handleSubmit}
+      isSubmitting={isSubmitting}
+      submitLabel={isSubmitting ? 'Resetting...' : 'Reset Password'}
+      footer={<AuthLink to="/login">Back to Login</AuthLink>}
+    >
+      <TextField
+        fullWidth
+        label="New Password"
+        type="password"
+        autoComplete="new-password"
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
+      />
+      <TextField
+        fullWidth
+        label="Confirm Password"
+        type="password"
+        autoComplete="new-password"
+        value={confirmPassword}
+        onChange={(event) => setConfirmPassword(event.target.value)}
+      />
+    </AuthForm>
   );
 }

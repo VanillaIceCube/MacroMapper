@@ -1,21 +1,18 @@
 import { Route, Routes } from 'react-router';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { forgotPassword } from '../../services/authApiClient';
+import { forgotPassword } from '../../services/authentication/authApiClient';
 import { renderWithProviders } from '../../test-helpers/utils';
 import ForgotPassword from './ForgotPassword';
 
-vi.mock('../../services/authApiClient', () => ({
+vi.mock('../../services/authentication/authApiClient', () => ({
   forgotPassword: vi.fn(),
 }));
 
 describe('ForgotPassword', () => {
   test('requests a password reset', async () => {
     const showSnackbar = vi.fn();
-    forgotPassword.mockResolvedValue({
-      ok: true,
-      json: async () => ({ message: 'Password reset link has been sent!' }),
-    });
+    forgotPassword.mockResolvedValue({ message: 'Password reset link has been sent!' });
     renderWithProviders(<ForgotPassword showSnackbar={showSnackbar} />, {
       routeEntries: ['/forgot-password'],
     });
@@ -31,10 +28,10 @@ describe('ForgotPassword', () => {
   test('blocks duplicate submissions and recovers after a validation failure', async () => {
     const showSnackbar = vi.fn();
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-    let resolveRequest;
+    let rejectRequest;
     forgotPassword.mockReturnValueOnce(
-      new Promise((resolve) => {
-        resolveRequest = resolve;
+      new Promise((_resolve, reject) => {
+        rejectRequest = reject;
       }),
     );
     renderWithProviders(<ForgotPassword showSnackbar={showSnackbar} />, {
@@ -46,11 +43,7 @@ describe('ForgotPassword', () => {
     expect(pendingButton).toBeDisabled();
     fireEvent.click(pendingButton);
     expect(forgotPassword).toHaveBeenCalledTimes(1);
-    resolveRequest({
-      ok: false,
-      status: 400,
-      json: async () => ({ password: ['Validation failed.'] }),
-    });
+    rejectRequest(new Error('Validation failed.'));
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Send Reset Link' })).toBeEnabled(),
     );

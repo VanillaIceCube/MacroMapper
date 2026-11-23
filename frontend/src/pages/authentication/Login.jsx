@@ -1,16 +1,19 @@
-import { connectionReturnTo } from '../../services/authRedirect';
-import { Box, Button, TextField, Typography } from '@mui/material';
+import { connectionReturnTo } from '../../services/authentication/authRedirect';
+import { TextField } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { Link as RouterLink, useLocation, useNavigate } from 'react-router';
-import AuthPageShell from '../../components/AuthPageShell';
-import { login } from '../../services/authApiClient';
-import { formatAuthErrorMessage, persistAuthSession, readOkJson } from '../../services/authSession';
+import { useLocation, useNavigate } from 'react-router';
+import { login } from '../../services/authentication/authApiClient';
+import { formatAuthErrorMessage } from '../../services/http/apiResponse';
+import { startSession } from '../../services/authentication/sessionState';
+import { useSessionGuard } from '../../hooks/authentication/useSession';
+import AuthForm, { AuthLink } from '../../components/app-core/AuthForm';
 
 export default function Login({ showSnackbar }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
+  const isCurrentSession = useSessionGuard({ trackLocation: true });
   const location = useLocation();
 
   useEffect(() => {
@@ -29,10 +32,12 @@ export default function Login({ showSnackbar }) {
   const handleLogin = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
+    let acceptedResponse = false;
     try {
-      const response = await login({ email, password });
-      const data = await readOkJson(response, 'Login failed.');
-      persistAuthSession(data);
+      const data = await login({ email, password });
+      if (!isCurrentSession()) return;
+      acceptedResponse = true;
+      startSession(data);
       showSnackbar('success', `Welcome ${data.username || email.split('@')[0] || 'there'}!`);
       const next =
         import.meta.env.VITE_MCP_ENABLED === '1'
@@ -40,6 +45,8 @@ export default function Login({ showSnackbar }) {
           : null;
       navigate(next || '/');
     } catch (error) {
+      // A session storage failure can also advance the session version.
+      if (!acceptedResponse && !isCurrentSession()) return;
       showSnackbar('error', formatAuthErrorMessage(error, 'Login failed.'));
     } finally {
       setIsSubmitting(false);
@@ -47,47 +54,37 @@ export default function Login({ showSnackbar }) {
   };
 
   return (
-    <AuthPageShell title="Login">
-      <Box
-        component="form"
-        autoComplete="on"
-        sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
-        onSubmit={(event) => {
-          event.preventDefault();
-          handleLogin();
-        }}
-      >
-        <TextField
-          fullWidth
-          label="Email"
-          type="email"
-          name="email"
-          autoComplete="username"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-        />
-        <TextField
-          fullWidth
-          label="Password"
-          type="password"
-          name="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-        <Button fullWidth type="submit" disabled={isSubmitting} variant="contained">
-          {isSubmitting ? 'Logging in...' : 'Login'}
-        </Button>
-        <Typography variant="caption" sx={{ textAlign: 'center', color: 'var(--atlas-ink-muted)' }}>
-          <Box component={RouterLink} className="auth-link" to="/forgot-password">
-            Forgot Password?
-          </Box>
+    <AuthForm
+      title="Login"
+      onSubmit={handleLogin}
+      isSubmitting={isSubmitting}
+      submitLabel={isSubmitting ? 'Logging in...' : 'Login'}
+      footer={
+        <>
+          <AuthLink to="/forgot-password">Forgot Password?</AuthLink>
           {' · '}
-          <Box component={RouterLink} className="auth-link" to="/register">
-            Create Account
-          </Box>
-        </Typography>
-      </Box>
-    </AuthPageShell>
+          <AuthLink to="/register">Create Account</AuthLink>
+        </>
+      }
+    >
+      <TextField
+        fullWidth
+        label="Email"
+        type="email"
+        name="email"
+        autoComplete="username"
+        value={email}
+        onChange={(event) => setEmail(event.target.value)}
+      />
+      <TextField
+        fullWidth
+        label="Password"
+        type="password"
+        name="password"
+        autoComplete="current-password"
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
+      />
+    </AuthForm>
   );
 }
