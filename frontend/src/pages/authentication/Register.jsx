@@ -2,7 +2,8 @@ import { TextField } from '@mui/material';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { register } from '../../services/authApiClient';
-import { formatAuthErrorMessage, persistAuthSession } from '../../services/authSession';
+import { formatAuthErrorMessage } from '../../services/authSession';
+import { startSession } from '../../services/sessionState';
 import AuthForm, { AuthLink } from './AuthForm';
 
 export default function Register({ showSnackbar }) {
@@ -23,7 +24,7 @@ export default function Register({ showSnackbar }) {
     setIsSubmitting(true);
     try {
       const data = await register({ email, username, password });
-      persistAuthSession(data);
+      startSession(data);
       showSnackbar('success', 'Account created! Welcome to MacroMapper!');
       navigate('/');
     } catch (error) {

@@ -3,7 +3,8 @@ import { TextField } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { login } from '../../services/authApiClient';
-import { formatAuthErrorMessage, persistAuthSession } from '../../services/authSession';
+import { formatAuthErrorMessage } from '../../services/authSession';
+import { startSession } from '../../services/sessionState';
 import AuthForm, { AuthLink } from './AuthForm';
 
 export default function Login({ showSnackbar }) {
@@ -31,7 +32,7 @@ export default function Login({ showSnackbar }) {
     setIsSubmitting(true);
     try {
       const data = await login({ email, password });
-      persistAuthSession(data);
+      startSession(data);
       showSnackbar('success', `Welcome ${data.username || email.split('@')[0] || 'there'}!`);
       const next =
         import.meta.env.VITE_MCP_ENABLED === '1'
