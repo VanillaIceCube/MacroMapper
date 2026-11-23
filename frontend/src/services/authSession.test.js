@@ -1,6 +1,7 @@
 import {
   formatAuthErrorMessage,
   getResponseErrorMessage,
+  isAuthNetworkError,
   persistAuthSession,
   readOkJson,
   safeReadJson,
@@ -11,6 +12,19 @@ function makeResponse({ ok, status = 200, json }) {
 }
 
 describe('authSession', () => {
+  test('recognizes browser network failures by type or message', () => {
+    expect(isAuthNetworkError(new TypeError('Failed to fetch'))).toBe(true);
+    expect(isAuthNetworkError(new Error('NetworkError when attempting to fetch resource.'))).toBe(
+      true,
+    );
+  });
+
+  test('distinguishes validation errors and values without a string message', () => {
+    expect(isAuthNetworkError(new Error('Invalid email or password.'))).toBe(false);
+    expect(isAuthNetworkError({ message: 400 })).toBe(false);
+    expect(isAuthNetworkError(null)).toBe(false);
+  });
+
   test('handles non_field_errors and field array errors', async () => {
     const nonField = makeResponse({
       ok: false,
