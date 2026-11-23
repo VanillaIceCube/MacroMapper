@@ -1,21 +1,18 @@
 import { Route, Routes } from 'react-router';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { resetPassword } from '../../services/authApiClient';
+import { resetPassword } from '../../services/authentication/authApiClient';
 import { renderWithProviders } from '../../test-helpers/utils';
 import ResetPassword from './ResetPassword';
 
-vi.mock('../../services/authApiClient', () => ({
+vi.mock('../../services/authentication/authApiClient', () => ({
   resetPassword: vi.fn(),
 }));
 
 describe('ResetPassword', () => {
   test('submits a valid reset link and matching passwords', async () => {
     const showSnackbar = vi.fn();
-    resetPassword.mockResolvedValue({
-      ok: true,
-      json: async () => ({ message: 'Password reset successful.' }),
-    });
+    resetPassword.mockResolvedValue({ message: 'Password reset successful.' });
     renderWithProviders(<ResetPassword showSnackbar={showSnackbar} />, {
       routeEntries: ['/reset-password?uid=user-id&token=reset-token'],
     });
@@ -51,10 +48,10 @@ describe('ResetPassword', () => {
   test('blocks duplicate submissions and recovers after a validation failure', async () => {
     const showSnackbar = vi.fn();
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-    let resolveRequest;
+    let rejectRequest;
     resetPassword.mockReturnValueOnce(
-      new Promise((resolve) => {
-        resolveRequest = resolve;
+      new Promise((_resolve, reject) => {
+        rejectRequest = reject;
       }),
     );
     renderWithProviders(<ResetPassword showSnackbar={showSnackbar} />, {
@@ -69,11 +66,7 @@ describe('ResetPassword', () => {
     expect(pendingButton).toBeDisabled();
     fireEvent.click(pendingButton);
     expect(resetPassword).toHaveBeenCalledTimes(1);
-    resolveRequest({
-      ok: false,
-      status: 400,
-      json: async () => ({ password: ['Validation failed.'] }),
-    });
+    rejectRequest(new Error('Validation failed.'));
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Reset Password' })).toBeEnabled(),
     );

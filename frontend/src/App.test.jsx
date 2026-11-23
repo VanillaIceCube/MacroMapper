@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from './App';
 
@@ -107,6 +107,80 @@ describe('real session route lifecycle', () => {
     vi.restoreAllMocks();
   });
 
+  async function submitPendingAuthRequest(page) {
+    const pending = Promise.withResolvers();
+    const defaultFetch = fetch.getMockImplementation();
+    fetch.mockImplementation((url, options) =>
+      url.endsWith('/auth/' + page + '/') ? pending.promise : defaultFetch(url, options),
+    );
+    const query = page === 'reset-password' ? '?uid=user&token=reset' : '';
+    window.history.replaceState({}, '', '/' + page + query);
+    render(<SessionApp />);
+    const form = await screen.findByRole('form');
+    for (const label of ['Email', 'Password', 'Confirm Password', 'New Password']) {
+      const input = screen.queryByLabelText(label, { exact: true });
+      if (input)
+        fireEvent.change(input, {
+          target: { value: label === 'Email' ? credentials.email : 'password123' },
+        });
+    }
+    fireEvent.submit(form);
+    expect(fetch.mock.calls.some(([url]) => url.endsWith('/auth/' + page + '/'))).toBe(true);
+    return pending;
+  }
+
+  describe.each(['login', 'register', 'forgot-password', 'reset-password'])(
+    '%s request lifecycle',
+    (page) => {
+      test.each(['success', 'failure'])(
+        'ignores a late %s after leaving the form',
+        async (outcome) => {
+          const pending = await submitPendingAuthRequest(page);
+          const destination = page === 'login' ? '/register' : '/login';
+          await userEvent.click(
+            screen.getByRole('link', {
+              name: page === 'login' ? /create account/i : /sign in|login|log in/i,
+            }),
+          );
+          expect(window.location.pathname).toBe(destination);
+          await act(async () => {
+            if (outcome === 'success') pending.resolve(reply(credentials));
+            else pending.reject(new Error('Abandoned request'));
+          });
+          expect(window.location.pathname).toBe(destination);
+          expect(sessionStorage.getItem('accessToken')).toBeNull();
+          expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+        },
+      );
+    },
+  );
+
+  test('a late login response cannot replace the new account', async () => {
+    const pending = await submitPendingAuthRequest('login');
+    const { startSession } = await import('./services/authentication/sessionState');
+    act(() => startSession({ access: 'new-access', refresh: 'new-refresh' }));
+    await act(async () => pending.resolve(reply(credentials)));
+    expect(sessionStorage.getItem('accessToken')).toBe('new-access');
+    expect(window.location.pathname).toBe('/login');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  test.each(['login', 'register'])(
+    '%s reports a current request’s storage failure',
+    async (page) => {
+      const pending = await submitPendingAuthRequest(page);
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new Error('Storage unavailable');
+      });
+      await act(async () => pending.resolve(reply(credentials)));
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Unable to access browser session storage.',
+      );
+      expect(sessionStorage.getItem('accessToken')).toBeNull();
+      expect(window.location.pathname).toBe('/' + page);
+    },
+  );
+
   test.each(['login', 'register'])(
     'keeps the real %s success message across the session transition',
     async (page) => {
@@ -135,7 +209,7 @@ describe('real session route lifecycle', () => {
   );
 
   test('shows the queued logout message after the session shell and lazy Login change', async () => {
-    const { startSession } = await import('./services/sessionState');
+    const { startSession } = await import('./services/authentication/sessionState');
     startSession(credentials);
     window.history.replaceState({}, '', '/');
     render(<SessionApp />);
@@ -152,10 +226,23 @@ describe('real session route lifecycle', () => {
     window.history.replaceState({}, '', '/');
     render(<SessionApp />);
     expect(await screen.findByLabelText('user profile')).toBeVisible();
-    const { apiFetch } = await import('./services/requestClient');
+    const { apiFetch } = await import('./services/http/requestClient');
     await act(() => apiFetch('/api/expired/'));
     expect(await screen.findByRole('heading', { name: 'Login' })).toBeVisible();
     expect(await screen.findByText('Your session expired. Please log in again.')).toBeVisible();
+  });
+
+  test('disabled MCP redirects old connection links without fetching consent', async () => {
+    vi.stubEnv('VITE_MCP_ENABLED', '0');
+    window.history.replaceState({}, '', '/connections/authorize?client_id=reader');
+    render(<SessionApp />);
+    expect(await screen.findByRole('heading', { name: 'Login' })).toBeVisible();
+    expect(screen.queryByText('Connect this application')).not.toBeInTheDocument();
+    expect(fetch.mock.calls.some(([url]) => url.includes('/auth/mcp/'))).toBe(false);
+    expect(window.location.pathname).toBe('/login');
+    expect(new URLSearchParams(window.location.search).get('next') || '').not.toContain(
+      '/connections',
+    );
   });
 
   test('retains the complete consent query through lazy login and account publication', async () => {
@@ -173,7 +260,7 @@ describe('real session route lifecycle', () => {
   });
 
   test('account replacement closes account menus and presents only the current profile', async () => {
-    const { startSession } = await import('./services/sessionState');
+    const { startSession } = await import('./services/authentication/sessionState');
     startSession(credentials);
     window.history.replaceState({}, '', '/');
     render(<SessionApp />);

@@ -1,10 +1,10 @@
 import { alpha, createTheme } from '@mui/material/styles';
 
-const fieldAtlasTokens = {
-  bone: '#F6F1E7',
-  paper: '#FFFDF8',
-  ink: '#17324D',
-  inkMuted: '#52687A',
+const themeTokens = {
+  pageBackground: '#F6F1E7',
+  surfaceBackground: '#FFFDF8',
+  surfaceText: '#17324D',
+  mutedText: '#52687A',
   forest: '#2E6B4F',
   forestDark: '#23513C',
   forestSoft: '#E4EFE8',
@@ -27,36 +27,36 @@ const fieldAtlasTokens = {
 const headingFont = '"Newsreader", "Source Serif 4", Georgia, serif';
 const utilityFont = '"Inter", "Segoe UI", Arial, sans-serif';
 
-const fieldAtlasTheme = createTheme({
+const appTheme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: fieldAtlasTokens.forest,
-      dark: fieldAtlasTokens.forestDark,
+      main: themeTokens.forest,
+      dark: themeTokens.forestDark,
       contrastText: '#FFFFFF',
     },
     secondary: {
-      main: fieldAtlasTokens.persimmon,
-      dark: fieldAtlasTokens.persimmonDark,
+      main: themeTokens.persimmon,
+      dark: themeTokens.persimmonDark,
       contrastText: '#FFFFFF',
     },
     info: {
-      main: fieldAtlasTokens.mineralDark,
-      light: fieldAtlasTokens.mineral,
+      main: themeTokens.mineralDark,
+      light: themeTokens.mineral,
       contrastText: '#FFFFFF',
     },
     background: {
-      default: fieldAtlasTokens.bone,
-      paper: fieldAtlasTokens.paper,
+      default: themeTokens.pageBackground,
+      paper: themeTokens.surfaceBackground,
     },
     text: {
-      primary: fieldAtlasTokens.ink,
-      secondary: fieldAtlasTokens.inkMuted,
+      primary: themeTokens.surfaceText,
+      secondary: themeTokens.mutedText,
     },
-    divider: alpha(fieldAtlasTokens.ink, 0.18),
+    divider: alpha(themeTokens.surfaceText, 0.18),
   },
   shape: {
-    borderRadius: fieldAtlasTokens.radiusSurface,
+    borderRadius: themeTokens.radiusSurface,
   },
   typography: {
     fontFamily: utilityFont,
@@ -74,62 +74,59 @@ const fieldAtlasTheme = createTheme({
       styleOverrides: {
         // The theme is the source for both MUI defaults and existing CSS consumers.
         ':root': {
-          '--atlas-bone': fieldAtlasTokens.bone,
-          '--atlas-paper': fieldAtlasTokens.paper,
-          '--atlas-ink': fieldAtlasTokens.ink,
-          '--atlas-ink-muted': fieldAtlasTokens.inkMuted,
-          '--atlas-forest': fieldAtlasTokens.forest,
-          '--atlas-forest-dark': fieldAtlasTokens.forestDark,
-          '--atlas-forest-soft': fieldAtlasTokens.forestSoft,
-          '--atlas-persimmon': fieldAtlasTokens.persimmon,
-          '--atlas-persimmon-dark': fieldAtlasTokens.persimmonDark,
-          '--atlas-persimmon-soft': fieldAtlasTokens.persimmonSoft,
-          '--atlas-mineral': fieldAtlasTokens.mineral,
-          '--atlas-mineral-dark': fieldAtlasTokens.mineralDark,
-          '--atlas-mineral-soft': fieldAtlasTokens.mineralSoft,
-          '--atlas-border': alpha(fieldAtlasTokens.ink, 0.18),
-          '--atlas-border-strong': alpha(fieldAtlasTokens.ink, 0.38),
-          '--atlas-radius-compact': `${fieldAtlasTokens.radiusCompact}px`,
-          '--atlas-radius-surface': `${fieldAtlasTokens.radiusSurface}px`,
-          '--atlas-radius-prominent': `${fieldAtlasTokens.radiusProminent}px`,
-          '--atlas-radius-pill': `${fieldAtlasTokens.radiusPill}px`,
-          '--atlas-contour-ink': alpha(fieldAtlasTokens.ink, 0.045),
-          '--atlas-contour-ink-soft': alpha(fieldAtlasTokens.ink, 0.035),
-          '--atlas-contour-forest': alpha(fieldAtlasTokens.forest, 0.045),
-          '--atlas-contour-forest-soft': alpha(fieldAtlasTokens.forest, 0.035),
-          '--atlas-link-underline': alpha(fieldAtlasTokens.forestDark, 0.45),
-          '--atlas-link-focus': alpha(fieldAtlasTokens.persimmon, 0.35),
-          '--calorie-color': 'var(--atlas-ink)',
+          '--page-background': themeTokens.pageBackground,
+          '--surface-background': themeTokens.surfaceBackground,
+          '--surface-text': themeTokens.surfaceText,
+          '--page-text': themeTokens.surfaceText,
+          '--muted-text': themeTokens.mutedText,
+          '--atlas-forest': themeTokens.forest,
+          '--atlas-forest-dark': themeTokens.forestDark,
+          '--atlas-forest-soft': themeTokens.forestSoft,
+          '--atlas-persimmon': themeTokens.persimmon,
+          '--atlas-persimmon-dark': themeTokens.persimmonDark,
+          '--atlas-persimmon-soft': themeTokens.persimmonSoft,
+          '--atlas-mineral': themeTokens.mineral,
+          '--atlas-mineral-dark': themeTokens.mineralDark,
+          '--atlas-mineral-soft': themeTokens.mineralSoft,
+          '--atlas-border': alpha(themeTokens.surfaceText, 0.18),
+          '--atlas-border-strong': alpha(themeTokens.surfaceText, 0.38),
+          '--atlas-radius-compact': `${themeTokens.radiusCompact}px`,
+          '--atlas-radius-surface': `${themeTokens.radiusSurface}px`,
+          '--atlas-radius-prominent': `${themeTokens.radiusProminent}px`,
+          '--atlas-radius-pill': `${themeTokens.radiusPill}px`,
+          '--atlas-contour-ink': alpha(themeTokens.surfaceText, 0.045),
+          '--atlas-contour-ink-soft': alpha(themeTokens.surfaceText, 0.035),
+          '--atlas-contour-forest': alpha(themeTokens.forest, 0.045),
+          '--atlas-contour-forest-soft': alpha(themeTokens.forest, 0.035),
+          '--atlas-link-underline': alpha(themeTokens.forestDark, 0.45),
+          '--atlas-link-focus': alpha(themeTokens.persimmon, 0.35),
+          '--calorie-color': 'var(--surface-text)',
           '--protein-color': 'var(--atlas-forest)',
           '--carbohydrate-color': 'var(--atlas-mineral-dark)',
           '--fat-color': 'var(--atlas-persimmon)',
-          '--fiber-color': fieldAtlasTokens.fiber,
-          '--sugar-color': fieldAtlasTokens.sugar,
-          '--sodium-color': fieldAtlasTokens.sodium,
-          '--cholesterol-color': fieldAtlasTokens.cholesterol,
-          '--background-color': 'var(--atlas-bone)',
-          '--secondary-background-color': 'var(--atlas-paper)',
-          '--secondary-color': 'var(--atlas-ink)',
-          '--text-color': 'var(--atlas-ink)',
+          '--fiber-color': themeTokens.fiber,
+          '--sugar-color': themeTokens.sugar,
+          '--sodium-color': themeTokens.sodium,
+          '--cholesterol-color': themeTokens.cholesterol,
         },
         body: {
           minWidth: 320,
-          backgroundColor: fieldAtlasTokens.bone,
-          color: fieldAtlasTokens.ink,
+          backgroundColor: themeTokens.pageBackground,
+          color: themeTokens.surfaceText,
         },
         '::selection': {
-          backgroundColor: fieldAtlasTokens.mineral,
-          color: fieldAtlasTokens.ink,
+          backgroundColor: themeTokens.mineral,
+          color: themeTokens.surfaceText,
         },
       },
     },
     MuiAppBar: {
       styleOverrides: {
         root: {
-          color: fieldAtlasTokens.ink,
-          background: alpha(fieldAtlasTokens.paper, 0.96),
+          color: themeTokens.surfaceText,
+          background: alpha(themeTokens.surfaceBackground, 0.96),
           boxShadow: 'none',
-          borderBottom: `1px solid ${alpha(fieldAtlasTokens.ink, 0.18)}`,
+          borderBottom: `1px solid ${alpha(themeTokens.surfaceText, 0.18)}`,
           backdropFilter: 'blur(12px)',
         },
       },
@@ -143,7 +140,7 @@ const fieldAtlasTheme = createTheme({
           paddingInline: 20,
         },
         containedPrimary: {
-          '&:hover': { backgroundColor: fieldAtlasTokens.forestDark },
+          '&:hover': { backgroundColor: themeTokens.forestDark },
         },
       },
     },
@@ -153,7 +150,7 @@ const fieldAtlasTheme = createTheme({
           minWidth: 44,
           minHeight: 44,
           '&:focus-visible': {
-            outline: `3px solid ${alpha(fieldAtlasTokens.persimmon, 0.45)}`,
+            outline: `3px solid ${alpha(themeTokens.persimmon, 0.45)}`,
             outlineOffset: 2,
           },
         },
@@ -170,10 +167,10 @@ const fieldAtlasTheme = createTheme({
       styleOverrides: {
         root: {
           backgroundColor: '#FFFFFF',
-          '& fieldset': { borderColor: alpha(fieldAtlasTokens.ink, 0.32) },
-          '&:hover fieldset': { borderColor: fieldAtlasTokens.inkMuted },
+          '& fieldset': { borderColor: alpha(themeTokens.surfaceText, 0.32) },
+          '&:hover fieldset': { borderColor: themeTokens.mutedText },
           '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-            borderColor: fieldAtlasTokens.forest,
+            borderColor: themeTokens.forest,
             borderWidth: 2,
           },
         },
@@ -182,16 +179,16 @@ const fieldAtlasTheme = createTheme({
     MuiInputLabel: {
       styleOverrides: {
         root: {
-          color: fieldAtlasTokens.inkMuted,
-          '&.Mui-focused': { color: fieldAtlasTokens.forestDark },
+          color: themeTokens.mutedText,
+          '&.Mui-focused': { color: themeTokens.forestDark },
         },
       },
     },
     MuiInput: {
-      styleOverrides: { underline: { '&:after': { borderBottomColor: fieldAtlasTokens.forest } } },
+      styleOverrides: { underline: { '&:after': { borderBottomColor: themeTokens.forest } } },
     },
     MuiFilledInput: {
-      styleOverrides: { underline: { '&:after': { borderBottomColor: fieldAtlasTokens.forest } } },
+      styleOverrides: { underline: { '&:after': { borderBottomColor: themeTokens.forest } } },
     },
     MuiChip: {
       styleOverrides: {
@@ -201,9 +198,9 @@ const fieldAtlasTheme = createTheme({
     MuiAlert: {
       styleOverrides: {
         root: {
-          border: `1px solid ${alpha(fieldAtlasTokens.ink, 0.18)}`,
+          border: `1px solid ${alpha(themeTokens.surfaceText, 0.18)}`,
           borderRadius: 'var(--atlas-radius-surface)',
-          color: fieldAtlasTokens.ink,
+          color: themeTokens.surfaceText,
         },
         standardSuccess: { backgroundColor: '#E8F2EC' },
         standardInfo: { backgroundColor: '#E6F0F3' },
@@ -214,7 +211,7 @@ const fieldAtlasTheme = createTheme({
     MuiLink: {
       styleOverrides: {
         root: {
-          color: fieldAtlasTokens.forestDark,
+          color: themeTokens.forestDark,
           fontWeight: 700,
         },
       },
@@ -222,4 +219,4 @@ const fieldAtlasTheme = createTheme({
   },
 });
 
-export default fieldAtlasTheme;
+export default appTheme;

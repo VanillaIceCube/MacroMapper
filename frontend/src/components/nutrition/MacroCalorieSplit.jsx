@@ -24,7 +24,7 @@ export default function MacroCalorieSplit({
         p: 1,
         border: '1px solid var(--atlas-border)',
         borderRadius: 'var(--atlas-radius-surface)',
-        bgcolor: 'var(--atlas-paper)',
+        bgcolor: 'var(--surface-background)',
         display: 'flex',
         flexDirection: 'column',
       }}
@@ -93,7 +93,7 @@ export default function MacroCalorieSplit({
                 position: 'absolute',
                 inset: dashboard || mealCard ? '21%' : '15%',
                 borderRadius: '50%',
-                bgcolor: 'var(--atlas-paper)',
+                bgcolor: 'var(--surface-background)',
               },
             }}
           >
@@ -105,7 +105,7 @@ export default function MacroCalorieSplit({
               >
                 {formatWholeNutritionAmount(values.calories)}
               </Typography>
-              <Typography variant="caption" sx={{ color: 'var(--atlas-ink-muted)' }}>
+              <Typography variant="caption" sx={{ color: 'var(--muted-text)' }}>
                 kcal
               </Typography>
             </Box>

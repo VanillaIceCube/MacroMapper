@@ -18,7 +18,11 @@ export default function MealNutritionSummary({ items }) {
       component="section"
       aria-label="Meal macro breakdown"
       elevation={0}
-      sx={{ p: 1.25, border: '1px solid var(--atlas-border-strong)', bgcolor: 'var(--atlas-bone)' }}
+      sx={{
+        p: 1.25,
+        border: '1px solid var(--atlas-border-strong)',
+        bgcolor: 'var(--page-background)',
+      }}
     >
       <Stack
         direction="row"
@@ -32,7 +36,7 @@ export default function MealNutritionSummary({ items }) {
           <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
             Meal Nutritional Summary
           </Typography>
-          <Typography variant="body2" sx={{ color: 'var(--atlas-ink-muted)' }}>
+          <Typography variant="body2" sx={{ color: 'var(--muted-text)' }}>
             Your meal’s nutrition, mapped at a glance.
           </Typography>
         </Box>
@@ -47,7 +51,7 @@ export default function MealNutritionSummary({ items }) {
             <Chip
               size="small"
               label={`${formatNutritionAmount(values.calories)} kcal`}
-              sx={{ fontWeight: 800, bgcolor: 'var(--atlas-paper)' }}
+              sx={{ fontWeight: 800, bgcolor: 'var(--surface-background)' }}
             />
           )}
           <IconButton

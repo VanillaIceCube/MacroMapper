@@ -1,12 +1,14 @@
-import { Box, Button, TextField, Typography } from '@mui/material';
+import { TextField } from '@mui/material';
 import { useState } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router';
-import AuthPageShell from '../../components/AuthPageShell';
-import { forgotPassword } from '../../services/authApiClient';
-import { formatAuthErrorMessage, readOkJson } from '../../services/authSession';
+import { useNavigate } from 'react-router';
+import { forgotPassword } from '../../services/authentication/authApiClient';
+import { formatAuthErrorMessage } from '../../services/http/apiResponse';
+import { useSessionGuard } from '../../hooks/authentication/useSession';
+import AuthForm, { AuthLink } from '../../components/app-core/AuthForm';
 
 export default function ForgotPassword({ showSnackbar }) {
   const navigate = useNavigate();
+  const isCurrentSession = useSessionGuard({ trackLocation: true });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [email, setEmail] = useState('');
 
@@ -14,14 +16,15 @@ export default function ForgotPassword({ showSnackbar }) {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      const response = await forgotPassword({ email });
-      const data = await readOkJson(response, 'Password reset request failed.');
+      const data = await forgotPassword({ email });
+      if (!isCurrentSession()) return;
       showSnackbar(
         'success',
         data?.message || 'If that account exists, we sent a password reset link.',
       );
       navigate('/login');
     } catch (error) {
+      if (!isCurrentSession()) return;
       showSnackbar('error', formatAuthErrorMessage(error, 'Password reset request failed.'));
     } finally {
       setIsSubmitting(false);
@@ -29,33 +32,22 @@ export default function ForgotPassword({ showSnackbar }) {
   };
 
   return (
-    <AuthPageShell title="Reset your password">
-      <Box
-        component="form"
-        sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
-        onSubmit={(event) => {
-          event.preventDefault();
-          handleSubmit();
-        }}
-      >
-        <TextField
-          fullWidth
-          label="Email"
-          type="email"
-          name="email"
-          autoComplete="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-        />
-        <Button fullWidth type="submit" disabled={isSubmitting} variant="contained">
-          {isSubmitting ? 'Sending...' : 'Send Reset Link'}
-        </Button>
-        <Typography variant="caption" sx={{ textAlign: 'center', color: 'var(--atlas-ink-muted)' }}>
-          <Box component={RouterLink} className="auth-link" to="/login">
-            Back to Login
-          </Box>
-        </Typography>
-      </Box>
-    </AuthPageShell>
+    <AuthForm
+      title="Reset your password"
+      onSubmit={handleSubmit}
+      isSubmitting={isSubmitting}
+      submitLabel={isSubmitting ? 'Sending...' : 'Send Reset Link'}
+      footer={<AuthLink to="/login">Back to Login</AuthLink>}
+    >
+      <TextField
+        fullWidth
+        label="Email"
+        type="email"
+        name="email"
+        autoComplete="email"
+        value={email}
+        onChange={(event) => setEmail(event.target.value)}
+      />
+    </AuthForm>
   );
 }

@@ -1,6 +1,6 @@
 import { act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import fieldAtlasTheme from './theme';
+import appTheme from './theme';
 
 const { roots } = vi.hoisted(() => ({ roots: [] }));
 
@@ -63,19 +63,26 @@ describe('application startup', () => {
 
     const app = within(container);
     expect(await app.findByRole('heading', { name: 'Login' })).toBeVisible();
+    const rootStyle = getComputedStyle(document.documentElement);
+    expect(rootStyle.getPropertyValue('--page-background').trim()).toBe(
+      appTheme.palette.background.default,
+    );
+    expect(rootStyle.getPropertyValue('--surface-background').trim()).toBe(
+      appTheme.palette.background.paper,
+    );
     const email = app.getByRole('textbox', { name: 'Email' });
     await userEvent.setup().type(email, 'reader@example.com');
     expect(email).toHaveFocus();
     expect(email).toHaveValue('reader@example.com');
     expect(app.getByText('Email', { selector: 'label' })).toHaveStyle({
-      color: fieldAtlasTheme.palette.primary.dark,
+      color: appTheme.palette.primary.dark,
     });
     expect(app.getByRole('heading', { name: 'MacroMapper' })).toHaveStyle({
-      color: fieldAtlasTheme.palette.text.primary,
+      color: appTheme.palette.text.primary,
     });
     expect(document.body).toHaveStyle({
-      backgroundColor: fieldAtlasTheme.palette.background.default,
-      color: fieldAtlasTheme.palette.text.primary,
+      backgroundColor: appTheme.palette.background.default,
+      color: appTheme.palette.text.primary,
       boxSizing: 'border-box',
     });
     expect(getComputedStyle(document.body).fontFamily).toContain('Inter');
