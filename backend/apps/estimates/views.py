@@ -11,14 +11,17 @@ from .provider import EstimationProviderError, get_estimation_provider
 from .serializers import (
     MapYourMealAdjustmentSerializer,
     MealProposalFollowUpSerializer,
+    MealProposalOutcomeSerializer,
     MealProposalSerializer,
 )
 from .services import (
     accept_reviewed_proposal,
+    adjust_meal,
     delete_proposal,
+    estimate_proposal,
     follow_up_proposal,
-    process_meal_adjustment,
     proposals_for,
+    update_proposal,
 )
 
 PROVIDER_UNAVAILABLE_DETAIL = (
@@ -36,13 +39,27 @@ class MealProposalViewSet(viewsets.ModelViewSet):
         return proposals_for(self.request.user)
 
     def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         try:
-            return super().create(request, *args, **kwargs)
+            proposal = estimate_proposal(request.user, serializer.validated_data)
         except EstimationProviderError:
             return Response(
                 {"detail": PROVIDER_UNAVAILABLE_DETAIL},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
+
+        response_data = self.get_serializer(proposal).data
+        return Response(
+            response_data,
+            status=status.HTTP_201_CREATED,
+            headers=self.get_success_headers(response_data),
+        )
+
+    def perform_update(self, serializer):
+        serializer.instance = update_proposal(
+            self.request.user, serializer.instance, serializer.validated_data
+        )
 
     def perform_destroy(self, instance):
         delete_proposal(self.request.user, instance)
@@ -82,17 +99,11 @@ class MealProposalViewSet(viewsets.ModelViewSet):
         except DjangoValidationError as error:
             raise ValidationError(error.messages) from error
 
-        updated_proposal = outcome["proposal"]
-        updated_proposal.refresh_from_db()
+        outcome["proposal"].refresh_from_db()
         return Response(
-            {
-                "applied": outcome["applied"],
-                "message": outcome["message"],
-                "proposal": MealProposalSerializer(
-                    updated_proposal,
-                    context={"request": request},
-                ).data,
-            }
+            MealProposalOutcomeSerializer(
+                outcome, context=self.get_serializer_context()
+            ).data
         )
 
     @action(detail=False, methods=["post"], url_path="adjustments")
@@ -103,15 +114,14 @@ class MealProposalViewSet(viewsets.ModelViewSet):
         )
         serializer.is_valid(raise_exception=True)
         try:
-            response_data = process_meal_adjustment(
-                data=serializer.validated_data,
-                owner=request.user,
-                proposal_serializer=MealProposalSerializer,
-                request=request,
-                temporary=False,
+            with adjust_meal(
+                request.user,
+                serializer.validated_data,
                 get_provider=get_estimation_provider,
-            )
-            return Response(response_data, status=status.HTTP_200_OK)
+            ) as outcome:
+                response_data = MealProposalOutcomeSerializer(
+                    outcome, context=self.get_serializer_context()
+                ).data
         except EstimationProviderError:
             return Response(
                 {"detail": PROVIDER_UNAVAILABLE_DETAIL},
@@ -119,3 +129,4 @@ class MealProposalViewSet(viewsets.ModelViewSet):
             )
         except DjangoValidationError as error:
             raise ValidationError(error.messages) from error
+        return Response(response_data)

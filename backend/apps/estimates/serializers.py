@@ -9,14 +9,7 @@ from apps.foods.nutrients import NUTRIENT_FIELDS
 from apps.foods.portions import clean_natural_servings, portion_options_for_serving
 
 from .models import MealProposal, MealProposalRevision
-from .services import (
-    apply_follow_up,
-    build_adjustment_proposal,
-    estimate_proposal,
-    secure_review_items,
-    update_proposal,
-    validate_proposal_data,
-)
+from .services import secure_review_items, validate_proposal_data
 
 SOURCE_KINDS = {
     "official_verified",
@@ -379,11 +372,6 @@ class MealProposalFollowUpSerializer(serializers.Serializer):
             ) from None
         return attrs
 
-    def apply(self, result):
-        return apply_follow_up(
-            _actor(self.context), self.context["proposal"], self.validated_data, result
-        )
-
 
 class MapYourMealAdjustmentSerializer(serializers.Serializer):
     adjustment = serializers.CharField(max_length=500, trim_whitespace=True)
@@ -401,11 +389,6 @@ class MapYourMealAdjustmentSerializer(serializers.Serializer):
         if not value:
             raise serializers.ValidationError("Describe what should change.")
         return value
-
-    def create_proposal(self):
-        return build_adjustment_proposal(
-            _actor(self.context), self.validated_data, self.context.get("meal")
-        )
 
 
 class MealProposalRevisionSerializer(serializers.ModelSerializer):
@@ -488,8 +471,8 @@ class MealProposalSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         return validate_proposal_data(_actor(self.context), attrs, self.instance)
 
-    def update(self, instance, validated_data):
-        return update_proposal(_actor(self.context), instance, validated_data)
 
-    def create(self, validated_data):
-        return estimate_proposal(_actor(self.context), validated_data)
+class MealProposalOutcomeSerializer(serializers.Serializer):
+    applied = serializers.BooleanField()
+    message = serializers.CharField()
+    proposal = MealProposalSerializer()

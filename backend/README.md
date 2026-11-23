@@ -294,13 +294,12 @@ nutrients, sources and nested components. Missing or malformed legacy snapshots
 are rebuilt from the saved food-version graph, preserving pinned history rather
 than using the latest catalog definition. Source access dates are ISO strings.
 
-Meal-entry and builder adjustment endpoints share `process_meal_adjustment`.
-Provider resolution, follow-up processing and response serialization stay inside
-its cleanup boundary: failures delete the created proposal, and successful
-temporary meal-entry proposals are deleted after serialization. Missing/null
-optional follow-up fields retain existing confidence and provider metadata when
-no replacement is supplied. Views inject the response serializer and provider
-getter to avoid a service/serializer import cycle and keep provider calls patchable.
+The estimate view validates input, calls `estimate_proposal`, and serializes the
+saved proposal. Both adjustment views call `adjust_meal` and serialize the result
+inside its cleanup block. Failures delete the new proposal, and adjustments to an
+existing diary entry delete their temporary proposal after serialization. A
+successful builder adjustment keeps its proposal for review. Missing or null
+follow-up fields retain existing confidence and provider metadata.
 
 ## ✉️ Email
 

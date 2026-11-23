@@ -5,6 +5,7 @@ from __future__ import annotations
 import ipaddress
 import re
 import unicodedata
+from contextlib import contextmanager
 from copy import deepcopy
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from difflib import SequenceMatcher
@@ -2818,26 +2819,13 @@ def accept_proposal(*, proposal):
     return meal
 
 
-def process_meal_adjustment(
-    *,
-    data,
-    meal=None,
-    owner,
-    proposal_serializer,
-    request=None,
-    temporary=False,
-    get_provider=None,
-):
-    """Process and serialize an adjustment within the proposal cleanup boundary.
-
-    The view supplies the response serializer so services do not import serializers
-    that already depend on this module.
-    """
-
+@contextmanager
+def adjust_meal(owner, data, *, meal=None, get_provider=None):
+    """Yield an adjustment for review and keep its draft only on builder success."""
     get_provider = get_provider or get_estimation_provider
-    proposal = None
+    proposal = build_adjustment_proposal(owner, data, meal)
+    keep_proposal = False
     try:
-        proposal = build_adjustment_proposal(owner, data, meal)
         result = get_provider().follow_up(
             original_description="",
             meal_name=proposal.name,
@@ -2851,24 +2839,12 @@ def process_meal_adjustment(
             items=proposal.items,
             result=result,
         )
-        updated_proposal = outcome["proposal"]
-        updated_proposal.refresh_from_db()
-        proposal_data = proposal_serializer(
-            updated_proposal,
-            context={"request": request},
-        ).data
-        return {
-            "applied": outcome["applied"],
-            "message": outcome["message"],
-            "proposal": proposal_data,
-        }
-    except Exception:
-        if proposal is not None:
-            proposal.delete()
-            proposal = None
-        raise
+        outcome["proposal"].refresh_from_db()
+        yield outcome
+        keep_proposal = meal is None
     finally:
-        if temporary and proposal is not None:
+        # The view serializes while the proposal and its revisions still exist.
+        if not keep_proposal:
             proposal.delete()
 
 
