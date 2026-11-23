@@ -96,8 +96,8 @@ and personal writes in `apps/foods/services.py`, diary queries/writes in
 `apps/estimates/services.py`, and recipient activity operations in
 `apps/notifications/services.py`. These entrypoints recheck ownership and own
 transactions; serializers validate boundary fields and delegate their writes.
-Shared business behavior uses the owning app's `services` module. Specialized
-ingredient-tree editing helpers live in `apps/estimates/recipe_edits.py`.
+Shared business behavior uses the owning app's `services` module. Proposal
+follow-ups and ingredient edits live in `apps/estimates/services.py`.
 MCP executes additions, ordinary edits (including item replacements) and paid AI
 directly under their scopes; only archive/deletion requires separate JWT-authenticated app approval
 before consuming the exact action with current OAuth authorization. Automatic

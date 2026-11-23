@@ -258,8 +258,7 @@ bounded results; it does not construct REST requests or invoke viewsets.
 - `tests/`: domain access, discovery/errors, app approval/execution/replay, paid operations, result limits and HTTP contracts.
 
 The domain APIs live consistently in `foods/services.py`, `meals/services.py`,
-`estimates/services.py` and `notifications/services.py`; proposal recipe-tree
-helpers live in `estimates/recipe_edits.py`. MCP `operations.py` owns tool validation
+`estimates/services.py` and `notifications/services.py`. MCP `operations.py` owns tool validation
 and metadata, while those domain services own business changes for both transports.
 The services boundary performs real invocation work; no compatibility dispatch modules or re-export facade are retained.
 
