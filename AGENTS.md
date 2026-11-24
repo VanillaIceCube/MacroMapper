@@ -72,7 +72,7 @@ npm start
 Backend image definitions live in `backend/docker/`; keep `backend/` as the
 Docker build context. Frontend image definitions and Nginx configuration live in
 `frontend/docker/`; keep `frontend/` as the Docker build context. Each Dockerfile
-uses its adjacent `Dockerfile.dockerignore` or `Dockerfile.dev.dockerignore`;
+uses its adjacent `Dockerfile.dockerignore` or `Dockerfile.hotswap.dockerignore`;
 patterns remain relative to the backend/frontend context root. Keep frontend
 Nginx configuration and development startup files available to image builds.
 
@@ -217,9 +217,7 @@ three caller workflows, not local composite metadata; pass explicit model, effor
 and token inputs. Run `.github/actions/custom-regressions/security-alert-contract.test.js`
 after changes; actual loading acceptance requires fresh controlled dispatches on
 corrected main. Preserve applicable bounded malware review and documented
-coverage decisions. Maintain CI architecture diagrams and regenerate
-`.github/workflows/ci-source-inventory.json` with `python .github/tools/ci_architecture.py` after
-workflow edits. Promotion summaries are informational.
+coverage decisions. Keep the CI architecture diagrams aligned with workflow edits.
 
 Main requires `AI Code Review / Obi-Wan Code-nobi code review`,
 `AI Build Sheriff Review / Lint Eastwood build sheriff review`, and

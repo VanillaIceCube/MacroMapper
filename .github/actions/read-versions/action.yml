@@ -33,8 +33,9 @@ runs:
         package_path = root / "frontend" / "package.json"
         data = json.loads(package_path.read_text(encoding="utf-8"))
         version = (data.get("engines") or {}).get("node")
-        if not version:
-            raise SystemExit("Missing engines.node in frontend/package.json")
+        if not isinstance(version, str) or not version.strip() or "\n" in version or "\r" in version:
+            raise SystemExit("Missing or invalid engines.node in frontend/package.json")
+        version = version.strip()
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
             f.write(f"node_version={version}\n")
         PY

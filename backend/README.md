@@ -7,7 +7,7 @@ permissions, notifications, and application integrations.
 
 - `config/`: Django settings, root URLs and ASGI/WSGI entry points.
 - `docker/`: production/development Dockerfiles and matching
-  `Dockerfile.dockerignore` / `Dockerfile.dev.dockerignore`; keep `backend/` as the
+  `Dockerfile.dockerignore` / `Dockerfile.hotswap.dockerignore`; keep `backend/` as the
   build context and write exclusion patterns relative to that context root.
 - `apps/foods/`, `apps/estimates/`, `apps/meals/`: catalog, proposals, and diary.
 - `apps/authentication/`, `apps/notifications/`: accounts and notifications.
