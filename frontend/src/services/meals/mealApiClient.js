@@ -38,7 +38,7 @@ export async function fetchDailyDiary(date) {
 
 const saveNetworkMessage = 'Could not save this meal. Your draft is still here. Please try again.';
 
-export async function createMeal(payload) {
+export async function createMealFromDraft(payload) {
   await requestMeal(
     '/api/meals/drafts/',
     jsonRequest('POST', payload),
@@ -47,7 +47,7 @@ export async function createMeal(payload) {
   );
 }
 
-export async function updateMeal(mealId, payload) {
+export async function updateMealFromDraft(mealId, payload) {
   await requestMeal(
     `/api/meals/${mealId}/draft/`,
     jsonRequest('PUT', payload),
@@ -105,21 +105,11 @@ async function requestAdjustment(path, payload) {
 export const adjustMeal = (mealId, payload) =>
   requestAdjustment(`/api/meals/${mealId}/adjustments/`, payload);
 
-export const adjustMealProposal = (proposalId, payload) => {
-  const endpoint = proposalId
-    ? `/api/meal-proposals/${proposalId}/follow-up/`
-    : '/api/meal-proposals/adjustments/';
-  const body = proposalId
-    ? {
-        follow_up: payload.adjustment,
-        name: payload.name,
-        notes: payload.notes,
-        entry_date: payload.entry_date,
-        items: payload.items,
-      }
-    : payload;
-  return requestAdjustment(endpoint, body);
-};
+export const createDraftAdjustment = (payload) =>
+  requestAdjustment('/api/meal-proposals/adjustments/', payload);
+
+export const followUpMealProposal = (proposalId, payload) =>
+  requestAdjustment(`/api/meal-proposals/${proposalId}/follow-up/`, payload);
 
 export const searchFoods = async (query, options = {}) => {
   const params = new URLSearchParams({ search: query });

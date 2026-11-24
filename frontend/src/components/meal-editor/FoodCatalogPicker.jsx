@@ -92,7 +92,7 @@ export default function FoodCatalogPicker({ open, mealItems, focusSearchOnOpen, 
   const catalogSearchRef = useRef(null);
   const catalogRequestIdRef = useRef(0);
   const selectedFoodIds = useMemo(
-    () => new Set(mealItems.map((item) => String(item.food_item))),
+    () => new Set(mealItems.map((item) => String(item.food_item_id))),
     [mealItems],
   );
   const availableFoods = useMemo(

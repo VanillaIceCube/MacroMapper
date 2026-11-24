@@ -79,8 +79,8 @@ class MealEntryFixtures:
             "name": "Breakfast",
             "notes": "Before work",
             "item_inputs": [
-                {"food_item": self.apple.id, "servings": "2", "order": 0},
-                {"food_item": self.toast.id, "servings": "1", "order": 1},
+                {"food_item_id": self.apple.id, "servings": "2", "order": 0},
+                {"food_item_id": self.toast.id, "servings": "1", "order": 1},
             ],
         }
         payload.update(overrides)

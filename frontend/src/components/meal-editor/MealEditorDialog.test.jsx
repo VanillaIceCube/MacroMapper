@@ -6,7 +6,7 @@ import {
 } from '../../services/authentication/sessionState';
 import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { createMeal, searchFoods } from '../../services/meals/mealApiClient';
+import { createMealFromDraft, searchFoods } from '../../services/meals/mealApiClient';
 import { renderWithProviders } from '../../test-helpers/utils';
 import MealEditorDialog from './MealEditorDialog';
 
@@ -21,7 +21,7 @@ test('keeps a manual draft after a failed save and reports success when retried'
   searchFoods.mockResolvedValue([
     { id: 7, name: 'Apple', current_version: { id: 9, serving_label: 'one apple' } },
   ]);
-  createMeal
+  createMealFromDraft
     .mockRejectedValueOnce(new Error('Could not save right now.'))
     .mockResolvedValueOnce({ id: 21 });
 
@@ -50,7 +50,7 @@ test('keeps a manual draft after a failed save and reports success when retried'
 
   await user.click(saveMeal);
 
-  expect(createMeal).toHaveBeenLastCalledWith(
+  expect(createMealFromDraft).toHaveBeenLastCalledWith(
     expect.objectContaining({
       name: 'Afternoon snack',
       entry_date: '2026-11-23',

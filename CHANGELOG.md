@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Label the OAuth client ID correctly on the Connected Apps consent and approval screens.
 - Preserve the open meal draft, catalog filters, and loaded diary when the access token refreshes.
 - Ignore late authentication responses after leaving the form or changing sessions.
 - Reject unreviewed gateway network attachments during app release preflight while allowing approved companion routes to be absent; retain app-specific network and trusted-peer checks.
@@ -16,6 +17,7 @@ All notable changes to this project are documented in this file.
 - Give each of the four authentication forms an accessible name.
 - Match the meal editor’s reading and keyboard order to its visible sections.
 - Give unnamed diary entries and drafts a numbered name without calling AI.
+- Require `food_item_id` for catalog food references in REST and MCP mutations and use it in the meal editor.
 
 ## 2026-11-22
 

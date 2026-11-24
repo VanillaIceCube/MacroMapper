@@ -21,10 +21,11 @@ import { useEffect, useState } from 'react';
 import {
   acceptMealProposal,
   adjustMeal,
-  adjustMealProposal,
-  createMeal,
+  createDraftAdjustment,
+  createMealFromDraft,
   createMealProposal,
-  updateMeal,
+  followUpMealProposal,
+  updateMealFromDraft,
   updateMealProposal,
 } from '../../services/meals/mealApiClient';
 import {
@@ -147,7 +148,7 @@ export default function MealEditorDialog({ date, meal, open, launchMode, onClose
 
   const addFood = (food) => {
     setItems((current) => {
-      if (current.some((item) => String(item.food_item) === String(food.id))) return current;
+      if (current.some((item) => String(item.food_item_id) === String(food.id))) return current;
       return [...current, catalogFoodToMealItem(food)];
     });
   };
@@ -182,16 +183,20 @@ export default function MealEditorDialog({ date, meal, open, launchMode, onClose
     setError('');
     setAdjustmentFeedback(null);
     try {
-      const payload = {
-        adjustment: request,
+      const draft = {
         entry_date: entryDate,
         name: name.trim(),
         notes: notes.trim(),
         items: items.map(mealItemToProposalItem),
       };
-      const result = meal
-        ? await adjustMeal(meal.id, payload)
-        : await adjustMealProposal(proposalId, payload);
+      let result;
+      if (meal) {
+        result = await adjustMeal(meal.id, { adjustment: request, ...draft });
+      } else if (proposalId) {
+        result = await followUpMealProposal(proposalId, { follow_up: request, ...draft });
+      } else {
+        result = await createDraftAdjustment({ adjustment: request, ...draft });
+      }
       if (!isCurrentSession()) return;
       const updatedProposal = result.proposal;
       if (!meal) {
@@ -273,8 +278,8 @@ export default function MealEditorDialog({ date, meal, open, launchMode, onClose
         notes: notes.trim(),
         items: items.map(mealItemToProposalItem),
       };
-      if (meal) await updateMeal(meal.id, payload);
-      else await createMeal(payload);
+      if (meal) await updateMealFromDraft(meal.id, payload);
+      else await createMealFromDraft(payload);
       if (isCurrentSession()) onSaved(meal ? 'Meal updated.' : 'Meal added.');
     } catch (error) {
       setError(error.message);

@@ -25,7 +25,7 @@ class MealDraftTests(MealEntryFixtures, APITestCase):
         self, get_provider
     ):
         created = self.create_meal(
-            item_inputs=[{"food_item": self.apple.id, "servings": "1", "order": 0}]
+            item_inputs=[{"food_item_id": self.apple.id, "servings": "1", "order": 0}]
         )
         item = _catalog_food(
             self.apple.current_version,
@@ -73,7 +73,7 @@ class MealDraftTests(MealEntryFixtures, APITestCase):
         self, get_provider
     ):
         created = self.create_meal(
-            item_inputs=[{"food_item": self.apple.id, "servings": "1", "order": 0}]
+            item_inputs=[{"food_item_id": self.apple.id, "servings": "1", "order": 0}]
         )
         saved_version_id = created.data["items"][0]["food_version_id"]
         item = _catalog_food(
@@ -123,7 +123,7 @@ class MealDraftTests(MealEntryFixtures, APITestCase):
         self, get_provider
     ):
         created = self.create_meal(
-            item_inputs=[{"food_item": self.apple.id, "servings": "1", "order": 0}]
+            item_inputs=[{"food_item_id": self.apple.id, "servings": "1", "order": 0}]
         )
         item = _catalog_food(
             self.apple.current_version,
@@ -156,7 +156,7 @@ class MealDraftTests(MealEntryFixtures, APITestCase):
         self, get_provider
     ):
         created = self.create_meal(
-            item_inputs=[{"food_item": self.apple.id, "servings": "1", "order": 0}]
+            item_inputs=[{"food_item_id": self.apple.id, "servings": "1", "order": 0}]
         )
         item = _catalog_food(
             self.apple.current_version,
@@ -252,8 +252,8 @@ class MealDraftTests(MealEntryFixtures, APITestCase):
         )
         created = self.create_meal(
             item_inputs=[
-                {"food_item": self.apple.id, "servings": "1", "order": 0},
-                {"food_item": composite.id, "servings": "1", "order": 1},
+                {"food_item_id": self.apple.id, "servings": "1", "order": 0},
+                {"food_item_id": composite.id, "servings": "1", "order": 1},
             ]
         )
         apple_version_id = created.data["items"][0]["food_version_id"]
@@ -299,7 +299,7 @@ class MealDraftTests(MealEntryFixtures, APITestCase):
 
     def test_full_draft_update_can_modify_a_version_pinned_before_archiving(self):
         created = self.create_meal(
-            item_inputs=[{"food_item": self.apple.id, "servings": "1", "order": 0}]
+            item_inputs=[{"food_item_id": self.apple.id, "servings": "1", "order": 0}]
         )
         saved_version_id = created.data["items"][0]["food_version_id"]
         archive_response = self.client.delete(f"/api/foods/{self.apple.id}/")

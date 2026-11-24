@@ -310,8 +310,9 @@ management remain outside the registry.
 
 ### 🧰 Available capabilities
 
-The registry exposes 16 tools covering the same 19 closed mutation actions. Call
-`operation_schema(action)` before a change: it returns allowed fields, required
+The registry exposes 16 tools covering 19 closed mutation actions. Use
+`food_item_id` for catalog food references in meal items and composite components.
+Call `operation_schema(action)` before a change to get allowed fields, required
 values, bounds, scopes, `execution_tool`, `requires_confirmation` and the compatibility
 `confirmation_required_for_fields` array (now empty). Use `execute_change` directly
 for nonpaid edits and `execute_paid_change` for paid work.

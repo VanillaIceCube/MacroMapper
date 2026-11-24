@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+from copy import deepcopy
 from datetime import timedelta
 from uuid import UUID
 
@@ -102,6 +103,57 @@ def _digest(action, target_id, payload):
     ).hexdigest()
 
 
+def _food_references(action, payload):
+    if not isinstance(payload, dict):
+        return ()
+    if action in {"food.create", "food.update"}:
+        definition = payload.get("definition")
+        references = (
+            definition.get("components") if isinstance(definition, dict) else None
+        )
+    elif action in {"meal.create", "meal.update"}:
+        references = payload.get("item_inputs")
+    else:
+        return ()
+    if not isinstance(references, list):
+        return ()
+    return tuple(reference for reference in references if isinstance(reference, dict))
+
+
+def _require_current_food_reference_name(action, payload):
+    if any("food_item" in reference for reference in _food_references(action, payload)):
+        raise operations.OperationError(
+            "Use food_item_id for the catalog food reference."
+        )
+
+
+def _rename_food_reference(action, payload, source, target):
+    if not any(source in reference for reference in _food_references(action, payload)):
+        return payload
+    renamed = deepcopy(payload)
+    for reference in _food_references(action, renamed):
+        if source in reference:
+            reference[target] = reference.pop(source)
+    return renamed
+
+
+def _stored_payload(pending):
+    return _rename_food_reference(
+        pending.action, pending.payload, "food_item", "food_item_id"
+    )
+
+
+def _matches_request(record, action, target_id, payload, digest):
+    if record.request_digest == digest:
+        return True
+    # Older receipts retain the original hash. Public entry points reject the
+    # former field name before looking up or comparing a receipt.
+    previous = _rename_food_reference(action, payload, "food_item_id", "food_item")
+    return previous is not payload and record.request_digest == _digest(
+        action, target_id, previous
+    )
+
+
 def _outcome(record, *, replayed):
     if record.state == Execution.State.COMPLETED:
         return dict(record.outcome, replayed=replayed)
@@ -162,7 +214,9 @@ def _fresh(record, pending, user):
     ):
         _close(record, Execution.State.CANCELLED)
         return None
-    serializer = operations.validated(record.action, user, target, pending.payload)
+    serializer = operations.validated(
+        record.action, user, target, _stored_payload(pending)
+    )
     operations.validate_draft(record.action, serializer, user, target)
     return target, serializer
 
@@ -183,7 +237,7 @@ def _prepared(record, pending, *, replayed):
                     + str(pending.pk),
                     "expires_at": pending.expires_at.isoformat(),
                     "target_id": pending.target_id,
-                    "changes": pending.payload,
+                    "changes": _stored_payload(pending),
                     "paid": operations.OPERATIONS[pending.action].paid,
                     "detail": "Open the approval URL and explicitly approve this exact action while signed in to MacroMapper. MCP bearer tokens cannot approve it. Then call the matching confirm tool with the same request and confirmation IDs; never automatically resubmit paid work under a new request ID.",
                 },
@@ -221,6 +275,7 @@ def execute_change(raw, request_id, action, target_id, payload, authorized_paid=
         not operation.detail and target_id is not None
     ):
         raise ValidationError("Supply the action's exact target identifier.")
+    _require_current_food_reference_name(action, payload)
     digest = _digest(action, target_id, payload)
     outer_transaction = connection.in_atomic_block
     with transaction.atomic():
@@ -228,7 +283,7 @@ def execute_change(raw, request_id, action, target_id, payload, authorized_paid=
         record = Execution.objects.select_for_update().filter(pk=request_id).first()
         if record is not None:
             _owned(record, token)
-            if record.request_digest != digest:
+            if not _matches_request(record, action, target_id, payload, digest):
                 raise operations.OperationError(
                     "This request ID belongs to different arguments."
                 )
@@ -308,13 +363,14 @@ def prepare_change(raw, request_id, action, target_id, payload, authorized_paid=
     ):
         raise ValidationError("Supply the action's exact target identifier.")
     payload = json_value(payload)
+    _require_current_food_reference_name(action, payload)
     digest = _digest(action, target_id, payload)
     with transaction.atomic():
         token = principal(raw, write=True, paid=operation.paid, lock=True)
         record = Execution.objects.select_for_update().filter(pk=request_id).first()
         if record is not None:
             _owned(record, token)
-            if record.request_digest != digest:
+            if not _matches_request(record, action, target_id, payload, digest):
                 raise operations.OperationError(
                     "This request ID belongs to different arguments. Keep the original ID and arguments when recovering an outcome."
                 )
@@ -457,7 +513,7 @@ def action_approval(user, reference, decision=None):
                     "client_id": record.client_id,
                 },
                 user={"username": user.get_username()},
-                changes=pending.payload,
+                changes=_stored_payload(pending),
                 current=current,
                 expires_at=pending.expires_at.isoformat(),
                 destructive=(

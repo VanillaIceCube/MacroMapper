@@ -23,7 +23,7 @@ test('hides foods already in the draft and sends the chosen food to the editor',
   searchFoods.mockResolvedValue([apple, pear]);
 
   renderWithProviders(
-    <FoodCatalogPicker open mealItems={[{ food_item: '7' }]} onAddFood={onAddFood} />,
+    <FoodCatalogPicker open mealItems={[{ food_item_id: '7' }]} onAddFood={onAddFood} />,
   );
 
   const catalog = within(screen.getByRole('region', { name: 'Add from the Catalog' }));

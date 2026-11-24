@@ -26,6 +26,20 @@ class DiaryEntryTests(MealEntryFixtures, APITestCase):
         self.assertEqual(list_response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertEqual(create_response.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_meal_item_requires_the_canonical_food_reference_field(self):
+        self.client.force_authenticate(user=self.owner)
+        for include_current in (False, True):
+            with self.subTest(include_current=include_current):
+                reference = {"food_item": self.apple.pk, "servings": "1", "order": 0}
+                if include_current:
+                    reference["food_item_id"] = self.apple.pk
+                response = self.client.post(
+                    "/api/meals/", self.payload(item_inputs=[reference]), format="json"
+                )
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("food_item_id", response.data["item_inputs"][0])
+        self.assertFalse(MealEntry.objects.filter(owner=self.owner).exists())
+
     def test_create_copies_food_and_nutrient_values(self):
         self.apple.current_version.serving_weight_grams = Decimal("182")
         self.apple.current_version.save(update_fields=["serving_weight_grams"])
@@ -71,7 +85,7 @@ class DiaryEntryTests(MealEntryFixtures, APITestCase):
 
     def test_saved_meal_item_does_not_change_after_catalog_update(self):
         response = self.create_meal(
-            item_inputs=[{"food_item": self.apple.id, "servings": "1", "order": 0}]
+            item_inputs=[{"food_item_id": self.apple.id, "servings": "1", "order": 0}]
         )
         saved_version = response.data["items"][0]["food_version_id"]
 
@@ -91,7 +105,7 @@ class DiaryEntryTests(MealEntryFixtures, APITestCase):
             self.payload(
                 item_inputs=[
                     {
-                        "food_item": self.apple.id,
+                        "food_item_id": self.apple.id,
                         "food_version": saved_version,
                         "servings": "2",
                         "order": 0,
@@ -106,7 +120,7 @@ class DiaryEntryTests(MealEntryFixtures, APITestCase):
 
     def test_archived_food_meal_item_can_reuse_its_saved_version(self):
         created = self.create_meal(
-            item_inputs=[{"food_item": self.apple.id, "servings": "1", "order": 0}]
+            item_inputs=[{"food_item_id": self.apple.id, "servings": "1", "order": 0}]
         )
         saved_version = created.data["items"][0]["food_version_id"]
         archive_response = self.client.delete(f"/api/foods/{self.apple.id}/")
@@ -117,7 +131,7 @@ class DiaryEntryTests(MealEntryFixtures, APITestCase):
             {
                 "item_inputs": [
                     {
-                        "food_item": self.apple.id,
+                        "food_item_id": self.apple.id,
                         "food_version": saved_version,
                         "servings": "2",
                         "order": 0,
@@ -136,7 +150,9 @@ class DiaryEntryTests(MealEntryFixtures, APITestCase):
         new_meal_response = self.client.post(
             "/api/meals/",
             self.payload(
-                item_inputs=[{"food_item": self.apple.id, "servings": "1", "order": 0}]
+                item_inputs=[
+                    {"food_item_id": self.apple.id, "servings": "1", "order": 0}
+                ]
             ),
             format="json",
         )
@@ -161,7 +177,7 @@ class DiaryEntryTests(MealEntryFixtures, APITestCase):
         )
 
         response = self.create_meal(
-            item_inputs=[{"food_item": composite.id, "servings": "1", "order": 0}]
+            item_inputs=[{"food_item_id": composite.id, "servings": "1", "order": 0}]
         )
 
         component_names = {
@@ -200,7 +216,7 @@ class DiaryEntryTests(MealEntryFixtures, APITestCase):
             created_by=self.owner,
         )
         created = self.create_meal(
-            item_inputs=[{"food_item": composite.id, "servings": "1", "order": 0}]
+            item_inputs=[{"food_item_id": composite.id, "servings": "1", "order": 0}]
         )
         saved_item = MealItem.objects.get(pk=created.data["items"][0]["id"])
         legacy_snapshot = saved_item.component_snapshot
@@ -234,7 +250,7 @@ class DiaryEntryTests(MealEntryFixtures, APITestCase):
             created_by=self.owner,
         )
         created = self.create_meal(
-            item_inputs=[{"food_item": composite.id, "servings": "1", "order": 0}]
+            item_inputs=[{"food_item_id": composite.id, "servings": "1", "order": 0}]
         )
         saved_item = MealItem.objects.get(pk=created.data["items"][0]["id"])
         saved_item.component_snapshot = [{"food_item_id": 123}]
@@ -306,7 +322,7 @@ class DiaryEntryTests(MealEntryFixtures, APITestCase):
         )
 
         response = self.create_meal(
-            item_inputs=[{"food_item": composite.id, "servings": "1", "order": 0}]
+            item_inputs=[{"food_item_id": composite.id, "servings": "1", "order": 0}]
         )
 
         item = response.data["items"][0]
@@ -324,7 +340,9 @@ class DiaryEntryTests(MealEntryFixtures, APITestCase):
         self.create_meal(name="Breakfast")
         self.create_meal(
             name="Snack",
-            item_inputs=[{"food_item": self.apple.id, "servings": "0.5", "order": 0}],
+            item_inputs=[
+                {"food_item_id": self.apple.id, "servings": "0.5", "order": 0}
+            ],
         )
         known_sugar = MealItem.objects.order_by("id").first()
         known_sugar.sugar = Decimal("15")
@@ -347,7 +365,9 @@ class DiaryEntryTests(MealEntryFixtures, APITestCase):
             f"/api/meals/{created.data['id']}/",
             self.payload(
                 name="Updated breakfast",
-                item_inputs=[{"food_item": self.toast.id, "servings": "2", "order": 0}],
+                item_inputs=[
+                    {"food_item_id": self.toast.id, "servings": "2", "order": 0}
+                ],
             ),
             format="json",
         )
@@ -402,7 +422,7 @@ class DiaryEntryTests(MealEntryFixtures, APITestCase):
             "/api/meals/",
             self.payload(
                 item_inputs=[
-                    {"food_item": self.other_food.id, "servings": "1", "order": 0}
+                    {"food_item_id": self.other_food.id, "servings": "1", "order": 0}
                 ]
             ),
             format="json",

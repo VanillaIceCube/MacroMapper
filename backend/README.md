@@ -128,7 +128,8 @@ All food and nutrient endpoints require a JWT access token.
 - `DELETE /api/foods/{id}/`
   - Archives an owned personal food without erasing its definitions.
 Shared foods are read-only through the user API. Other users' personal foods
-resolve as not found. Composite definitions store quantities as a decimal count
+resolve as not found. Use `food_item_id` for each component's catalog reference.
+Composite definitions store quantities as a decimal count
 of each child's serving and pin the exact child version, so later catalog edits
 do not rewrite a composite.
 
@@ -191,7 +192,7 @@ Create requests provide `entry_date`, optional `name` and `notes`, and
 `item_inputs`. A new diary entry or draft with a blank or omitted name gets a
 local name such as `Meal-00` or `Meal-01`. The number starts at the owner's meal
 count for that date and skips names already in use. Saving a meal never calls
-AI to name it. Each item contains a visible `food_item`, positive `servings`,
+AI to name it. Each item contains a visible `food_item_id`, positive `servings`,
 and a unique `order`. Saved items pin and copy the selected Food Item version,
 including its nested composite components and nullable nutrient columns.
 Editing an existing item submits its returned `food_version_id` as

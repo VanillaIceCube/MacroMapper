@@ -160,6 +160,10 @@ def _validate_item(item, *, depth=0, seen_keys=None):
         )
     if not isinstance(item, dict):
         raise serializers.ValidationError("Each proposed food must be an object.")
+    if "food_item" in item:
+        raise serializers.ValidationError(
+            "Use food_item_id for the catalog food reference."
+        )
     unknown = set(item) - ITEM_FIELDS
     if unknown:
         raise serializers.ValidationError(

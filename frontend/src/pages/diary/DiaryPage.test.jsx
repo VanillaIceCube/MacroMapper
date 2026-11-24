@@ -10,27 +10,29 @@ import { renderWithProviders } from '../../test-helpers/utils';
 import {
   acceptMealProposal,
   adjustMeal,
-  adjustMealProposal,
-  createMeal,
+  createDraftAdjustment,
+  createMealFromDraft,
   createMealProposal,
   deleteMeal,
   fetchDailyDiary,
+  followUpMealProposal,
   searchFoods,
   updateMealProposal,
-  updateMeal,
+  updateMealFromDraft,
 } from '../../services/meals/mealApiClient';
 
 vi.mock('../../services/meals/mealApiClient', () => ({
   acceptMealProposal: vi.fn(),
   adjustMeal: vi.fn(),
-  adjustMealProposal: vi.fn(),
+  createDraftAdjustment: vi.fn(),
   createMealProposal: vi.fn(),
-  createMeal: vi.fn(),
+  createMealFromDraft: vi.fn(),
   deleteMeal: vi.fn(),
   fetchDailyDiary: vi.fn(),
+  followUpMealProposal: vi.fn(),
   searchFoods: vi.fn(),
   updateMealProposal: vi.fn(),
-  updateMeal: vi.fn(),
+  updateMealFromDraft: vi.fn(),
 }));
 
 const deferred = () => {
@@ -437,7 +439,7 @@ describe('DiaryPage', () => {
   test('creates a meal from a searched catalog food', async () => {
     const user = userEvent.setup();
     fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
-    createMeal.mockResolvedValue(meal);
+    createMealFromDraft.mockResolvedValue(meal);
     const showSnackbar = vi.fn();
     renderWithProviders(<DiaryPage showSnackbar={showSnackbar} />);
 
@@ -471,7 +473,7 @@ describe('DiaryPage', () => {
     await user.click(screen.getByRole('button', { name: 'Save meal' }));
 
     await waitFor(() => {
-      expect(createMeal).toHaveBeenCalledWith(
+      expect(createMealFromDraft).toHaveBeenCalledWith(
         expect.objectContaining({
           name: 'Lunch',
           items: [
@@ -969,7 +971,7 @@ describe('DiaryPage', () => {
   test('allows a blank meal name for the numbered default', async () => {
     const user = userEvent.setup();
     fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
-    createMeal.mockResolvedValue({ ...meal, name: 'Meal-00' });
+    createMealFromDraft.mockResolvedValue({ ...meal, name: 'Meal-00' });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
@@ -984,7 +986,7 @@ describe('DiaryPage', () => {
     await user.click(within(addDialog).getByRole('button', { name: 'Save meal' }));
 
     await waitFor(() =>
-      expect(createMeal).toHaveBeenCalledWith(
+      expect(createMealFromDraft).toHaveBeenCalledWith(
         expect.objectContaining({
           name: '',
           items: [expect.objectContaining({ food_item_id: 7, food_version_id: 9, servings: '1' })],
@@ -1074,7 +1076,7 @@ describe('DiaryPage', () => {
   test('uses AI Adjustments to build and save a meal from no foods', async () => {
     const user = userEvent.setup();
     fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
-    adjustMealProposal.mockResolvedValue({
+    createDraftAdjustment.mockResolvedValue({
       applied: true,
       message: 'Added a taco.',
       proposal: estimatedProposal,
@@ -1099,8 +1101,7 @@ describe('DiaryPage', () => {
       ),
     );
     expect(within(dialog).getByLabelText('Carne Asada Taco macro values')).toBeVisible();
-    expect(adjustMealProposal).toHaveBeenCalledWith(
-      null,
+    expect(createDraftAdjustment).toHaveBeenCalledWith(
       expect.objectContaining({
         adjustment: 'Add a carne asada taco',
         entry_date: entryDate,
@@ -1118,7 +1119,7 @@ describe('DiaryPage', () => {
       ),
     );
     expect(acceptMealProposal).toHaveBeenCalledWith(90);
-    expect(createMeal).not.toHaveBeenCalled();
+    expect(createMealFromDraft).not.toHaveBeenCalled();
   });
 
   test('orders the Map Your Meal sections around nutrition, items, and adjustments', async () => {
@@ -1227,7 +1228,7 @@ describe('DiaryPage', () => {
       );
     });
     expect(acceptMealProposal).toHaveBeenCalledWith(90);
-    expect(createMeal).not.toHaveBeenCalled();
+    expect(createMealFromDraft).not.toHaveBeenCalled();
   });
 
   test('does not accept a proposal after the account changes during its update', async () => {
@@ -1385,7 +1386,7 @@ describe('DiaryPage', () => {
     };
     fetchDailyDiary.mockResolvedValue({ meals: [], totals: [] });
     createMealProposal.mockResolvedValue(original);
-    adjustMealProposal.mockResolvedValue({
+    followUpMealProposal.mockResolvedValue({
       applied: true,
       message: 'Moved eggs into breaded tilapia.',
       proposal: corrected,
@@ -1443,7 +1444,7 @@ describe('DiaryPage', () => {
     const user = userEvent.setup();
     fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     createMealProposal.mockResolvedValue(estimatedProposal);
-    adjustMealProposal.mockResolvedValue({
+    followUpMealProposal.mockResolvedValue({
       applied: true,
       message: 'Updated the meal.',
       proposal: { ...estimatedProposal, name: 'Updated estimated lunch' },
@@ -1471,9 +1472,9 @@ describe('DiaryPage', () => {
         'Updated estimated lunch',
       ),
     );
-    expect(adjustMealProposal).toHaveBeenCalledWith(
+    expect(followUpMealProposal).toHaveBeenCalledWith(
       90,
-      expect.objectContaining({ adjustment: 'Add salsa', name: 'Estimated lunch' }),
+      expect.objectContaining({ follow_up: 'Add salsa', name: 'Estimated lunch' }),
     );
   });
 
@@ -1635,7 +1636,7 @@ describe('DiaryPage', () => {
         ],
       },
     });
-    updateMeal.mockResolvedValue(meal);
+    updateMealFromDraft.mockResolvedValue(meal);
     renderWithProviders(<DiaryPage />);
 
     await user.click(await screen.findByRole('button', { name: 'edit Breakfast' }));
@@ -1655,11 +1656,12 @@ describe('DiaryPage', () => {
         name: 'Breakfast',
       }),
     );
-    expect(adjustMealProposal).not.toHaveBeenCalled();
+    expect(createDraftAdjustment).not.toHaveBeenCalled();
+    expect(followUpMealProposal).not.toHaveBeenCalled();
 
     await user.click(within(dialog).getByRole('button', { name: 'Save changes' }));
     await waitFor(() =>
-      expect(updateMeal).toHaveBeenCalledWith(
+      expect(updateMealFromDraft).toHaveBeenCalledWith(
         11,
         expect.objectContaining({
           items: [
@@ -1674,7 +1676,7 @@ describe('DiaryPage', () => {
   test('edits a meal and replaces its component quantity', async () => {
     const user = userEvent.setup();
     fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [meal], totals: [] });
-    updateMeal.mockResolvedValue({ ...meal, name: 'Brunch' });
+    updateMealFromDraft.mockResolvedValue({ ...meal, name: 'Brunch' });
     renderWithProviders(<DiaryPage />);
 
     await user.click(await screen.findByRole('button', { name: 'edit Breakfast' }));
@@ -1688,7 +1690,7 @@ describe('DiaryPage', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() => {
-      expect(updateMeal).toHaveBeenCalledWith(
+      expect(updateMealFromDraft).toHaveBeenCalledWith(
         11,
         expect.objectContaining({
           name: 'Brunch',
@@ -1696,7 +1698,8 @@ describe('DiaryPage', () => {
         }),
       );
     });
-    expect(adjustMealProposal).not.toHaveBeenCalled();
+    expect(createDraftAdjustment).not.toHaveBeenCalled();
+    expect(followUpMealProposal).not.toHaveBeenCalled();
     expect(updateMealProposal).not.toHaveBeenCalled();
     expect(acceptMealProposal).not.toHaveBeenCalled();
   });
@@ -1849,7 +1852,7 @@ describe('DiaryPage', () => {
       renderWithProviders(<DiaryPage />);
       let dialog;
       if (mode === 'edit') {
-        updateMeal.mockRejectedValueOnce(
+        updateMealFromDraft.mockRejectedValueOnce(
           new Error('Could not save this meal. Your draft is still here. Please try again.'),
         );
         await user.click(await screen.findByRole('button', { name: 'edit Breakfast' }));
@@ -1877,7 +1880,7 @@ describe('DiaryPage', () => {
             );
           }
         } else {
-          createMeal.mockRejectedValueOnce(
+          createMealFromDraft.mockRejectedValueOnce(
             new Error('Could not save this meal. Your draft is still here. Please try again.'),
           );
           await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
