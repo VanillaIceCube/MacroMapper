@@ -2707,9 +2707,12 @@ def save_meal_draft(*, owner, meal, entry_date, name, notes, items):
         meal = MealEntry.objects.create(
             owner=owner,
             entry_date=entry_date,
-            name=name or default_meal_name(owner=owner, entry_date=entry_date),
+            name=name or "",
             notes=notes,
         )
+        if not meal.name:
+            meal.name = default_meal_name(meal)
+            meal.save(update_fields=["name"])
     else:
         meal.entry_date = entry_date
         meal.name = name

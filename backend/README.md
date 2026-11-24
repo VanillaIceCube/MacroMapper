@@ -189,10 +189,10 @@ user's entries.
 
 Create requests provide `entry_date`, optional `name` and `notes`, and
 `item_inputs`. A new diary entry or draft with a blank or omitted name gets a
-local name such as `Meal-00` or `Meal-01`, based on the owner's meal count for
-that date. Saving a meal never calls AI to name it. Each item contains a visible
-`food_item`, positive `servings`, and a unique `order`. Saved items pin and copy
-the selected Food Item version,
+local name such as `Meal-00` or `Meal-01`. The number starts at the owner's meal
+count for that date and skips names already in use. Saving a meal never calls
+AI to name it. Each item contains a visible `food_item`, positive `servings`,
+and a unique `order`. Saved items pin and copy the selected Food Item version,
 including its nested composite components and nullable nutrient columns.
 Editing an existing item submits its returned `food_version_id` as
 `food_version` so quantity changes continue to use the original saved values even

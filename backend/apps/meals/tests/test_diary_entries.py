@@ -63,6 +63,10 @@ class DiaryEntryTests(MealEntryFixtures, APITestCase):
         self.assertEqual(first.data["name"], "Meal-00")
         self.assertEqual(second.data["name"], "Meal-01")
         self.assertEqual(next_day.data["name"], "Meal-00")
+        deleted = self.client.delete(f"/api/meals/{first.data['id']}/")
+        self.assertEqual(deleted.status_code, status.HTTP_204_NO_CONTENT)
+        replacement = self.create_meal(name="")
+        self.assertEqual(replacement.data["name"], "Meal-02")
         openai_client.assert_not_called()
 
     def test_saved_meal_item_does_not_change_after_catalog_update(self):

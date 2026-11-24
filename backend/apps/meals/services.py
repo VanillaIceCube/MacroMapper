@@ -17,9 +17,19 @@ from apps.foods.services import build_component_map
 from .models import MealEntry, MealItem
 
 
-def default_meal_name(*, owner, entry_date):
-    meal_count = MealEntry.objects.filter(owner=owner, entry_date=entry_date).count()
-    return f"Meal-{meal_count:02d}"
+def default_meal_name(meal):
+    """Choose a name after inserting the meal inside its save transaction."""
+    # The insert acquires SQLite's write lock before we read existing names.
+    existing_names = list(
+        MealEntry.objects.filter(owner_id=meal.owner_id, entry_date=meal.entry_date)
+        .exclude(pk=meal.pk)
+        .values_list("name", flat=True)
+    )
+    meal_number = len(existing_names)
+    names_in_use = set(existing_names)
+    while f"Meal-{meal_number:02d}" in names_in_use:
+        meal_number += 1
+    return f"Meal-{meal_number:02d}"
 
 
 def _effective_nutrients(
@@ -285,9 +295,10 @@ def require_meal_owner(actor, meal):
 def create_meal(actor, data):
     data = validate_meal_data(actor, dict(data), partial=False)
     item_inputs = data.pop("items")
-    if not data["name"]:
-        data["name"] = default_meal_name(owner=actor, entry_date=data["entry_date"])
     meal = MealEntry.objects.create(owner=actor, **data)
+    if not meal.name:
+        meal.name = default_meal_name(meal)
+        meal.save(update_fields=["name"])
     replace_meal_items(meal_entry=meal, item_inputs=item_inputs)
     return meal
 
