@@ -17,6 +17,9 @@ to succeed. Commands in this guide run from the repository root.
 
 ## 🔄 Pull requests and reviews
 
+A new CI run for a pull request cancels the older run for that pull request.
+The current run follows the job dependencies in the workflow.
+
 ### Major-upgrade review evidence
 
 Obi-Wan uses Dependabot's per-dependency metadata for grouped upgrades.
@@ -411,9 +414,7 @@ coverage; never rerun an old failed revision as proof of the new source.
 
 #### CodeQL maintenance
 
-CodeQL init/analyze entry points use the same immutable v4.39.3 revision. After
-reviewed workflow dependency updates, run `python .github/tools/ci_architecture.py`
-and commit the regenerated source inventory; `--check` remains a blocking drift gate.
+CodeQL init/analyze entry points use the same immutable v4.39.3 revision.
 
 Upstream [v4.39.3 release notes](https://github.com/github/codeql-action/releases/tag/v4.39.3)
 cover the corrected diff-informed alert filtering used by these scanners.
@@ -514,9 +515,8 @@ validation fails. Frontend and backend test failures remain independent gates.
 See frontend/README.md for setup and local commands.
 
 Validate syntax and relevant behavioral tests after automation changes. Preserve
-original check failures and bounded/redacted diagnostics. Update the existing
-architecture inventory with `python .github/tools/ci_architecture.py` after workflow
-changes and verify it with `--check`. Do not use production as a test fixture.
+original check failures and bounded/redacted diagnostics. Use disposable fixtures
+for validation.
 
 <a id="-related-guides"></a>
 
@@ -674,20 +674,14 @@ its onboarding examples do not authorize new resources or an `env-prod` branch.
 
 ### Maintaining the architecture
 
-[ci-source-inventory.json](ci-source-inventory.json) records actual workflow events,
-jobs/needs, permissions, action consumers and credential names. After reviewing
-workflow/diagram edits, run `python .github/tools/ci_architecture.py`, then repeat
-with `--check`. The checker parses YAML without executing workflows and checks
-local source links plus key Mermaid edges against event/dependency/consumer
-contracts. Negative regressions reject diagram-only drift, workflow dependency
-changes and privileged PR-trigger substitution. It does not validate every label
-or general Mermaid semantics; changed diagrams also need parser/render review.
+When editing a workflow, review its triggers, job dependencies, permissions,
+and trust boundaries. Update the diagrams when those relationships change.
 
 ## 🧪 Coverage boundaries
 
 Action-local regressions cover reviewer publishing, security-alert lifecycle,
-dependency evidence, permission/pin policy and architecture contracts under their
-existing gates. App repositories retain backend, frontend/browser and shared
+dependency evidence and workflow permission and pin policy under their existing
+gates. App repositories retain backend, frontend/browser and shared
 release suites; the canonical release tests remain in Infrastructure `app-release/v1`.
 Root tooling, gateway/ingress, SQLite snapshot and release-profile suites were
 removed at the owner's request. Their former coverage is not provided by the
