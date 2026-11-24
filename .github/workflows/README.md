@@ -138,9 +138,10 @@ GitHub App posts an explicit incomplete-review comment under its own identity
 and then fails the check without publishing a verdict.
 All three reviewers inherit the same 2 MB (2,000,000-byte) source-diff budget from
 `.github/actions/get-pr-diff/action.yml`; reviewer workflows do not override it.
-Raw generated dependency lockfile payloads are omitted from AI prompts because
-the dependency and malware gates review those files directly. Reviewers still
-receive the manifests, changed-file metadata, check results, and scanner evidence.
+Only the regular generated frontend/package-lock.json payload is omitted from
+AI prompts and Obi-Wan's changed-file context. The independent npm malware and
+Dependency Review gates cover that file. Reviewers still receive other
+lockfiles, manifests, changed-file metadata, check results, and scanner evidence.
 OpenAI review requests also cap combined reasoning and visible output at 16,000
 tokens so they do not reserve the model's full output allowance against project
 rate limits.
@@ -220,7 +221,7 @@ GraphQL input fields without changing reviewer verdict requirements.
 
 ### Security-alert aggregation
 
-The daily/manual `alert-codeql.yml`, `alert-vulnerability.yml`, and `alert-malware.yml` workflows group open alerts into managed MacroMapper issues and synchronize them with the MacroMapper Project.
+The daily/manual `alert-codeql.yml`, `alert-vulnerability.yml`, and `alert-malware.yml` workflows group open alerts, including every Dependabot vulnerability severity, into managed MacroMapper issues and synchronize them with the MacroMapper Project.
 
 Additional configuration:
 
@@ -340,8 +341,11 @@ Existing managed source refs select the canonical issue even when wording change
 
 Project attachment retries transient failures at most three times, reading back
 possibly committed writes before retrying. Unresolved attachments identify the
-saved issue; rerun the same feed to reuse it. Interrupted field initialization fills
-only missing fields, preserving human planning. All active groups synchronize before
+saved issue; rerun the same feed to reuse it. Reconciliation fills missing fields.
+A group containing a critical alert receives P0. High alerts receive at least P1.
+Other vulnerability groups default to P2, or P1 when severity is unknown. CodeQL and
+malware groups default to P1. An urgent alert can raise an existing group's priority.
+Higher priorities and other populated planning fields are preserved. All active groups synchronize before
 superseded issues can close. Closure saves source history and End date before Done.
 Only the observed empty-error or exact Issue/custom concurrent-close HTTP 422 may
 recover, and only after readback proves closed/completed with the exact saved body.
@@ -406,9 +410,9 @@ Absent or empty values deliberately preserve `gpt-6-luna`, `medium`, and `16000`
 Nonempty overrides pass through the existing Responses policy. Configuration is
 validated before source reads or issue/Project writes, including empty feeds;
 invalid models, efforts or token limits fail visibly without a provider call.
-No model migration, credential/project consolidation, retry or spending policy
-change is implied. Infrastructure retains its additional Project-schema preflight,
-all-severity vulnerability feed and distinct token/Project permissions.
+All three feeds check the Project token and field schema before reading alerts.
+RoboCop receives issue write access and read access to the selected feed.
+Only the Project client receives the personal Project token.
 
 `node --test .github/actions/custom-regressions/security-alert-contract.test.js`
 checks actual YAML inputs/callers, audits local composites for unsupported `vars`,
@@ -569,8 +573,7 @@ flowchart TD
   Auto --> Platform[GitHub protected auto-merge]
 ```
 
-[The orchestrator](ci-orchestrator.yml) excludes application `env-prod` PRs;
-Infrastructure restricts it to `main`. Same-repository human and Dependabot PRs
+[The orchestrator](ci-orchestrator.yml) runs on pull requests targeting any branch except `env-prod`. Same-repository human and Dependabot PRs
 receive the configured reviewers. Forks receive no reviewer credentials: never
 execute fork code with privileged credentials or add `pull_request_target` here.
 Obi-Wan starts independently; Lint Eastwood consumes lint/test outcomes; RoboCop
@@ -621,7 +624,8 @@ permissions in the workflow or job that requests them.
 ```mermaid
 flowchart LR
   Schedule[Daily schedules or manual dispatch] --> Feeds[CodeQL, vulnerability and malware workflows]
-  Feeds --> Source[Authoritative source alerts and bounded classification]
+  Feeds --> Preflight[Verify Project access and fields]
+  Preflight --> Source[All open source alerts and bounded malware classification]
   Source --> Robo[RoboCop grouping with validated Responses policy]
   Robo --> Validate[Complete source coverage and lifecycle validation]
   Validate --> Issues[App-owned issue updates and verified closure]
@@ -632,7 +636,7 @@ flowchart LR
 [malware](alert-malware.yml) aggregation run daily or by dispatch. Incomplete
 source/model evidence fails before lifecycle writes; verified closure and Project
 recovery preserve their independent credential boundaries. CodeQL analysis also
-runs on applicable main pushes, scoped PRs and manual dispatch. Alert maintenance
+runs on applicable main pushes, scoped PRs, the weekly schedule and manual dispatch. Alert maintenance
 neither merges code nor deploys.
 
 ### Promotion, release and manual operations

@@ -60,6 +60,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Collect security evidence
         id: evidence
@@ -98,7 +99,7 @@ jobs:
             });
             const securitySensitiveFiles = files
               .map((file) => file.filename)
-              .filter((filename) => /(^backend\/authentication\/|\/permissions?\.py$|\/settings\.py$|\/urls\.py$|pyproject\.toml$|uv\.lock$|package-lock\.json$|package\.json$|^\.github\/workflows\/|^\.github\/actions\/|^deploy\/|Dockerfile|nginx|auth|csrf|cors|token|secret|password)/i.test(filename));
+              .filter((filename) => /(^backend\/authentication\/|\/permissions?\.py$|\/settings\.py$|\/urls\.py$|(?:requirements\.txt|pyproject\.toml|uv\.lock)$|package-lock\.json$|package\.json$|^\.github\/workflows\/|^\.github\/actions\/|^deploy\/|Dockerfile|nginx|auth|csrf|cors|token|secret|password)/i.test(filename));
 
             const securityChecks = checkRuns
               .filter((check) => /malware|vulnerab|dependency|codeql|security/i.test(check.name || ''))
@@ -200,6 +201,7 @@ jobs:
         with:
           base_sha: ${{ github.event.pull_request.base.sha }}
           head_sha: ${{ github.event.pull_request.head.sha }}
+          omit_frontend_npm_lockfile: "true"
 
       - name: Create RoboCop GitHub App token
         id: app-token
@@ -336,7 +338,7 @@ jobs:
               "summary": "**REVIEW INCOMPLETE. DIRECTIVE: CHECK FAILED. SECURITY VERDICT: WITHHELD.** DIFF SIZE EXCEEDS AUTHORIZED REVIEW PARAMETERS. PARTIAL EVIDENCE DOES NOT CONSTITUTE SECURITY CLEARANCE.",
               "unchanged": false,
               "findings": [],
-              "evidence": ["The complete diff is ${{ steps.pr-diff.outputs.diff_bytes }} bytes; my review budget is ${{ steps.pr-diff.outputs.max_bytes }} bytes."],
+              "evidence": ["The reviewable source diff is ${{ steps.pr-diff.outputs.diff_bytes }} bytes; my review budget is ${{ steps.pr-diff.outputs.max_bytes }} bytes."],
               "actions": ["REDUCE DIFF SCOPE OR AUTHORIZE A HIGHER REVIEW BUDGET, THEN RESUBMIT FOR SECURITY SCAN."],
               "comments": []
             }

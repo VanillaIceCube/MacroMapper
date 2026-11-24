@@ -79,7 +79,7 @@ workflows can group and update their managed issues:
 | --- | --- |
 | `dependencies` | Dependabot-authored dependency update PRs |
 | `codeql` | Grouped CodeQL security alerts. |
-| `vulnerability` | Grouped non-urgent Dependabot vulnerability alerts. |
+| `vulnerability` | Grouped Dependabot vulnerability alerts of every severity. |
 | `malware` | Grouped Dependabot malware alerts. |
 | `codex` | Work generated or assisted by Codex |
 
