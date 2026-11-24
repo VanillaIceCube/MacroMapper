@@ -218,7 +218,6 @@ and token inputs. Run `.github/actions/custom-regressions/security-alert-contrac
 after changes; actual loading acceptance requires fresh controlled dispatches on
 corrected main. Preserve applicable bounded malware review and documented
 coverage decisions. Keep the CI architecture diagrams aligned with workflow edits.
-Promotion summaries are informational.
 
 Main requires `AI Code Review / Obi-Wan Code-nobi code review`,
 `AI Build Sheriff Review / Lint Eastwood build sheriff review`, and
