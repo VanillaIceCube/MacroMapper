@@ -259,11 +259,9 @@ regression contract. Dependency Review still blocks high/critical additions;
 every non-success scanner outcome, missing/malformed output or failed evidence
 preparation fails the independent Vulnerability check. No empty-array fallback
 may turn unavailable evidence into a clean scan. RoboCop receives at most 16 KiB
-of package/severity/manifest context, with omitted-entry counts. The
-`dependency-review-evidence` artifact retains every structured entry for seven
-days, excluding untrusted free text and arbitrary URLs; unavailable evidence is
-retained as structured diagnostics. Artifacts have the repository's Actions
-access controls, not an additional private storage boundary.
+of package, severity and manifest context, with omitted-entry counts. Scanner
+outputs reach the report helper through standard input. GitHub Dependency
+Review publishes its native summary and job logs.
 
 Alert synchronization saves source history/replacement links first, ensures
 Project membership, then writes End date before Status Done. Done can trigger
@@ -317,7 +315,7 @@ retaining weekly updates, independent Required CI and owner decisions on ordinar
 
 ```sh
 uv sync --locked --project backend --only-group dev
-uv run --locked --only-group dev --project backend node --test .github/actions/check-codeql-pins/*.test.js .github/actions/dependabot-auto-merge/*.test.js
+uv run --locked --only-group dev --project backend node --test .github/actions/check-workflow-security/check-workflow-security.test.js .github/actions/dependabot-auto-merge/*.test.js
 ```
 
 The local actionlint 1.7.12 schema predates GitHub's documented
