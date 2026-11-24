@@ -10,11 +10,12 @@ import { renderWithProviders } from '../../test-helpers/utils';
 import {
   acceptMealProposal,
   adjustMeal,
-  adjustMealProposal,
+  createDraftAdjustment,
   createMealFromDraft,
   createMealProposal,
   deleteMeal,
   fetchDailyDiary,
+  followUpMealProposal,
   searchFoods,
   updateMealProposal,
   updateMealFromDraft,
@@ -23,11 +24,12 @@ import {
 vi.mock('../../services/meals/mealApiClient', () => ({
   acceptMealProposal: vi.fn(),
   adjustMeal: vi.fn(),
-  adjustMealProposal: vi.fn(),
+  createDraftAdjustment: vi.fn(),
   createMealProposal: vi.fn(),
   createMealFromDraft: vi.fn(),
   deleteMeal: vi.fn(),
   fetchDailyDiary: vi.fn(),
+  followUpMealProposal: vi.fn(),
   searchFoods: vi.fn(),
   updateMealProposal: vi.fn(),
   updateMealFromDraft: vi.fn(),
@@ -1074,7 +1076,7 @@ describe('DiaryPage', () => {
   test('uses AI Adjustments to build and save a meal from no foods', async () => {
     const user = userEvent.setup();
     fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
-    adjustMealProposal.mockResolvedValue({
+    createDraftAdjustment.mockResolvedValue({
       applied: true,
       message: 'Added a taco.',
       proposal: estimatedProposal,
@@ -1099,8 +1101,7 @@ describe('DiaryPage', () => {
       ),
     );
     expect(within(dialog).getByLabelText('Carne Asada Taco macro values')).toBeVisible();
-    expect(adjustMealProposal).toHaveBeenCalledWith(
-      null,
+    expect(createDraftAdjustment).toHaveBeenCalledWith(
       expect.objectContaining({
         adjustment: 'Add a carne asada taco',
         entry_date: entryDate,
@@ -1385,7 +1386,7 @@ describe('DiaryPage', () => {
     };
     fetchDailyDiary.mockResolvedValue({ meals: [], totals: [] });
     createMealProposal.mockResolvedValue(original);
-    adjustMealProposal.mockResolvedValue({
+    followUpMealProposal.mockResolvedValue({
       applied: true,
       message: 'Moved eggs into breaded tilapia.',
       proposal: corrected,
@@ -1443,7 +1444,7 @@ describe('DiaryPage', () => {
     const user = userEvent.setup();
     fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
     createMealProposal.mockResolvedValue(estimatedProposal);
-    adjustMealProposal.mockResolvedValue({
+    followUpMealProposal.mockResolvedValue({
       applied: true,
       message: 'Updated the meal.',
       proposal: { ...estimatedProposal, name: 'Updated estimated lunch' },
@@ -1471,9 +1472,9 @@ describe('DiaryPage', () => {
         'Updated estimated lunch',
       ),
     );
-    expect(adjustMealProposal).toHaveBeenCalledWith(
+    expect(followUpMealProposal).toHaveBeenCalledWith(
       90,
-      expect.objectContaining({ adjustment: 'Add salsa', name: 'Estimated lunch' }),
+      expect.objectContaining({ follow_up: 'Add salsa', name: 'Estimated lunch' }),
     );
   });
 
@@ -1655,7 +1656,8 @@ describe('DiaryPage', () => {
         name: 'Breakfast',
       }),
     );
-    expect(adjustMealProposal).not.toHaveBeenCalled();
+    expect(createDraftAdjustment).not.toHaveBeenCalled();
+    expect(followUpMealProposal).not.toHaveBeenCalled();
 
     await user.click(within(dialog).getByRole('button', { name: 'Save changes' }));
     await waitFor(() =>
@@ -1696,7 +1698,8 @@ describe('DiaryPage', () => {
         }),
       );
     });
-    expect(adjustMealProposal).not.toHaveBeenCalled();
+    expect(createDraftAdjustment).not.toHaveBeenCalled();
+    expect(followUpMealProposal).not.toHaveBeenCalled();
     expect(updateMealProposal).not.toHaveBeenCalled();
     expect(acceptMealProposal).not.toHaveBeenCalled();
   });

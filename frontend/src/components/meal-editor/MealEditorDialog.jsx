@@ -21,9 +21,10 @@ import { useEffect, useState } from 'react';
 import {
   acceptMealProposal,
   adjustMeal,
-  adjustMealProposal,
+  createDraftAdjustment,
   createMealFromDraft,
   createMealProposal,
+  followUpMealProposal,
   updateMealFromDraft,
   updateMealProposal,
 } from '../../services/meals/mealApiClient';
@@ -182,16 +183,20 @@ export default function MealEditorDialog({ date, meal, open, launchMode, onClose
     setError('');
     setAdjustmentFeedback(null);
     try {
-      const payload = {
-        adjustment: request,
+      const draft = {
         entry_date: entryDate,
         name: name.trim(),
         notes: notes.trim(),
         items: items.map(mealItemToProposalItem),
       };
-      const result = meal
-        ? await adjustMeal(meal.id, payload)
-        : await adjustMealProposal(proposalId, payload);
+      let result;
+      if (meal) {
+        result = await adjustMeal(meal.id, { adjustment: request, ...draft });
+      } else if (proposalId) {
+        result = await followUpMealProposal(proposalId, { follow_up: request, ...draft });
+      } else {
+        result = await createDraftAdjustment({ adjustment: request, ...draft });
+      }
       if (!isCurrentSession()) return;
       const updatedProposal = result.proposal;
       if (!meal) {
