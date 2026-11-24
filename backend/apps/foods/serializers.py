@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -258,8 +259,20 @@ class SourceReferenceInputSerializer(serializers.Serializer):
     accessed_on = serializers.DateField(required=False, allow_null=True)
 
 
-class FoodComponentInputSerializer(serializers.Serializer):
-    food_item = serializers.PrimaryKeyRelatedField(queryset=FoodItem.objects.all())
+class FoodItemReferenceSerializer(serializers.Serializer):
+    food_item_id = serializers.PrimaryKeyRelatedField(
+        source="food_item", queryset=FoodItem.objects.all()
+    )
+
+    def to_internal_value(self, data):
+        if isinstance(data, Mapping) and "food_item" in data:
+            raise serializers.ValidationError(
+                {"food_item_id": "Use food_item_id for the catalog food reference."}
+            )
+        return super().to_internal_value(data)
+
+
+class FoodComponentInputSerializer(FoodItemReferenceSerializer):
     servings = serializers.DecimalField(
         max_digits=10,
         decimal_places=4,
@@ -267,7 +280,7 @@ class FoodComponentInputSerializer(serializers.Serializer):
     )
     order = serializers.IntegerField(min_value=0, max_value=32767, default=0)
 
-    def validate_food_item(self, food_item):
+    def validate_food_item_id(self, food_item):
         actor = _actor(self.context)
         if (
             not actor

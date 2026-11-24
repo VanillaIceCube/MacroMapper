@@ -100,7 +100,7 @@ describe('meal item tree operations', () => {
   test('changes natural serving sizes while preserving count and food identity', () => {
     const apple = editableLeaf({
       name: 'Red apple',
-      food_item: 7,
+      food_item_id: 7,
       food_version: 9,
       servings: '2',
       selected_portion_key: 'size:small',
@@ -115,7 +115,7 @@ describe('meal item tree operations', () => {
     });
     const medium = changeMealItemPortion([apple], 'food', 'size:medium')[0];
     expect(servingAmountValue(medium)).toBe('2');
-    expect(medium).toMatchObject({ name: 'Red apple', food_item: 7, food_version: 9 });
+    expect(medium).toMatchObject({ name: 'Red apple', food_item_id: 7, food_version: 9 });
     expect(itemNutrientTotal(medium, 'calories')).toBe(240);
     const large = changeMealItemPortion([medium], 'food', 'size:large')[0];
     expect(servingAmountValue(large)).toBe('2');

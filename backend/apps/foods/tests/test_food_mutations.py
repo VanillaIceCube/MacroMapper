@@ -95,10 +95,29 @@ class FoodMutationTests(FoodApiFixtures, APITestCase):
         self.assertEqual(update_response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(delete_response.status_code, status.HTTP_404_NOT_FOUND)
 
+    def test_component_requires_the_canonical_food_reference_field(self):
+        self.client.force_authenticate(user=self.owner)
+        count = FoodItem.objects.count()
+        payload = self.personal_food_payload()
+        payload["definition"]["components"] = [
+            {
+                "food_item": self.shared_food.pk,
+                "food_item_id": self.shared_food.pk,
+                "servings": "1",
+                "order": 0,
+            }
+        ]
+
+        response = self.client.post("/api/foods/", payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("food_item_id", response.data["definition"]["components"][0])
+        self.assertEqual(FoodItem.objects.count(), count)
+
     def test_composite_cannot_reference_another_users_personal_food(self):
         payload = self.personal_food_payload()
         payload["definition"]["components"] = [
-            {"food_item": self.other_food.id, "servings": "1", "order": 0}
+            {"food_item_id": self.other_food.id, "servings": "1", "order": 0}
         ]
         self.client.force_authenticate(user=self.owner)
 
@@ -144,7 +163,7 @@ class FoodMutationTests(FoodApiFixtures, APITestCase):
         definition = self.personal_food_payload()["definition"]
         definition["components"] = [
             {
-                "food_item": self.personal_food.id,
+                "food_item_id": self.personal_food.id,
                 "servings": "0.5",
                 "order": 0,
             }
@@ -184,7 +203,7 @@ class FoodMutationTests(FoodApiFixtures, APITestCase):
         self.client.force_authenticate(user=self.owner)
         child_definition = self.personal_food_payload()["definition"]
         child_definition["components"] = [
-            {"food_item": self.personal_food.id, "servings": "0.5", "order": 0}
+            {"food_item_id": self.personal_food.id, "servings": "0.5", "order": 0}
         ]
         child_response = self.client.post(
             "/api/foods/",
@@ -197,7 +216,7 @@ class FoodMutationTests(FoodApiFixtures, APITestCase):
 
         parent_definition = self.personal_food_payload()["definition"]
         parent_definition["components"] = [
-            {"food_item": child_response.data["id"], "servings": "1", "order": 0}
+            {"food_item_id": child_response.data["id"], "servings": "1", "order": 0}
         ]
         parent_response = self.client.post(
             "/api/foods/",

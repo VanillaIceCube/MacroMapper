@@ -291,8 +291,12 @@ class CatalogQueryTests(FoodApiFixtures, APITestCase):
                 "nutrients": {"calories": "300"},
                 "sources": [],
                 "components": [
-                    {"food_item": self.shared_food.id, "servings": "1", "order": 0},
-                    {"food_item": self.personal_food.id, "servings": "1", "order": 1},
+                    {"food_item_id": self.shared_food.id, "servings": "1", "order": 0},
+                    {
+                        "food_item_id": self.personal_food.id,
+                        "servings": "1",
+                        "order": 1,
+                    },
                 ],
             },
         )

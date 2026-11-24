@@ -147,7 +147,7 @@ export default function MealEditorDialog({ date, meal, open, launchMode, onClose
 
   const addFood = (food) => {
     setItems((current) => {
-      if (current.some((item) => String(item.food_item) === String(food.id))) return current;
+      if (current.some((item) => String(item.food_item_id) === String(food.id))) return current;
       return [...current, catalogFoodToMealItem(food)];
     });
   };

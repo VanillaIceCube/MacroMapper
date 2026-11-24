@@ -72,7 +72,9 @@ class MCPToolFixtures:
             "entry_date": "2026-10-30",
             "name": "Lunch",
             "notes": "exact requested change",
-            "item_inputs": [{"food_item": self.food.pk, "servings": "1", "order": 0}],
+            "item_inputs": [
+                {"food_item_id": self.food.pk, "servings": "1", "order": 0}
+            ],
         }
 
     def request(self, action="meal.create", target=None, payload=None, request_id=None):

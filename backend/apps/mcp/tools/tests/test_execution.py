@@ -1,5 +1,6 @@
 """Trusted app approvals, live authorization and durable duplicate protection."""
 
+from copy import deepcopy
 from datetime import date, timedelta
 from unittest import skipUnless
 from unittest.mock import patch
@@ -44,6 +45,54 @@ class MCPExecutionTests(MCPToolFixtures, TestCase):
         delete = self.request("meal.delete", meal.pk, {})
         self.execute(delete)
         self.assertFalse(MealEntry.objects.exists())
+
+    def test_legacy_food_reference_is_rejected_even_for_a_completed_request(self):
+        schema = services.operations.operation_schema(self.raw, "meal.create")["data"]
+        fields = schema["fields"]["item_inputs"]["items"]["fields"]
+        self.assertIn("food_item_id", fields)
+        self.assertNotIn("food_item", fields)
+
+        request = self.request()
+        completed = self.execute(request)
+        legacy = deepcopy(request)
+        reference = legacy["payload"]["item_inputs"][0]
+        reference["food_item"] = reference.pop("food_item_id")
+        digest = services._digest(
+            legacy["action"], legacy["target_id"], legacy["payload"]
+        )
+        Execution.objects.filter(pk=request["request_id"]).update(request_digest=digest)
+
+        with self.assertRaisesMessage(ValidationError, "Use food_item_id"):
+            self.execute(legacy)
+        with self.assertRaisesMessage(ValidationError, "Use food_item_id"):
+            self.prepare(legacy)
+        replay = self.execute(request)
+        self.assertTrue(replay["replayed"])
+        self.assertEqual(replay["result"], completed["result"])
+        self.assertEqual(MealEntry.objects.count(), 1)
+
+    def test_stored_legacy_food_reference_can_still_be_approved(self):
+        request = self.request()
+        envelope = self.prepare(request)
+        pending = Confirmation.objects.get(
+            pk=envelope["result"]["data"]["confirmation_id"]
+        )
+        reference = pending.payload["item_inputs"][0]
+        reference["food_item"] = reference.pop("food_item_id")
+        pending.save(update_fields=["payload"])
+        digest = services._digest(pending.action, pending.target_id, pending.payload)
+        Execution.objects.filter(pk=request["request_id"]).update(request_digest=digest)
+
+        replay = self.prepare(request)
+        self.assertEqual(
+            replay["result"]["data"]["changes"]["item_inputs"][0],
+            request["payload"]["item_inputs"][0],
+        )
+        reference_id = str(pending.pk)
+        self.approve(reference_id)
+        result = services.confirm_change(self.raw, request["request_id"], reference_id)
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(MealEntry.objects.count(), 1)
 
     def test_ownership_and_shared_catalog_are_not_staff_bypassable(self):
         foreign = MealEntry.objects.create(
@@ -209,14 +258,14 @@ class MCPExecutionTests(MCPToolFixtures, TestCase):
             {
                 **self.meal_payload(),
                 "item_inputs": [
-                    {"food_item": self.food.pk, "servings": "NaN", "order": 0}
+                    {"food_item_id": self.food.pk, "servings": "NaN", "order": 0}
                 ],
             },
             {
                 **self.meal_payload(),
                 "item_inputs": [
                     {
-                        "food_item": self.food.pk,
+                        "food_item_id": self.food.pk,
                         "servings": "1",
                         "order": 0,
                         "unknown": True,
@@ -236,7 +285,7 @@ class MCPExecutionTests(MCPToolFixtures, TestCase):
                         payload=self.meal_payload()
                         | {
                             "item_inputs": [
-                                {"food_item": coerced, "servings": "1", "order": 0}
+                                {"food_item_id": coerced, "servings": "1", "order": 0}
                             ]
                         }
                     )
@@ -733,7 +782,7 @@ class TieredExecutionTests(MealToolFixtures, TestCase):
     def test_meal_and_draft_item_replacement_are_direct_ordinary_edits(self):
         meal = self.make_meal()
         payload = {
-            "item_inputs": [{"food_item": self.food.pk, "servings": "2", "order": 0}]
+            "item_inputs": [{"food_item_id": self.food.pk, "servings": "2", "order": 0}]
         }
         request = self.request("meal.update", meal.pk, payload)
         self.assertEqual(self.direct(request)["status"], "completed")
