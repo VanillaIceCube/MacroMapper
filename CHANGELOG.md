@@ -15,6 +15,7 @@ All notable changes to this project are documented in this file.
 
 - Give each of the four authentication forms an accessible name.
 - Match the meal editor’s reading and keyboard order to its visible sections.
+- Give unnamed diary entries and drafts a numbered name without calling AI.
 
 ## 2026-11-22
 

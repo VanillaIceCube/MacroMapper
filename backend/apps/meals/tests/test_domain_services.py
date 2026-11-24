@@ -4,10 +4,8 @@ import ast
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
-from unittest.mock import patch
 
-from django.db import connection
-from django.test import SimpleTestCase, TestCase, TransactionTestCase
+from django.test import SimpleTestCase, TestCase
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from .. import services
@@ -39,28 +37,6 @@ class MealDomainServiceTests(MealEntryFixtures, TestCase):
                 operation(self.other_user, meal, *args)
         meal.refresh_from_db()
         self.assertEqual(meal.name, "Lunch")
-        self.assertEqual(meal.items.count(), 1)
-
-
-class MealNamingTransactionTests(MealEntryFixtures, TransactionTestCase):
-    def test_naming_provider_runs_before_write_transaction(self):
-        def name(**kwargs):
-            self.assertFalse(connection.in_atomic_block)
-            self.assertFalse(MealEntry.objects.exists())
-            return "Provider name"
-
-        with patch("apps.meals.services.generate_meal_name", side_effect=name):
-            meal = services.create_meal(
-                self.owner,
-                {
-                    "entry_date": date(2026, 11, 15),
-                    "name": "",
-                    "items": [
-                        {"food_item": self.apple, "servings": Decimal("1"), "order": 0}
-                    ],
-                },
-            )
-        self.assertEqual(meal.name, "Provider name")
         self.assertEqual(meal.items.count(), 1)
 
 

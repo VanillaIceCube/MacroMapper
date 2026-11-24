@@ -10,9 +10,9 @@ from apps.estimates.provider import EstimationProviderError, get_estimation_prov
 from apps.estimates.serializers import (
     MapYourMealAdjustmentSerializer,
     MapYourMealDraftSerializer,
-    MealProposalSerializer,
+    MealProposalOutcomeSerializer,
 )
-from apps.estimates.services import process_meal_adjustment, save_draft
+from apps.estimates.services import adjust_meal, save_draft
 
 from .serializers import MealEntrySerializer
 from .services import daily_totals, delete_meal, meals_for
@@ -64,16 +64,15 @@ class MealEntryViewSet(viewsets.ModelViewSet):
         )
         serializer.is_valid(raise_exception=True)
         try:
-            response_data = process_meal_adjustment(
-                data=serializer.validated_data,
+            with adjust_meal(
+                request.user,
+                serializer.validated_data,
                 meal=meal,
-                owner=request.user,
-                proposal_serializer=MealProposalSerializer,
-                request=request,
-                temporary=True,
                 get_provider=get_estimation_provider,
-            )
-            return Response(response_data, status=status.HTTP_200_OK)
+            ) as outcome:
+                response_data = MealProposalOutcomeSerializer(
+                    outcome, context=self.get_serializer_context()
+                ).data
         except EstimationProviderError:
             return Response(
                 {"detail": PROVIDER_UNAVAILABLE_DETAIL},
@@ -81,6 +80,7 @@ class MealEntryViewSet(viewsets.ModelViewSet):
             )
         except DjangoValidationError as error:
             raise ValidationError(error.messages) from error
+        return Response(response_data)
 
     def _save_draft(self, request, meal=None):
         serializer = MapYourMealDraftSerializer(

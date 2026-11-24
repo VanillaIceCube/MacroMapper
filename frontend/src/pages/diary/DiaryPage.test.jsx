@@ -966,17 +966,17 @@ describe('DiaryPage', () => {
     expect(advancedStyles).toMatch(/@media \(min-width:\s*900px\).*flex-direction:\s*row/i);
   });
 
-  test('leaves a new meal name blank for generation when saving', async () => {
+  test('allows a blank meal name for the numbered default', async () => {
     const user = userEvent.setup();
     fetchDailyDiary.mockResolvedValue({ date: '2026-08-16', meals: [], totals: [] });
-    createMeal.mockResolvedValue({ ...meal, name: 'Apple' });
+    createMeal.mockResolvedValue({ ...meal, name: 'Meal-00' });
     renderWithProviders(<DiaryPage />);
 
     await screen.findByText('Nothing logged yet');
     await user.click(screen.getByRole('button', { name: 'Chart your Course Manually' }));
     const addDialog = await screen.findByRole('dialog', { name: /Map Your Meal/ });
     expect(
-      within(addDialog).getByText('Optional. Leave blank to generate a name when you save.'),
+      within(addDialog).getByText('Optional. Leave blank for a numbered name like Meal-00.'),
     ).toBeVisible();
     await user.type(within(addDialog).getByRole('textbox', { name: 'Search catalog' }), 'Apple');
     await user.click(within(addDialog).getByRole('button', { name: 'search foods' }));

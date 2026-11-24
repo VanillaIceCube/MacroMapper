@@ -17,6 +17,8 @@ from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
+from apps.mcp.framework.config import oauth_settings
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
@@ -225,27 +227,33 @@ if not math.isfinite(OPENAI_MEAL_ESTIMATION_TIMEOUT) or not (
 
 
 # Optional MCP has no routes, OAuth tables or application tools unless explicitly enabled.
-from apps.mcp.framework.config import oauth_settings, optional_settings  # noqa: E402
-
-MCP_SETTINGS = optional_settings("MacroMapper", "macromapper", sample=False)
-MCP_SETTINGS.update(
-    MCP_SERVER_FACTORY=os.getenv("DJANGO_MCP_SERVER_FACTORY")
-    or "apps.mcp.tools.server.create_server",
-    MCP_REQUIRED_SCOPES=["macromapper:read"],
-    MCP_ACTION_APPROVAL_HANDLER="apps.mcp.tools.services.action_approval",
-    OAUTH2_PROVIDER=oauth_settings(
-        MCP_SETTINGS["MCP_BASE_URL"],
-        {
-            "macromapper:read": "Read your meals, proposals, notifications and accessible foods",
-            "macromapper:write": "Make additions and edits directly, including item replacements; archiving and permanent deletion require your separate approval in MacroMapper",
-            "macromapper:estimate": "Run paid AI work directly that can spend credits and publish shared food definitions (also requires read/write access); no separate per-action app approval",
-        },
-        ["macromapper:read"],
-    ),
+MCP_ENABLED = os.getenv("DJANGO_MCP_ENABLED", "0") == "1"
+MCP_NAME = "MacroMapper"
+MCP_BASE_URL = os.getenv("DJANGO_MCP_BASE_URL", "http://localhost:8000").rstrip("/")
+MCP_RESOURCE_URL = f"{MCP_BASE_URL}/mcp"
+MCP_SERVER_FACTORY = (
+    os.getenv("DJANGO_MCP_SERVER_FACTORY") or "apps.mcp.tools.server.create_server"
 )
-globals().update(MCP_SETTINGS)
+TRUSTED_PROXY_IPS = [
+    address.strip()
+    for address in os.getenv("DJANGO_TRUSTED_PROXY_IPS", "").split(",")
+    if address.strip()
+]
+MCP_CONSENT_SALT = "macromapper.mcp.consent"
+MCP_REQUIRED_SCOPES = ["macromapper:read"]
+MCP_ACTION_APPROVAL_HANDLER = "apps.mcp.tools.services.action_approval"
+OAUTH2_PROVIDER = oauth_settings(
+    base_url=MCP_BASE_URL,
+    scopes={
+        "macromapper:read": "Read your meals, proposals, notifications and accessible foods",
+        "macromapper:write": "Make additions and edits directly, including item replacements; archiving and permanent deletion require your separate approval in MacroMapper",
+        "macromapper:estimate": "Run paid AI work directly that can spend credits and publish shared food definitions (also requires read/write access); no separate per-action app approval",
+    },
+    required_scopes=MCP_REQUIRED_SCOPES,
+)
+
 INSTALLED_APPS += ["apps.mcp.framework", "apps.mcp.tools.apps.MacroMapperMCPConfig"]
-if MCP_SETTINGS["MCP_ENABLED"]:
+if MCP_ENABLED:
     INSTALLED_APPS += ["oauth2_provider"]
     SECURE_PROXY_SSL_HEADER = None
     SESSION_COOKIE_SECURE = not DEBUG
