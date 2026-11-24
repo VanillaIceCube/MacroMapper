@@ -394,7 +394,7 @@ constrain a workflow that bypasses it. GitHub rulesets and independent review
 remain necessary. The checker parses YAML nodes, including quoted/flow/sequence
 forms, rejects aliases, duplicate and merge keys, and requires pinned PyYAML 6.0.3.
 
-Declare permissions explicitly in the workflow or job. The checker rejects broad
+Every workflow declares an explicit top-level permissions map. Jobs may narrow or override it. The checker rejects broad
 grants such as `write-all` and unknown permission scopes or levels. PR CI compares
 each workflow and job's effective write scopes to the same path and job on its
 exact base commit. New workflows and jobs start with no approved write scopes.
@@ -650,6 +650,10 @@ run is missing, check that workflow's run history and use **Run workflow** on
 `main` to recover the missed scan or feed. The CodeQL alert workflow runs automatically only after the scheduled scan
 on main succeeds. If tracking needs a separate retry, dispatch CodeQL Alert manually.
 [GitHub scheduled-event behavior](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
+
+Code Scanning recorded Python, JavaScript/TypeScript and GitHub Actions analyses
+on `main` during the [November 16 scheduled scan](https://github.com/VanillaIceCube/MacroMapper/actions/runs/43950922024).
+For newer results before the next scheduled scan, dispatch CodeQL Gate on `main`.
 
 ### Promotion, release and manual operations
 
