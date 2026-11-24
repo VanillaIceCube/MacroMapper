@@ -624,7 +624,7 @@ must merge through review before a consumer requests it.
 
 ```mermaid
 flowchart LR
-  Schedule[Daily schedules or manual dispatch] --> Feeds[CodeQL, vulnerability and malware workflows]
+  Schedule[Midnight Pacific or manual dispatch] --> Feeds[CodeQL, vulnerability and malware workflows]
   Feeds --> Source[Authoritative source alerts and bounded classification]
   Source --> Robo[RoboCop grouping with validated Responses policy]
   Robo --> Validate[Complete source coverage and lifecycle validation]
@@ -632,12 +632,20 @@ flowchart LR
   Issues --> Project[Separately credentialed Project synchronization and recovery]
 ```
 
-[CodeQL](alert-codeql.yml), [vulnerability](alert-vulnerability.yml) and
-[malware](alert-malware.yml) aggregation run daily or by dispatch. Incomplete
+The [CodeQL](alert-codeql.yml), [vulnerability](alert-vulnerability.yml), and
+[malware](alert-malware.yml) alert workflows each run at midnight Pacific
+(`America/Los_Angeles`) every day and support manual dispatch. Incomplete
 source/model evidence fails before lifecycle writes; verified closure and Project
-recovery preserve their independent credential boundaries. CodeQL analysis also
-runs on scoped PRs, every Monday at 10:24 UTC, and on manual dispatch. Alert maintenance
-neither merges code nor deploys.
+recovery preserve their independent credential boundaries.
+
+The CodeQL Gate analyzes scoped pull requests. The full weekly scan
+is scheduled for Monday at midnight Pacific and can be dispatched manually.
+
+GitHub may delay or drop scheduled runs at the top of the hour. If a scheduled
+run is missing, check that workflow's run history and use **Run workflow** on
+`main` to recover the missed scan or feed. The daily CodeQL alert feed reads
+published results, so it can pick up Monday's new scan on the following day.
+[GitHub scheduled-event behavior](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
 
 ### Promotion, release and manual operations
 
