@@ -624,7 +624,7 @@ must merge through review before a consumer requests it.
 
 ```mermaid
 flowchart LR
-  Schedule[Daily schedules or manual dispatch] --> Feeds[CodeQL, vulnerability and malware workflows]
+  Schedule[Midnight Pacific or manual dispatch] --> Feeds[CodeQL, vulnerability and malware workflows]
   Feeds --> Source[Authoritative source alerts and bounded classification]
   Source --> Robo[RoboCop grouping with validated Responses policy]
   Robo --> Validate[Complete source coverage and lifecycle validation]
@@ -633,10 +633,10 @@ flowchart LR
 ```
 
 [CodeQL](alert-codeql.yml), [vulnerability](alert-vulnerability.yml) and
-[malware](alert-malware.yml) aggregation run daily or by dispatch. Incomplete
+[malware](alert-malware.yml) aggregation run daily at midnight Pacific (`America/Los_Angeles`) or by dispatch. Incomplete
 source/model evidence fails before lifecycle writes; verified closure and Project
 recovery preserve their independent credential boundaries. CodeQL analysis also
-runs on scoped PRs, every Monday at 10:24 UTC, and on manual dispatch. Alert maintenance
+runs on scoped PRs, every Monday at midnight Pacific, and on manual dispatch. Alert maintenance
 neither merges code nor deploys.
 
 ### Promotion, release and manual operations
