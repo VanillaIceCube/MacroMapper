@@ -7,6 +7,7 @@ from apps.foods.evidence import source_data, version_evidence
 from apps.foods.models import FoodItem, FoodItemVersion
 from apps.foods.nutrients import NUTRIENT_METADATA
 from apps.foods.portions import portion_options_for_serving
+from apps.foods.serializers import FoodItemReferenceSerializer
 
 from .models import MealEntry, MealItem
 from .services import _component_tree, create_meal, update_meal, validate_meal_data
@@ -231,8 +232,7 @@ class MealItemSerializer(serializers.ModelSerializer):
         )
 
 
-class MealItemInputSerializer(serializers.Serializer):
-    food_item = serializers.PrimaryKeyRelatedField(queryset=FoodItem.objects.all())
+class MealItemInputSerializer(FoodItemReferenceSerializer):
     food_version = serializers.IntegerField(required=False, min_value=1)
     servings = serializers.DecimalField(
         max_digits=10,

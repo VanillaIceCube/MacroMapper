@@ -259,6 +259,8 @@ def strict_proposal_items(items):
     for item in items:
         if not isinstance(item, dict):
             raise ValidationError("Supply item objects.")
+        if "food_item" in item:
+            raise OperationError("Use food_item_id for the catalog food reference.")
         for key in ("food_item_id", "food_version_id"):
             if item.get(key) is not None and (
                 type(item[key]) is not int or item[key] <= 0

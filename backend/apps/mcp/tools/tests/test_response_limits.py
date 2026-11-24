@@ -25,7 +25,7 @@ class MCPResponseLimitTests(MealToolFixtures, TestCase):
         for _ in range(3):
             payload = self.meal_payload()
             payload["item_inputs"] = [
-                {"food_item": food.pk, "servings": "1", "order": index}
+                {"food_item_id": food.pk, "servings": "1", "order": index}
                 for index in range(3)
             ]
             meals.append(

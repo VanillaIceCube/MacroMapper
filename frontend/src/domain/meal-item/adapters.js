@@ -32,7 +32,7 @@ const withPortionSelection = (item) => {
 const componentSnapshotToMealItem = (component) =>
   withPortionSelection({
     key: nextKey('meal-component', component.food_version_id || component.id),
-    food_item: component.food_item_id,
+    food_item_id: component.food_item_id,
     food_version: component.food_version_id,
     name: component.food_name || component.food_item_name,
     provider_name: component.provider_name || '',
@@ -64,7 +64,7 @@ export const catalogFoodToMealItem = (food) => {
     version.provenance || (food.scope === 'personal' ? 'user_entered' : 'community_estimate');
   return withPortionSelection({
     key: nextKey('meal-food', food.id),
-    food_item: food.id,
+    food_item_id: food.id,
     food_version: null,
     catalog_food_version: version.id,
     name: food.name,
@@ -99,7 +99,6 @@ export const proposalItemToMealItem = (item) => {
   const normalized = withPortionSelection({
     ...item,
     key: item.key,
-    food_item: item.food_item_id,
     food_version: item.food_version_id,
     catalog_food_version: item.food_version_id,
     nutrients: Array.isArray(item.nutrients)
@@ -113,7 +112,7 @@ export const proposalItemToMealItem = (item) => {
 
 export const mealItemToProposalItem = (item) => ({
   key: item.key,
-  food_item_id: item.food_item ?? null,
+  food_item_id: item.food_item_id ?? null,
   food_version_id: item.food_version || item.catalog_food_version || null,
   name: item.name,
   provider_name: item.provider_name || '',
@@ -143,7 +142,7 @@ export const savedMealItemToEditableMealItem = (item) => {
   const servings = Number(item.servings);
   return withPortionSelection({
     key: nextKey('saved-meal-item', item.id || item.food_item_id),
-    food_item: item.food_item_id,
+    food_item_id: item.food_item_id,
     food_version: item.food_version_id,
     name: item.food_name,
     provider_name: item.provider_name,

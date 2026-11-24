@@ -1,10 +1,11 @@
 import { apiFetch } from '../http/requestClient';
 import {
-  adjustMealProposal,
-  createMeal,
+  createDraftAdjustment,
+  createMealFromDraft,
   fetchDailyDiary,
+  followUpMealProposal,
   searchFoods,
-  updateMeal,
+  updateMealFromDraft,
 } from './mealApiClient';
 
 vi.mock('../http/requestClient', () => ({
@@ -17,11 +18,29 @@ describe('mealApiClient', () => {
     apiFetch.mockResolvedValue(Response.json({ proposal: { id: 90 } }));
   });
 
-  test('sends all reviewed fields when adjusting an existing proposal', async () => {
+  test('starts a draft adjustment without a proposal ID', async () => {
+    const payload = {
+      adjustment: 'Add an apple',
+      entry_date: '2026-08-17',
+      name: '',
+      notes: '',
+      items: [],
+    };
+
+    await expect(createDraftAdjustment(payload)).resolves.toEqual({ proposal: { id: 90 } });
+
+    expect(apiFetch).toHaveBeenCalledWith('/api/meal-proposals/adjustments/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  });
+
+  test('sends all reviewed fields for a follow-up to an existing proposal', async () => {
     const items = [{ key: 'apple', servings: '1' }];
 
-    await adjustMealProposal(90, {
-      adjustment: 'Add cinnamon',
+    await followUpMealProposal(90, {
+      follow_up: 'Add cinnamon',
       name: 'Apple snack',
       notes: 'Use the homemade version.',
       entry_date: '2026-08-17',
@@ -51,7 +70,7 @@ describe('mealApiClient', () => {
       items: [{ key: 'apple', servings: '1' }],
     };
 
-    await createMeal(draft);
+    await createMealFromDraft(draft);
 
     expect(apiFetch).toHaveBeenCalledWith('/api/meals/drafts/', {
       method: 'POST',
@@ -70,7 +89,7 @@ describe('mealApiClient', () => {
       items: [{ key: 'apple', servings: '2' }],
     };
 
-    await updateMeal(42, draft);
+    await updateMealFromDraft(42, draft);
 
     expect(apiFetch).toHaveBeenCalledWith('/api/meals/42/draft/', {
       method: 'PUT',

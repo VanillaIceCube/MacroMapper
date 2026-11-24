@@ -29,7 +29,7 @@ class MCPMealDraftTests(MealToolFixtures, TestCase):
                 if action == "meal.update":
                     payload = self.meal_payload()
                     payload["item_inputs"] = [
-                        {"food_item": food.pk, "servings": "1", "order": index}
+                        {"food_item_id": food.pk, "servings": "1", "order": index}
                         for index in range(5)
                     ]
                 else:

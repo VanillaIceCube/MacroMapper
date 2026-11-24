@@ -45,7 +45,7 @@ describe('meal item adapters', () => {
     expect(
       new Set([first.key, second.key, first.components[0].key, second.components[0].key]).size,
     ).toBe(4);
-    expect(first.food_item).toBe(second.food_item);
+    expect(first.food_item_id).toBe(second.food_item_id);
     expect(first.components[0].food_version).toBe(second.components[0].food_version);
     expect(catalogFood).not.toHaveProperty('key');
   });
@@ -58,7 +58,7 @@ describe('meal item adapters', () => {
 
     expect(item).toMatchObject({
       name: 'New food',
-      food_item: 1,
+      food_item_id: 1,
       servings: '1',
       serving_unit: 'serving',
       selected_portion_key: 'base',
@@ -161,14 +161,14 @@ describe('meal item adapters', () => {
     const mealItem = catalogFoodToMealItem(catalogFood);
 
     expect(mealItem).toMatchObject({
-      food_item: 7,
+      food_item_id: 7,
       food_version: null,
       source_kind: 'official_verified',
       nutrients: { calories: '95' },
       selected_portion_key: 'base',
     });
     expect(mealItem.components[0]).toMatchObject({
-      food_item: 8,
+      food_item_id: 8,
       food_version: 10,
       name: 'Apple flesh',
       nutrients: { calories: '95' },
@@ -194,7 +194,7 @@ describe('meal item adapters', () => {
     });
 
     expect(saved).toMatchObject({
-      food_item: 7,
+      food_item_id: 7,
       food_version: 9,
       servings: '2',
       nutrients: { calories: '95' },
