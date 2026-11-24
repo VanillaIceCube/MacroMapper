@@ -6,7 +6,7 @@ authentication, and the application shell.
 ## 🧭 Structure
 
 - `docker/`: production/development Dockerfiles, their matching
-  `Dockerfile.dockerignore` / `Dockerfile.dev.dockerignore`, and Nginx configuration.
+  `Dockerfile.dockerignore` / `Dockerfile.hotswap.dockerignore`, and Nginx configuration.
   Docker builds keep `frontend/` as their context; ignore patterns are relative
   to that context root. Nginx and development startup files remain build inputs.
 - `src/theme.js`: palette and nutrient tokens, typography, document colors and

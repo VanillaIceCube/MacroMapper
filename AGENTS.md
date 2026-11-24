@@ -72,7 +72,7 @@ npm start
 Backend image definitions live in `backend/docker/`; keep `backend/` as the
 Docker build context. Frontend image definitions and Nginx configuration live in
 `frontend/docker/`; keep `frontend/` as the Docker build context. Each Dockerfile
-uses its adjacent `Dockerfile.dockerignore` or `Dockerfile.dev.dockerignore`;
+uses its adjacent `Dockerfile.dockerignore` or `Dockerfile.hotswap.dockerignore`;
 patterns remain relative to the backend/frontend context root. Keep frontend
 Nginx configuration and development startup files available to image builds.
 
