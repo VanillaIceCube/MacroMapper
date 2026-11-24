@@ -467,7 +467,7 @@ export default function MealEditorDialog({ date, meal, open, launchMode, onClose
                       helperText={
                         meal || proposalId
                           ? 'A name is required when updating an existing meal or proposal.'
-                          : 'Optional. Leave blank to generate a name when you save.'
+                          : 'Optional. Leave blank for a numbered name like Meal-00.'
                       }
                       required={Boolean(meal || proposalId)}
                       fullWidth

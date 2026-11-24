@@ -3,6 +3,7 @@
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
+from django.test import override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -180,6 +181,29 @@ class MealDraftTests(MealEntryFixtures, APITestCase):
             )
 
         self.assertEqual(MealProposal.objects.count(), 0)
+
+    @override_settings(OPENAI_API_KEY="test-key")
+    @patch("apps.estimates.provider.OpenAI", side_effect=AssertionError("AI called"))
+    def test_new_draft_defaults_blank_or_missing_names_without_ai(self, openai_client):
+        ordinary_meal = self.create_meal(name="")
+        item = _catalog_food(self.apple.current_version, key="manual-apple")
+        payload = {"entry_date": "2026-08-16", "items": [item]}
+
+        unnamed_draft = self.client.post("/api/meals/drafts/", payload, format="json")
+        blank_name_draft = self.client.post(
+            "/api/meals/drafts/", {**payload, "name": ""}, format="json"
+        )
+
+        self.assertEqual(ordinary_meal.data["name"], "Meal-00")
+        self.assertEqual(
+            unnamed_draft.status_code, status.HTTP_201_CREATED, unnamed_draft.data
+        )
+        self.assertEqual(
+            blank_name_draft.status_code, status.HTTP_201_CREATED, blank_name_draft.data
+        )
+        self.assertEqual(unnamed_draft.data["name"], "Meal-01")
+        self.assertEqual(blank_name_draft.data["name"], "Meal-02")
+        openai_client.assert_not_called()
 
     def test_full_draft_create_materializes_reviewed_nutrition(self):
         self.client.force_authenticate(user=self.owner)

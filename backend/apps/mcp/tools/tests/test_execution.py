@@ -25,10 +25,10 @@ from .helpers import MCPToolFixtures, MealToolFixtures, definition
 
 @skipUnless(settings.MCP_ENABLED, "Run the enabled app-owned OAuth profile")
 class MCPExecutionTests(MCPToolFixtures, TestCase):
-    def test_direct_create_replay_update_delete_and_no_ai(self):
+    def test_direct_create_replay_update_delete_with_explicit_name(self):
         with patch(
-            "apps.meals.services.generate_meal_name",
-            side_effect=AssertionError("No implicit AI"),
+            "apps.meals.services.default_meal_name",
+            side_effect=AssertionError("MCP meal creation requires an explicit name"),
         ):
             request = self.request()
             self.assertFalse(MealEntry.objects.exists())
@@ -648,12 +648,12 @@ class TieredExecutionTests(MealToolFixtures, TestCase):
     def direct(self, request):
         return services.execute_change(self.raw, *self.arguments(request)[:-1])
 
-    def test_routine_direct_is_atomic_replayable_and_never_names_with_ai(self):
+    def test_routine_direct_is_atomic_replayable_and_requires_meal_name(self):
         request = self.request()
         with patch(
-            "apps.meals.services.generate_meal_name",
-            side_effect=AssertionError("No implicit AI"),
-        ) as provider:
+            "apps.meals.services.default_meal_name",
+            side_effect=AssertionError("MCP meal creation requires an explicit name"),
+        ) as default_name:
             output = self.direct(request)
             self.assertEqual(output["status"], "completed")
             self.assertFalse(Confirmation.objects.exists())
@@ -666,7 +666,7 @@ class TieredExecutionTests(MealToolFixtures, TestCase):
                     payload["name"] = name
                 with self.assertRaises(APIException):
                     self.direct(self.request(payload=payload))
-            provider.assert_not_called()
+            default_name.assert_not_called()
         self.assertEqual(MealEntry.objects.count(), 1)
         with patch.object(
             Execution, "save", side_effect=RuntimeError("receipt failure")

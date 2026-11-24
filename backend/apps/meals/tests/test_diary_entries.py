@@ -2,12 +2,12 @@
 
 from datetime import date
 from decimal import Decimal
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
+from django.test import override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.estimates.provider import EstimationProviderError
 from apps.foods.models import FoodItem
 from apps.foods.services import (
     create_food_item,
@@ -50,35 +50,24 @@ class DiaryEntryTests(MealEntryFixtures, APITestCase):
         self.assertEqual(nutrients["calories"], "190.0000")
         self.assertEqual(nutrients["protein"], "1.0000")
 
-    @patch("apps.meals.services.get_estimation_provider")
-    def test_create_generates_a_name_when_it_is_left_blank(self, get_provider):
-        provider = Mock()
-        provider.generate_name.return_value = "Example Bakery Toast & Apple"
-        get_provider.return_value = provider
+    @override_settings(OPENAI_API_KEY="test-key")
+    @patch("apps.estimates.provider.OpenAI", side_effect=AssertionError("AI called"))
+    def test_create_defaults_blank_or_missing_names_without_ai(self, openai_client):
+        first = self.create_meal(name=" ")
+        payload = self.payload()
+        del payload["name"]
+        second = self.client.post("/api/meals/", payload, format="json")
+        next_day = self.create_meal(name="", entry_date="2026-08-17")
 
-        response = self.create_meal(name="")
-
-        self.assertEqual(response.data["name"], "Example Bakery Toast & Apple")
-        provider.generate_name.assert_called_once_with(
-            [
-                {"name": "Apple", "provider_name": "", "servings": "2.0000"},
-                {
-                    "name": "Toast",
-                    "provider_name": "Example Bakery",
-                    "servings": "1.0000",
-                },
-            ]
-        )
-
-    @patch("apps.meals.services.get_estimation_provider")
-    def test_create_uses_numbered_names_when_generation_fails(self, get_provider):
-        get_provider.side_effect = EstimationProviderError("Provider unavailable")
-
-        first = self.create_meal(name="")
-        second = self.create_meal(name="")
-
+        self.assertEqual(second.status_code, status.HTTP_201_CREATED, second.data)
         self.assertEqual(first.data["name"], "Meal-00")
         self.assertEqual(second.data["name"], "Meal-01")
+        self.assertEqual(next_day.data["name"], "Meal-00")
+        deleted = self.client.delete(f"/api/meals/{first.data['id']}/")
+        self.assertEqual(deleted.status_code, status.HTTP_204_NO_CONTENT)
+        replacement = self.create_meal(name="")
+        self.assertEqual(replacement.data["name"], "Meal-02")
+        openai_client.assert_not_called()
 
     def test_saved_meal_item_does_not_change_after_catalog_update(self):
         response = self.create_meal(

@@ -8,7 +8,6 @@ from django.utils.dateparse import parse_date
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.exceptions import ValidationError as APIValidationError
 
-from apps.estimates.provider import EstimationProviderError, get_estimation_provider
 from apps.foods.evidence import source_data, version_evidence
 from apps.foods.models import FoodItem, FoodItemVersion
 from apps.foods.nutrients import NUTRIENT_FIELDS, NUTRIENT_METADATA
@@ -18,27 +17,19 @@ from apps.foods.services import build_component_map
 from .models import MealEntry, MealItem
 
 
-def generate_meal_name(*, owner, entry_date, item_inputs=(), selected_foods=None):
-    meal_number = MealEntry.objects.filter(
-        owner=owner,
-        entry_date=entry_date,
-    ).count()
-    fallback_name = f"Meal-{meal_number:02d}"
-    if selected_foods is None:
-        selected_foods = [
-            {
-                "name": item["food_item"].name,
-                "provider_name": item["food_item"].provider_name,
-                "servings": str(item["servings"]),
-            }
-            for item in sorted(item_inputs, key=lambda item: item["order"])
-        ]
-    try:
-        generated_name = get_estimation_provider().generate_name(selected_foods)
-    except EstimationProviderError:
-        return fallback_name
-    normalized_name = " ".join(str(generated_name or "").split()).strip()
-    return normalized_name[:120] or fallback_name
+def default_meal_name(meal):
+    """Choose a name after inserting the meal inside its save transaction."""
+    # The insert acquires SQLite's write lock before we read existing names.
+    existing_names = list(
+        MealEntry.objects.filter(owner_id=meal.owner_id, entry_date=meal.entry_date)
+        .exclude(pk=meal.pk)
+        .values_list("name", flat=True)
+    )
+    meal_number = len(existing_names)
+    names_in_use = set(existing_names)
+    while f"Meal-{meal_number:02d}" in names_in_use:
+        meal_number += 1
+    return f"Meal-{meal_number:02d}"
 
 
 def _effective_nutrients(
@@ -300,20 +291,16 @@ def require_meal_owner(actor, meal):
         raise PermissionDenied("Meal unavailable.")
 
 
+@transaction.atomic
 def create_meal(actor, data):
     data = validate_meal_data(actor, dict(data), partial=False)
     item_inputs = data.pop("items")
-    if not data.get("name"):
-        data["name"] = generate_meal_name(
-            owner=actor, entry_date=data["entry_date"], item_inputs=item_inputs
-        )
-    # Automatic naming may use the provider. Acquire the write transaction only
-    # after it finishes, then recheck catalog access before persisting snapshots.
-    with transaction.atomic():
-        validate_meal_data(actor, {**data, "items": item_inputs}, partial=False)
-        meal = MealEntry.objects.create(owner=actor, **data)
-        replace_meal_items(meal_entry=meal, item_inputs=item_inputs)
-        return meal
+    meal = MealEntry.objects.create(owner=actor, **data)
+    if not meal.name:
+        meal.name = default_meal_name(meal)
+        meal.save(update_fields=["name"])
+    replace_meal_items(meal_entry=meal, item_inputs=item_inputs)
+    return meal
 
 
 @transaction.atomic

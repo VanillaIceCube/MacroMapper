@@ -96,8 +96,8 @@ and personal writes in `apps/foods/services.py`, diary queries/writes in
 `apps/estimates/services.py`, and recipient activity operations in
 `apps/notifications/services.py`. These entrypoints recheck ownership and own
 transactions; serializers validate boundary fields and delegate their writes.
-Shared business behavior uses the owning app's `services` module. Specialized
-ingredient-tree editing helpers live in `apps/estimates/recipe_edits.py`.
+Shared business behavior uses the owning app's `services` module. Proposal
+follow-ups and ingredient edits live in `apps/estimates/services.py`.
 MCP executes additions, ordinary edits (including item replacements) and paid AI
 directly under their scopes; only archive/deletion requires separate JWT-authenticated app approval
 before consuming the exact action with current OAuth authorization. Automatic
@@ -187,8 +187,11 @@ user's entries.
 - `GET /api/meals/daily/?date=YYYY-MM-DD`
   - Returns the day's meals and summed saved nutrient values.
 
-Create requests provide `entry_date`, `name`, optional `notes`, and
-`item_inputs`. Each item contains a visible `food_item`, positive `servings`,
+Create requests provide `entry_date`, optional `name` and `notes`, and
+`item_inputs`. A new diary entry or draft with a blank or omitted name gets a
+local name such as `Meal-00` or `Meal-01`. The number starts at the owner's meal
+count for that date and skips names already in use. Saving a meal never calls
+AI to name it. Each item contains a visible `food_item`, positive `servings`,
 and a unique `order`. Saved items pin and copy the selected Food Item version,
 including its nested composite components and nullable nutrient columns.
 Editing an existing item submits its returned `food_version_id` as
@@ -294,13 +297,12 @@ nutrients, sources and nested components. Missing or malformed legacy snapshots
 are rebuilt from the saved food-version graph, preserving pinned history rather
 than using the latest catalog definition. Source access dates are ISO strings.
 
-Meal-entry and builder adjustment endpoints share `process_meal_adjustment`.
-Provider resolution, follow-up processing and response serialization stay inside
-its cleanup boundary: failures delete the created proposal, and successful
-temporary meal-entry proposals are deleted after serialization. Missing/null
-optional follow-up fields retain existing confidence and provider metadata when
-no replacement is supplied. Views inject the response serializer and provider
-getter to avoid a service/serializer import cycle and keep provider calls patchable.
+The estimate view validates input, calls `estimate_proposal`, and serializes the
+saved proposal. Both adjustment views call `adjust_meal` and serialize the result
+inside its cleanup block. Failures delete the new proposal, and adjustments to an
+existing diary entry delete their temporary proposal after serialization. A
+successful builder adjustment keeps its proposal for review. Missing or null
+follow-up fields retain existing confidence and provider metadata.
 
 ## ✉️ Email
 
