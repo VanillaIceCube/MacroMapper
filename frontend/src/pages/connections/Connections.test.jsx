@@ -81,7 +81,7 @@ test('an authenticated user goes directly to consent with application, identity 
   renderFlow();
   expect(await screen.findByText('Signed in as alice')).toBeInTheDocument();
   expect(screen.getByText('Sample application for ChatGPT')).toBeInTheDocument();
-  expect(screen.getByText('Application ID: sample-chatgpt')).toBeInTheDocument();
+  expect(screen.getByText('OAuth client ID: sample-chatgpt')).toBeInTheDocument();
   expect(screen.getByText(readDescription)).toBeInTheDocument();
   expect(connections.loadConsent).toHaveBeenCalledWith(query);
   expect(login).not.toHaveBeenCalled();
@@ -221,7 +221,7 @@ test.each([
       approval: { ...actionPreview.approval, status },
     });
     renderFlow(`/connections/authorize${actionQuery}`);
-    await screen.findByText('Application ID: requested-client');
+    await screen.findByText('OAuth client ID: requested-client');
     expect(screen.getByText('Signed in as alice')).toBeInTheDocument();
     expect(screen.getByText('Target ID: 42')).toBeInTheDocument();
     expect(screen.getByText(/permanently delete or archive/)).toBeInTheDocument();

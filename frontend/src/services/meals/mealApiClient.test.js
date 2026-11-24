@@ -1,10 +1,10 @@
 import { apiFetch } from '../http/requestClient';
 import {
   adjustMealProposal,
-  createMeal,
+  createMealFromDraft,
   fetchDailyDiary,
   searchFoods,
-  updateMeal,
+  updateMealFromDraft,
 } from './mealApiClient';
 
 vi.mock('../http/requestClient', () => ({
@@ -51,7 +51,7 @@ describe('mealApiClient', () => {
       items: [{ key: 'apple', servings: '1' }],
     };
 
-    await createMeal(draft);
+    await createMealFromDraft(draft);
 
     expect(apiFetch).toHaveBeenCalledWith('/api/meals/drafts/', {
       method: 'POST',
@@ -70,7 +70,7 @@ describe('mealApiClient', () => {
       items: [{ key: 'apple', servings: '2' }],
     };
 
-    await updateMeal(42, draft);
+    await updateMealFromDraft(42, draft);
 
     expect(apiFetch).toHaveBeenCalledWith('/api/meals/42/draft/', {
       method: 'PUT',

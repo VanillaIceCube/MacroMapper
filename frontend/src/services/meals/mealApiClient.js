@@ -38,7 +38,7 @@ export async function fetchDailyDiary(date) {
 
 const saveNetworkMessage = 'Could not save this meal. Your draft is still here. Please try again.';
 
-export async function createMeal(payload) {
+export async function createMealFromDraft(payload) {
   await requestMeal(
     '/api/meals/drafts/',
     jsonRequest('POST', payload),
@@ -47,7 +47,7 @@ export async function createMeal(payload) {
   );
 }
 
-export async function updateMeal(mealId, payload) {
+export async function updateMealFromDraft(mealId, payload) {
   await requestMeal(
     `/api/meals/${mealId}/draft/`,
     jsonRequest('PUT', payload),

@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Label the OAuth client ID correctly on the Connected Apps consent and approval screens.
 - Preserve the open meal draft, catalog filters, and loaded diary when the access token refreshes.
 - Ignore late authentication responses after leaving the form or changing sessions.
 - Reject unreviewed gateway network attachments during app release preflight while allowing approved companion routes to be absent; retain app-specific network and trusted-peer checks.

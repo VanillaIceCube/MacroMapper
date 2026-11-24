@@ -22,9 +22,9 @@ import {
   acceptMealProposal,
   adjustMeal,
   adjustMealProposal,
-  createMeal,
+  createMealFromDraft,
   createMealProposal,
-  updateMeal,
+  updateMealFromDraft,
   updateMealProposal,
 } from '../../services/meals/mealApiClient';
 import {
@@ -273,8 +273,8 @@ export default function MealEditorDialog({ date, meal, open, launchMode, onClose
         notes: notes.trim(),
         items: items.map(mealItemToProposalItem),
       };
-      if (meal) await updateMeal(meal.id, payload);
-      else await createMeal(payload);
+      if (meal) await updateMealFromDraft(meal.id, payload);
+      else await createMealFromDraft(payload);
       if (isCurrentSession()) onSaved(meal ? 'Meal updated.' : 'Meal added.');
     } catch (error) {
       setError(error.message);
