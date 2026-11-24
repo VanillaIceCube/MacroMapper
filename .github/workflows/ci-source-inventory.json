@@ -353,18 +353,6 @@
     "gate-codeql.yml": {
       "credential_names": [],
       "events": {
-        "push": {
-          "branches": [
-            "main"
-          ],
-          "paths": [
-            "backend/**",
-            "frontend/**",
-            ".github/actions/**",
-            ".github/workflows/**",
-            ".github/codeql/**"
-          ]
-        },
         "schedule": [
           {
             "cron": "24 10 * * 1"
@@ -441,7 +429,7 @@
         "pull-requests": "read",
         "security-events": "write"
       },
-      "source_sha256": "018f1cafa9e50f28231418fcf7bb141978f9cfc73a403ae8678e148a9a9b08e7",
+      "source_sha256": "e6e7b5cc589e5598cd9c8374c2e516e708252cac44b14dc9769f5ccfa4d2ca40",
       "variable_names": []
     },
     "gate-lint.yml": {
