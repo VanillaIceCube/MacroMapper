@@ -35,7 +35,7 @@ describe('nutrition presentation', () => {
       calories,
       protein: calories / 4,
       carbohydrates: null,
-      fat: null,
+      fat: index === 0 ? '0' : null,
     }));
 
     const summarized = summarizeCalorieContributions(contributions, {
@@ -50,6 +50,8 @@ describe('nutrition presentation', () => {
       name: 'Other foods (2)',
       calories: 30,
       protein: 7.5,
+      carbohydrates: null,
+      fat: 0,
     });
     expect(rows[0]).toMatchObject({ name: 'Item 1', relativeBarWidth: 100 });
     expect(rows.reduce((total, row) => total + row.percentage, 0)).toBeCloseTo(100);
