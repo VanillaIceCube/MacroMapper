@@ -165,7 +165,7 @@ tokens, codes, tickets, private configuration and credentials out of logs/result
 An operator may schedule toolkit token cleanup separately; this change schedules
 no production maintenance. No OIDC login or automatic account linking is added.
 
-### 🌐 Hosting, readiness and rollback
+### 🌐 Hosting and readiness
 
 Production requires an HTTPS origin in `DJANGO_MCP_BASE_URL`, correct frontend,
 host/CORS/CSRF origins, a strong independent Django secret and
@@ -198,12 +198,7 @@ readiness. Do not add a live vhost, network or production client before reviewed
 onboarding and operator authorization. Review Cloudflare route/cache/challenge
 policy when activating a new app; this extraction changes no domain or edge rule.
 
-Use the existing app-only immutable release/recovery guide and maintenance lock.
-Retain previous images and private recovery evidence. Roll back the affected
-component explicitly; never recreate shared networks, restore a historical
-database casually, prune images globally or replay the initial cutover. Disabling
-a newly adopted profile hides routes/UI; retain OAuth tables/data for deliberate
-operator cleanup rather than reversing migrations or silently revoking grants.
+Use the app’s production launch guide and maintenance lock. Coordinate any deliberate profile change, preserve OAuth tables and grants, and run the matching readiness checks.
 Moving framework documentation changes no application issuer, scopes, consent
 salt, client IDs, database tables, credentials, domain tools or readiness policy.
 
@@ -473,7 +468,7 @@ Django admin review guidance in the [framework setup](#framework). No dynamic cl
 is claimed. Live sign-in/tool acceptance remains separate from offline tests;
 registering a client does not install a plugin or issue a user grant.
 
-### 📦 Release and recovery
+### 📦 Production launch
 
 Production app policy enables `DJANGO_MCP_ENABLED=1`, fixes the issuer origin and
 trusts only the existing gateway peer `172.20.0.3`. The backend runs one Uvicorn
@@ -483,8 +478,7 @@ accepts that exact peer. The production frontend Docker build defaults
 The ordinary frontend/API probes remain, with exact issuer/resource JSON and an
 unauthenticated MCP 401 resource-metadata challenge added to release readiness.
 
-Coordinate the existing Infrastructure vhost before enabling the app. Run normal
-private SQLite capture/integrity checks before application migrations.
+Coordinate the existing Infrastructure vhost before enabling the app. Run migrations through the app launcher, which stops and checks database writers first.
 The existing unreleased migration `0002_direct_execution_receipts` adds durable
 Execution receipts and opaque approval references while retaining Confirmation;
 `0001_initial` remains unchanged. Apply it through the reviewed release process,
@@ -492,21 +486,9 @@ never to a live database as a test. Pending legacy confirmations lack an Executi
 record and cannot execute; they expire under the existing five-minute lifetime
 and subsequent cleanup. Refresh discovery for the 14-tool prepare/app-approve/
 confirm workflow. Existing grants remain valid but cannot replace action approval;
-reconnect only when a broader scope grant is needed. Retain the prior disabled release directory, its checksummed policy,
-controller, images and recovery evidence. First activation cannot require the
-old disabled backend to already have the new trust environment; `app.json` instead
-pins the gateway address and fixes trust in the new bundle. Verify the resulting
-backend environment and ordinary app health at acceptance.
+reconnect only when a broader scope grant is needed.
 
-For a failed first enable, invoke the **retained previous disabled release's**
-`release.py rollback`, selecting the failed candidate's recovery ID. Its own
-readiness policy correctly accepts the restored disabled app. The enabled
-candidate's controller would incorrectly require MCP from that old image. Keep
-all immutable bundles unchanged. Before migrations, `--keep-database` is eligible
-only at the controller's recorded safe stages; after migrations, explicit
-`--restore-database` restores the verified pre-migration snapshot and may discard
-later writes. Preserve current journals first and obtain the appropriate recovery
-authorization. See [the production guide](../../../deploy/production/README.md).
+Verify the active backend’s trust configuration and discovery routes after launch. See [the production guide](../../../deploy/production/README.md).
 
 <a id="-local-verification"></a>
 

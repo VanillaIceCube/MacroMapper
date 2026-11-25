@@ -181,7 +181,7 @@ daemon, plus all applicable consumer suites. Never test against production.
 
 Ordinary changes merge through reviewed `main` before promoting an exact reviewed
 source tree through the repository's existing `env-prod` process. Preserve all
-required CI, reviews, owner authorization and recovery gates. Explicitly
+required CI, reviews, owner authorization and readiness checks. Explicitly
 owner-authorized deployment experiments must return promptly to `main` through
 review before the next ordinary promotion. Preserve both histories and newer main
 work; never reset or force-push to manufacture parity. Intentional release lag is
@@ -194,15 +194,14 @@ Change `app-release/v1` at the source, regenerate its manifest, then synchronize
 all consumers to the same immutable source commit. Application repositories track
 that source in `shared_source` in `deploy/production/app.json`; never edit only a vendored copy.
 Preserve app-specific Compose, network/readiness policy, immutable image digests,
-SQLite capture/recovery and explicit rollback. Keep shared ingress/certificates
+SQLite writer integrity and launch-only operation. Keep shared ingress/certificates
 and host operations within their separately authorized Infrastructure scope.
 
-Use the [app-only release/recovery guide](deploy/production/README.md).
+Use the [app-only launch guide](deploy/production/README.md).
 `deploy/production/app.json` owns the app's intentional network/readiness policy.
 Review Infrastructure gateway/vhosts, Cloudflare DNS/proxy/Redirect/WAF/Caching
 settings and allowlist/base-URL variables when domains or routes change.
-Retain prior release images and matched private recovery data; no host-wide Docker
-pruning. Cleanup requires the host operator to review disk usage and select unused
+Keep the active launch bundle private. Avoid host-wide Docker pruning. Cleanup requires the host operator to review disk usage and select unused
 app images explicitly. Releases manage only the app's backend/frontend; local
 `deploy/compose.yml` and `deploy/nginx.conf` are local/legacy-only.
 
@@ -336,9 +335,7 @@ Preserve required CI and independent review gates.
 
 Production policy and frontend Docker builds enable the reviewed app connector;
 local backend defaults remain off. Run both backend profiles and frontend tests,
-plus disposable app release tests and parity checks. Preserve SQLite capture and
-explicit recovery. A failed first enable uses the retained previous disabled
-controller and its readiness policy, never an edited enabled bundle. Client
+plus disposable app launch tests and parity checks. Preserve SQLite integrity and verify the active profile's readiness. Client
 registration, owner consent and plugin installation remain separate actions.
 
 ## 🧩 Repository-specific contracts

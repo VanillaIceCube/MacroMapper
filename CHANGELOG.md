@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## 2026-11-25
+
+### Changed
+
+- Use the shared launch-only deployment and matching CI workflows. Preserve the existing nutrition and estimate behavior.
+
 ## 2026-11-24
 
 ### Added
