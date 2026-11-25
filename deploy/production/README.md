@@ -1,6 +1,6 @@
 # Production launches
 
-MacroMapper serves `https://macromapper.judeandrewalaba.com`. Its backend trusts the gateway at `172.20.0.3`. Application settings and readiness checks live in [app.json](app.json). The [Compose file](compose.yml) defines the two services. The [shared release guide](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/blob/7ad35f592ccfc3b37515328ac4cec1088d06f263/app-release/README.md) describes the Infrastructure-owned launcher. For local development, see the [deployment README](../README.md).
+MacroMapper serves `https://macromapper.judeandrewalaba.com`. Its backend trusts the gateway at `172.20.0.3`. Application settings and readiness checks live in [app.json](app.json). The [Compose file](compose.yml) defines the two services. The [shared release guide](https://github.com/VanillaIceCube/JudeAndrewAlabaInfrastructure/blob/1494dced28edafb94693c070394a15ab0aead24e/app-release/README.md) describes the Infrastructure-owned launcher. For local development, see the [deployment README](../README.md).
 
 ## Release sequence
 
