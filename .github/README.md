@@ -5,10 +5,15 @@ Source-controlled configuration and GitHub account/repository settings are separ
 
 ## 🧭 Structure
 
-- [Workflows](workflows/README.md): triggers, required gates, security checks, releases, and diagnostics.
-- [Local actions](actions/README.md): reviewer context, feedback lifecycle, request policy, and regression tests.
-- `dependabot.yml`: dependency-update configuration.
-- `workflows/*.yml` and `actions/*/action.yml`: executable automation definitions.
+| Location | Purpose |
+| --- | --- |
+| [workflows](workflows/README.md) | Entry points, gates, reviewers, schedules and deployment. The guide includes four flow diagrams. |
+| [scripts](scripts) | Standalone automation programs that workflows or people run, and their supporting modules. |
+| [actions](actions/README.md) | Reusable composite steps, each with its own `action.yml` and implementation. |
+| [tests](tests) | One suite per tested JavaScript implementation or workflow, named after its source. |
+| [fixtures](fixtures) | Saved test inputs and expected output. Use lowercase, hyphen-separated nouns for the data and add the scenario last when variants exist (for example, `github-check-runs-passing.json`). |
+| [package.json](package.json) and [package-lock.json](package-lock.json) | JavaScript dependencies for automation and their verified install versions. |
+| [dependabot.yml](dependabot.yml) | Dependency ecosystems and update schedules. |
 
 ## 🚦 Before your first pull request
 
@@ -365,10 +370,9 @@ is failing.
 
 The reviewers run for trusted same-repository pull requests, including
 Dependabot pull requests once [the Dependabot secrets](#3-configure-secrets-for-dependabot-triggered-reviews)
-are present. CI always emits the required top-level `Auto Merge` context: it
-reports not-applicable for ordinary pull requests and records gate eligibility
-for Dependabot. A separate Dependabot-only job enables auto-merge for eligible
-updates. Obi-Wan adds an advisory **Major upgrade brief** for Dependabot
+are present. The top-level `Auto Merge` job verifies read access to branch rules and the
+expected-head API for same-repository PRs. The separate follow-up on `main`
+validates eligibility for Dependabot updates. Obi-Wan adds an advisory **Major upgrade brief** for Dependabot
 semver-major updates. It reports exact Dependabot metadata alongside supplied
 Dependabot information, externally retrieved GitHub Release notes where
 available, repository-diff, and verification evidence. It explicitly marks

@@ -198,12 +198,12 @@ fails. Missing credentials, incomplete required major-upgrade briefs and oversiz
 diffs must fail visibly. The shared diff budget is 2 MB (2,000,000 bytes). Obi-Wan's semver-major
 Dependabot brief uses complete primary-source evidence; web search remains limited
 to that review path. Run the repository's publisher regression tests and
-Actionlint when changing this contract. Where used, the read-only `verify-gates.js` audit requires actual
+Actionlint when changing this contract. Where used, the read-only `validate-reviewer-gates.js` audit requires actual
 successful reviewer results, including after cancelled or skipped runs.
 
-Dependency review retains full JSON in the `dependency-review-evidence` artifact,
-passes it through a file rather than environment variables, and limits RoboCop's
-report to 16 KiB plus summary metadata. Disclose omitted entries; bounded reports
+Dependency Review uses standard input for scanner outputs and limits RoboCop's
+report to 16 KiB, including summary metadata. GitHub's native review summary and
+workflow logs provide diagnostics. Disclose omitted entries; bounded reports
 must not change the independent gate's non-success verdict. Missing evidence
 fails. Preserve CodeQL scope outputs, full default-branch coverage and RoboCop
 baseline evidence; concurrent security-alert closure requires verified final state.
@@ -214,7 +214,7 @@ RoboCop's short-lived App token reads alerts and authors issue mutations;
 Keep App IDs/private keys, least-privilege permissions, trigger policy and field
 setup documented in `.github/README.md`. Security-alert variables resolve in the
 three caller workflows, not local composite metadata; pass explicit model, effort
-and token inputs. Run `.github/actions/custom-regressions/security-alert-contract.test.js`
+and token inputs. Run `.github/tests/track-security-alerts.test.js`
 after changes; actual loading acceptance requires fresh controlled dispatches on
 corrected main. Preserve applicable bounded malware review and documented
 coverage decisions. Keep the CI architecture diagrams aligned with workflow edits.
