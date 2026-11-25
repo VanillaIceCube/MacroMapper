@@ -6,7 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
-- Use the shared launch-only deployment and matching CI workflows. Preserve the existing nutrition and estimate behavior.
+- Save SQLite and both existing app containers before migrations and stop both services on a failed deployment health check. Match the shared CI workflows.
 
 ## 2026-11-24
 
