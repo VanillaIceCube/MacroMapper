@@ -11,7 +11,7 @@ from rest_framework.exceptions import ValidationError as APIValidationError
 from apps.foods.evidence import source_data, version_evidence
 from apps.foods.models import FoodItem, FoodItemVersion
 from apps.foods.nutrients import NUTRIENT_FIELDS, NUTRIENT_METADATA
-from apps.foods.portions import portion_options_for_serving
+from apps.foods.portions import portion_options_for_version
 from apps.foods.services import build_component_map
 
 from .models import MealEntry, MealItem
@@ -124,14 +124,7 @@ def _component_tree(version, visited=None, *, component_map=None, nutrient_cache
                     if child.serving_volume_ml is not None
                     else None
                 ),
-                "portion_options": portion_options_for_serving(
-                    quantity=child.serving_quantity,
-                    unit=child.serving_unit,
-                    label=child.serving_label,
-                    weight_grams=child.serving_weight_grams,
-                    volume_milliliters=child.serving_volume_ml,
-                    natural_servings=child.natural_servings,
-                ),
+                "portion_options": portion_options_for_version(child),
                 "provenance": child.provenance,
                 "evidence": version_evidence(child),
                 "confidence_score": (
