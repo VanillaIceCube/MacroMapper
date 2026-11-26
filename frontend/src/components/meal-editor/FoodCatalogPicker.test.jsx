@@ -13,7 +13,7 @@ import FoodCatalogPicker from './FoodCatalogPicker';
 vi.mock('../../services/meals/mealApiClient');
 
 beforeEach(() => startSession({ access: 'access-token', refresh: 'refresh-token' }));
-afterEach(() => clearSession());
+afterAll(() => clearSession());
 
 test('hides foods already in the draft and sends the chosen food to the editor', async () => {
   const user = userEvent.setup();

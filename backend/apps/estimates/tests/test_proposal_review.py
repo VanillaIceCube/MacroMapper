@@ -6,12 +6,15 @@ from decimal import Decimal
 from unittest.mock import Mock, patch
 
 from django.test import TestCase
+from django.utils import timezone
+from rest_framework.exceptions import PermissionDenied
 
 from apps.foods.models import FoodItem, FoodItemVersion
 from apps.meals.models import MealEntry
 
 from ..models import MealProposal, MealProposalRevision
 from ..provider import EstimationProviderError
+from ..services import accept_reviewed_proposal
 from .helpers import ProposalFixtures, ai_estimate, shared_food, simple_ai_estimate
 
 
@@ -268,6 +271,39 @@ class ProposalReviewTests(ProposalFixtures, TestCase):
         self.assertEqual(nutrients["protein"], "24")
         self.assertEqual(nutrients["carbohydrates"], "30")
 
+    def test_proposal_keeps_the_original_food_version_after_a_catalog_merge(self):
+        alias = shared_food(name="Hash browns")
+        proposal = self.client.post(
+            "/api/meal-proposals/",
+            {"description": alias.name, "entry_date": "2026-08-16"},
+            format="json",
+        )
+        self.assertEqual(proposal.status_code, 201, proposal.data)
+        original = alias.current_version
+        self.assertEqual(proposal.data["items"][0]["food_version_id"], original.pk)
+
+        canonical = shared_food(name="Hash brown")
+        FoodItem.objects.filter(pk=alias.pk).update(
+            merged_into=canonical, archived_at=timezone.now()
+        )
+        listing = self.client.get("/api/foods/", {"search": "Hash brown"})
+        self.assertEqual(listing.status_code, 200)
+        self.assertEqual([item["id"] for item in listing.data], [canonical.pk])
+        detail = self.client.get(f"/api/foods/{alias.pk}/")
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.data["merged_into"], canonical.pk)
+        self.assertEqual(detail.data["current_version"]["id"], original.pk)
+
+        accepted = self.client.post(
+            f"/api/meal-proposals/{proposal.data['id']}/accept/"
+        )
+        self.assertEqual(accepted.status_code, 201, accepted.data)
+        meal = self.client.get(f"/api/meals/{accepted.data['id']}/")
+        self.assertEqual(meal.status_code, 200)
+        saved = meal.data["items"][0]
+        self.assertEqual(saved["food_version_id"], original.pk)
+        self.assertEqual(saved["sources"][0]["url"], original.sources.get().url)
+
     def test_catalog_nutrient_adjustment_creates_a_personal_copy(self):
         catalog_food = shared_food(name="Protein bar")
         created = self.client.post(
@@ -437,6 +473,23 @@ class ProposalReviewTests(ProposalFixtures, TestCase):
         response = self.client.get("/api/meal-proposals/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data, [])
+
+    def test_acceptance_rechecks_the_owner_of_a_loaded_proposal(self):
+        proposal = MealProposal.objects.create(
+            owner=self.user,
+            description="Toast",
+            name="Toast",
+            generator=MealProposal.Generator.CATALOG,
+            entry_date=date(2026, 8, 16),
+        )
+        MealProposal.objects.filter(pk=proposal.pk).update(owner=self.other_user)
+
+        with self.assertRaises(PermissionDenied):
+            accept_reviewed_proposal(self.user, proposal)
+
+        proposal.refresh_from_db()
+        self.assertEqual(proposal.status, MealProposal.Status.DRAFT)
+        self.assertFalse(MealEntry.objects.exists())
 
     def test_proposal_edits_reject_non_finite_numbers(self):
         provider = Mock()
