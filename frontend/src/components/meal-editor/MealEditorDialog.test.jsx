@@ -13,7 +13,7 @@ import MealEditorDialog from './MealEditorDialog';
 vi.mock('../../services/meals/mealApiClient');
 
 beforeEach(() => startSession({ access: 'access-token', refresh: 'refresh-token' }));
-afterEach(() => clearSession());
+afterAll(() => clearSession());
 
 test('keeps a manual draft after a failed save and reports success when retried', async () => {
   const user = userEvent.setup();
