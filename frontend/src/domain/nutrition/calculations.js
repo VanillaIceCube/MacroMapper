@@ -86,14 +86,25 @@ export function macroCalorieSegments(values = {}) {
     : [];
 }
 
+function sumKnownAmounts(items, key) {
+  let total = null;
+  for (const item of items) {
+    const value = item[key];
+    if (value == null) continue;
+    const amount = Number(value);
+    if (Number.isFinite(amount)) total = (total ?? 0) + amount;
+  }
+  return total;
+}
+
 export function summarizeCalorieContributions(
   contributions = [],
   { maxItems = 5, otherKey = 'other-items', otherLabel = (count) => `Other (${count})` } = {},
 ) {
-  const safeContributions = (Array.isArray(contributions) ? contributions : []).filter(
+  const sorted = (Array.isArray(contributions) ? contributions : []).filter(
     (item) => item && typeof item === 'object',
   );
-  const sorted = [...safeContributions].sort((first, second) => {
+  sorted.sort((first, second) => {
     const firstCalories = Number.isFinite(Number(first.calories)) ? Number(first.calories) : 0;
     const secondCalories = Number.isFinite(Number(second.calories)) ? Number(second.calories) : 0;
     if (secondCalories !== firstCalories) {
@@ -129,23 +140,9 @@ export function summarizeCalorieContributions(
       isOther: true,
       groupedItems: remaining,
       componentNames: remaining.map((item) => item.name || 'Item'),
-      calories: remaining.reduce(
-        (total, item) =>
-          total + (Number.isFinite(Number(item.calories)) ? Number(item.calories) : 0),
-        0,
-      ),
+      calories: sumKnownAmounts(remaining, 'calories') ?? 0,
       ...Object.fromEntries(
-        MACRO_CALORIE_FIELDS.map(({ key }) => [
-          key,
-          remaining.some((item) => item[key] != null && Number.isFinite(Number(item[key])))
-            ? remaining.reduce(
-                (total, item) =>
-                  total +
-                  (item[key] != null && Number.isFinite(Number(item[key])) ? Number(item[key]) : 0),
-                0,
-              )
-            : null,
-        ]),
+        MACRO_CALORIE_FIELDS.map(({ key }) => [key, sumKnownAmounts(remaining, key)]),
       ),
     },
   ];

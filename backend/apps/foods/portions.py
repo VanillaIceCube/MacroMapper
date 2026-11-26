@@ -214,3 +214,14 @@ def portion_options_for_serving(
             }
         )
     return options
+
+
+def portion_options_for_version(version):
+    return portion_options_for_serving(
+        quantity=version.serving_quantity,
+        unit=version.serving_unit,
+        label=version.serving_label,
+        weight_grams=version.serving_weight_grams,
+        volume_milliliters=version.serving_volume_ml,
+        natural_servings=version.natural_servings,
+    )

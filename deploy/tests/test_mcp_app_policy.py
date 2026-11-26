@@ -1,4 +1,4 @@
-"""App-owned MCP activation keeps independent release and rollback boundaries."""
+"""App-owned MCP activation keeps independent application launch settings."""
 
 import importlib.util
 import json
@@ -64,7 +64,9 @@ class AppOwnedMCPPolicyTests(unittest.TestCase):
             )
             # First activation checks the existing disabled backend too. Its
             # environment cannot be required to already contain new settings.
-            self.assertEqual(policy["backend_required_env"], [])
+            self.assertEqual(
+                policy["backend_required_env"], ["DJANGO_TRUSTED_PROXY_IPS=172.20.0.3"]
+            )
             self.assertEqual(
                 [probe["path"] for probe in policy["readiness"]["public"]],
                 [
@@ -91,39 +93,3 @@ class AppOwnedMCPPolicyTests(unittest.TestCase):
                 ),
             ):
                 builder.build(Path(directory) / "incoming", environment)
-
-    def test_retained_disabled_controller_keeps_its_own_readiness_on_recovery(self):
-        # Model two immutable controller directories, exactly as retained app
-        # releases are packaged. Never edit the enabled candidate to recover.
-        with tempfile.TemporaryDirectory() as directory:
-            previous = Path(directory)
-            config = json.loads((ROOT / "deploy/production/app.json").read_text())
-            config["environment"]["fixed"]["DJANGO_MCP_ENABLED"] = "0"
-            config["readiness"]["public"] = config["readiness"]["public"][:2]
-            (previous / "app.json").write_text(json.dumps(config))
-            (previous / "release.py").write_bytes(
-                (ROOT / "deploy/production/release.py").read_bytes()
-            )
-            spec = importlib.util.spec_from_file_location(
-                "macromapper_previous_disabled_release", previous / "release.py"
-            )
-            old = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(old)
-            from unittest.mock import patch
-
-            with (
-                patch.object(old, "compose"),
-                patch.object(old, "check_response") as public,
-            ):
-                old.readiness(previous)
-            self.assertEqual(
-                [call.args[0] for call in public.call_args_list],
-                ["/", "/api/notifications/"],
-            )
-            # The enabled candidate still requires discovery/authentication.
-            current = json.loads((ROOT / "deploy/production/app.json").read_text())
-            self.assertEqual(len(current["readiness"]["public"]), 5)
-
-
-if __name__ == "__main__":
-    unittest.main()

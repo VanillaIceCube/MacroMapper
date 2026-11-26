@@ -315,15 +315,13 @@ must not come from the reviewer project or be shared between environments:
 3. The production workflow injects that secret into the private release bundle.
    Changing the GitHub secret alone does not update the running application.
    Use the approved app-only release procedure and its separately authorized
-   promotion/deployment; do not edit the live container or recovery bundle.
+   promotion. The new launch supplies the updated environment.
 4. Put only the local key in the ignored local env file for the setup you use;
    restart the native backend process or recreate the local Docker backend so
    it reads the new value (a plain container restart keeps the old environment).
    Preserve other env settings. `deploy/.env.example` is a tracked example, never a secret target.
 5. Validate a non-catalog AI estimation locally and after the authorized
-   production deployment. Check OpenAI Usage in each project and by key before
-   retiring old credentials. Keep previous credentials valid for explicit release
-   rollback; rollback bundles may still contain the old production key.
+   production deployment. Check OpenAI Usage in each project and by key. Retire the previous key after all active consumers use the new credential.
 
 This source change provisions no keys and performs no estimation, deployment,
 or revocation. Track live/local acceptance separately in issue #289.
@@ -407,7 +405,7 @@ not authorize merging, branch promotion, production deployment, or key rotation.
 - [Workflow behavior and maintenance](workflows/README.md).
 - [Shared action and reviewer contracts](actions/README.md).
 - [CI/CD architecture](workflows/README.md#-architecture-and-trust-boundaries).
-- [Application production setup and recovery](../deploy/production/README.md).
+- [Application production setup and launches](../deploy/production/README.md).
 
 ## 🤝 Shared engineering ownership and rollout
 

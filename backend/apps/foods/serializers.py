@@ -12,7 +12,7 @@ from .models import (
     SourceReference,
 )
 from .nutrients import NUTRIENT_METADATA
-from .portions import clean_natural_servings, portion_options_for_serving
+from .portions import clean_natural_servings, portion_options_for_version
 from .services import create_personal_food, update_personal_food, validate_food_data
 
 
@@ -48,22 +48,11 @@ def _serialized_nutrients(version):
     ]
 
 
-def _portion_options(version):
-    return portion_options_for_serving(
-        quantity=version.serving_quantity,
-        unit=version.serving_unit,
-        label=version.serving_label,
-        weight_grams=version.serving_weight_grams,
-        volume_milliliters=version.serving_volume_ml,
-        natural_servings=version.natural_servings,
-    )
-
-
 def _selected_portion_key(version):
     return next(
         (
             option["key"]
-            for option in _portion_options(version)
+            for option in portion_options_for_version(version)
             if option["key"].startswith("size:")
             and Decimal(option["serving_multiplier"]) == 1
         ),
@@ -157,7 +146,7 @@ class FoodComponentSerializer(serializers.ModelSerializer):
         ).data
 
     def get_portion_options(self, instance):
-        return _portion_options(instance.child_version)
+        return portion_options_for_version(instance.child_version)
 
 
 class FoodItemVersionSerializer(serializers.ModelSerializer):
@@ -208,7 +197,7 @@ class FoodItemVersionSerializer(serializers.ModelSerializer):
         ).data
 
     def get_portion_options(self, instance):
-        return _portion_options(instance)
+        return portion_options_for_version(instance)
 
     def get_selected_portion_key(self, instance):
         return _selected_portion_key(instance)
@@ -362,12 +351,6 @@ class FoodDefinitionInputSerializer(serializers.Serializer):
                 {"components": "Each component order must be unique."}
             )
         return attrs
-
-
-def _django_validation_details(error):
-    if hasattr(error, "message_dict"):
-        return error.message_dict
-    return {"detail": error.messages}
 
 
 class FoodItemSerializer(serializers.ModelSerializer):

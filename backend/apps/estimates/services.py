@@ -32,6 +32,7 @@ from apps.foods.portions import (
     canonical_generic_name,
     clean_natural_servings,
     portion_options_for_serving,
+    portion_options_for_version,
 )
 from apps.foods.services import build_component_map, create_food_item
 from apps.meals.models import MealEntry
@@ -405,14 +406,7 @@ def _catalog_food(
         nutrient_cache=nutrient_cache,
     )
     path = visited | {version.pk}
-    portion_options = portion_options_for_serving(
-        quantity=version.serving_quantity,
-        unit=version.serving_unit,
-        label=version.serving_label,
-        weight_grams=version.serving_weight_grams,
-        volume_milliliters=version.serving_volume_ml,
-        natural_servings=version.natural_servings,
-    )
+    portion_options = portion_options_for_version(version)
     option_keys = {option["key"] for option in portion_options}
     if depth and "fl_oz" in option_keys:
         selected_portion_key = "fl_oz"
@@ -562,14 +556,7 @@ def _catalog_supports_size(food, size_key):
     if not size_key:
         return True
     version = food.current_version
-    options = portion_options_for_serving(
-        quantity=version.serving_quantity,
-        unit=version.serving_unit,
-        label=version.serving_label,
-        weight_grams=version.serving_weight_grams,
-        volume_milliliters=version.serving_volume_ml,
-        natural_servings=version.natural_servings,
-    )
+    options = portion_options_for_version(version)
     return any(option["key"] == f"size:{size_key}" for option in options) or (
         version.serving_unit in {"item", "serving"}
         and version.serving_quantity == 1
