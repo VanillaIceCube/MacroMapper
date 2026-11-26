@@ -11,6 +11,10 @@ All notable changes to this project are documented in this file.
 - Compare the shared launcher, tests and workflow directly with the Infrastructure commit in `deploy/production/app.json`.
 - Rename the GitHub automation guide to `.github/_README.md` so the repository homepage shows the root README.
 
+### Removed
+
+- Remove the unused helper for manually merging shared catalog foods. Previously merged foods and their saved meal references remain readable.
+
 ## 2026-11-24
 
 ### Added

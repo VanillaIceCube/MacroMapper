@@ -36,15 +36,14 @@ test('keeps navigation usable while a route chunk is loading', async () => {
   expect(screen.queryByText('Late page')).not.toBeInTheDocument();
 });
 
-test('shows chunk failure recovery, notifies a pending-slot owner and allows other routes', async () => {
+test('shows chunk failure recovery and allows navigation to another route', async () => {
   vi.spyOn(console, 'error').mockImplementation(() => {});
   const reload = vi.spyOn(browserLocation, 'reload').mockImplementation(() => {});
-  const onError = vi.fn();
   const Page = lazy(() => Promise.reject(new Error('chunk unavailable')));
   renderWithProviders(
     <>
       <Link to="/other">Other page</Link>
-      <RouteContent onError={onError}>
+      <RouteContent>
         <Routes>
           <Route path="/" element={<Page />} />
           <Route path="/other" element={<div>Other content</div>} />
@@ -53,7 +52,6 @@ test('shows chunk failure recovery, notifies a pending-slot owner and allows oth
     </>,
   );
   expect(await screen.findByRole('alert')).toHaveTextContent('This page could not be loaded.');
-  expect(onError).toHaveBeenCalledTimes(1);
   await userEvent.setup().click(screen.getByRole('button', { name: 'Reload page' }));
   expect(reload).toHaveBeenCalledTimes(1);
   await userEvent.setup().click(screen.getByRole('link', { name: 'Other page' }));

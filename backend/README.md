@@ -210,6 +210,14 @@ remain valid only when they were already pinned by the meal being updated.
 All proposal endpoints require a JWT access token and expose only the current
 user's proposals.
 
+The [meal editor](../frontend/src/components/meal-editor/MealEditorDialog.jsx) sends
+estimates, edits and acceptance through the [meal API client](../frontend/src/services/meals/mealApiClient.js).
+The [proposal view](apps/estimates/views.py) and the MCP tools call the same
+`accept_reviewed_proposal` [service](apps/estimates/services.py). It locks the
+draft, verifies its owner and records the accepted meal and food versions together.
+The [proposal review tests](apps/estimates/tests/test_proposal_review.py) follow an
+edited nutrient value back to its shared food version and source URL.
+
 - `GET /api/meal-proposals/`
 - `GET /api/meal-proposals/{id}/`
 - `POST /api/meal-proposals/` with `description` and `entry_date`
@@ -489,8 +497,9 @@ claim or trust/research evidence remains an immutable version distinction.
 Existing version nutrients, provenance, confidence, source evidence and response
 metadata remain unchanged.
 A materially changed definition or verification coverage creates a new version.
-Personal definitions remain owner-specific and are never merged by shared-food
-consolidation services.
+Personal definitions stay with their owners. Catalog searches hide previously
+merged shared foods. Their detail URLs still resolve while the shared target is
+active, and saved meals and proposals keep their original food versions.
 
 Current version selection is deterministic: categorical verified parent coverage
 wins first (fully verified and source-backed with inferred components, then

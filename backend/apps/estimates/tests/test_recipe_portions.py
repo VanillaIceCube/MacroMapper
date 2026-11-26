@@ -13,7 +13,7 @@ from apps.foods.models import FoodItem, FoodItemVersion
 from ..models import MealProposal
 from ..services import (
     _catalog_food,
-    accept_proposal,
+    accept_reviewed_proposal,
     apply_proposal_follow_up,
     normalize_items,
 )
@@ -88,7 +88,7 @@ class ConsumedRecipeFractionTests(TestCase):
                 )
                 self.assertEqual(Decimal(chicken["servings"]), Decimal("2"))
                 self.assertEqual(Decimal(yogurt["servings"]), Decimal("1"))
-        meal = accept_proposal(proposal=self.proposal)
+        meal = accept_reviewed_proposal(self.owner, self.proposal)
         self.assertEqual(
             sum(item.calories for item in meal.items.all()), Decimal("675")
         )
@@ -161,7 +161,7 @@ class ConsumedRecipeFractionTests(TestCase):
                 list(FoodItemVersion.objects.order_by("pk").values()), versions_before
             )
 
-        meal = accept_proposal(proposal=self.proposal)
+        meal = accept_reviewed_proposal(self.owner, self.proposal)
         self.assertEqual(meal.items.count(), 3)
         self.assertEqual(
             sum(item.calories for item in meal.items.all()), Decimal("875")

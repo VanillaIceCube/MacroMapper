@@ -92,13 +92,10 @@ class CanonicalIdentityTests(CanonicalIdentityFixtures, TestCase):
         self.assertNotEqual(original.pk, changed.pk)
         self.assertEqual(food.versions.count(), 2)
 
-    def test_recipe_versions_preserve_registered_regional_child_identities(self):
+    def test_recipe_versions_preserve_the_region_of_each_pinned_child(self):
         us_child, us_version = self.publish(sources=[source()])
-        uk_child, uk_version = self.publish(
-            sources=[
-                source("https://www.mcdonalds.com/gb/en-gb/product/hash-brown.html")
-            ]
-        )
+        uk_source = source("https://www.mcdonalds.com/gb/en-gb/product/hash-brown.html")
+        uk_child, uk_version = self.publish(sources=[uk_source])
         self.assertNotEqual(us_child.canonical_identity, uk_child.canonical_identity)
         self.assertEqual(us_version.content_fingerprint, uk_version.content_fingerprint)
         recipe_item = {
@@ -145,6 +142,21 @@ class CanonicalIdentityTests(CanonicalIdentityFixtures, TestCase):
         self.assertEqual(recipe.versions.count(), 2)
         self.assertEqual(us_recipe.components.get().child_version_id, us_version.pk)
         self.assertEqual(uk_recipe.components.get().child_version_id, uk_version.pk)
+
+        # Legacy children have no registered identity and can have a newer source.
+        us_child.canonical_identity = None
+        us_child.save(update_fields=["canonical_identity"])
+        create_food_version(
+            food_item=us_child,
+            definition=definition(sources=[uk_source]),
+            created_by=None,
+        )
+        self.assertNotEqual(us_child.current_version_id, us_version.pk)
+        us_version.refresh_from_db()
+        pinned_recipe = create_food_version(
+            food_item=recipe, definition=us_recipe_definition, created_by=None
+        )
+        self.assertEqual(pinned_recipe.pk, us_recipe.pk)
 
     def test_natural_servings_validate_and_participate_in_definition_fingerprint(self):
         food, original = self.publish()

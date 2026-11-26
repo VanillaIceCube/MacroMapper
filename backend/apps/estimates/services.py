@@ -2710,8 +2710,8 @@ def save_meal_draft(*, owner, meal, entry_date, name, notes, items):
 
 
 @transaction.atomic
-def accept_proposal(*, proposal):
-    proposal = MealProposal.objects.select_for_update().get(pk=proposal.pk)
+def accept_reviewed_proposal(actor, proposal):
+    proposal = _locked_proposal(actor, proposal)
     if proposal.status != MealProposal.Status.DRAFT:
         raise ValidationError("This proposal has already been accepted.")
     pairs = _collect_catalog_pairs(proposal.items)
@@ -2809,8 +2809,16 @@ def proposals_for(actor):
 
 
 def require_proposal_owner(actor, proposal):
+    # Follow-ups can span a provider call, so the caller's copy can be stale.
     if not proposals_for(actor).filter(pk=proposal.pk).exists():
         raise PermissionDenied("Proposal unavailable.")
+
+
+def _locked_proposal(actor, proposal):
+    current = MealProposal.objects.select_for_update().get(pk=proposal.pk)
+    if current.owner_id != actor.pk:
+        raise PermissionDenied("Proposal unavailable.")
+    return current
 
 
 def estimate_proposal(actor, data, *, before_apply=None, after_apply=None):
@@ -2825,14 +2833,10 @@ def estimate_proposal(actor, data, *, before_apply=None, after_apply=None):
 
 @transaction.atomic
 def update_proposal(actor, proposal, data):
-    proposal = MealProposal.objects.select_for_update().get(pk=proposal.pk)
-    require_proposal_owner(actor, proposal)
-    if proposal.status != MealProposal.Status.DRAFT:
-        raise APIValidationError("Accepted proposals cannot be edited.")
+    proposal = _locked_proposal(actor, proposal)
     data = validate_proposal_data(actor, dict(data), proposal)
     for field, value in data.items():
-        if field != "description":
-            setattr(proposal, field, value)
+        setattr(proposal, field, value)
     proposal.save()
     create_proposal_revision(
         proposal=proposal,
@@ -2844,18 +2848,10 @@ def update_proposal(actor, proposal, data):
 
 @transaction.atomic
 def delete_proposal(actor, proposal):
-    proposal = MealProposal.objects.select_for_update().get(pk=proposal.pk)
-    require_proposal_owner(actor, proposal)
+    proposal = _locked_proposal(actor, proposal)
     if proposal.status != MealProposal.Status.DRAFT:
         raise APIValidationError("Accepted proposals cannot be deleted.")
     proposal.delete()
-
-
-@transaction.atomic
-def accept_reviewed_proposal(actor, proposal):
-    proposal = MealProposal.objects.select_for_update().get(pk=proposal.pk)
-    require_proposal_owner(actor, proposal)
-    return accept_proposal(proposal=proposal)
 
 
 def apply_follow_up(actor, proposal, data, result):
