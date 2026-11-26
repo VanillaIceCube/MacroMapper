@@ -6,6 +6,8 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Update CodeQL to 4.39.4, Dependency Review to 5.0.1 and GitHub App token creation to 3.4.0. Restore Dependabot updates for the PyYAML development pin and lock 6.0.4.
+- Adopt jest-dom 8 and Gunicorn 27.0.1. Refresh the Python 3.12 Bookworm image digest, keep future Docker updates on that Python line, and defer TypeScript 7.0.x for ESLint compatibility.
 - Save SQLite and both existing app containers before migrations and stop both services on a failed deployment health check. Match the shared CI workflows.
 - Compare the shared launcher, tests and workflow directly with the Infrastructure commit in `deploy/production/app.json`.
 - Rename the GitHub automation guide to `.github/_README.md` so the repository homepage shows the root README.
