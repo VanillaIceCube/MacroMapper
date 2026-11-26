@@ -79,18 +79,14 @@ already supplied by the pinned workflows under `.github/workflows/`; those
 workflows upload the results to **Security → Code scanning** for Actions,
 JavaScript/TypeScript, and Python.
 
-#### Labels used by security automation
-
-Create these labels with the following descriptions so the scheduled alert
-workflows can group and update their managed issues:
+#### Repository labels
 
 | Label | Description |
 | --- | --- |
 | `dependencies` | Dependabot-authored dependency update PRs |
-| `codeql` | Grouped CodeQL security alerts. |
-| `vulnerability` | Grouped Dependabot vulnerability alerts of every severity. |
-| `malware` | Grouped Dependabot malware alerts. |
 | `codex` | Work generated or assisted by Codex |
+
+RoboCop identifies its issues from the source references and feed marker in their bodies.
 
 ### 1. Configure repository issue tracking
 
