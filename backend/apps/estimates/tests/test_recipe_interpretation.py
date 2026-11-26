@@ -18,7 +18,7 @@ from ..provider import (
 )
 from ..serializers import ProposalItemsField
 from ..services import (
-    accept_proposal,
+    accept_reviewed_proposal,
     create_proposal,
 )
 from .helpers import shared_food
@@ -106,7 +106,7 @@ class InitialRecipeInterpretationTests(TestCase):
                         description=f"I ate {wording} plus chicken and yogurt",
                         entry_date=date(2026, 11, 11),
                     )
-                meal = accept_proposal(proposal=proposal)
+                meal = accept_reviewed_proposal(self.owner, proposal)
                 self.assertEqual(
                     sum(item.calories for item in meal.items.all()),
                     Decimal("400") * Decimal(str(fraction)) + Decimal("300"),
@@ -253,7 +253,7 @@ class InitialRecipeInterpretationTests(TestCase):
             [Decimal("1"), Decimal("1.5")],
         )
         ProposalItemsField().run_validation(proposal.items)
-        meal = accept_proposal(proposal=proposal)
+        meal = accept_reviewed_proposal(self.owner, proposal)
         self.assertEqual(
             sum(item.calories for item in meal.items.all()), Decimal("250")
         )
@@ -304,7 +304,7 @@ class InitialRecipeInterpretationTests(TestCase):
             [Decimal("2"), Decimal("3")],
         )
         ProposalItemsField().run_validation(proposal.items)
-        meal = accept_proposal(proposal=proposal)
+        meal = accept_reviewed_proposal(self.owner, proposal)
         self.assertEqual(
             sum(item.calories for item in meal.items.all()), Decimal("500")
         )

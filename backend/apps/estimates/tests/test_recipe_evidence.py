@@ -16,7 +16,7 @@ from ..provider import (
 from ..services import (
     _catalog_food,
     _shared_estimate_items,
-    accept_proposal,
+    accept_reviewed_proposal,
     apply_proposal_follow_up,
 )
 from .helpers import estimate as researched_estimate
@@ -84,7 +84,7 @@ class RecipeEvidenceIntegrationTests(TestCase):
         self.assertEqual(Decimal(item["nutrients"]["calories"]), Decimal("710"))
         self.assertEqual(Decimal(item["servings"]), Decimal("0.75"))
         self.assertEqual(Decimal(proposal.items[1]["servings"]), Decimal("1"))
-        meal = accept_proposal(proposal=proposal)
+        meal = accept_reviewed_proposal(self.owner, proposal)
         saved = meal.items.get(order=0)
         self.assertEqual(saved.food_version_id, version_id)
         self.assertEqual(saved.calories, Decimal("532.5"))
@@ -119,7 +119,7 @@ class RecipeEvidenceIntegrationTests(TestCase):
         self.assertEqual(changed["evidence"]["status"], "user_modified_estimate")
         self.assertEqual(changed["evidence"]["nutrients"], {})
         self.assertEqual(changed["sources"], original["sources"])
-        meal = accept_proposal(proposal=proposal)
+        meal = accept_reviewed_proposal(self.owner, proposal)
         self.assertEqual(meal.items.get().calories, Decimal("375"))
         original_version = FoodItemVersion.objects.get(pk=version_id)
         self.assertEqual(original_version.calories, Decimal("710"))

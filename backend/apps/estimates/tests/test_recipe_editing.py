@@ -14,7 +14,7 @@ from apps.foods.services import create_food_version
 from ..models import MealProposal
 from ..services import (
     _catalog_food,
-    accept_proposal,
+    accept_reviewed_proposal,
     apply_proposal_follow_up,
     normalize_items,
     secure_review_items,
@@ -91,7 +91,7 @@ class RecipeEditingTests(TestCase):
             items=deepcopy(self.proposal.items),
         )
         self.assertEqual(len(reviewed[0]["components"]), 4)
-        meal = accept_proposal(proposal=self.proposal)
+        meal = accept_reviewed_proposal(self.owner, self.proposal)
         meal.refresh_from_db()
         self.assertEqual(meal.items.count(), 1)
         saved = meal.items.get()
@@ -233,5 +233,5 @@ class RecipeEditingTests(TestCase):
         self.assertEqual(Decimal(fish["nutrients"]["calories"]), Decimal("500"))
         egg = next(child for child in fish["components"] if child["key"] == "eggs")
         self.assertEqual(Decimal(egg["servings"]), Decimal("2"))
-        meal = accept_proposal(proposal=self.proposal)
+        meal = accept_reviewed_proposal(self.owner, self.proposal)
         self.assertEqual(meal.items.get().calories, Decimal("375"))

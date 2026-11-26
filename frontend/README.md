@@ -20,7 +20,7 @@ authentication, and the application shell.
 - `src/services/`: API requests, response parsing in `http/apiResponse.js` and session storage in `authentication/sessionState.js`.
 - `src/hooks/`: reactive session access and shared notification lifecycle behavior.
 - `src/domain/`: pure nutrition, portion, and meal calculations.
-- `src/test-helpers/`: shared test setup and reusable helpers.
+- `src/test-helpers/`: reusable rendering helpers.
   App, startup and feature tests stay beside the files they exercise.
 
 Use PascalCase `.jsx` filenames for React components and pages, including components
@@ -370,7 +370,7 @@ Keep every test beside its implementation with the same basename. Use `.test.jsx
 for tests that render UI and `.test.js` for plain logic, including hooks tested
 with `renderHook`. Keep behavior and integration scenarios in that owning suite
 using scoped `describe` blocks. Avoid standalone behavior-named or `.integration.test`
-files. Shared setup and reusable helpers belong in `src/test-helpers/`. Test a domain
+files. Keep reusable helpers in `src/test-helpers/`. Test a domain
 package's public API beside its `index.js` entry point.
 
 Keep shared session, request, connection and navigation regressions aligned across
@@ -392,8 +392,8 @@ avoid duplicate suites that merely copy metadata, exports or style declarations.
 `src/index.test.jsx` boots the real entry point, React root and application in
 jsdom, then checks the signed-out login route and usable form without private API
 requests or uncaught startup errors. It unmounts the real root and restores test
-state afterward. Existing Material UI test shims still apply; browser layout and
-built HTML are outside this test's scope.
+state afterward. Tests render the actual Material UI controls and use the Vitest
+matchers from Testing Library.
 
 `npm run build` runs strict lint before Vite's production build. Use
 `npm run lint:fix` to apply available lint fixes.

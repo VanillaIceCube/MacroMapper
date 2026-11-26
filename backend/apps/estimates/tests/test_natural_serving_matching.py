@@ -15,7 +15,7 @@ from ..models import MealProposal
 from ..provider import EstimatedFood, _serialize_food
 from ..services import (
     _catalog_food,
-    accept_proposal,
+    accept_reviewed_proposal,
     apply_proposal_follow_up,
     create_proposal,
     secure_review_items,
@@ -73,7 +73,7 @@ class NaturalServingMatchingTests(NaturalServingFixtures, TestCase):
         self.assertEqual(Decimal(item["servings"]), Decimal("2"))
         self.assertEqual(item["selected_portion_key"], "size:large")
         self.assertEqual(food.versions.count(), 2)
-        meal = accept_proposal(proposal=proposal)
+        meal = accept_reviewed_proposal(self.user, proposal)
         self.assertEqual(meal.items.get().calories, Decimal("240"))
         self.assertEqual(
             meal.items.get().servings
@@ -117,7 +117,7 @@ class NaturalServingMatchingTests(NaturalServingFixtures, TestCase):
         self.assertEqual(item["selected_portion_key"], "size:large")
         self.assertEqual(Decimal(item["serving_weight_grams"]), Decimal("225"))
         self.assertEqual(Decimal(item["servings"]), Decimal("2"))
-        meal = accept_proposal(proposal=proposal)
+        meal = accept_reviewed_proposal(self.user, proposal)
         self.assertEqual(meal.items.get().calories, Decimal("240"))
         personal.refresh_from_db()
         self.assertEqual(personal.current_version_id, original_version_id)
@@ -140,7 +140,7 @@ class NaturalServingMatchingTests(NaturalServingFixtures, TestCase):
         self.assertEqual(item["selected_portion_key"], "base")
         self.assertEqual(Decimal(item["servings"]), Decimal("2"))
         self.assertIsNone(item["serving_weight_grams"])
-        meal = accept_proposal(proposal=proposal)
+        meal = accept_reviewed_proposal(self.user, proposal)
         self.assertEqual(meal.items.get().calories, Decimal("160"))
         self.assertEqual(meal.items.get().food_version_id, personal.current_version_id)
 
@@ -186,7 +186,7 @@ class NaturalServingMatchingTests(NaturalServingFixtures, TestCase):
         self.assertEqual(Decimal(proposal.items[1]["servings"]), Decimal("1"))
         self.assertEqual(proposal.items[1]["selected_portion_key"], "size:large")
         self.assertEqual(food.versions.count(), 2)
-        meal = accept_proposal(proposal=proposal)
+        meal = accept_reviewed_proposal(self.user, proposal)
         self.assertEqual(
             sum(item.calories for item in meal.items.all()), Decimal("280")
         )
@@ -215,7 +215,7 @@ class NaturalServingMatchingTests(NaturalServingFixtures, TestCase):
             proposal=proposal, owner=self.user, items=[item]
         )
         proposal.save(update_fields=["items"])
-        meal = accept_proposal(proposal=proposal)
+        meal = accept_reviewed_proposal(self.user, proposal)
         saved = meal.items.get()
         self.assertEqual(saved.food_version_id, original["food_version_id"])
         self.assertEqual(saved.selected_portion_key, "g")
@@ -300,7 +300,7 @@ class NaturalServingMatchingTests(NaturalServingFixtures, TestCase):
         self.assertNotEqual(added["food_version_id"], original["food_version_id"])
         self.assertEqual(Decimal(added["serving_weight_grams"]), Decimal("225"))
         self.assertEqual(Decimal(added["servings"]), Decimal("1"))
-        meal = accept_proposal(proposal=proposal)
+        meal = accept_reviewed_proposal(self.user, proposal)
         self.assertEqual(
             sum(item.calories for item in meal.items.all()), Decimal("280")
         )
@@ -371,7 +371,7 @@ class NaturalServingMatchingTests(NaturalServingFixtures, TestCase):
             self.assertEqual(
                 Decimal(added["servings"]), Decimal(expected_current_servings)
             )
-        meal = accept_proposal(proposal=proposal)
+        meal = accept_reviewed_proposal(self.user, proposal)
         self.assertEqual(meal.items.count(), 2)
         self.assertEqual(meal.items.get(order=0).food_version_id, historical_large.pk)
         self.assertEqual(meal.items.get(order=1).food_version_id, current_small.pk)

@@ -14,11 +14,6 @@ class PageErrorBoundary extends Component {
     return { failed: true };
   }
 
-  componentDidCatch() {
-    // A hidden pending route must become visible when its chunk fails, too.
-    this.props.onError?.();
-  }
-
   render() {
     if (this.state.failed) {
       return (
@@ -34,13 +29,10 @@ class PageErrorBoundary extends Component {
   }
 }
 
-export default function RouteContent({ children, routeKey, onError }) {
+export default function RouteContent({ children }) {
   const location = useLocation();
   return (
-    <PageErrorBoundary
-      routeKey={routeKey ?? `${location.pathname}${location.search}${location.hash}`}
-      onError={onError}
-    >
+    <PageErrorBoundary routeKey={`${location.pathname}${location.search}${location.hash}`}>
       <Suspense
         fallback={
           <Box role="status" sx={{ p: 3 }}>

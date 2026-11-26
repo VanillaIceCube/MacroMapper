@@ -7,7 +7,7 @@ dependencies = [
     "django-cors-headers==4.9.0",
     "djangorestframework==3.18.3",
     "djangorestframework-simplejwt==5.5.1",
-    "gunicorn==26.2.0",
+    "gunicorn==27.0.1",
     "python-dotenv==1.2.4",
     "openai==3.57.0",
     "pydantic==2.14.4",
@@ -21,7 +21,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "PyYAML==6.0.3",
+    "pyyaml==6.0.4",
     "ruff==0.17.6",
 ]
 
