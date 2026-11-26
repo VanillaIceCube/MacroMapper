@@ -24,7 +24,7 @@ The frontend skips TypeScript 7.0.x because the ESLint parser requires a TypeScr
 1. Configure Actions, dependency alerts, advanced CodeQL, and available secret scanning/push protection using this repository's settings below.
 2. Install the three reviewer GitHub Apps and set their App ID variables.
 3. Store each persona's OpenAI key and App private key in both Actions and Dependabot secrets: six reviewer secrets in each store.
-4. Configure this repository's reviewer project, security-alert Project, and separate Project token.
+4. Configure this repository's OpenAI reviewer project and native issue fields.
 5. Verify fresh same-repository human and Dependabot PR results before activating or changing required checks.
 6. Configure deployment separately through the app or gateway production guide.
 
@@ -92,62 +92,11 @@ workflows can group and update their managed issues:
 | `malware` | Grouped Dependabot malware alerts. |
 | `codex` | Work generated or assisted by Codex |
 
-### 1. Create or recover the MacroMapper Project
+### 1. Configure repository issue tracking
 
-Reuse the existing MacroMapper Project whenever possible. Check the owner's
-Projects before creating a replacement so you do not duplicate the board.
-Authenticate GitHub CLI with repository and Projects access:
+Use the repository's Issues tab and the owner's [native issue schema](https://github.com/VanillaIceCube/FullStackTemplate/blob/main/.github/_README.md#1-configure-repository-issue-tracking). Backfill and verify existing managed tickets before switching alert workflows. After merging, run all three alert workflows on main and verify native field retention before removing the old Project credentials or closing the board. Record results in [FullStackTemplate #386](https://github.com/VanillaIceCube/FullStackTemplate/issues/386).
 
-```powershell
-gh auth login
-gh auth refresh -s project
-gh project list --owner VanillaIceCube
-```
-
-Only when the board is missing, copy Notoli's established Project structure:
-
-```powershell
-gh project copy 8 --source-owner VanillaIceCube --target-owner VanillaIceCube --title MacroMapper
-```
-
-Link the copied or existing MacroMapper Project and set its repository variable:
-
-```powershell
-$macroMapperProjectNumber = Read-Host 'MacroMapper Project number'
-gh project link $macroMapperProjectNumber --owner VanillaIceCube --repo VanillaIceCube/MacroMapper
-$macroMapperProjectId = gh project view $macroMapperProjectNumber --owner VanillaIceCube --format json --jq '.id'
-if ($LASTEXITCODE -ne 0 -or -not $macroMapperProjectId) { throw 'Could not read the MacroMapper Project ID.' }
-gh variable set SECURITY_ALERTS_PROJECT_ID --repo VanillaIceCube/MacroMapper --body $macroMapperProjectId
-```
-
-Enter the actual numeric MacroMapper Project number when prompted. Update the
-Project description and README for MacroMapper in the GitHub UI, and verify
-the fields, views, and workflows there before running security aggregation.
-
-The copied fields match Notoli:
-
-- `Status`: `Backlog`, `Ready`, `In Progress`, `In Review`, `Done`
-- `Domain`: `Frontend`, `Backend`, `UX/UI`, `Data Model`, `Deployment`, `CI/CD`
-- `Work type`: `Bug`, `Feature`, `Enhancement`, `Refactor`, `Chore`, `Research`,
-  `Security`
-- `Priority`: `P0`, `P1`, `P2`, `P3`
-- `Size`: `XS`, `S`, `M`, `L`, `XL`
-- `Estimate`, `Start date`, and `End date`
-
-The copied views match Notoli's `Kanban`, `Detailed Kanban`, `New Issues`,
-`Updated Issues`, `Issue Picker`, and `Roadmap` layouts, including their visible
-fields, filters, grouping, and sorting.
-
-GitHub does not copy auto-add workflows. Open the MacroMapper Project's
-**Workflows** page and configure the required auto-add workflows for the
-target repository, including `Auto-add to project`. Verify the remaining
-copied workflows manually.
-GitHub documents this behavior in
-[Copying an existing project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/creating-projects/copying-an-existing-project).
-
-Notoli (`VanillaIceCube` Project `8`) owns the field, view, and workflow
-structure used by MacroMapper. If recovering from a different source, change
-the source owner and Project number in the copy command.
+**Native issue cutover verification, November 25, 2026.** Project 11 contained 97 issues. The read-back matched native field values and issue types on 94 issues, including all 2 security-alert tickets (0 open). Issue numbers, state, closure reasons, and closure dates were preserved. Examples include [#331](https://github.com/VanillaIceCube/MacroMapper/issues/331), [#338](https://github.com/VanillaIceCube/MacroMapper/issues/338). The export retains the original values of 3 protected automation-labeled issues.
 
 ### 2. Register the AI reviewer GitHub Apps
 
@@ -211,20 +160,12 @@ Variable: OPENAI_REVIEWERS_PROJECT_ID
 Secret:   OBI_WAN_OPENAI_API_KEY
 Secret:   LINT_EASTWOOD_OPENAI_API_KEY
 Secret:   ROBOCOP_OPENAI_API_KEY
-Variable: SECURITY_ALERTS_PROJECT_ID
-Secret:   SECURITY_ALERTS_TOKEN
 ```
 
-`SECURITY_ALERTS_TOKEN` must be a distinct user token with access to the
-personal or organization Project. Do not reuse a GitHub App key or installation
-token. The three scheduled/manual alert workflows use RoboCop to read alerts
-and manage repository issues, while this token adds and updates those issues in
-the Project.
+RoboCop's installation token manages alerts, repository issues and native fields.
 
 Enable the repository settings in [the baseline above](#0-configure-the-repository-settings),
-then install RoboCop with the permissions listed in this guide. Add the
-`SECURITY_ALERTS_TOKEN` secret before running an alert workflow; it must be
-created specifically for MacroMapper because GitHub does not copy credentials.
+then install RoboCop with the permissions listed in this guide.
 Run each `Alert: ...` workflow manually once after the first successful CI run.
 No-alert runs should succeed without creating issues.
 
@@ -275,9 +216,7 @@ stores as well (six review secrets total).
    separate secret settings too where specified above.
 3. In **Actions → Variables**, set `OPENAI_REVIEWERS_PROJECT_ID` to that same OpenAI
    project's actual `proj_...` ID. All three keys and the project header must
-   match. This is an OpenAI project ID; `SECURITY_ALERTS_PROJECT_ID` is a separate
-   GitHub Project node ID and stays unchanged. App identity variables/private
-   keys and deployment credentials also stay unchanged.
+   match. This variable identifies the OpenAI project for the reviewers.
 4. Run a same-repository PR smoke test for all three reviewers. Where supported,
    also verify a Dependabot PR using its separate secret store. After an
    approved merge, manually run CodeQL Alert, Vulnerability Alert, and Malware
