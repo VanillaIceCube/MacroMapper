@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file.
 
 - Save SQLite and both existing app containers before migrations and stop both services on a failed deployment health check. Match the shared CI workflows.
 - Compare the shared launcher, tests and workflow directly with the Infrastructure commit in `deploy/production/app.json`.
+- Rename the GitHub automation guide to `.github/_README.md` so the repository homepage shows the root README.
 
 ## 2026-11-24
 

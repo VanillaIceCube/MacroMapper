@@ -235,7 +235,7 @@ production credentials are ready.
 
 ### Deferred OpenAI migration
 
-Use the [reviewer key mapping and cutover sequence](README.md#-credential-ownership). Keep meal-estimation credentials separate from the reviewer project; production and local estimation use independent keys/projects.
+Use the [reviewer key mapping and cutover sequence](_README.md#-credential-ownership). Keep meal-estimation credentials separate from the reviewer project; production and local estimation use independent keys/projects.
 
 ## 🔑 Credential ownership
 
@@ -409,9 +409,9 @@ not authorize merging, branch promotion, production deployment, or key rotation.
 
 ## 🤝 Shared engineering ownership and rollout
 
-Follow FullStackTemplate's [canonical shared ownership and rollout policy](https://github.com/VanillaIceCube/FullStackTemplate/blob/main/.github/README.md#-shared-engineering-ownership-and-rollout)
+Follow FullStackTemplate's [canonical shared ownership and rollout policy](https://github.com/VanillaIceCube/FullStackTemplate/blob/main/.github/_README.md#-shared-engineering-ownership-and-rollout)
 for repository applicability, canonical source ownership, downstream acceptance and
-[main-first releases](https://github.com/VanillaIceCube/FullStackTemplate/blob/main/.github/README.md#main-first-releases).
+[main-first releases](https://github.com/VanillaIceCube/FullStackTemplate/blob/main/.github/_README.md#main-first-releases).
 Preserve app-specific profiles and Infrastructure's separate owner authorization,
 Required CI and host operations. A shared parent closes only after required downstream
 adoptions are merged and verified or explicitly deferred with owner/tracking/acceptance.

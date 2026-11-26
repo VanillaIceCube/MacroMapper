@@ -157,7 +157,7 @@ recreate the backend. Console email and catalog-only work need no provider key.
 The example keeps a 45-second local AI budget; the backend allows at most 110
 seconds, leaving room inside the 120-second proxy timeout. Production uses a
 separate key and private release inputs. See the
-[credential guide](../.github/README.md#application-credentials).
+[credential guide](../.github/_README.md#application-credentials).
 
 <a id="vite-build-interface"></a>
 
