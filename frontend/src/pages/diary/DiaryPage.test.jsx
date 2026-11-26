@@ -463,7 +463,8 @@ describe('DiaryPage', () => {
     expect(
       screen.queryByRole('menuitem', { name: 'Show estimate details for Apple' }),
     ).not.toBeInTheDocument();
-    await user.click(within(addDialog).getByRole('heading', { name: 'Meal Items' }));
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
     await user.click(within(addDialog).getByRole('combobox', { name: 'Unit' }));
     await user.click(await screen.findByRole('option', { name: 'half apple' }));
     const quantity = within(addDialog).getByRole('spinbutton', { name: 'Count' });

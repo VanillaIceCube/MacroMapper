@@ -13,7 +13,7 @@ from ..models import MealProposal
 from ..provider import EstimatedFood, _serialize_food
 from ..services import (
     _catalog_food,
-    accept_proposal,
+    accept_reviewed_proposal,
     apply_proposal_follow_up,
     secure_review_items,
 )
@@ -52,7 +52,7 @@ class NaturalServingSelectionTests(NaturalServingFixtures, TestCase):
             proposal=proposal, owner=self.user, items=deepcopy(proposal.items)
         )
         self.assertFalse(reviewed[0]["is_user_modified"])
-        meal = accept_proposal(proposal=proposal)
+        meal = accept_reviewed_proposal(self.user, proposal)
         self.assertEqual(meal.items.get().calories, 240)
         self.assertEqual(FoodItem.objects.filter(scope="personal").count(), 0)
         client = APIClient()
@@ -170,7 +170,7 @@ class NaturalServingSelectionTests(NaturalServingFixtures, TestCase):
             Decimal(large["servings"]) * Decimal(large["serving_weight_grams"]),
             Decimal("225"),
         )
-        meal = accept_proposal(proposal=proposal)
+        meal = accept_reviewed_proposal(self.user, proposal)
         self.assertEqual(meal.items.count(), 2)
         self.assertEqual(
             sum(item.calories for item in meal.items.all()), Decimal("280")
@@ -242,7 +242,7 @@ class NaturalServingSelectionTests(NaturalServingFixtures, TestCase):
             [Decimal(item["servings"]) for item in proposal.items],
             [Decimal("2"), Decimal("1.5")],
         )
-        meal = accept_proposal(proposal=proposal)
+        meal = accept_reviewed_proposal(self.user, proposal)
         self.assertEqual(
             sum(item.calories for item in meal.items.all()), Decimal("280")
         )

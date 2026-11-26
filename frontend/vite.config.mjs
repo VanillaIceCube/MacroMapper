@@ -16,7 +16,7 @@ export default defineConfig({
     clearMocks: true,
     environment: 'jsdom',
     globals: true,
-    setupFiles: './src/test-helpers/setup.js',
+    setupFiles: '@testing-library/jest-dom/vitest',
     testTimeout: 15_000,
     unstubEnvs: true,
     unstubGlobals: true,

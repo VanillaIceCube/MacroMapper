@@ -144,21 +144,3 @@ class CanonicalIdentityFixtures:
         return publish_shared_food(
             item=item or self.item, definition=definition(**kwargs)
         )
-
-    def legacy(
-        self,
-        *,
-        name="Hash Browns",
-        calories="140",
-        confidence="0.9",
-        origin_type="restaurant",
-    ):
-        return create_food_item(
-            name=name,
-            scope="shared",
-            origin_type=origin_type,
-            provider_name="McDonald's",
-            owner=None,
-            definition=definition(calories, confidence=confidence, sources=[source()]),
-            created_by=None,
-        )
