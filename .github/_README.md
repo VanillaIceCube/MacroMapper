@@ -92,6 +92,8 @@ workflows can group and update their managed issues:
 
 Use the repository's Issues tab and the owner's [native issue schema](https://github.com/VanillaIceCube/FullStackTemplate/blob/main/.github/_README.md#1-configure-repository-issue-tracking). Backfill and verify existing managed tickets before switching alert workflows. After merging, run all three alert workflows on main and verify native field retention before removing the old Project credentials or closing the board. Record results in [FullStackTemplate #386](https://github.com/VanillaIceCube/FullStackTemplate/issues/386).
 
+**Native issue cutover verification, November 25, 2026.** Project 11 contained 97 issues. The read-back matched native field values and issue types on 94 issues, including all 2 security-alert tickets (0 open). Issue numbers, state, closure reasons, and closure dates were preserved. Examples include [#331](https://github.com/VanillaIceCube/MacroMapper/issues/331), [#338](https://github.com/VanillaIceCube/MacroMapper/issues/338). The export retains the original values of 3 protected automation-labeled issues.
+
 ### 2. Register the AI reviewer GitHub Apps
 
 Create three private GitHub Apps under the repository owner. Give each app only
