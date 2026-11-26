@@ -23,6 +23,11 @@ authentication, and the application shell.
 - `src/test-helpers/`: shared test setup and reusable helpers.
   App, startup and feature tests stay beside the files they exercise.
 
+Use PascalCase `.jsx` filenames for React components and pages, including components
+that return `null`. Hooks use `useName.js`. Services and plain data use `.js`. Test
+helpers that render JSX use `.jsx`. Frontend lint checks JSX markup and the component
+and hook filename patterns.
+
 Under `components/`, `pages/`, `hooks/` and `services/`, put every module and its
 adjacent test in exactly one purpose-named subfolder. Use lowercase names with hyphens between words.
 
@@ -361,14 +366,12 @@ or paid estimates.
 
 ## 🧪 Checks
 
-Keep every test beside its implementation with the same basename and extension:
-`Component.jsx` pairs with `Component.test.jsx`, and `service.js` pairs with
-`service.test.js`. Put behavior and integration scenarios in that owning suite
-using scoped `describe` blocks, rather than adding standalone behavior-named or
-`.integration.test` files. JavaScript hooks and components that return no JSX keep
-`.test.js` harnesses using `createElement` when necessary. Shared setup and reusable
-helpers belong in `src/test-helpers/`; tests of a domain package's public API pair
-with its `index.js` entry point.
+Keep every test beside its implementation with the same basename. Use `.test.jsx`
+for tests that render UI and `.test.js` for plain logic, including hooks tested
+with `renderHook`. Keep behavior and integration scenarios in that owning suite
+using scoped `describe` blocks. Avoid standalone behavior-named or `.integration.test`
+files. Shared setup and reusable helpers belong in `src/test-helpers/`. Test a domain
+package's public API beside its `index.js` entry point.
 
 Keep shared session, request, connection and navigation regressions aligned across
 FullStackTemplate, MacroMapper and Notoli when the behavior applies. Preserve real

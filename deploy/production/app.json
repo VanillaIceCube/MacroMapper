@@ -2,7 +2,7 @@
   "contract_version": 1,
   "shared_source": {
     "repository": "VanillaIceCube/JudeAndrewAlabaInfrastructure",
-    "commit": "d599c839873874fbcce3d4a1e113e623263cb754"
+    "commit": "c56a65a5531db007d5c8e9fe56b468f76b27a928"
   },
   "app": "macromapper",
   "domain": "macromapper.judeandrewalaba.com",
@@ -28,7 +28,7 @@
     "macromapper_default"
   ],
   "backend_addresses": {},
-  "backend_required_env": [],
+  "backend_required_env": ["DJANGO_TRUSTED_PROXY_IPS=172.20.0.3"],
   "frontend_port_bindings": [
     []
   ],

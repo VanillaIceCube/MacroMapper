@@ -101,7 +101,7 @@ flowchart LR
     DEPLOY --> TARGET["MacroMapper frontend and backend"]
 ```
 
-[Application release configuration, verification and recovery](../../deploy/production/README.md)
+[Application release configuration and verification](../../deploy/production/README.md)
 
 ## 🧪 Checks and diagnostics
 

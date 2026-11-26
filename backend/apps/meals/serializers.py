@@ -6,7 +6,7 @@ from rest_framework import serializers
 from apps.foods.evidence import source_data, version_evidence
 from apps.foods.models import FoodItem, FoodItemVersion
 from apps.foods.nutrients import NUTRIENT_METADATA
-from apps.foods.portions import portion_options_for_serving
+from apps.foods.portions import portion_options_for_version
 from apps.foods.serializers import FoodItemReferenceSerializer
 
 from .models import MealEntry, MealItem
@@ -221,15 +221,7 @@ class MealItemSerializer(serializers.ModelSerializer):
         return [source_data(source) for source in instance.food_version.sources.all()]
 
     def get_portion_options(self, instance):
-        version = instance.food_version
-        return portion_options_for_serving(
-            quantity=version.serving_quantity,
-            unit=version.serving_unit,
-            label=version.serving_label,
-            weight_grams=version.serving_weight_grams,
-            volume_milliliters=version.serving_volume_ml,
-            natural_servings=version.natural_servings,
-        )
+        return portion_options_for_version(instance.food_version)
 
 
 class MealItemInputSerializer(FoodItemReferenceSerializer):

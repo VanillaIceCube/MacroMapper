@@ -1,5 +1,82 @@
 # AGENTS.md
 
+## Human-First Engineering
+
+This repository is intended to be understood, maintained, and owned by humans. AI-assisted development must not come at the expense of human comprehension.
+
+### Simplicity and Readability
+
+- Prefer simple, explicit, conventional implementations over clever or unnecessarily flexible solutions.
+- Follow KISS, YAGNI, and separation of concerns without applying them dogmatically.
+- Every abstraction, dependency, helper, and layer of indirection must justify its existence.
+- Keep related functionality together. Minimize the number of files a developer must navigate to understand an operation.
+- Prefer native framework and standard library functionality over custom implementations.
+- Do not introduce abstractions for hypothetical future requirements.
+- Prioritize readability over minimizing lines of code.
+- Comments should explain why something exists, not restate what the code does.
+
+### Deletion and Consolidation
+
+- Prefer removing unnecessary complexity over introducing additional code to manage it.
+- Remove unused imports, functions, files, dependencies, configuration, and obsolete implementation paths when verified safe.
+- Maintain a single source of truth for business logic.
+- Do not introduce parallel implementations, transitional wrappers, or compatibility layers without a demonstrated requirement.
+- Leave modified code simpler or equally understandable whenever reasonably possible.
+
+### Validation and Error Handling
+
+- Address root causes rather than masking symptoms.
+- Establish invariants and validate inputs at the appropriate upstream boundaries.
+- Do not repeatedly validate conditions that are already guaranteed.
+- Avoid speculative defensive checks, unnecessary fallbacks, broad exception handling, and silent failures.
+- Unexpected internal failures should surface clearly.
+- Preserve necessary security, authorization, data integrity, concurrency, external input validation, and legitimate recovery mechanisms.
+
+### Testing
+
+- Test meaningful, observable behavior rather than implementation details.
+- Prefer straightforward tests with realistic inputs and minimal mocking.
+- Do not create redundant tests solely to increase coverage.
+- Do not weaken meaningful test coverage to make an implementation pass.
+- Keep test infrastructure proportional to the complexity of the application.
+- Follow established testing conventions.
+
+### Architectural Consistency
+
+- Understand existing conventions before introducing new patterns.
+- Prefer extending an established, sound pattern over creating another.
+- Maintain appropriate consistency across Notoli, MacroMapper, FullStackTemplate, and shared infrastructure.
+- Where functionality is genuinely shared, maintain a canonical implementation through FullStackTemplate.
+- Do not propagate unnecessary complexity in the name of parity.
+- Respect legitimate product-specific requirements.
+
+### Scope and Ownership
+
+- Implement what was requested, not what might eventually be requested.
+- Avoid unrelated refactoring and speculative improvements.
+- Do not introduce new dependencies, architectural layers, or infrastructure without clear justification.
+- Preserve existing behavior unless a behavioral change is explicitly intended.
+- Flag consequential architectural decisions and uncertain deletions for human review.
+- Verify changes using relevant tests, linting, type checks, and builds.
+
+### Final Self-Review
+
+Before completing any change, ask:
+
+- Can this implementation be simpler?
+- Is every new abstraction necessary?
+- Can a human easily trace the execution flow?
+- Am I solving a real problem or a hypothetical one?
+- Am I addressing the root cause or masking it?
+- Have I introduced unnecessary maintenance overhead?
+- Would a human developer reasonably choose this implementation without AI assistance?
+
+If a simpler, equally correct implementation exists, prefer it.
+
+
+
+Complexity must be earned. Code is a liability as well as an asset. The objective is not to maximize output, but to deliver reliable functionality with the lowest reasonable maintenance burden.
+
 ## 🧭 Ownership and shared rollout
 
 FullStackTemplate owns reusable application engineering and the canonical MCP
@@ -51,66 +128,21 @@ history and valid UTF-8 text when editing or merging entries.
 
 ## 💻 Local development
 
-Use manual setup; do not assume Django or Node dependencies are installed.
-Use uv 0.13.8 to manage the locked Python 3.12 environment and the Node version range in
-`frontend/package.json`. From the repository root:
+Use the locked Python 3.12 environment and the Node version declared in
+`frontend/package.json`. The [backend guide](backend/README.md) covers uv,
+migrations and startup. The [frontend guide](frontend/README.md) covers `npm ci`
+and Vite.
 
-```powershell
-uv sync --locked --project backend
-uv run --locked --project backend python backend/manage.py migrate
-uv run --locked --project backend python backend/manage.py runserver 8000
-```
-
-In a separate shell, from the repository root:
-
-```powershell
-Set-Location frontend
-npm ci
-npm start
-```
-
-Backend image definitions live in `backend/docker/`; keep `backend/` as the
-Docker build context. Frontend image definitions and Nginx configuration live in
-`frontend/docker/`; keep `frontend/` as the Docker build context. Each Dockerfile
-uses its adjacent `Dockerfile.dockerignore` or `Dockerfile.hotswap.dockerignore`;
-patterns remain relative to the backend/frontend context root. Keep frontend
-Nginx configuration and development startup files available to image builds.
-
-For local Docker hot reload and optional standalone HTTPS, follow
-[deploy/README.md](deploy/README.md). Initialize only missing local environment
-and database files; never truncate an existing SQLite file. Local Compose/proxy
-files are not production release inputs.
+Follow the [local Docker guide](deploy/README.md) for hot reload, HTTPS and
+dependency changes. Build from the `backend/` and `frontend/` contexts with
+their matching Dockerfile ignore files. Create missing local environment and
+SQLite files only. Production uses the [app release guide](deploy/production/README.md).
 
 ## ⚙️ Configuration
 
-Optional backend variables:
-
-- `DJANGO_SECRET_KEY` (a local-only development default is provided)
-- `DJANGO_DEBUG` (local default: `1`)
-- `DJANGO_SQLITE_PATH` (default: `backend/db.sqlite3`)
-- `DJANGO_ALLOWED_HOSTS`
-- `DJANGO_CORS_ALLOWED_ORIGINS`
-- `DJANGO_CSRF_TRUSTED_ORIGINS`
-- `DJANGO_FRONTEND_BASE_URL` (default: `http://localhost:3000`)
-- `DJANGO_EMAIL_BACKEND`
-- `DJANGO_EMAIL_HOST`
-- `DJANGO_EMAIL_PORT`
-- `DJANGO_EMAIL_USE_TLS`
-- `DJANGO_EMAIL_HOST_USER`
-- `DJANGO_EMAIL_HOST_KEY`
-- `DJANGO_EMAIL_TIMEOUT`
-- `DJANGO_DEFAULT_FROM_EMAIL`
-- `MACROMAPPER_OPENAI_API_KEY` (required for GPT estimates that do not match the catalog)
-- `OPENAI_MEAL_ESTIMATION_MODEL` (default: `gpt-5.6-luna`)
-- `OPENAI_MEAL_ESTIMATION_TIMEOUT` (total AI budget; default/max: `110` seconds)
-
-Optional frontend variable:
-
-- `VITE_API_BASE_URL` (development default: `http://localhost:8000`; leave blank in same-origin production)
-
-Use [backend/README.md](backend/README.md) for configuration semantics and
-ignored local dotenv files, and [frontend/README.md](frontend/README.md) for
-build-time settings. Client-side variables must contain no secrets.
+Use the [backend configuration guide](backend/README.md) for Django settings
+and the [frontend configuration guide](frontend/README.md) for Vite build inputs.
+Keep credentials in the backend environment. Frontend build inputs are public.
 
 ## 🧪 Checks
 
@@ -149,7 +181,7 @@ daemon, plus all applicable consumer suites. Never test against production.
 
 Ordinary changes merge through reviewed `main` before promoting an exact reviewed
 source tree through the repository's existing `env-prod` process. Preserve all
-required CI, reviews, owner authorization and recovery gates. Explicitly
+required CI, reviews, owner authorization and readiness checks. Explicitly
 owner-authorized deployment experiments must return promptly to `main` through
 review before the next ordinary promotion. Preserve both histories and newer main
 work; never reset or force-push to manufacture parity. Intentional release lag is
@@ -158,19 +190,18 @@ does not authorize deployment, and an absent production branch is not a reason
 to create one. Follow the [main-first release policy](https://github.com/VanillaIceCube/FullStackTemplate/blob/main/.github/README.md#main-first-releases).
 
 Common release code, verification, tests and workflow are owned by Infrastructure.
-Change `app-release/v1` at the source, regenerate its manifest, then synchronize
-all consumers to the same immutable source commit. Application repositories track
+Change `deploy/` in Infrastructure, then synchronize all consumers to that exact Git commit. Application repositories track
 that source in `shared_source` in `deploy/production/app.json`; never edit only a vendored copy.
 Preserve app-specific Compose, network/readiness policy, immutable image digests,
-SQLite capture/recovery and explicit rollback. Keep shared ingress/certificates
+SQLite writer integrity and private pre-migration copies of the database and app
+containers. A failed deployment health check takes both app services offline. Keep shared ingress/certificates
 and host operations within their separately authorized Infrastructure scope.
 
-Use the [app-only release/recovery guide](deploy/production/README.md).
+Use the [app-only launch guide](deploy/production/README.md).
 `deploy/production/app.json` owns the app's intentional network/readiness policy.
-Review Infrastructure gateway/vhosts, Cloudflare DNS/proxy/Redirect/WAF/Caching
+Review Infrastructure `gateway/nginx/vhosts/`, Cloudflare DNS/proxy/Redirect/WAF/Caching
 settings and allowlist/base-URL variables when domains or routes change.
-Retain prior release images and matched private recovery data; no host-wide Docker
-pruning. Cleanup requires the host operator to review disk usage and select unused
+Keep the active launch bundle private. Avoid host-wide Docker pruning. Cleanup requires the host operator to review disk usage and select unused
 app images explicitly. Releases manage only the app's backend/frontend; local
 `deploy/compose.yml` and `deploy/nginx.conf` are local/legacy-only.
 
@@ -304,9 +335,7 @@ Preserve required CI and independent review gates.
 
 Production policy and frontend Docker builds enable the reviewed app connector;
 local backend defaults remain off. Run both backend profiles and frontend tests,
-plus disposable app release tests and parity checks. Preserve SQLite capture and
-explicit recovery. A failed first enable uses the retained previous disabled
-controller and its readiness policy, never an edited enabled bundle. Client
+plus disposable app launch tests and parity checks. Preserve SQLite integrity and verify the active profile's readiness. Client
 registration, owner consent and plugin installation remain separate actions.
 
 ## 🧩 Repository-specific contracts
