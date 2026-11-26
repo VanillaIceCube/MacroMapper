@@ -100,7 +100,7 @@ The production MCP profile uses MacroMapper’s issuer. Check that authorization
 
 ## Application maintenance
 
-The repository Actions secret `MACROMAPPER_OPENAI_API_KEY` supplies the production estimation credential. It takes effect on the next authorized app deployment. Keep credentials out of browser settings and confirm all active consumers have switched before revoking the previous key. [Credential rotation](../../.github/README.md#application-credentials)
+The repository Actions secret `MACROMAPPER_OPENAI_API_KEY` supplies the production estimation credential. It takes effect on the next authorized app deployment. Keep credentials out of browser settings and confirm all active consumers have switched before revoking the previous key. [Credential rotation](../../.github/_README.md#application-credentials)
 
 Catalog corrections require explicit food IDs and source evidence. Preserve immutable versions, component references, diary snapshots and proposal history. Missing nutrients must remain distinguishable from zero.
 

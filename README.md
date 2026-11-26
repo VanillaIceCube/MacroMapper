@@ -40,7 +40,7 @@ Outside of that, I mean my goal was to get a good personal use application that 
 - [Backend](backend/README.md) — setup, APIs, authentication, email, and MCP.
 - [Frontend](frontend/README.md) — setup, pages, components, and tests.
 - [Deployment](deploy/README.md) — local Docker, configuration, and live-server guides.
-- [GitHub setup and workflows](.github/README.md) — first-PR setup and automation.
+- [GitHub setup and workflows](.github/_README.md) — first-PR setup and automation.
 - [Changelog](CHANGELOG.md) — project updates.
 
 ## 📜 License
