@@ -6,7 +6,6 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
-- Use the Infrastructure repository ID for reviewer checks and alert classification. Update the shared release source and repository links for the coordinated rename.
 - Update the shared release source pin to the equivalent Infrastructure commit after its history rewrite.
 - Link RoboCop tickets to their alert-tracking peers and replacements, and support a designated parent issue.
 - Track security alerts through their source references and native fields, preserve issue labels, and assign a primary Domain even when alerts span components. Use the GitHub issue closure timestamp for completion.
