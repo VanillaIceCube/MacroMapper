@@ -8,7 +8,7 @@
     "url": "https://github.com/VanillaIceCube"
   },
   "homepage": "https://macromapper.judeandrewalaba.com",
-  "repository": "https://github.com/VanillaIceCube/MacroMapper",
+  "repository": "https://github.com/VanillaIceCube/macromapper",
   "keywords": [
     "nutrition",
     "meals",
@@ -26,7 +26,7 @@
           "Read"
         ],
         "websiteURL": "https://macromapper.judeandrewalaba.com",
-        "supportURL": "https://github.com/VanillaIceCube/MacroMapper/issues",
+        "supportURL": "https://github.com/VanillaIceCube/macromapper/issues",
         "composerIcon": "./assets/logo.png",
         "logo": "./assets/logo.png",
         "defaultPrompt": [

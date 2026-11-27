@@ -1,6 +1,6 @@
 # ⚙️ GitHub automation
 
-GitHub Actions, repository setup, dependency updates, and AI reviews for MacroMapper.
+GitHub Actions, repository setup, dependency updates, and AI reviews for macromapper.
 Source-controlled configuration and GitHub account/repository settings are separate.
 
 ## 🧭 Structure
@@ -90,7 +90,7 @@ RoboCop identifies its issues from the source references and feed marker in thei
 
 ### 1. Configure repository issue tracking
 
-Use the repository's Issues tab and the owner's [native issue schema](https://github.com/VanillaIceCube/FullStackTemplate/blob/main/.github/_README.md#1-configure-repository-issue-tracking). Backfill and verify existing managed tickets before switching alert workflows. After merging, run all three alert workflows on main and verify native field retention before removing the old Project credentials or closing the board. Record results in [FullStackTemplate #386](https://github.com/VanillaIceCube/FullStackTemplate/issues/386).
+Use the repository's Issues tab and the owner's [native issue schema](https://github.com/VanillaIceCube/fullstack-template/blob/main/.github/_README.md#1-configure-repository-issue-tracking). Backfill and verify existing managed tickets before switching alert workflows. After merging, run all three alert workflows on main and verify native field retention before removing the old Project credentials or closing the board. Record results in [FullStackTemplate #386](https://github.com/VanillaIceCube/FullStackTemplate/issues/386).
 
 **Native issue cutover verification, November 25, 2026.** Project 11 contained 97 issues. The read-back matched native field values and issue types on 94 issues, including all 2 security-alert tickets (0 open). Issue numbers, state, closure reasons, and closure dates were preserved. Examples include [#331](https://github.com/VanillaIceCube/MacroMapper/issues/331), [#338](https://github.com/VanillaIceCube/MacroMapper/issues/338). The export retains the original values of 3 protected automation-labeled issues.
 
@@ -348,9 +348,9 @@ not authorize merging, branch promotion, production deployment, or key rotation.
 
 ## 🤝 Shared engineering ownership and rollout
 
-Follow FullStackTemplate's [canonical shared ownership and rollout policy](https://github.com/VanillaIceCube/FullStackTemplate/blob/main/.github/_README.md#-shared-engineering-ownership-and-rollout)
+Follow fullstack-template's [canonical shared ownership and rollout policy](https://github.com/VanillaIceCube/fullstack-template/blob/main/.github/_README.md#-shared-engineering-ownership-and-rollout)
 for repository applicability, canonical source ownership, downstream acceptance and
-[main-first releases](https://github.com/VanillaIceCube/FullStackTemplate/blob/main/.github/_README.md#main-first-releases).
+[main-first releases](https://github.com/VanillaIceCube/fullstack-template/blob/main/.github/_README.md#main-first-releases).
 Preserve app-specific profiles and Infrastructure's separate owner authorization,
 Required CI and host operations. A shared parent closes only after required downstream
 adoptions are merged and verified or explicitly deferred with owner/tracking/acceptance.
