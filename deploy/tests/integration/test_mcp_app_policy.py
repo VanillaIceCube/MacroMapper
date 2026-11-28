@@ -1,17 +1,11 @@
 """App-owned MCP activation keeps independent application launch settings."""
 
-import importlib.util
 import json
 import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-spec = importlib.util.spec_from_file_location(
-    "macromapper_app_bundle", ROOT / "deploy/production/build_bundle.py"
-)
-builder = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(builder)
+from deploy.production import build_bundle as builder
 
 
 def ordinary_environment():
