@@ -70,7 +70,7 @@ Enable the following repository controls:
 - Secret scanning push protection
 
 Do not enable GitHub's default CodeQL setup for MacroMapper. CodeQL is
-already supplied by the pinned workflows under `.github/workflows/`; those
+already supplied by the workflows under `.github/workflows/`; those
 workflows upload the results to **Security → Code scanning** for Actions,
 JavaScript/TypeScript, and Python.
 
@@ -302,8 +302,8 @@ is failing.
 
 The reviewers run for trusted same-repository pull requests, including
 Dependabot pull requests once [the Dependabot secrets](#3-configure-secrets-for-dependabot-triggered-reviews)
-are present. The top-level `Auto Merge` job verifies read access to branch rules and the
-expected-head API for same-repository PRs. The separate follow-up on `main`
+are present. The required `Auto Merge` check reports Infrastructure’s verification of
+branch rules and the expected-head API for same-repository PRs. The separate follow-up on `main`
 validates eligibility for Dependabot updates. Obi-Wan adds an advisory **Major upgrade brief** for Dependabot
 semver-major updates. It reports exact Dependabot metadata alongside supplied
 Dependabot information, externally retrieved GitHub Release notes where
